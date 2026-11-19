@@ -57,12 +57,54 @@
         <section class="card">
           <h2 class="card-h" x-text="t('preview.scope.heading')"></h2>
           <p class="card-p" x-text="t('preview.scope.text')"></p>
-          <template x-for="part in serviceParts" :key="part.key">
-            <div :class="part.cls">
-              <template x-if="part.type === 'svc'"><span class="svc-c" :class="{ on: part.on }"><template x-if="part.on">{{template "icon-ok"}}</template></span></template>
-              <template x-if="part.type === 'svc'"><span class="svc-n"><span x-text="part.name"></span><template x-if="part.isNew"><span class="svc-tag" x-text="t('preview.scope.new')"></span></template><template x-if="part.detail"><span class="svc-d" x-text="part.detail"></span></template><template x-if="part.check"><button type="button" class="svc-check" @click="checkUpdates()" x-text="t('system_updates.check')"></button></template></span></template>
-              <template x-for="chip in part.chips || []" :key="chip.id"><span class="chipk" :class="{ on: chip.on }" x-text="chip.name"></span></template>
-            </div>
+          <div class="mods mods-ro">
+            <template x-for="mod in (mods ? mods.services : [])" :key="mod.id">
+              <div class="mod" :class="{ on: mod.on }">
+                <span class="mod-ic">
+                  <template x-if="mod.icon === 'automation'">{{template "icon-mod-automation"}}</template>
+                  <template x-if="mod.icon === 'solar-panel'">{{template "icon-mod-solar-panel"}}</template>
+                  <template x-if="mod.icon === 'battery'">{{template "icon-mod-battery"}}</template>
+                  <template x-if="mod.icon === 'plug-smart'">{{template "icon-mod-plug-smart"}}</template>
+                  <template x-if="mod.icon === 'lightning-bolt-circle'">{{template "icon-mod-lightning-bolt-circle"}}</template>
+                  <template x-if="mod.icon === 'tuya'">{{template "icon-mod-tuya"}}</template>
+                  <template x-if="mod.icon === 'tailscale'">{{template "icon-mod-tailscale"}}</template>
+                  <template x-if="mod.icon === 'lock'">{{template "icon-mod-lock"}}</template>
+                  <template x-if="mod.icon === 'refresh'">{{template "icon-mod-refresh"}}</template>
+                  <template x-if="mod.icon === 'drive'">{{template "icon-mod-drive"}}</template>
+                  <template x-if="mod.icon === 'network'">{{template "icon-mod-network"}}</template>
+                  <template x-if="mod.icon === 'history'">{{template "icon-mod-history"}}</template>
+                  <template x-if="mod.icon === 'device'">{{template "icon-mod-device"}}</template>
+                </span>
+                <span class="mod-nm"><span class="mod-long" x-text="mod.name"></span><span class="mod-short" x-text="mod.short"></span><template x-if="mod.isNew"><span class="svc-tag" x-text="t('preview.scope.new')"></span></template></span>
+                <span class="mod-st" x-text="mod.state"></span>
+              </div>
+            </template>
+          </div>
+          <div class="mods mods-ro" x-show="mods && mods.tuning.length">
+            <template x-for="mod in (mods ? mods.tuning : [])" :key="mod.id">
+              <div class="mod" :class="{ on: mod.on }">
+                <span class="mod-ic">
+                  <template x-if="mod.icon === 'automation'">{{template "icon-mod-automation"}}</template>
+                  <template x-if="mod.icon === 'solar-panel'">{{template "icon-mod-solar-panel"}}</template>
+                  <template x-if="mod.icon === 'battery'">{{template "icon-mod-battery"}}</template>
+                  <template x-if="mod.icon === 'plug-smart'">{{template "icon-mod-plug-smart"}}</template>
+                  <template x-if="mod.icon === 'lightning-bolt-circle'">{{template "icon-mod-lightning-bolt-circle"}}</template>
+                  <template x-if="mod.icon === 'tuya'">{{template "icon-mod-tuya"}}</template>
+                  <template x-if="mod.icon === 'tailscale'">{{template "icon-mod-tailscale"}}</template>
+                  <template x-if="mod.icon === 'lock'">{{template "icon-mod-lock"}}</template>
+                  <template x-if="mod.icon === 'refresh'">{{template "icon-mod-refresh"}}</template>
+                  <template x-if="mod.icon === 'drive'">{{template "icon-mod-drive"}}</template>
+                  <template x-if="mod.icon === 'network'">{{template "icon-mod-network"}}</template>
+                  <template x-if="mod.icon === 'history'">{{template "icon-mod-history"}}</template>
+                  <template x-if="mod.icon === 'device'">{{template "icon-mod-device"}}</template>
+                </span>
+                <span class="mod-nm"><span class="mod-long" x-text="mod.name"></span><span class="mod-short" x-text="mod.short"></span><template x-if="mod.isNew"><span class="svc-tag" x-text="t('preview.scope.new')"></span></template></span>
+                <span class="mod-st" x-text="mod.state"></span>
+              </div>
+            </template>
+          </div>
+          <template x-if="updatesLine">
+            <p class="mod-hint"><template x-if="updatesLine.detail"><span class="svc-d" x-text="updatesLine.detail"></span></template><template x-if="updatesLine.check"><button type="button" class="svc-check" @click="checkUpdates()" x-text="t('system_updates.check')"></button></template></p>
           </template>
           <button type="button" class="small ghost svc-edit" :disabled="busy || !manifest" @click="editServices()" x-text="t('action.edit_services')"></button>
         </section>

@@ -249,25 +249,33 @@
         return this.plan && this.manifest ? PreviewModel.kept(this.plan, this.manifest, this.shell) : '';
       },
 
-      get serviceParts() {
+      // Die Module der Vorschau (Vorlage Aktualisieren): services wie in der
+      // Konfiguration, tuning nur die verfuegbaren. isNew: nicht in der Auswahl
+      // des Knotens (ein neuer Dienst im Paket). Null ohne Manifest oder Auswahl.
+      get mods() {
         if (!this.manifest || !this.selection) {
-          return [];
+          return null;
         }
-        var parts = [];
-        // Schritt 15 nennt die ausstehenden Systempakete erst auf Abfrage.
+        var mods = window.Services.modules(this.manifest, this.selection, this.shell);
+        var mark = function (mod) {
+          mod.isNew = mod.known === false;
+          return mod;
+        };
+        return {
+          services: mods.services.map(mark),
+          tuning: mods.tuning.filter(function (mod) { return mod.available === true; }).map(mark),
+        };
+      },
+
+      // Die Zeile unter der Feinabstimmung: nur, wenn Systempakete (Schritt 15)
+      // dort steht. Sie nennt die ausstehenden Pakete erst auf Abfrage.
+      get updatesLine() {
+        var mods = this.mods;
+        if (!mods || !mods.tuning.some(function (mod) { return mod.id === '15'; })) {
+          return null;
+        }
         var updates = this.updatesPart();
-        window.Services.toggles(this.manifest, this.selection, this.shell).forEach(function (row) {
-          var own = row.key === 'step-15';
-          parts.push({
-            key: row.key, type: 'svc', cls: 'svc' + (row.on ? '' : ' off'),
-            name: row.name, on: row.on, isNew: row.kind !== 'devices' && !row.known, chips: null,
-            detail: own ? updates.detail : '', check: own && updates.check,
-          });
-          if (row.chips) {
-            parts.push({ key: row.key + '-chips', type: 'chips', cls: 'chips', chips: row.chips });
-          }
-        });
-        return parts;
+        return updates.detail || updates.check ? updates : null;
       },
 
       updatesPart() {

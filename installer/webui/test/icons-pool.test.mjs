@@ -67,8 +67,9 @@ function load() {
 
 test('every module icon exists and is copied from the dashboard pool', () => {
   const S = load();
-  const names = [...new Set([...Object.values(S.ICON_OF), 'device'])];
-  assert.equal(names.length, 14, 'ICON_OF plus device ergibt 14 Icons');
+  // Das Beispiel (Schritt 89 ohne service_id) hat sein Symbol "play" neben ICON_OF.
+  const names = [...new Set([...Object.values(S.ICON_OF), 'device', 'play'])];
+  assert.equal(names.length, 14, 'ICON_OF plus device und play ergeben 14 Icons');
 
   for (const name of names) {
     const inner = moduleInner(name);

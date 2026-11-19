@@ -21,8 +21,10 @@
   // Der Hinweis, der bei "Aus" oder bei der Vorgabe als Erstes steht.
   var DEFAULT_HINT = { services: '88', tuning: '17' };
   // Icon je Modul, aus dem Dashboard-Icon-Pool (Sprite oder energy-node:*).
+  // Das Beispiel (89 ohne service_id) hat sein Symbol "play" fuer sich, siehe modules().
   var ICON_OF = { '88': 'automation', '81': 'solar-panel', '82': 'battery', '83': 'plug-smart', '84': 'lightning-bolt-circle',
-    '85': 'tuya', '40': 'tailscale', '70': 'lock', '15': 'refresh', '17': 'drive', '35': 'network', '41': 'history', '89': 'play' };
+    '85': 'tuya', '40': 'tailscale', '70': 'lock', '15': 'refresh', '17': 'drive', '35': 'network', '41': 'history' };
+  var EXAMPLE_ICON = 'play';
 
   function optionalText(shell, key) {
     var text = shell.t(key);
@@ -32,9 +34,6 @@
   var Services = {
     CORE_STEP: CORE_STEP,
     DASHBOARD_UNIT: DASHBOARD_UNIT,
-    // Schritte, die nur bei der Erstinstallation angeboten werden (89: das
-    // Beispiel). Bei einem Update fehlen sie in der Konfiguration ganz.
-    FRESH_ONLY_STEPS: ['89'],
     GROUP_OF: GROUP_OF,
     DEFAULT_HINT: DEFAULT_HINT,
     ICON_OF: ICON_OF,
@@ -114,45 +113,6 @@
         }
       });
       return out;
-    },
-
-    toggles: function (manifest, selection, shell) {
-      var parts = Services.split(manifest);
-      var rows = parts.services.map(function (step) {
-        return {
-          key: 'service-' + step.id, kind: 'service', ids: [step.id],
-          name: Services.serviceName(step, shell),
-          hint: optionalText(shell, 'configure.hint.service.' + step.service_id),
-          on: Services.isSelected(step, selection), known: Services.isKnown(step, selection), chips: null,
-        };
-      });
-      if (parts.devices.length) {
-        var chips = parts.devices.map(function (step) {
-          return { id: step.id, name: Services.serviceName(step, shell), on: Services.isSelected(step, selection), known: Services.isKnown(step, selection) };
-        });
-        rows.push({
-          key: 'devices', kind: 'devices', ids: parts.devices.map(function (step) { return step.id; }),
-          name: shell.t('configure.devices.title'), hint: optionalText(shell, 'configure.hint.devices'),
-          on: chips.some(function (chip) { return chip.on; }), known: true, chips: chips,
-        });
-      }
-      var hideFresh = !shell.shared || shell.shared.firstInstall !== true;
-      parts.system.forEach(function (step) {
-        // Erst sichtbar, wenn der benoetigte Schritt an ist (35 mit Shelly).
-        if (!Services.requiresMet(manifest, step, selection)) {
-          return;
-        }
-        if (hideFresh && Services.FRESH_ONLY_STEPS.indexOf(step.id) !== -1) {
-          return;
-        }
-        rows.push({
-          key: 'step-' + step.id, kind: 'system', ids: [step.id],
-          name: Services.stepName(step.id, shell),
-          hint: optionalText(shell, 'configure.hint.step.' + step.id),
-          on: Services.isSelected(step, selection), known: Services.isKnown(step, selection), chips: null,
-        });
-      });
-      return rows;
     },
 
     // runGroups: die Stationen der Ausfuehrung, eine je Schritt in
@@ -279,14 +239,17 @@
         if (entry.step.id === '88') {
           return 0;
         }
-        return entry.step.service_id ? 1 : 2;
+        return entry.step.kind === 'device' ? 1 : 2;
       };
       services.sort(function (a, b) { return rank(a) - rank(b) || a.index - b.index; });
       services = services.map(function (entry) { return entry.module; });
 
-      var exampleStep = steps.filter(function (step) { return step.id === '89'; })[0];
+      // Das Beispiel ist der Schritt 89 OHNE service_id. Der Dienst 89 (modbus)
+      // aus dem Update ist ein normaler Dienst in "services".
+      var exampleStep = steps.filter(function (step) { return step.id === '89' && !step.service_id; })[0];
       if (exampleStep && (!exampleStep.first_install_only || firstInstall)) {
         example = Services.module(manifest, exampleStep, selection, shell);
+        example.icon = EXAMPLE_ICON;
       }
 
       var unavailableItems = tuningSteps.filter(function (entry) {

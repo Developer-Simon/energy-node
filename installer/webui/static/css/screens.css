@@ -250,21 +250,27 @@
 .app[data-screen="preview"] .keep-t{display:block;font-size:.7rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.24rem}
 .app[data-screen="preview"] .keep-l{font-size:.765rem;line-height:1.5;color:var(--text-subtle)}
 .app[data-screen="preview"] .keep-l em{color:var(--text-muted);font-style:normal;font-family:ui-monospace,monospace;font-size:.94em}
-.app[data-screen="preview"] .svc{display:flex;align-items:center;gap:.55rem;padding:.36rem 0;border-top:1px solid rgba(255,255,255,.05)}
-.app[data-screen="preview"] .svc:first-of-type{border-top:0}
-.app[data-screen="preview"] .svc-c{flex:none;width:1.05rem;height:1.05rem;border-radius:5px;border:1px solid var(--border); display:inline-flex;align-items:center;justify-content:center}
-.app[data-screen="preview"] .svc-c.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.app[data-screen="preview"] .svc-c svg{width:.72rem;height:.72rem}
-.app[data-screen="preview"] .svc-n{font-size:.83rem;color:var(--text);font-weight:500}
-.app[data-screen="preview"] .svc.off .svc-n{color:var(--text-faint)}
 .app[data-screen="preview"] .svc-tag{margin-left:.4rem;font-size:.64rem;letter-spacing:.03em;text-transform:uppercase;padding:.08rem .36rem; border-radius:4px;background:var(--panel-alt);color:var(--text-muted);vertical-align:.05em}
 .app[data-screen="preview"] .svc-edit{margin-top:.6rem}
-.app[data-screen="preview"] .chips{display:flex;flex-wrap:wrap;gap:.28rem;margin:.1rem 0 .15rem 1.6rem}
-.app[data-screen="preview"] .chipk{font-size:.7rem;padding:.12rem .42rem;border-radius:4px;border:1px solid var(--border);color:var(--text-faint)}
-.app[data-screen="preview"] .chipk.on{border-color:var(--accent-line);background:var(--accent-bg);color:var(--accent-soft)}
 .app[data-screen="preview"] .card.soft{background:var(--sunken)}
 .app[data-screen="preview"] .reuse{margin:0;font-size:.785rem;line-height:1.5;color:var(--text-subtle)}
+.app[data-screen="preview"] .mods{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4375rem}
+.app[data-screen="preview"] .mod{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:.0625rem;min-width:0;padding:.5625rem .625rem .5rem;border-radius:var(--radius-md);border:1px solid transparent;background:var(--panel-alt);font:inherit;color:inherit;text-align:left;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,transform .1s var(--ease)}
+.app[data-screen="preview"] .mod-ic{display:grid;place-items:center;width:1.625rem;height:1.625rem;margin-bottom:.375rem;border-radius:var(--radius-sm);background:var(--track);color:var(--text-faint);transition:background-color .15s ease,color .15s ease}
+.app[data-screen="preview"] .mod-svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.app[data-screen="preview"] .mod-nm{max-width:100%;font-weight:600;font-size:.78rem;line-height:1.25;color:var(--text-strong);overflow-wrap:normal;hyphens:auto}
+.app[data-screen="preview"] .mod-long{display:inline}
+.app[data-screen="preview"] .mod-short{display:none}
+.app[data-screen="preview"] .mod-st{max-width:100%;font-size:.6875rem;line-height:1.25;color:var(--text-muted)}
+.app[data-screen="preview"] .mod.on{background:var(--accent-bg);border-color:var(--accent-line)}
+.app[data-screen="preview"] .mod.on .mod-ic{background:var(--accent);color:var(--accent-ink)}
+.app[data-screen="preview"] .mod.on .mod-st{color:var(--accent-soft)}
+@media (max-width:399px){.app[data-screen="preview"] .mods{grid-template-columns:repeat(3,minmax(0,1fr))}.app[data-screen="preview"] .mod-long{display:none}.app[data-screen="preview"] .mod-short{display:inline}}
+.app[data-screen="preview"] .mods-ro+.mods-ro{margin-top:.6rem}
+.app[data-screen="preview"] .mods-ro .mod{cursor:default}
 /* == Ende Vorlage == */
+/* Ergaenzung Aktualisieren: die Zeile unter der Feinabstimmung (Systempakete, Schritt 15), nicht in der Vorlage. */
+.app[data-screen="preview"] .mod-hint{margin:.5rem 0 0;padding:.45rem .65rem;border-radius:var(--radius-sm);border:1px solid var(--border-soft);background:var(--sunken);font-size:.75rem;line-height:1.45;color:var(--text-muted)}
 /* Ergaenzung Aktualisieren: "Alle neu starten" (nicht in der Vorlage) -
    Schalter und Beschriftung als Zeile, statt den Text ins feste
    .settings-toggle-Mass (2.35rem) zu zwaengen. */

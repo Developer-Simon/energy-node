@@ -5,7 +5,7 @@ import { realCatalog } from './helpers/mount.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MANIFEST, SELECTION, MODULE_MANIFEST, MODULE_SELECTION } from './helpers/fixtures.mjs';
+import { MANIFEST, MANIFEST_UPDATE, SELECTION, MODULE_MANIFEST, MODULE_SELECTION } from './helpers/fixtures.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -19,41 +19,6 @@ function load(lang = 'de') {
   const shell = { t: (key, params) => window.I18n.t(key, params) };
   return { S: window.Services, shell };
 }
-
-test('die Schalter folgen der Ordnung der Vorlage', () => {
-  const { S, shell } = load();
-  const rows = S.toggles(MANIFEST, SELECTION, shell);
-  assert.deepEqual(plain(rows.map((row) => [row.kind, row.name, row.on])), [
-    ['service', 'Automation', true],
-    ['devices', 'Geräte-Dienste', true],
-    ['system', 'Tailscale', true],
-    ['system', 'HTTPS über Caddy', true],
-  ]);
-  assert.equal(rows[0].hint, 'Regeln, Zeitpläne und Schwellwerte auf dem Gerät. Fehlt der Dienst, blendet das Dashboard den Automationen-Tab aus.');
-  assert.deepEqual(plain(rows[1].ids), ['81', '82', '83', '84', '85']);
-  assert.deepEqual(plain(rows[1].chips.map((chip) => [chip.name, chip.on])), [
-    ['APsystems', true], ['Batterie-SoC', false], ['Shelly', true], ['Trucki', true], ['Tuya', true],
-  ]);
-});
-
-test('ein neuer Dienst ohne Katalogtext zeigt seine service_id und ist aus', () => {
-  const { S, shell } = load();
-  const manifest = Object.assign({}, MANIFEST, {
-    steps: MANIFEST.steps.concat([{ id: '89', service_id: 'modbus', unit: 'modbus.service', kind: 'service', optional: true }]),
-  });
-  const selection = { source: 'node', steps: SELECTION.steps };
-  const modbus = S.toggles(manifest, selection, shell).find((row) => row.ids[0] === '89');
-  assert.equal(modbus.name, 'modbus');
-  assert.equal(modbus.hint, '');
-  assert.equal(modbus.on, false, 'ein unbekannter Schluessel faellt nie auf default zurueck');
-  assert.equal(modbus.known, false);
-});
-
-test('ohne Geraete-Dienste gibt es keine Geraete-Zeile', () => {
-  const { S, shell } = load();
-  const manifest = { steps: MANIFEST.steps.filter((step) => step.kind !== 'device') };
-  assert.ok(!S.toggles(manifest, SELECTION, shell).some((row) => row.kind === 'devices'));
-});
 
 test('die Ausfuehrung hat eine Station je Schritt in Manifest-Reihenfolge', () => {
   const { S, shell } = load();
@@ -119,18 +84,29 @@ function withWebhookStep() {
 test('der Shelly-Webhook ist ein eigener Schalter und ohne Zustimmung aus', () => {
   const { S, shell } = load();
   const manifest = withWebhookStep();
-  const row = S.toggles(manifest, { steps: Object.assign({}, SELECTION.steps, { 35: false }) }, shell)
-    .find((r) => r.ids[0] === '35');
-  assert.equal(row.kind, 'system');
-  assert.equal(row.name, 'Shelly-Wake-Webhook in der Firewall');
+  const tuningOf = (selection) => S.modules(manifest, selection, shell).tuning;
+  const row = tuningOf({ steps: Object.assign({}, SELECTION.steps, { 35: false }) }).find((m) => m.id === '35');
+  assert.equal(row.name, 'Shelly-Webhook');
   assert.match(row.hint, /8082/);
   assert.equal(row.on, false);
   // Eine Auswahl von vor dem Schritt (Update) nennt 35 nicht: bleibt aus.
-  const fromNode = S.toggles(manifest, { source: 'node', steps: SELECTION.steps }, shell).find((r) => r.ids[0] === '35');
+  const fromNode = tuningOf({ source: 'node', steps: SELECTION.steps }).find((m) => m.id === '35');
   assert.equal(fromNode.on, false);
   assert.equal(fromNode.known, false);
-  const opted = S.toggles(manifest, { steps: { 35: true, 83: true } }, shell).find((r) => r.ids[0] === '35');
+  const opted = tuningOf({ steps: { 35: true, 83: true } }).find((m) => m.id === '35');
   assert.equal(opted.on, true);
+});
+
+test('der Shelly-Webhook erscheint erst, wenn der Shelly-Dienst an ist', () => {
+  const { S, shell } = load();
+  const manifest = withWebhookStep();
+  const shown = (steps) => S.modules(manifest, { steps }, shell).tuning.filter((m) => m.available).map((m) => m.id);
+  assert.ok(shown({ 83: true }).includes('35'));
+  assert.ok(!shown({ 83: false }).includes('35'), 'ohne Shelly kein Webhook-Schalter');
+  assert.ok(!shown({}).includes('35'), 'ein nicht genannter Shelly-Dienst ist aus');
+  const noShelly = Object.assign({}, manifest, { steps: manifest.steps.filter((step) => step.id !== '83') });
+  assert.ok(!S.modules(noShelly, { steps: { 35: true } }, shell).tuning.some((m) => m.available && m.id === '35'),
+    'ein Bundle ohne Shelly-Dienst zeigt den Schalter nie');
 });
 
 test('in der Ausfuehrung laeuft der Shelly-Webhook unter der Firewall', () => {
@@ -144,18 +120,6 @@ test('in der Ausfuehrung laeuft der Shelly-Webhook unter der Firewall', () => {
   assert.deepEqual(plain(groups[2].ids), ['30', '35']);
   assert.equal(S.groupOf(groups, '35').number, 3);
   assert.equal(S.stepLabel(manifest, '35', shell), 'Shelly-Wake-Webhook in der Firewall');
-});
-
-test('der Shelly-Webhook erscheint erst, wenn der Shelly-Dienst an ist', () => {
-  const { S, shell } = load();
-  const manifest = withWebhookStep();
-  const ids = (steps) => S.toggles(manifest, { steps }, shell).map((row) => row.ids[0]);
-  assert.ok(ids({ 83: true }).includes('35'));
-  assert.ok(!ids({ 83: false }).includes('35'), 'ohne Shelly kein Webhook-Schalter');
-  assert.ok(!ids({}).includes('35'), 'ein nicht genannter Shelly-Dienst ist aus');
-  const noShelly = Object.assign({}, manifest, { steps: manifest.steps.filter((step) => step.id !== '83') });
-  assert.ok(!S.toggles(noShelly, { steps: { 35: true } }, shell).some((row) => row.ids[0] === '35'),
-    'ein Bundle ohne Shelly-Dienst zeigt den Schalter nie');
 });
 
 test('dropUnmet nimmt das Opt-in zurueck, sobald der benoetigte Schritt aus ist', () => {
@@ -221,36 +185,6 @@ test('systemPackagesText listet Paket und Versionen', () => {
   ] }), 'libssl3 3.0.11 → 3.0.13, linux-image-6.6 6.6.51');
   assert.equal(S.systemPackagesText({ count: 0, packages: [] }), '');
   assert.equal(S.systemPackagesText(null), '');
-});
-
-test('toggles hides step 89 on an update', () => {
-  const { S, shell } = load();
-  shell.shared = { firstInstall: false };
-  const manifest = Object.assign({}, MANIFEST, {
-    steps: MANIFEST.steps.concat([{ id: '89', optional: true, default: false, requires: '81,83,88' }]),
-  });
-  assert.ok(!S.toggles(manifest, SELECTION, shell).some((row) => row.key === 'step-89'));
-});
-
-test('toggles shows step 89 on a first install', () => {
-  const { S, shell } = load();
-  shell.shared = { firstInstall: true };
-  const manifest = Object.assign({}, MANIFEST, {
-    steps: MANIFEST.steps.concat([{ id: '89', optional: true, default: false, requires: '81,83,88' }]),
-  });
-  const row = S.toggles(manifest, SELECTION, shell).find((item) => item.key === 'step-89');
-  assert.ok(row, 'Zeile step-89 vorhanden');
-  assert.equal(row.on, false);
-});
-
-test('toggles hides step 89 when shelly is off', () => {
-  const { S, shell } = load();
-  shell.shared = { firstInstall: true };
-  const manifest = Object.assign({}, MANIFEST, {
-    steps: MANIFEST.steps.concat([{ id: '89', optional: true, default: false, requires: '81,83,88' }]),
-  });
-  const selection = Object.assign({}, SELECTION, { steps: Object.assign({}, SELECTION.steps, { 83: false }) });
-  assert.ok(!S.toggles(manifest, selection, shell).some((row) => row.key === 'step-89'));
 });
 
 // --- Module (Konfiguration): Dienste, Feinabstimmung, Beispiel -----------------
@@ -350,6 +284,26 @@ test('the example is on by default and off when a required service is off', () =
   assert.equal(example.available, true);
   const apsystemsOff = { source: 'node', steps: Object.assign({}, SELECTION.steps, { 81: false }) };
   assert.equal(S.modules(MODULE_MANIFEST, apsystemsOff, shell).example.available, false);
+});
+
+test('ein Dienst 89 mit service_id ist ein Dienst, nicht das Beispiel', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: true };
+  const m = S.modules(MANIFEST_UPDATE, SELECTION, shell);
+  assert.equal(m.example, null, 'das Beispiel ist nur der Schritt 89 ohne service_id');
+  const modbus = m.services[m.services.length - 1];
+  assert.equal(modbus.id, '89');
+  assert.equal(modbus.name, 'modbus');
+  assert.equal(modbus.icon, 'device');
+  assert.equal(modbus.on, false);
+  assert.equal(modbus.known, false);
+  assert.equal(m.count.total, 9);
+});
+
+test('das Beispiel hat sein Symbol, der Schritt 89 ohne service_id', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: true };
+  assert.equal(S.modules(MODULE_MANIFEST, MODULE_SELECTION, shell).example.icon, 'play');
 });
 
 test('every module id has name, short, on and off in both catalogs', () => {
