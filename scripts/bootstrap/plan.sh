@@ -63,8 +63,12 @@ def stamped(entry):
 def chosen(entry):
     if not entry.get("optional"):
         return True
+    # first_install_only: nur bei der Erstinstallation vorgegeben. Gibt es schon
+    # einen installierten Stand, ist der Schritt abgewaehlt, auch mit Auswahl.
+    if entry.get("first_install_only") and installed_doc is not None:
+        return False
     # Nicht genannt = Manifest-Vorgabe: "an" fuer die ueblichen optionalen
-    # Schritte (E7), "aus" fuer Opt-in-Schritte wie 35 (step_opted_in).
+    # Schritte (E7), "aus" fuer Opt-in-Schritte wie 35 (default false).
     return bool(selection.get(str(entry.get("id")), entry.get("default", True)))
 
 by_id = {str(entry.get("id")): entry for entry in manifest.get("steps", [])}

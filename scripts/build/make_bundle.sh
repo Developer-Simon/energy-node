@@ -46,7 +46,11 @@ OPTIONAL_STEPS=(15 17 35 40 41 70 89)
 # waehlen (scripts/bootstrap/35-ufw-shelly-webhook.sh). 17 legt das Journal in
 # den Arbeitsspeicher: spart Schreibzyklen auf der SD-Karte, kostet aber die
 # Logs nach einem Neustart (scripts/bootstrap/17-journal-volatile.sh).
-OPT_IN_STEPS=(17 35 89)
+OPT_IN_STEPS=(17 35)
+# first_install_only: Vorgabe an, aber nur bei der Erstinstallation. Ein Node,
+# der schon einen installierten Stand hat (installed-manifest.json), waehlt
+# den Schritt nicht von selbst neu dazu (plan.sh). 89 ist das Beispiel.
+FIRST_INSTALL_ONLY_STEPS=(89)
 # requires: ein optionaler Schritt, der nur zusammen mit einem anderen Sinn
 # ergibt. Ist der benoetigte Schritt abgewaehlt, gilt dieser als abgewaehlt
 # (plan.sh, Schritt-Skript, Oberflaeche). 35 oeffnet den Port eines
@@ -264,6 +268,7 @@ PACKAGES_JSON="${BUILD_DIR}/packages.json" WHEEL_PINS_JSON="${WHEEL_WORK}/pins.j
 BUNDLE_USER="${BUNDLE_USER}" BUNDLE_BASE="${BUNDLE_BASE}" REPO_ROOT="${REPO_ROOT}" \
 UNAME_MACHINES="$(arch_uname_machines "${ARCH}" | paste -sd, -)" \
 CORE_STEPS="${CORE_STEPS[*]}" OPTIONAL_STEPS="${OPTIONAL_STEPS[*]}" OPT_IN_STEPS="${OPT_IN_STEPS[*]}" \
+FIRST_INSTALL_ONLY_STEPS="${FIRST_INSTALL_ONLY_STEPS[*]}" \
 SERVICE_ROWS="$(printf '%s\n' "${SERVICE_TABLE[@]}")" \
 SERVICE_STEP_ROWS="$(printf '%s\n' "${SERVICE_STEPS[@]}")" \
 STEP_REQUIRES_ROWS="$(for id in "${!STEP_REQUIRES[@]}"; do printf '%s:%s\n' "$id" "${STEP_REQUIRES[$id]}"; done)" \
@@ -288,11 +293,14 @@ steps = []
 for step_id in os.environ["CORE_STEPS"].split():
     steps.append({"id": step_id, "optional": False})
 opt_in = set(os.environ["OPT_IN_STEPS"].split())
+first_install_only = set(os.environ["FIRST_INSTALL_ONLY_STEPS"].split())
 requires = dict(row.split(":", 1) for row in os.environ["STEP_REQUIRES_ROWS"].splitlines() if row.strip())
 for step_id in os.environ["OPTIONAL_STEPS"].split():
     entry = {"id": step_id, "optional": True, "default": step_id not in opt_in}
     if step_id in requires:
         entry["requires"] = requires[step_id]
+    if step_id in first_install_only:
+        entry["first_install_only"] = True
     if step_id in optional_dashboard_keys:
         entry["dashboard_key"] = optional_dashboard_keys[step_id]
     steps.append(entry)
