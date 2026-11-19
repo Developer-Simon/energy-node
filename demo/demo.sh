@@ -167,6 +167,17 @@ if [[ $STOP -eq 1 ]]; then
   exit $?
 fi
 
+# Eine zweite Instanz mit demselben Zustandsordner loescht oder verfaelscht den
+# Zustand der laufenden (docs und example raeumen ihn beim Start weg). Die
+# Portpruefung faengt das nicht ab, wenn die zweite Instanz andere Ports nimmt.
+if [[ -f "$WORK/demo.pid" ]] && running_pid="$(<"$WORK/demo.pid")" && [[ "$running_pid" =~ ^[0-9]+$ ]] \
+  && tr '\0' ' ' < "/proc/$running_pid/cmdline" 2>/dev/null | grep -q 'demo\.sh'; then
+  stop_hint="demo/demo.sh --stop"
+  [[ "$MODE" == demo ]] || stop_hint+=" --$MODE"
+  echo "FEHLER: In $WORK laeuft schon eine Demo (PID $running_pid). Erst beenden: $stop_hint" >&2
+  exit 1
+fi
+
 # Nichts starten und nichts loeschen, solange einer der Ports belegt ist.
 for port in "$HTTP_PORT" "$COMPANION_PORT" "$CONSOLE_PORT" "$MQTT_PORT" "$UPDATES_API_PORT" "$BROKER_CONTROL_PORT"; do
   env_require_port "$port" || exit 1
