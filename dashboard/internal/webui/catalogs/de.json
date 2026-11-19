@@ -2684,6 +2684,7 @@
   "error.authentication_unavailable": "Anmeldung ist nicht konfiguriert",
   "error.automation_finding_invalid": "Die Kennung des Befunds ist ungültig.",
   "error.automation_findings_forbidden": "Für die Regelprüfung fehlt die Berechtigung",
+  "error.automation_findings_preview_invalid": "Die Regeln lassen sich nicht prüfen.",
   "error.automation_findings_save_failed": "Der Befund konnte nicht gespeichert werden.",
   "error.automation_findings_unavailable": "Die Regelprüfung ist auf dieser Instanz nicht verfügbar",
   "error.automation_not_found": "Automations-Dienst wurde nicht gefunden",

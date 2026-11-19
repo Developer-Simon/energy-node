@@ -240,7 +240,7 @@ func TestAutomationFindingsPreviewBrokenDocumentIs400(t *testing.T) {
 	router := NewRouterWithDependencies(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{AutomationFindings: checker})
 
 	recorder := doChainRequest(router, http.MethodPost, automationFindingsPreviewPath, `{"rules":`)
-	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"code":"automation_finding_invalid"`) {
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"code":"automation_findings_preview_invalid"`) {
 		t.Fatalf("broken JSON: %d %s", recorder.Code, recorder.Body.String())
 	}
 }

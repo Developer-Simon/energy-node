@@ -86,7 +86,7 @@ func handleAutomationFindingsPreview(manager *auth.Manager, checker automationFi
 		if err != nil {
 			// The code shares its catalog text with the ignore endpoint, so the
 			// preview answers without a key and says what is wrong here.
-			writeError(w, http.StatusBadRequest, "automation_finding_invalid", "Die Regeln sind ungültig.")
+			writeErrorKey(w, http.StatusBadRequest, "automation_findings_preview_invalid", "error.automation_findings_preview_invalid", nil, "Die Regeln lassen sich nicht prüfen.")
 			return
 		}
 		if findings == nil {
