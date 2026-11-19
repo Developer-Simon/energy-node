@@ -50,6 +50,7 @@ func regulatorConflicts(rule Rule, scenarios []Scenario) []Finding {
 			out = append(out, Finding{
 				ID:         FindingID("regulator_conflict", rule.ID) + ":" + scenario.ID,
 				Kind:       "regulator_conflict",
+				Group:      "check",
 				RuleIDs:    []string{rule.ID},
 				Severity:   "bad",
 				Confidence: "high",
@@ -89,6 +90,7 @@ func unsatisfiable(rule Rule) []Finding {
 			return []Finding{{
 				ID:         FindingID("unsatisfiable", rule.ID),
 				Kind:       "unsatisfiable",
+				Group:      "check",
 				RuleIDs:    []string{rule.ID},
 				Severity:   "bad",
 				Confidence: "high",
@@ -130,6 +132,7 @@ func orphans(rule Rule, entityExists func(entityID string) bool) []Finding {
 		out = append(out, Finding{
 			ID:         FindingID("orphan", rule.ID) + ":" + entityID,
 			Kind:       "orphan",
+			Group:      "check",
 			RuleIDs:    []string{rule.ID},
 			Severity:   "warn",
 			Confidence: "high",
@@ -176,6 +179,7 @@ func duplicateFinding(first, second Rule) Finding {
 	return Finding{
 		ID:         FindingID("duplicate", first.ID, second.ID),
 		Kind:       "duplicate",
+		Group:      "check",
 		RuleIDs:    []string{first.ID, second.ID},
 		Severity:   "info",
 		Confidence: "high",
@@ -192,6 +196,7 @@ func contradictionFinding(a, b Rule, topic string) Finding {
 	return Finding{
 		ID:         FindingID("contradiction", a.ID, b.ID),
 		Kind:       "contradiction",
+		Group:      "check",
 		RuleIDs:    []string{a.ID, b.ID},
 		Severity:   "bad",
 		Confidence: "high",

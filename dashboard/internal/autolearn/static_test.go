@@ -26,6 +26,9 @@ func expectSingleFinding(t *testing.T, findings []Finding) Finding {
 	if len(findings) != 1 {
 		t.Fatalf("got %d findings, want 1: %+v", len(findings), findings)
 	}
+	if findings[0].Group != "check" {
+		t.Errorf("Group = %q, want check", findings[0].Group)
+	}
 	return findings[0]
 }
 
@@ -223,6 +226,11 @@ func TestStaticSortsBySeverity(t *testing.T) {
 	}
 	if findings[0].Severity != "bad" || findings[1].Severity != "info" {
 		t.Errorf("severities = %q, %q, want bad then info", findings[0].Severity, findings[1].Severity)
+	}
+	for _, f := range findings {
+		if f.Group != "check" {
+			t.Errorf("finding %s: Group = %q, want check", f.ID, f.Group)
+		}
 	}
 }
 
