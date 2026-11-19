@@ -1,4 +1,4 @@
-"""Tests for scripts/bootstrap/lib/beispiel_apply.py and the example data it applies."""
+"""Tests for scripts/bootstrap/lib/example_apply.py and the example data it applies."""
 import json
 import pathlib
 import socket
@@ -10,13 +10,13 @@ import pytest
 REPO = pathlib.Path(__file__).resolve().parents[2]
 LIB = REPO / "scripts" / "bootstrap" / "lib"
 SCHEMA = REPO / "services" / "automation" / "automation_rules.schema.json"
-EXAMPLE_PATH = LIB / "beispiel.json"
+EXAMPLE_PATH = LIB / "example.json"
 
 sys.path.insert(0, str(LIB))
-import beispiel_apply  # noqa: E402
+import example_apply  # noqa: E402
 
 EXAMPLE = json.loads(EXAMPLE_PATH.read_text(encoding="utf-8"))
-PREFIX = "outstation/beispiel_steckdose/relay/0/set"
+PREFIX = "outstation/example_plug/relay/0/set"
 
 
 def _dirs(tmp_path):
@@ -37,52 +37,52 @@ def test_node_is_empty_true_for_empty_templates(tmp_path):
     (devices / "apsystems_devices.json").write_text("[]", encoding="utf-8")
     (devices / "automation_rules.json").write_text(
         json.dumps({"version": 1, "settings": {}, "rules": []}), encoding="utf-8")
-    assert beispiel_apply.node_is_empty(devices) is True
+    assert example_apply.node_is_empty(devices) is True
 
 
 def test_node_is_empty_false_with_a_device(tmp_path):
     devices, _ = _dirs(tmp_path)
     (devices / "shelly_devices.json").write_text(
         json.dumps([{"id": "eigenes_geraet"}]), encoding="utf-8")
-    assert beispiel_apply.node_is_empty(devices) is False
+    assert example_apply.node_is_empty(devices) is False
 
 
 def test_node_is_empty_false_with_a_rule(tmp_path):
     devices, _ = _dirs(tmp_path)
     (devices / "automation_rules.json").write_text(
         json.dumps({"version": 1, "rules": [{"id": "eigene_regel"}]}), encoding="utf-8")
-    assert beispiel_apply.node_is_empty(devices) is False
+    assert example_apply.node_is_empty(devices) is False
 
 
 def test_apply_adds_devices_and_scenario(tmp_path):
     devices, data = _dirs(tmp_path)
-    beispiel_apply.apply(EXAMPLE, devices, data)
+    example_apply.apply(EXAMPLE, devices, data)
 
     shelly_ids = [d["id"] for d in _load(devices / "shelly_devices.json")]
-    assert "beispiel_netz" in shelly_ids
-    assert "beispiel_steckdose" in shelly_ids
+    assert "example_grid" in shelly_ids
+    assert "example_plug" in shelly_ids
 
     rules = _load(devices / "automation_rules.json")
-    assert rules["scenarios"][0]["id"] == "beispiel_ueberschuss"
+    assert rules["scenarios"][0]["id"] == "example_surplus"
     assert rules["settings"]["publish_allowed_prefixes"] == [PREFIX]
 
-    assert _load(data / "beispiel-seed.json") == EXAMPLE
+    assert _load(data / "example-seed.json") == EXAMPLE
 
 
 def test_apply_is_idempotent(tmp_path):
     devices, data = _dirs(tmp_path)
-    beispiel_apply.apply(EXAMPLE, devices, data)
-    beispiel_apply.apply(EXAMPLE, devices, data)
+    example_apply.apply(EXAMPLE, devices, data)
+    example_apply.apply(EXAMPLE, devices, data)
 
     shelly_ids = [d["id"] for d in _load(devices / "shelly_devices.json")]
     apsystems_ids = [d["id"] for d in _load(devices / "apsystems_devices.json")]
     rules = _load(devices / "automation_rules.json")
     scenario_ids = [s["id"] for s in rules["scenarios"]]
 
-    assert shelly_ids.count("beispiel_netz") == 1
-    assert shelly_ids.count("beispiel_steckdose") == 1
-    assert apsystems_ids.count("beispiel_pv") == 1
-    assert scenario_ids.count("beispiel_ueberschuss") == 1
+    assert shelly_ids.count("example_grid") == 1
+    assert shelly_ids.count("example_plug") == 1
+    assert apsystems_ids.count("example_pv") == 1
+    assert scenario_ids.count("example_surplus") == 1
     assert rules["settings"]["publish_allowed_prefixes"] == [PREFIX]
 
 
@@ -94,7 +94,7 @@ def test_apply_keeps_manual_prefixes(tmp_path):
         "rules": [],
     }), encoding="utf-8")
 
-    beispiel_apply.apply(EXAMPLE, devices, data)
+    example_apply.apply(EXAMPLE, devices, data)
 
     rules = _load(devices / "automation_rules.json")
     assert rules["settings"]["publish_allowed_prefixes"] == ["x/y"]
@@ -149,7 +149,7 @@ def _fake_broker(connack_code=0):
 
 def test_publish_retained_sends_retain_flag():
     port, received, thread = _fake_broker(connack_code=0)
-    beispiel_apply.publish_retained("127.0.0.1", port, "user", "pw", PREFIX, "ON")
+    example_apply.publish_retained("127.0.0.1", port, "user", "pw", PREFIX, "ON")
     thread.join(timeout=5)
 
     assert received[0][0] == 0x10  # CONNECT
@@ -163,14 +163,14 @@ def test_publish_retained_sends_retain_flag():
 def test_publish_retained_raises_on_refused_connack():
     port, _received, thread = _fake_broker(connack_code=5)
     with pytest.raises(RuntimeError):
-        beispiel_apply.publish_retained("127.0.0.1", port, "user", "pw", PREFIX, "ON")
+        example_apply.publish_retained("127.0.0.1", port, "user", "pw", PREFIX, "ON")
     thread.join(timeout=5)
 
 
 def test_example_matches_schema(tmp_path):
     jsonschema = pytest.importorskip("jsonschema")
     devices, data = _dirs(tmp_path)
-    beispiel_apply.apply(EXAMPLE, devices, data)
+    example_apply.apply(EXAMPLE, devices, data)
 
     rules = _load(devices / "automation_rules.json")
     schema = _load(SCHEMA)

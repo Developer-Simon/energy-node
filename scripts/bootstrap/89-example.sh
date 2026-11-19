@@ -6,22 +6,22 @@
 # Schalten der Beispiel-Steckdose an. Das Beispiel laeuft nur, wenn der
 # Betreiber den Schritt ausdruecklich gewaehlt hat, die Schritte 81, 83 und
 # 88 gewaehlt sind und der Node noch keine Geraete und keine Regeln hat.
-# Die Marke beispiel-angelegt verhindert ein zweites Anlegen, auch nachdem
+# Die Marke example-created verhindert ein zweites Anlegen, auch nachdem
 # der Betreiber das Beispiel wieder geloescht hat.
 #
-# Die Logik steckt in lib/beispiel_apply.py (check, apply, publish). Hier
+# Die Logik steckt in lib/example_apply.py (check, apply, publish). Hier
 # steht nur der Ablauf.
 # Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
 # sie gleich bleiben, ueberspringt ein Update diesen Schritt.
-# step-inputs: bootstrap/lib/step.sh bootstrap/lib/beispiel.json bootstrap/lib/beispiel_apply.py bootstrap/lib/mqtt_probe.py
+# step-inputs: bootstrap/lib/step.sh bootstrap/lib/example.json bootstrap/lib/example_apply.py bootstrap/lib/mqtt_probe.py
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
 
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
-HELPER="${LIB_DIR}/beispiel_apply.py"
-EXAMPLE="${LIB_DIR}/beispiel.json"
-MARKER="${EN_STATE_DIR}/beispiel-angelegt"
+HELPER="${LIB_DIR}/example_apply.py"
+EXAMPLE="${LIB_DIR}/example.json"
+MARKER="${EN_STATE_DIR}/example-created"
 DEVICES="${EN_ROOT}${EN_TARGET_BASE}/devices"
 
 step_begin 89
@@ -76,8 +76,8 @@ python3 "${HELPER}" apply "${EXAMPLE}" "${DEVICES}" "${EN_ROOT}${data_dir}" || s
 
 password="$("${SUDO[@]}" cat "${EN_ROOT}${password_file}")" || step_fail EXAMPLE_FAILED
 publish=(python3 "${HELPER}" publish)
-if [[ -n "${EN_BEISPIEL_PUBLISH_CMD:-}" ]]; then
-  publish=("${EN_BEISPIEL_PUBLISH_CMD}")
+if [[ -n "${EN_EXAMPLE_PUBLISH_CMD:-}" ]]; then
+  publish=("${EN_EXAMPLE_PUBLISH_CMD}")
 fi
 printf '%s' "${password}" | "${publish[@]}" "${mqtt_host}" "${mqtt_port}" "${mqtt_user}" \
   "outstation/${node_id}/settings/simulation_active/set" "1" || step_fail EXAMPLE_FAILED

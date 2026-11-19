@@ -62,7 +62,7 @@ def test_service_steps_rerun_exactly_for_their_libraries():
     every service step again when none of them would restart."""
     services = {}
     for script in (REPO / "scripts" / "bootstrap").glob("8*-*.sh"):
-        if script.name == "89-beispiel.sh":
+        if script.name == "89-example.sh":
             continue  # das Beispiel ist kein Dienst-Schritt
         text = script.read_text(encoding="utf-8")
         inputs = " ".join(line.split(":", 1)[1] for line in text.splitlines() if line.startswith("# step-inputs:")).split()

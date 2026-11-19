@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Test for scripts/bootstrap/89-beispiel.sh
+# Test for scripts/bootstrap/89-example.sh
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-script="$here/../bootstrap/89-beispiel.sh"
+script="$here/../bootstrap/89-example.sh"
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -17,7 +17,7 @@ exit "${SYSTEMCTL_RC:-0}"
 SH
 chmod +x "$tmp/bin/systemctl"
 
-# Ersatz fuer beispiel_apply.py publish: loggt die Argumente und legt das
+# Ersatz fuer example_apply.py publish: loggt die Argumente und legt das
 # Passwort (stdin) in eine Datei, damit der Test die Weitergabe prueft.
 cat > "$tmp/publish" <<'SH'
 #!/usr/bin/env bash
@@ -31,10 +31,10 @@ export EN_STATE_DIR="$tmp/state" EN_ROOT="$tmp/root" EN_TARGET_BASE="/home/test"
 export EN_BUNDLE_VERSION=v1.0.0 EN_SUDO=""
 export EN_SELECTION="$tmp/selection.json" SYSTEMCTL_LOG="$tmp/systemctl.log"
 export PUBLISH_LOG="$tmp/publish.log" PUBLISH_STDIN="$tmp/publish.stdin"
-export EN_BEISPIEL_PUBLISH_CMD="$tmp/publish"
+export EN_EXAMPLE_PUBLISH_CMD="$tmp/publish"
 
 devices="$EN_ROOT$EN_TARGET_BASE/devices"
-marker="$EN_STATE_DIR/beispiel-angelegt"
+marker="$EN_STATE_DIR/example-created"
 ALL_SELECTED='{"steps":{"89":true,"81":true,"83":true,"88":true}}'
 
 # Leerer Knoten mit Konfiguration, ohne Auswahl und ohne Marke.
@@ -69,8 +69,8 @@ setup_node
 printf '%s\n' "$ALL_SELECTED" > "$EN_SELECTION"
 out="$(bash "$script")"
 grep -qx '##STEP 89 ok' <<<"$out" || fail "kein ok-Marker" "$out"
-grep -q 'beispiel_netz' "$devices/shelly_devices.json" || fail "Beispielgeraet fehlt"
-[ -f "$EN_ROOT/data/energy/beispiel-seed.json" ] || fail "Seed nicht im Datenordner"
+grep -q 'example_grid' "$devices/shelly_devices.json" || fail "Beispielgeraet fehlt"
+[ -f "$EN_ROOT/data/energy/example-seed.json" ] || fail "Seed nicht im Datenordner"
 grep -qF 'outstation/energy_node/settings/simulation_active/set 1' "$PUBLISH_LOG" \
   || fail "Freigabe nicht veroeffentlicht" "$(cat "$PUBLISH_LOG")"
 [ "$(cat "$PUBLISH_STDIN")" = "geheim" ] || fail "Passwort nicht an publish uebergeben"
@@ -90,7 +90,7 @@ printf '[]\n' > "$devices/shelly_devices.json"
 : > "$SYSTEMCTL_LOG"
 out="$(bash "$script")"
 grep -qx '##STEP 89 skip Beispiel wurde schon angelegt' <<<"$out" || fail "zweiter Lauf nicht uebersprungen" "$out"
-grep -q 'beispiel_netz' "$devices/shelly_devices.json" && fail "Beispielgeraet ist wieder da"
+grep -q 'example_grid' "$devices/shelly_devices.json" && fail "Beispielgeraet ist wieder da"
 [ -s "$SYSTEMCTL_LOG" ] && fail "zweiter Lauf hat Dienste neu gestartet"
 
 # --- Node mit eigenen Geraeten: unangetastet --------------------------------
@@ -110,7 +110,7 @@ setup_node
 printf '{"steps":{"89":true,"81":true,"83":false,"88":true}}\n' > "$EN_SELECTION"
 out="$(bash "$script")"
 grep -qx '##STEP 89 skip nicht ausgewaehlt' <<<"$out" || fail "lief ohne Shelly-Dienst" "$out"
-grep -q 'beispiel_netz' "$devices/shelly_devices.json" && fail "Beispiel ohne Shelly-Dienst angelegt"
+grep -q 'example_grid' "$devices/shelly_devices.json" && fail "Beispiel ohne Shelly-Dienst angelegt"
 [ -s "$PUBLISH_LOG" ] && fail "ohne Shelly-Dienst veroeffentlicht"
 
 # --- Neustart scheitert: Fehlercode, keine Marke ----------------------------

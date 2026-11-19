@@ -387,12 +387,12 @@ test('surplus_switch weekdays add a time window to the start condition', () => {
   });
 });
 
-test('beispiel scenario follows surplus_switch defaults', () => {
+test('example scenario follows surplus_switch defaults', () => {
   const { wizard, templates } = load();
   const template = templateById(templates, 'surplus_switch');
   const ctx = plain(contextFor(wizard));
   const entry = plain(template.build(answersFor(wizard, template, ctx), ctx).entry);
-  const example = JSON.parse(fs.readFileSync(path.join(here, '../../scripts/bootstrap/lib/beispiel.json'), 'utf8'));
+  const example = JSON.parse(fs.readFileSync(path.join(here, '../../scripts/bootstrap/lib/example.json'), 'utf8'));
   const scenario = example.scenario;
   assert.equal(scenario.template, entry.template);
   assert.equal(scenario.enabled, entry.enabled);

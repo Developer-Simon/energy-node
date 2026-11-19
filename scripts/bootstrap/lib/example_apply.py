@@ -2,11 +2,11 @@
 """Beispieldaten fuer einen leeren Knoten anlegen (Startinhalte).
 
 Aufrufe:
-  beispiel_apply.py check <devices_dir>
+  example_apply.py check <devices_dir>
       Exit 0, wenn der Knoten leer ist, sonst Exit 3.
-  beispiel_apply.py apply <example.json> <devices_dir> <data_dir>
+  example_apply.py apply <example.json> <devices_dir> <data_dir>
       Haengt die Beispielgeraete, das Szenario und die Freigabe an.
-  beispiel_apply.py publish <host> <port> <user> <topic> <payload>
+  example_apply.py publish <host> <port> <user> <topic> <payload>
       Veroeffentlicht eine retained Nachricht. Das Passwort kommt roh auf stdin.
 
 Alle Dateien werden atomar geschrieben (temp plus os.replace). Ein zweiter
@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mqtt_probe import connect_packet, recv_exact, remaining_length  # noqa: E402
 
 RULES_FILE = "automation_rules.json"
-SEED_FILE = "beispiel-seed.json"
+SEED_FILE = "example-seed.json"
 TIMEOUT = 3.0
 
 
