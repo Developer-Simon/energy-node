@@ -1,8 +1,0 @@
-{
-  "de": {
-    "*": "Die Backup-Seite bleibt mit einem HTTPS-Hinweis sichtbar, wenn die Verbindung nicht sicher ist"
-  },
-  "en": {
-    "*": "Keep the backup page visible with a hint when HTTPS is missing"
-  }
-}
