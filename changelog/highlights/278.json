@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Die Automationen-Seite markiert Regeln, die nicht tun, was sie sollen, und bietet eine Lösung an"
+  },
+  "en": {
+    "*": "Flag rules that do not work and offer a fix"
+  }
+}

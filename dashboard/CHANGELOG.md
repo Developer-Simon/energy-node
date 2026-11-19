@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.21-pre.21 (2026-11-06)
+## v0.11.21-pre.22 (2026-11-06)
 
 ### Features
 
@@ -21,6 +21,21 @@
 - **performance:** break down the dashboard and automation load (#265) (6bb19a8)
 - **network:** open the dashboard when a phone joins the emergency hotspot (#264) (5620a3d)
 - **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267) (e1e256b)
+- **onboarding:** start empty and offer an example to try out (#274) (35490ab)
+- **autolearn:** parse the rule document and define the finding shape (149f193)
+- **autolearn:** add static rule checks (4ab557e)
+- **autolearn:** observe rule triggers and value ranges (b050fa0)
+- **autolearn:** flag frequent and never firing rules with a seasonal check (2a995b0)
+- **autolearn:** check rules and keep ignored findings (bb2feef)
+- **dashboard:** serve automation rule findings (2ea6499)
+- **dashboard:** wire the rule checker into the dashboard (ef1a09e)
+- **automations:** render the before and after graphic for rule findings (12c6162)
+- **automations:** add the rule finding logic to the page (e4255f5)
+- **automations:** add the rule finding texts (d4ce8c1)
+- **automations:** show rule findings as a mark with a popover (d115e92)
+- **dashboard:** mark the automations tab while rule findings are open (473350f)
+- **autolearn:** add fast thresholds for the demo (956f11f)
+- **automations:** flag rules that do not work and offer a fix (#278)
 - **dashboard:** apply the example seed at start (aaa7853)
 - **dashboard:** stop the example simulation or remove the example (cd0b2c7)
 - **dashboard:** add the endpoint to stop or remove the example (b05d070)
@@ -29,7 +44,6 @@
 - **dashboard:** rebuild the example note like the update bar (e4c9c6c)
 - **onboarding:** add a setup step that points to ending the example (85f9e46)
 - **onboarding:** show the example step with its target and texts (5b1ca8c)
-- **onboarding:** start empty and offer an example to try out (#274)
 - **network:** scan for Wi-Fi networks right before the hotspot opens (112638a)
 - **network:** show the last scan while the hotspot is active (a013a20)
 - **network:** report the age of a cached Wi-Fi scan (8f01066)
@@ -107,6 +121,11 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **autolearn:** set the check group on static findings (5d9587c)
+- **autolearn:** use the estimate confidence for observed findings (7aad595)
+- **automations:** harden the evidence graphic against odd input (66aafca)
+- **automations:** apply finding fixes only when the whole path exists (256f7ae)
+- **automations:** drop findings at once after a rule is saved and pin the popover close button (6df6b74)
 - **services:** accept an empty device list (a0bbc7b)
 - **backup:** classify the example files (73f65e2)
 - **dashboard:** give the example note buttons their style class (1306adb)
@@ -165,6 +184,8 @@
 
 ### Chores
 
+- **dashboard:** bump the cache-bust marks for the rule check (4c75b79)
+- **dashboard:** refresh the cache-bust history for the new base (fb4fa4c)
 - **dashboard:** bump cache-bust for the example note (0bbb7a7)
 - **dashboard:** refresh the cache-bust history after the prerelease sync (51e92a6)
 - **dev:** update the cache-bust history rows after the rebase (a2c2157)
