@@ -3607,6 +3607,8 @@
   "onboarding.setup.devices.empty": "Das Dashboard hat noch keine Geräte gefunden. Sobald du Geräte konfiguriert hast, erscheinen sie hier.",
   "onboarding.setup.devices.text": "Hier siehst du die Geräte, die du konfiguriert hast. Über Details kannst du alle Geräteinformationen nachvollziehen.",
   "onboarding.setup.devices.title": "Geräte prüfen",
+  "onboarding.setup.example.text": "Dein Node läuft mit simulierten Beispielgeräten. Mit dem Hinweis oben schaltest du die Simulation aus oder entfernst das Beispiel ganz. Mach das, bevor du deine eigenen Geräte einrichtest.",
+  "onboarding.setup.example.title": "Beispiel beenden",
   "onboarding.setup.guest.text": "Mit dem Gastzugang sehen alle im Netz das Dashboard ohne Konto, ändern können sie nichts. Schalte ihn aus, wenn nur angemeldete Benutzer Zugang haben sollen.",
   "onboarding.setup.guest.title": "Gastzugang",
   "onboarding.setup.intro.text": "Erfahre in einer kleinen Tour, was Energy Node alles kann. Du richtest Zugang, Darstellung, System und Geräte ein oder legst einen Schritt auf später. Die Tour startest du jederzeit neu unter Einstellungen > Checkliste.",

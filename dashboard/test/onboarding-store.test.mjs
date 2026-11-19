@@ -21,7 +21,7 @@ const ITEMS = [
   ['users', 'access', true], ['guest', 'access', true], ['companion', 'access', false],
   ['theme', 'display', true], ['title', 'display', true],
   ['statusbar', 'display', true], ['tabwidth', 'display', true], ['tiles', 'display', false],
-  ['updates', 'system', true], ['metrics', 'system', true], ['config', 'devices', false], ['devices', 'devices', false],
+  ['updates', 'system', true], ['metrics', 'system', true], ['example', 'devices', false], ['config', 'devices', false], ['devices', 'devices', false],
   ['roles', 'devices', false], ['devicemap', 'devices', false],
 ].map(([id, area, installer]) => ({ id, area, installer, state: '' }));
 

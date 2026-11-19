@@ -65,6 +65,7 @@
     // Formular ist der Bereich dafür, die Schaltleiste darüber bleibt außen vor.
     // Dienst wählen: Das Auswahlfeld in der Aktionsleiste öffnet sich. Ohne
     // Benutzeraktivierung verweigert der Browser das, dann bleibt es fokussiert.
+    { id: 'example', panel: 'overview-panel', target: data('example'), check: 'leave' },
     {
       id: 'configservice', panel: 'config-panel', need: 'view_config', target: data('configservice'), check: 'leave',
       prepare: async () => {

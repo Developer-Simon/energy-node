@@ -136,7 +136,7 @@
     <svg class="ob-guest-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
     <p><strong>{{t "onboarding.guest_note.title"}}</strong> {{t "onboarding.guest_note.text"}}</p>
   </div>{{end}}
-  {{if .ExampleNote}}<div class="example-note" role="status" data-example-note data-example-kept="{{t "example.note.kept"}}" data-example-failed="{{t "example.note.failed"}}">
+  {{if .ExampleNote}}<div class="example-note" role="status" data-tour="example" data-example-note data-example-kept="{{t "example.note.kept"}}" data-example-failed="{{t "example.note.failed"}}">
     <svg class="example-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
     <div class="example-note-main">
       <div class="example-note-title">{{t "example.note.title"}}</div>
@@ -344,7 +344,7 @@
   <script src="{{.BasePath}}/static/js/onboarding-actions.js?v=4" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-model.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js/highlight-details.js?v=1" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=3" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=4" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding.js?v=9" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>
