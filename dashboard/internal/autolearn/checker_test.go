@@ -212,3 +212,68 @@ func TestCheckerFindingsFollowASavedRuleAtOnce(t *testing.T) {
 		t.Fatalf("finding of a disabled rule still listed: %+v", got)
 	}
 }
+
+// duplicateDoc has two enabled rules with the same trigger and action.
+const duplicateDoc = `{"rules":[` +
+	`{"id":"first","name":"Pump first","enabled":true,"conditions":[{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":500}],"actions":[{"type":"publish","topic":"pump/set","payload_source":"constant","payload":"on"}]},` +
+	`{"id":"second","name":"Pump second","enabled":true,"conditions":[{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":500}],"actions":[{"type":"publish","topic":"pump/set","payload_source":"constant","payload":"on"}]}]}`
+
+func TestCheckerPreviewFindsDraftDuplicate(t *testing.T) {
+	c := NewChecker(NewObserver(time.UTC), nil, staticRead(emptyRuleDoc), nil, "", t.Logf)
+
+	got, err := c.Preview([]byte(duplicateDoc))
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != "duplicate:first:second" {
+		t.Fatalf("Preview = %+v, want duplicate:first:second", got)
+	}
+}
+
+func TestCheckerPreviewLeavesIgnoredIDOut(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ignored.json")
+	c := NewChecker(NewObserver(time.UTC), nil, staticRead(emptyRuleDoc), nil, path, t.Logf)
+	if err := c.Ignore("duplicate:first:second"); err != nil {
+		t.Fatalf("Ignore: %v", err)
+	}
+
+	got, err := c.Preview([]byte(duplicateDoc))
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("ignored finding in preview: %+v", got)
+	}
+
+	// A preview is a pure read: an ignored ID of a rule the draft does not
+	// mention stays in the ignored file.
+	if _, err := c.Preview([]byte(emptyRuleDoc)); err != nil {
+		t.Fatalf("Preview empty: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read ignored file: %v", err)
+	}
+	if !strings.Contains(string(data), "duplicate:first:second") {
+		t.Fatalf("preview changed the ignored file: %s", data)
+	}
+}
+
+func TestCheckerPreviewBrokenDocumentIsError(t *testing.T) {
+	c := NewChecker(NewObserver(time.UTC), nil, staticRead(emptyRuleDoc), nil, "", t.Logf)
+
+	if _, err := c.Preview([]byte(`{"rules":`)); err == nil {
+		t.Fatal("Preview of broken JSON returned no error")
+	}
+}
+
+func TestCheckerPreviewKeepsStoredDocument(t *testing.T) {
+	c := NewChecker(NewObserver(time.UTC), nil, staticRead(emptyRuleDoc), nil, "", t.Logf)
+
+	if got, err := c.Preview([]byte(duplicateDoc)); err != nil || len(got) != 1 {
+		t.Fatalf("Preview = %+v, %v", got, err)
+	}
+	if got := c.Findings(testBase); len(got) != 0 {
+		t.Fatalf("stored document changed by a preview: %+v", got)
+	}
+}

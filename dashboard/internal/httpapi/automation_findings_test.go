@@ -23,6 +23,17 @@ type fakeAutomationFindings struct {
 	unignored  []string
 	ignoreErr  error
 	findingsAt []time.Time
+	// preview is answered for every valid draft, previewed counts the calls.
+	preview   []autolearn.Finding
+	previewed int
+}
+
+func (f *fakeAutomationFindings) Preview(raw []byte) ([]autolearn.Finding, error) {
+	if _, err := autolearn.ParseDoc(raw); err != nil {
+		return nil, err
+	}
+	f.previewed++
+	return f.preview, nil
 }
 
 func (f *fakeAutomationFindings) Findings(now time.Time) []autolearn.Finding {
@@ -190,5 +201,110 @@ func TestAutomationFindingsIgnoreWithoutChecker(t *testing.T) {
 	recorder := doChainRequest(bare, http.MethodPost, automationFindingsIgnorePath, `{"id":"frequent:a"}`)
 	if recorder.Code != http.StatusNotImplemented || !strings.Contains(recorder.Body.String(), `"code":"automation_findings_unavailable"`) {
 		t.Fatalf("POST without checker: %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+const duplicateDraft = `{"rules":[{"id":"first","name":"Pump first","enabled":true,"conditions":[],"actions":[]},{"id":"second","name":"Pump second","enabled":true,"conditions":[],"actions":[]}]}`
+
+func TestAutomationFindingsPreviewAnswersDraftFindings(t *testing.T) {
+	checker := &fakeAutomationFindings{preview: []autolearn.Finding{{ID: "duplicate:first:second", Kind: "duplicate", RuleIDs: []string{"first", "second"}, Severity: "info"}}}
+	router := NewRouterWithDependencies(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{AutomationFindings: checker})
+
+	recorder := doChainRequest(router, http.MethodPost, automationFindingsPreviewPath, duplicateDraft)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("preview status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		Findings []autolearn.Finding `json:"findings"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Findings) != 1 || body.Findings[0].ID != "duplicate:first:second" {
+		t.Fatalf("findings = %+v", body.Findings)
+	}
+	if checker.previewed != 1 {
+		t.Fatalf("Preview called %d times, want 1", checker.previewed)
+	}
+
+	// No findings answer an empty list, never null.
+	checker.preview = nil
+	recorder = doChainRequest(router, http.MethodPost, automationFindingsPreviewPath, duplicateDraft)
+	if got := strings.TrimSpace(recorder.Body.String()); got != `{"findings":[]}` {
+		t.Fatalf("empty answer = %s, want an empty list", got)
+	}
+}
+
+func TestAutomationFindingsPreviewBrokenDocumentIs400(t *testing.T) {
+	checker := &fakeAutomationFindings{}
+	router := NewRouterWithDependencies(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{AutomationFindings: checker})
+
+	recorder := doChainRequest(router, http.MethodPost, automationFindingsPreviewPath, `{"rules":`)
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"code":"automation_finding_invalid"`) {
+		t.Fatalf("broken JSON: %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestAutomationFindingsPreviewBodyLimit(t *testing.T) {
+	checker := &fakeAutomationFindings{}
+	router := NewRouterWithDependencies(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{AutomationFindings: checker})
+
+	huge := `{"rules":[],"pad":"` + strings.Repeat("x", 1<<20) + `"}`
+	recorder := doChainRequest(router, http.MethodPost, automationFindingsPreviewPath, huge)
+	if recorder.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized body: %d %s", recorder.Code, recorder.Body.String())
+	}
+	if checker.previewed != 0 {
+		t.Fatalf("oversized body was previewed")
+	}
+}
+
+func TestAutomationFindingsPreviewWithoutChecker(t *testing.T) {
+	bare := NewRouter(registry.New(), nil, settings.NewStore(t.TempDir()))
+	recorder := doChainRequest(bare, http.MethodPost, automationFindingsPreviewPath, duplicateDraft)
+	if recorder.Code != http.StatusNotImplemented || !strings.Contains(recorder.Body.String(), `"code":"automation_findings_unavailable"`) {
+		t.Fatalf("POST preview without checker: %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestAutomationFindingsPreviewNeedsViewRoleAndCSRF(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.SetGuestRoles("admin", []string{auth.RoleViewAutomations}); err != nil {
+		t.Fatal(err)
+	}
+	checker := &fakeAutomationFindings{}
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager, AutomationFindings: checker})
+	guest := httptest.NewRecorder()
+	router.ServeHTTP(guest, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))
+	cookie := guest.Result().Cookies()[0]
+	var session struct {
+		CSRFToken string `json:"csrf_token"`
+	}
+	if err := json.Unmarshal(guest.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+
+	// A view only user has no automations role but may preview, with CSRF.
+	without := httptest.NewRequest(http.MethodPost, automationFindingsPreviewPath, strings.NewReader(duplicateDraft))
+	without.AddCookie(cookie)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, without)
+	if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"csrf_failed"`) {
+		t.Fatalf("POST preview without CSRF: %d %s", recorder.Code, recorder.Body.String())
+	}
+	if checker.previewed != 0 {
+		t.Fatalf("previewed without CSRF")
+	}
+
+	with := httptest.NewRequest(http.MethodPost, automationFindingsPreviewPath, strings.NewReader(duplicateDraft))
+	with.AddCookie(cookie)
+	with.Header.Set("X-CSRF-Token", session.CSRFToken)
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, with)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("POST preview with CSRF: %d %s", recorder.Code, recorder.Body.String())
 	}
 }

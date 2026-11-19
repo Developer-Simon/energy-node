@@ -334,6 +334,7 @@ supplies `1m` and `5m` rows from the HA recorder and never requests anything.
 | GET | `/api/v1/automations/history/{rule_id}` | – | Recorded fire events for one rule, read from `automation_history.json` in the devices directory (empty array if the file or rule is absent) |
 | GET | `/api/v1/automations/findings` | – | Findings of the rule check as `{ "findings": [...] }`, most severe first, at most 20, without the ignored ones. Never `null` |
 | POST | `/api/v1/automations/findings/ignore` | `automations` + CSRF | Hides a finding by its `id`, or shows it again with `undo: true`. Answers `204` |
+| POST | `/api/v1/automations/findings/preview` | `view_automations` + CSRF | Static findings of a rule document that is not saved yet, as `{ "findings": [...] }`. Body: the rule document. Changes nothing. Never `null` |
 
 `PUT` validates against the schema, creates a revision, writes atomically and
 then sends a reload command over MQTT to the service. If the reload fails, the
@@ -361,13 +362,26 @@ it again:
 { "id": "frequent:pv-ueberschuss", "undo": false }
 ```
 
-Errors of the two findings endpoints:
+`POST /api/v1/automations/findings/preview` checks the rule document the
+Automations page holds, before it is saved. The body is the document itself,
+the same JSON that `PUT /api/v1/configurations/automation_rules` takes. The
+answer has the same shape as the GET, with the static findings only (no
+observed ones), ignored IDs left out, most severe first, at most 20. The
+stored document and the ignored file are not touched. The body is capped at
+1 MiB:
+
+```json
+{ "rules": [ { "id": "pv-ueberschuss", "name": "PV Überschuss", "enabled": true, "conditions": [], "actions": [] } ] }
+```
+
+Errors of the findings endpoints:
 
 | Status | Code | When |
 |---|---|---|
-| 400 | `automation_finding_invalid` | The body cannot be decoded or the `id` is empty |
+| 400 | `automation_finding_invalid` | The body cannot be decoded or the `id` is empty (ignore), or the rule document does not parse (preview) |
 | 401 | `authentication_required` | The POST has no signed-in user |
-| 403 | `automation_findings_forbidden` | The user lacks the `automations` role |
+| 403 | `automation_findings_forbidden` | The user lacks the `automations` role (ignore) or the `view_automations` role (preview) |
 | 403 | `csrf_failed` | The CSRF token is missing or wrong |
+| 413 | `body_too_large` | The preview body is over 1 MiB |
 | 500 | `automation_findings_save_failed` | The ignored findings could not be saved |
 | 501 | `automation_findings_unavailable` | The rule check is not available on this instance, for example without a data directory |

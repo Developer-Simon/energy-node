@@ -386,6 +386,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/energy/chain-suggestions/dismiss", handleEnergyChainSuggestionDismiss(dependencies.Auth, dependencies.ChainSuggest))
 	g.HandleFunc("/api/v1/automations/findings", handleAutomationFindings(dependencies.AutomationFindings))
 	g.HandleFunc("/api/v1/automations/findings/ignore", handleAutomationFindingIgnore(dependencies.Auth, dependencies.AutomationFindings))
+	g.HandleFunc("/api/v1/automations/findings/preview", handleAutomationFindingsPreview(dependencies.Auth, dependencies.AutomationFindings))
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	g.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))

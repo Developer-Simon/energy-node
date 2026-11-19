@@ -114,6 +114,32 @@ func (c *Checker) Findings(now time.Time) []Finding {
 	return out
 }
 
+// Preview returns the static findings of a rule document that was not saved
+// yet, without the ignored ones, in the same order and at most 20. It is a
+// pure read: the stored document, the observations and the ignored file stay
+// as they are. A document that does not parse is an error.
+func (c *Checker) Preview(raw []byte) ([]Finding, error) {
+	doc, err := ParseDoc(raw)
+	if err != nil {
+		return nil, err
+	}
+	all := StaticFindings(doc, c.entityExists)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := []Finding{}
+	for _, f := range all {
+		if c.ignored[f.ID] {
+			continue
+		}
+		out = append(out, f)
+		if len(out) == checkerMaxFindings {
+			break
+		}
+	}
+	return out, nil
+}
+
 // Ignore hides the finding with the given ID until Unignore is called.
 func (c *Checker) Ignore(id string) error {
 	return c.setIgnored(id, true)

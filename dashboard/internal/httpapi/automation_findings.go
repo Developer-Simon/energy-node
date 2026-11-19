@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"io"
 	"net/http"
 	"time"
 
@@ -9,14 +10,18 @@ import (
 )
 
 const (
-	automationFindingsPath       = "/api/v1/automations/findings"
-	automationFindingsIgnorePath = "/api/v1/automations/findings/ignore"
+	automationFindingsPath        = "/api/v1/automations/findings"
+	automationFindingsIgnorePath  = "/api/v1/automations/findings/ignore"
+	automationFindingsPreviewPath = "/api/v1/automations/findings/preview"
+	// maxAutomationPreviewBytes caps the rule document posted for a preview.
+	maxAutomationPreviewBytes = 1 << 20
 )
 
 // automationFindingSource is the part of the rule check the handlers use. The
 // checker of package autolearn implements it.
 type automationFindingSource interface {
 	Findings(now time.Time) []autolearn.Finding
+	Preview(raw []byte) ([]autolearn.Finding, error)
 	Ignore(id string) error
 	Unignore(id string) error
 }
@@ -47,6 +52,43 @@ func handleAutomationFindings(checker automationFindingSource) http.HandlerFunc 
 			return
 		}
 		findings := checker.Findings(time.Now())
+		if findings == nil {
+			findings = []autolearn.Finding{}
+		}
+		writeJSON(w, automationFindingsBody{Findings: findings})
+	}
+}
+
+// handleAutomationFindingsPreview serves POST
+// /api/v1/automations/findings/preview. The body is a rule document that is
+// not saved yet, the answer its static findings. It changes nothing, so the
+// view role is enough, with a CSRF token. Without a checker the answer is 501.
+func handleAutomationFindingsPreview(manager *auth.Manager, checker automationFindingSource) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			methodNotAllowed(w, http.MethodPost)
+			return
+		}
+		if checker == nil {
+			writeErrorKey(w, http.StatusNotImplemented, "automation_findings_unavailable", "error.automation_findings_unavailable", nil, "Die Regelprüfung ist auf dieser Instanz nicht verfügbar")
+			return
+		}
+		if !requireAutomationFindingsPreview(w, r, manager) {
+			return
+		}
+		defer r.Body.Close()
+		raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxAutomationPreviewBytes))
+		if err != nil {
+			writeError(w, http.StatusRequestEntityTooLarge, "body_too_large", "Die Regeln sind zu groß")
+			return
+		}
+		findings, err := checker.Preview(raw)
+		if err != nil {
+			// The code shares its catalog text with the ignore endpoint, so the
+			// preview answers without a key and says what is wrong here.
+			writeError(w, http.StatusBadRequest, "automation_finding_invalid", "Die Regeln sind ungültig.")
+			return
+		}
 		if findings == nil {
 			findings = []autolearn.Finding{}
 		}
@@ -108,6 +150,30 @@ func requireAutomationFindingsMutation(w http.ResponseWriter, r *http.Request, m
 		writeErrorKey(w, http.StatusForbidden, "automation_findings_forbidden", "error.automation_findings_forbidden", nil, "Für die Regelprüfung fehlt die Berechtigung")
 		return false
 	}
+	return requireAutomationFindingsCSRF(w, r, manager)
+}
+
+// requireAutomationFindingsPreview gates the preview. Without an auth manager
+// everything passes, otherwise the caller needs the view role plus a valid
+// CSRF token. The automations role is not needed, nothing is written.
+func requireAutomationFindingsPreview(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
+	if manager == nil {
+		return true
+	}
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
+		return false
+	}
+	if !auth.HasRole(user, auth.RoleViewAutomations) {
+		writeErrorKey(w, http.StatusForbidden, "automation_findings_forbidden", "error.automation_findings_forbidden", nil, "Für die Regelprüfung fehlt die Berechtigung")
+		return false
+	}
+	return requireAutomationFindingsCSRF(w, r, manager)
+}
+
+// requireAutomationFindingsCSRF checks the CSRF token of the session cookie.
+func requireAutomationFindingsCSRF(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
 	cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
 	if err != nil || !manager.ValidateCSRF(cookie.Value, r.Header.Get("X-CSRF-Token")) {
 		writeError(w, http.StatusForbidden, "csrf_failed", "Sicherheitsprüfung fehlgeschlagen")
