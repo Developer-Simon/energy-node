@@ -1,0 +1,67 @@
+{
+  "de": {
+    "*": "Die Automationen-Seite markiert Regeln, die nicht tun, was sie sollen, und bietet eine Lösung an"
+  },
+  "en": {
+    "*": "Flag rules that do not work and offer a fix"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "automations",
+          "open": [
+            "@duplicate-rule"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-finding-mark",
+          "text": {
+            "de": "Die Automationen prüfen sich selbst. Hier macht eine Regel dasselbe wie eine andere. Die Marke erscheint schon vor dem Speichern, die Tour legt die doppelte Regel nur im Entwurf an.",
+            "en": "Automations check themselves. Here one rule does the same as another. The mark shows up before you save, the tour adds the duplicate rule to the draft only."
+          },
+          "title": {
+            "de": "Regeln werden geprüft",
+            "en": "Rules are checked"
+          }
+        },
+        {
+          "device": "any",
+          "need": "automations",
+          "open": [
+            "@duplicate-rule",
+            "rule-finding-mark"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-finding-pop",
+          "text": {
+            "de": "Die Marke nennt die Ursache und zeigt in einer Grafik, was nicht zusammenpasst. Einen Befund kannst du auch ignorieren und mit Rückgängig wieder holen.",
+            "en": "The mark names the cause and shows in a graphic what does not fit together. You can also ignore a finding and bring it back with undo."
+          },
+          "title": {
+            "de": "Ursache auf einen Blick",
+            "en": "The cause at a glance"
+          }
+        },
+        {
+          "device": "any",
+          "need": "automations",
+          "open": [
+            "@duplicate-rule",
+            "rule-finding-mark"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-finding-fix",
+          "text": {
+            "de": "Ein Vorschlag ändert nur den Entwurf und öffnet die Regel zum Bearbeiten. Gespeichert wird erst mit Speichern, das System ändert nie selbst eine Regel.",
+            "en": "A suggestion only changes the draft and opens the rule for editing. Nothing is saved until you save, the system never changes a rule by itself."
+          },
+          "title": {
+            "de": "Eine Lösung zum Übernehmen",
+            "en": "A fix to take"
+          }
+        }
+      ]
+    }
+  }
+}

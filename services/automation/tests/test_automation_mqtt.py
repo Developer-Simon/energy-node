@@ -1833,6 +1833,28 @@ def test_repeat_records_history_only_for_the_first_firing_of_an_episode():
     assert len(history) == 1
 
 
+def test_trigger_count_counts_episodes_not_repeats():
+    r = rule_with_hold(hold_seconds=0, cooldown_seconds=0)
+    r["repeat_seconds"] = 30
+    doc, engine, published, _ = engine_with([r])
+    balance = {"grid_export": 900}
+    result = {}
+    for now_ts in range(1000, 1101, 10):
+        result = engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=float(now_ts))
+    assert result["r1"]["fire_count"] > 1
+    assert result["r1"]["trigger_count"] == 1
+
+
+def test_trigger_count_increments_per_episode():
+    r = rule_with_hold(hold_seconds=0, cooldown_seconds=0)
+    doc, engine, published, _ = engine_with([r])
+    engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1000.0)
+    engine.tick(doc, balance={"grid_export": 0}, balance_age=0, topic_values={}, now_ts=1010.0)
+    result = engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1020.0)
+    assert len(published) == 2
+    assert result["r1"]["trigger_count"] == 2
+
+
 def test_repeat_zero_keeps_the_edge_triggered_behaviour():
     r = rule_with_hold(hold_seconds=0, cooldown_seconds=0)
     r["repeat_seconds"] = 0

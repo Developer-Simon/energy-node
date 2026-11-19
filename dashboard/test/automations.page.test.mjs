@@ -52,6 +52,8 @@ function createAutomationsPanel(setup) {
   component.$refs = {};
   // Alpine stellt $nextTick bereit; ohne DOM laeuft der Rueckruf sofort.
   component.$nextTick = (callback) => callback();
+  // Alpine stellt $watch bereit; ohne Alpine genuegt ein stiller Stub.
+  component.$watch = () => {};
   const stores = attachStores(component);
   return { component, window: dom.window, stores };
 }
@@ -3256,4 +3258,278 @@ test('typing a fraction of a minute keeps the minute unit it was entered in', ()
   assert.equal(scenario.max_duration_s, 90);
   assert.equal(component.maxDurationUnit(scenario), 'min');
   assert.equal(component.maxDurationValue(scenario), 1.5);
+});
+
+// Befunde der Regelpruefung: Marke, Popover, Loesungen, Ignorieren.
+const sampleFinding = {
+  id: 'f-hyst',
+  kind: 'duplicate',
+  group: 'r1',
+  rule_ids: ['r1', 'r2'],
+  severity: 'warn',
+  confidence: 'high',
+  summary: { code: 'check.duplicate', params: { other: 'Heizstab' } },
+  evidence: {},
+  facts: [],
+  apply: [{ code: 'fix.set_hysteresis', rule_id: 'r1', ops: [{ path: ['conditions', 0, 'hysteresis'], value: 15 }] }],
+};
+
+test('findingFor finds the finding that lists the rule id', () => {
+  const { component } = createAutomationsPanel();
+  component.findings = [sampleFinding];
+  assert.equal(component.findingFor('r2').id, 'f-hyst');
+  assert.equal(component.findingFor('r9'), null);
+});
+
+test('findingText builds the title and text keys from summary.code', () => {
+  const { component, window } = createAutomationsPanel();
+  window.I18n.t = (key, params) => `${key}|${params ? params.other : ''}`;
+  const finding = { ...sampleFinding, kind: 'never_fired',
+    summary: { code: 'check.seasonal_rest', params: { other: 'Heizstab' } } };
+  const text = component.findingText(finding);
+  assert.equal(text.title, 'automations.learn.check.seasonal_rest.title|Heizstab');
+  assert.equal(text.text, 'automations.learn.check.seasonal_rest.text|Heizstab');
+});
+
+test('applyFix writes only the draft, starts editing and never posts to the rules endpoint', () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+    { id: 'r2', name: 'Anderes', conditions: [], actions: [] },
+  ] };
+  component.findings = [sampleFinding];
+  component.findingOpen = 'f-hyst';
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  const posted = [];
+  window.fetch = async (url, options) => { if (options && options.method === 'POST') posted.push(url); return { ok: true, json: async () => ({}) }; };
+  component.applyFix(sampleFinding.apply[0]);
+  assert.equal(component.document.rules[0].conditions[0].hysteresis, 15);
+  assert.equal(component.document.rules[0].conditions[0].threshold, 100);
+  assert.equal(component.document.rules[1].conditions.length, 0);
+  assert.deepEqual(started, ['r1']);
+  assert.equal(component.findingOpen, null);
+  assert.equal(component.expanded.r1, true);
+  assert.deepEqual(posted, []);
+});
+
+test('ignoreFinding posts with the CSRF header, removes the finding and arms the undo', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.findings = [sampleFinding];
+  const sent = [];
+  window.fetch = async (url, options) => { sent.push({ url, options }); return { ok: true, json: async () => ({}) }; };
+  await component.ignoreFinding(sampleFinding);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].url, '/api/v1/automations/findings/ignore');
+  assert.equal(sent[0].options.method, 'POST');
+  assert.equal(sent[0].options.headers['X-CSRF-Token'], 'tok');
+  assert.deepEqual(JSON.parse(sent[0].options.body), { id: 'f-hyst', undo: false });
+  assert.deepEqual(component.findings, []);
+  assert.equal(component.undo.findingId, 'f-hyst');
+});
+
+test('undo of an ignored finding posts undo true and reloads the findings', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.findings = [];
+  const sent = [];
+  window.fetch = async (url, options) => {
+    sent.push({ url, options });
+    if (url.endsWith('/api/v1/automations/findings')) return { ok: true, json: async () => ({ findings: [sampleFinding] }) };
+    return { ok: true, json: async () => ({}) };
+  };
+  component.undo = { label: 'x', findingId: 'f-hyst' };
+  await component.undoInsert();
+  assert.equal(component.undo, null);
+  assert.equal(sent[0].url, '/api/v1/automations/findings/ignore');
+  assert.deepEqual(JSON.parse(sent[0].options.body), { id: 'f-hyst', undo: true });
+  assert.equal(sent[1].url, '/api/v1/automations/findings');
+  assert.equal(component.findings.length, 1);
+});
+
+test('loadFindings keeps the old list when the fetch fails', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.findings = [sampleFinding];
+  window.fetch = async () => { throw new Error('offline'); };
+  await component.loadFindings();
+  assert.deepEqual(component.findings, [sampleFinding]);
+});
+
+test('placeFinding keeps the popover inside the viewport and below the mark', () => {
+  const { component, window } = createAutomationsPanel();
+  window.innerHeight = 800;
+  component.findingOpen = 'f-hyst';
+  component.placeFinding({ getBoundingClientRect: () => ({ left: 100, right: 130, top: 200, bottom: 230, width: 30 }) });
+  assert.match(component.findingStyle, /left:16px;/);
+  assert.match(component.findingStyle, /top:238px;/);
+  assert.match(component.findingStyle, /width:360px;/);
+});
+
+test('applyFix writes nothing and still opens the rule when a path element is missing', () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+  ] };
+  const before = JSON.parse(JSON.stringify(component.document.rules));
+  component.findings = [sampleFinding];
+  component.findingOpen = 'f-hyst';
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  window.fetch = async () => ({ ok: true, json: async () => ({}) });
+  const missing = { rule_id: 'r1', ops: [{ path: ['conditions', 3, 'hysteresis'], value: 15 }] };
+  assert.doesNotThrow(() => component.applyFix(missing));
+  assert.deepEqual(component.document.rules, before);
+  assert.deepEqual(started, ['r1']);
+  assert.equal(component.expanded.r1, true);
+  assert.equal(component.findingOpen, null);
+});
+
+test('applyFix does not half-apply when only one of two paths resolves', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+  ] };
+  component.startEditing = () => {};
+  component.applyFix({ rule_id: 'r1', ops: [
+    { path: ['conditions', 0, 'hysteresis'], value: 15 },
+    { path: ['conditions', 5, 'threshold'], value: 90 },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].hysteresis, 0);
+});
+
+test('toggleFinding opens the popover and a second toggle closes it', () => {
+  const { component } = createAutomationsPanel();
+  component.findings = [sampleFinding];
+  const mark = { getBoundingClientRect: () => ({ left: 100, right: 130, top: 200, bottom: 230, width: 30 }) };
+  component.toggleFinding('r1', mark);
+  assert.equal(component.findingOpen, 'f-hyst');
+  assert.match(component.findingStyle, /top:238px;/);
+  component.toggleFinding('r1', mark);
+  assert.equal(component.findingOpen, null);
+  assert.equal(component.findingStyle, '');
+});
+
+test('load() calls loadFindings', async () => {
+  const { component, window } = createAutomationsPanel();
+  let calls = 0;
+  component.loadFindings = async () => { calls += 1; };
+  component.loadDeviceCatalog = async () => {};
+  component.loadRuntimeState = () => {};
+  component.scenarioTick = () => {};
+  window.fetch = async () => ({ ok: true, json: async () => ({}) });
+  await component.load();
+  window.clearInterval(component._clockTimer);
+  assert.equal(calls, 1);
+});
+
+test('a successful save() calls loadFindings', async () => {
+  const { component, window } = createAutomationsPanel();
+  const sent = {};
+  savePanelWithFetch(component, window, sent);
+  component.document = { version: 1, settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+    publish_allowed_prefixes: [], publish_allowed_prefixes_auto: false }, rules: [] };
+  component.pollRuntimeStatus = async () => {};
+  let calls = 0;
+  component.loadFindings = async () => { calls += 1; };
+  await component.save();
+  assert.ok(sent.body, 'save must send the document');
+  assert.equal(calls, 1);
+});
+
+// Befunde fuer den ungespeicherten Entwurf: Vorschau nach dem Speichern-Stand,
+// Vorschau-Befunde ersetzen die statischen, beobachtete bleiben gespuelt.
+const draftDocument = (threshold) => ({ version: 1, settings: { tick_interval_s: 10 }, rules: [
+  { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold, hysteresis: 0 }], actions: [] },
+  { id: 'r2', name: 'Anderes', conditions: [], actions: [] },
+] });
+
+const draftDuplicate = { ...sampleFinding, id: 'd-dup', kind: 'duplicate', rule_ids: ['r1', 'r2'] };
+
+test('a changed draft shows the preview duplicate through findingFor', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.document = draftDocument(120);
+  component.savedDocument = draftDocument(100);
+  window.fetch = async () => ({ ok: true, json: async () => ({ findings: [draftDuplicate] }) });
+  await component.refreshDraftPreview();
+  assert.deepEqual(component.draftFindings, [draftDuplicate]);
+  assert.equal(component.findingFor('r2').id, 'd-dup');
+});
+
+test('an equal document drops the draft findings and shows the saved list again', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = draftDocument(100);
+  component.savedDocument = draftDocument(100);
+  component.findings = [sampleFinding];
+  component.draftFindings = [draftDuplicate];
+  let calls = 0;
+  window.fetch = async () => { calls += 1; return { ok: true, json: async () => ({ findings: [] }) }; };
+  await component.refreshDraftPreview();
+  assert.equal(component.draftFindings, null);
+  assert.equal(calls, 0, 'an equal document must not call the preview');
+  assert.equal(component.findingFor('r1').id, 'f-hyst');
+});
+
+test('the preview posts the document with the CSRF header', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.document = draftDocument(120);
+  component.savedDocument = draftDocument(100);
+  const sent = [];
+  window.fetch = async (url, options) => { sent.push({ url, options }); return { ok: true, json: async () => ({ findings: [] }) }; };
+  await component.refreshDraftPreview();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].url, '/api/v1/automations/findings/preview');
+  assert.equal(sent[0].options.method, 'POST');
+  assert.equal(sent[0].options.headers['X-CSRF-Token'], 'tok');
+  assert.deepEqual(JSON.parse(sent[0].options.body), { ...draftDocument(120), scenarios: [] });
+});
+
+test('a failing preview keeps the previous draft findings and shows no toast', async () => {
+  const { component, window, stores } = createAutomationsPanel();
+  component.document = draftDocument(120);
+  component.savedDocument = draftDocument(100);
+  component.draftFindings = [draftDuplicate];
+  window.fetch = async () => { throw new Error('offline'); };
+  await component.refreshDraftPreview();
+  assert.deepEqual(component.draftFindings, [draftDuplicate]);
+  assert.equal(stores.toasts.items.length, 0);
+});
+
+test('a stale preview response does not overwrite a newer one', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = draftDocument(120);
+  component.savedDocument = draftDocument(100);
+  const answers = [];
+  window.fetch = () => new Promise((resolve) => { answers.push(resolve); });
+  const older = component.refreshDraftPreview();
+  component.document = draftDocument(130);
+  const newer = component.refreshDraftPreview();
+  answers[1]({ ok: true, json: async () => ({ findings: [draftDuplicate] }) });
+  await newer;
+  answers[0]({ ok: true, json: async () => ({ findings: [] }) });
+  await older;
+  assert.deepEqual(component.draftFindings, [draftDuplicate]);
+});
+
+test('observed kinds of the saved list stay while a draft preview exists', () => {
+  const { component } = createAutomationsPanel();
+  const frequent = { id: 'o-freq', kind: 'frequent', rule_ids: ['r1'], severity: 'info', summary: {}, apply: [] };
+  const neverFired = { id: 'o-never', kind: 'never_fired', rule_ids: ['r2'], severity: 'info', summary: {}, apply: [] };
+  component.findings = [sampleFinding, frequent, neverFired];
+  component.draftFindings = [draftDuplicate];
+  const ids = component.allFindings().map((finding) => finding.id).sort();
+  assert.equal(ids.join(','), 'd-dup,o-freq,o-never');
+  assert.equal(component.findingFor('r1').id, 'd-dup');
+});
+
+test('ignoreFinding removes a draft finding from the draft list', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.findings = [];
+  component.draftFindings = [draftDuplicate];
+  window.fetch = async () => ({ ok: true, json: async () => ({}) });
+  await component.ignoreFinding(draftDuplicate);
+  assert.deepEqual(component.draftFindings, []);
 });

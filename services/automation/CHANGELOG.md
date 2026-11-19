@@ -1,11 +1,13 @@
 # Changelog
 
-## v0.7.3-pre.2 (2026-11-12)
+## v0.7.3-pre.3 (2026-11-19)
 
 ### Features
 
 - **automation:** react to measurement chains in automations (#226) (0066f15)
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
+- **automation:** report trigger_count per rule in the state document (c238d9d)
+- **automations:** flag rules that do not work and offer a fix (#278)
 
 ## v0.7.2 (2026-10-27)
 

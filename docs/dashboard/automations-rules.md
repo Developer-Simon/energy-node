@@ -145,3 +145,69 @@ current topic. Conditions offer **Apply** to take it over. Nothing is updated
 automatically, so a rule never points at a different device without you
 noticing. If the entity is no longer in the registry at all, the rule keeps
 running with the saved topic.
+
+## Rule check
+
+The rule check reads all rules and reports findings where a rule cannot work as
+you probably intend. It runs on the dashboard and never changes a rule by
+itself. Only you change a rule, in the editor, and it takes effect when you
+save the document as usual.
+
+### What is checked
+
+The check reports seven kinds of findings. Each one names the rules involved.
+
+| Finding | What it means | Based on |
+|---|---|---|
+| Competes with a regulator | The rule publishes to the topic of an enabled scenario regulator, so the device gets two commands in turn. | Rules and scenarios |
+| Contradicts another rule | Two rules have the same conditions but send different commands to the same topic. | Rules |
+| Duplicate | Two rules do exactly the same. One of the two is enough. | Rules |
+| Can never be met | The conditions rule each other out, for example above 500 W and below 300 W on the same value. | Rules |
+| Device missing | The rule uses an entity that is no longer in the device registry. | Rules and registry |
+| Triggers very often | The rule fired at least 12 times within one hour of the last 24 hours. | Observed triggers |
+| Never triggers | An enabled rule did not fire for 14 days, although it has been known for 14 days and its value has been seen on 7 days. | Observed triggers and values |
+
+A threshold that was reached in earlier months of the last year does not count
+as a fault. Such a rule gets the note **Resting for the season** instead, which
+is only information and has no fix.
+
+The two observed checks need data. A new installation has no history yet, so
+**Triggers very often** and **Never triggers** stay silent until enough
+triggers and values are recorded. The check lists at most 20 findings, the
+most severe first.
+
+### The mark and the popover
+
+A rule with open findings shows a mark at its head, labelled **Show the finding
+for this rule**. A click opens a popover with:
+
+- the cause, as a title and a sentence, with the facts behind it,
+- a before and after graphic that shows the recorded triggers or values next to
+  the threshold, where the finding has such evidence,
+- one or two prepared fixes as buttons, for example **Hysteresis 100 W**,
+  **Cooldown 10 minutes**, **Threshold to 350** or **Turn this rule off**. A
+  finding without a prepared fix offers **Open rule** only.
+
+A fix changes only the draft in the browser. It opens the rule in the editor, and
+the change reaches the device when you save the document, as with any other
+edit. The system never saves a fix on its own.
+
+### Ignoring a finding
+
+**Ignore** hides a finding. The page then shows **Finding hidden** with an undo
+button, which shows the finding again. Hidden findings stay hidden after a
+reload. A finding of a rule that no longer exists is removed from the list of
+hidden findings automatically. Ignoring needs the automations role.
+
+### The dot on the Automations tab
+
+While findings are open, the **Automations** tab shows a dot. The dot goes away
+when no open finding is left, either because you fixed the rules or because you
+ignored the findings.
+
+### Where the data is stored
+
+The check keeps its observations in `<dataDir>/autolearn/checks.json` and the
+hidden findings in `<dataDir>/autolearn/ignored.json`. Both files belong to the
+history part of a backup. The endpoints are described in the
+[dashboard API](../developing/api-data.md).

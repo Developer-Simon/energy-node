@@ -226,7 +226,7 @@ def _namespace(**kwargs):
         "port": 0, "dashboard": "", "companion": "", "broker_control": "",
         "updates": "", "installer_state": "", "installer_fixture": "",
         "system_state": "", "system_events": "", "journal_epoch": "",
-        "storage_dir": "", "performance_state": "", "highlights_repo": "",
+        "storage_dir": "", "performance_state": "", "highlights_repo": "", "automation_rules": "",
     }
     base.update(kwargs)
     return argparse.Namespace(**base)

@@ -4,9 +4,9 @@
 
 ### Features
 
-- **onboarding:** start empty and offer an example to try out (#274)
+- **onboarding:** start empty and offer an example to try out (#274) (35490ab)
 
-## v0.4.5 (2026-11-16)
+## v0.4.5 (2026-11-15)
 
 ### Features
 

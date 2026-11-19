@@ -872,3 +872,79 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-chain-once { min-height: 2rem; }
 .auto-chain-once .settings-toggle { flex: none; }
 .auto-chain-once .auto-flow-label { min-width: 0; color: var(--text); }
+
+/* --- Befunde: Marke an der Regel, Popover und Ist-Soll-Grafik (automation-evidence.js) --- */
+.auto-learn-mark { box-sizing: border-box; display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--warn); cursor: pointer; transition: transform 120ms var(--ease-out), box-shadow 150ms ease; }
+.auto-learn-mark .automation-icon { width: 1rem; height: 1rem; }
+.auto-learn-mark.is-info { border-color: var(--info-line); background: var(--info-bg); color: var(--info); }
+.auto-learn-mark.is-bad { border-color: var(--bad-line); background: var(--bad-bg); color: var(--bad); }
+.auto-learn-mark.is-open { box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 28%, transparent); }
+.auto-learn-mark:active { transform: scale(.97); }
+.auto-learn-mark:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Mobil: der zugeklappte Kopf bekommt mit Marke eine vierte Rasterspalte neben dem Schalter */
+@media (max-width: 899.98px) {
+  .auto-learn-mark { width: 28px; height: 28px; }
+  .automation-rule-head.has-finding,
+  .automation-rule-head.is-collapsed.has-finding { grid-template-columns: 34px minmax(0, 1fr) auto auto; }
+  .automation-rule-head > .auto-learn-mark { grid-column: 3; grid-row: 1; }
+  .automation-rule-head.has-finding > label.settings-toggle { grid-column: 4; grid-row: 1; }
+}
+
+.auto-learn-pop { position: fixed; z-index: 60; box-sizing: border-box; padding: .85rem .95rem .9rem; border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--panel) 86%, transparent); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid var(--border-soft); box-shadow: 0 12px 32px rgba(0, 0, 0, .28);
+  animation: auto-learn-pop-in 160ms var(--ease-out) both; }
+@keyframes auto-learn-pop-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes auto-learn-fade { from { opacity: 0; } to { opacity: 1; } }
+.auto-learn-pop-head { display: flex; gap: .5rem; align-items: flex-start; padding-right: 1.6rem; }
+.auto-learn-pop-head h4 { margin: 0; flex: 1; min-width: 0; font-size: .95rem; line-height: 1.2rem; color: var(--text-strong); }
+.auto-learn-pop-head .automation-icon { flex: none; width: 1.05rem; height: 1.05rem; margin-top: .075rem; }
+.auto-learn-pop-head .automation-icon.is-warn { color: var(--warn); }
+.auto-learn-pop-head .automation-icon.is-info { color: var(--info); }
+.auto-learn-pop-head .automation-icon.is-bad { color: var(--bad); }
+.auto-learn-pop-close { position: absolute; top: 6px; right: 6px; display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); cursor: pointer; }
+.auto-learn-pop-close .automation-icon { width: .85rem; height: .85rem; }
+.auto-learn-pop-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.auto-learn-pop-text { margin: .35rem 0 0; font-size: .88rem; line-height: 1.45; }
+.auto-learn-pop-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .75rem; }
+.auto-learn-pop .auto-btn-text { padding: 7px 11px; }
+.auto-learn-pop .auto-learn-fix.is-primary { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent-line); }
+.auto-learn-pop-actions .auto-learn-ignore { margin-left: auto; }
+
+/* Ist-Soll-Grafik: Spuren als SVG, Beschriftung als HTML */
+.auto-learn-evidence { margin: .7rem 0 .15rem; }
+.auto-learn-is { display: grid; gap: .3rem; }
+.auto-learn-lane { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: .5rem; align-items: center; }
+.auto-learn-lane-label { font-size: .72rem; font-weight: 600; color: var(--text-muted); }
+.auto-learn-lane.is-soll .auto-learn-lane-label { color: var(--accent-line); }
+.auto-learn-lane-svg { display: block; width: 100%; height: 16px; background: var(--sunken); border-radius: 5px; }
+.auto-learn-lane-svg .auto-learn-ist { fill: var(--flow-rest); }
+.auto-learn-lane-svg .auto-learn-soft { opacity: .35; }
+.auto-learn-lane-svg .auto-learn-soll { fill: var(--accent); }
+.auto-learn-lane-svg line { stroke-width: 2; }
+.auto-learn-lane-svg .auto-learn-mark-event { stroke: var(--warn-line); }
+.auto-learn-lane-svg .auto-learn-mark-soll { stroke: var(--accent); }
+.auto-learn-lane-svg .auto-learn-mark-wide { stroke-width: 3; }
+.auto-learn-lane-svg .auto-learn-mark-threshold { stroke: var(--text-strong); }
+.auto-learn-axis { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: .5rem; }
+.auto-learn-axis > div { display: flex; justify-content: space-between; font-size: .68rem; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.auto-learn-chips { display: flex; flex-wrap: wrap; gap: .3rem; min-width: 0; }
+.auto-learn-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .76rem; padding: .08rem .5rem; border-radius: 999px;
+  background: var(--panel-alt); border: 1px solid var(--border-soft); color: var(--text); }
+.auto-learn-target { justify-self: start; margin-left: calc(2.2rem + .5rem); padding: .15rem .6rem; border-radius: 8px; font-size: .8rem; font-weight: 600;
+  color: var(--text-strong); background: var(--accent-bg); border: 1px solid var(--accent-line); }
+.auto-learn-target.is-missing { color: var(--bad); background: transparent; border: 1px dashed var(--bad-line); }
+/* Soll erscheint nach dem Ist: einmal beim Oeffnen, von links */
+.auto-learn-lane.is-soll .auto-learn-lane-svg { animation: auto-learn-trace 280ms var(--ease-out) 120ms both; }
+@keyframes auto-learn-trace { from { clip-path: inset(0 100% 0 0 round 5px); } to { clip-path: inset(0 0 0 0 round 5px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-learn-mark { transition: none; }
+  .auto-learn-mark:active { transform: none; }
+  .auto-learn-pop { animation-name: auto-learn-fade; }
+  .auto-learn-lane.is-soll .auto-learn-lane-svg { animation: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .auto-learn-pop { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}

@@ -213,6 +213,78 @@
   action('balance-rule', ruleAction('balance_threshold', () => ({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 300 })));
   action('open-rule', ruleAction('time_window', () => ({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }), { edit: false, match: () => true }));
 
+  // Legt eine zweite gleiche Regel in den ungespeicherten Entwurf, damit die
+  // Regelpruefung ihren Hinweis auf Doppelungen zeigt. Vorlage ist die erste
+  // aktivierte Regel mit Bedingung und Aktion, sonst die erste mit beidem. Ohne
+  // Vorlage kommen zwei gleiche Beispielregeln A und B dazu. Gespeichert wird
+  // nichts. Zuruecknehmen entfernt die Regeln wieder, aber nur, solange sie
+  // unveraendert sind.
+  const hasConditionAndAction = (rule) => (rule.conditions || []).length > 0 && (rule.actions || []).length > 0;
+  const uniqueCopyId = (rules, base) => {
+    let id = `${base}_kopie`;
+    for (let n = 2; rules.some((r) => r.id === id); n += 1) id = `${base}_kopie${n}`;
+    return id;
+  };
+  action('duplicate-rule', {
+    run: async ({ waitFor }) => {
+      const page = rulesPage();
+      if (!page) return null;
+      const rules = page.document.rules;
+      const source = rules.find((r) => r.enabled && hasConditionAndAction(r)) || rules.find(hasConditionAndAction) || null;
+      const inserted = [];
+      const insert = (entry) => {
+        page.insertEntry('rule', entry);
+        page.stopEditing(entry);
+        inserted.push({ id: entry.id, snapshot: JSON.stringify(entry) });
+      };
+      let markId;
+      if (source) {
+        const copy = JSON.parse(JSON.stringify(source));
+        copy.id = uniqueCopyId(rules, source.id);
+        copy.name = window.I18n.t('onboarding.rule_copy', { name: source.name });
+        copy.enabled = true;
+        insert(copy);
+        markId = copy.id;
+      } else {
+        const base = `regel_${Date.now()}`;
+        const name = window.I18n.t('onboarding.example_rule');
+        for (const suffix of ['A', 'B']) {
+          const title = `${name} ${suffix}`;
+          insert({
+            id: `${base}_${suffix.toLowerCase()}`,
+            name: title,
+            enabled: true,
+            history_enabled: true,
+            cooldown_seconds: 60,
+            conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 300 }],
+            actions: [{ type: 'notification', severity: 'info', title, message: title }],
+          });
+        }
+        markId = inserted[1].id;
+      }
+      page.undo = null;
+      for (const { id } of inserted) page.expanded[id] = id === markId;
+
+      const revert = () => {
+        for (const { id, snapshot } of inserted) {
+          const rule = page.document.rules.find((r) => r.id === id);
+          if (!rule || JSON.stringify(rule) !== snapshot) continue;
+          page.document.rules.splice(page.document.rules.indexOf(rule), 1);
+          delete page.expanded[id];
+          delete page.editing[id];
+          delete page.newIds[id];
+        }
+      };
+
+      const li = await waitFor(() => itemOf(markId), 1500);
+      if (!li) {
+        revert();
+        return null;
+      }
+      return { el: li.querySelector('.automation-rule-head') || li, scope: li, revert };
+    },
+  });
+
   // Regel fuer die Verlaufs-Tour: am liebsten eine mit Eintraegen, sonst eine
   // mit eingeschaltetem Verlauf, sonst die Beispielregel. Die Eintraege werden
   // vorab aufgebaut, damit der Klick auf den Knopf den Verlauf sofort oeffnet

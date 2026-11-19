@@ -1078,6 +1078,7 @@ class RuleRuntime:
     fired_this_episode: bool = False
     last_fired_at: Optional[float] = None
     fire_count: int = 0
+    trigger_count: int = 0
     consumed: set = field(default_factory=set)
 
 
@@ -1304,6 +1305,7 @@ class Engine:
         if record_history:
             # Jede Meldung feuert die Regel nur einmal; Wiederholungen ueber repeat_seconds zaehlen nicht.
             rt.consumed.update(matched)
+            rt.trigger_count += 1
         outcome_result = "error" if any_error else ("blocked" if any_blocked else "fired")
         if record_history and self.history_sink is not None:
             history_actions = [{**outcome, "type": action["type"]}
@@ -1318,6 +1320,7 @@ class Engine:
         return {
             "enabled": rule["enabled"], "result": result, "reason": reason,
             "fired_at": rt.last_fired_at, "fire_count": rt.fire_count,
+            "trigger_count": rt.trigger_count,
             "cooldown_remaining": cooldown_remaining,
             "conditions": conditions, "actions": preview,
         }

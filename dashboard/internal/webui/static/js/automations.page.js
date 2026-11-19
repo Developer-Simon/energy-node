@@ -25,6 +25,8 @@
   };
   const CHAIN_KINDS = ['any', 'drift', 'frozen', 'contradiction', 'sign', 'unit'];
   const CHAIN_VALUE_DEFAULT = 10;
+  // Entwurfsvorschau der Regelpruefung: Wartezeit nach der letzten Aenderung.
+  const DRAFT_PREVIEW_DEBOUNCE_MS = 400;
 
   // Monatstage fuer Zeitfenster und Sonnenfenster, 1 bis 31.
   const MONTH_DAY_NUMBERS = Array.from({ length: 31 }, (_, index) => index + 1);
@@ -225,6 +227,12 @@
     newIds: {},
     // Rueckgaengig-Balken nach dem Anlegen, verschwindet nach 10 Sekunden.
     undo: null,
+    // Befunde der Regelpruefung, offener Befund mit Popover-Platzierung.
+    findings: [],
+    findingOpen: null,
+    findingStyle: '',
+    // Statische Befunde des ungespeicherten Entwurfs (null, solange er dem Gespeicherten entspricht).
+    draftFindings: null,
     scenarioExpanded: {},
     durationUnits: {},
     scenarioEditing: {},
@@ -313,6 +321,12 @@
           this.document.settings.publish_allowed_prefixes = [];
         }
         this.savedDocument = JSON.parse(JSON.stringify(this.document));
+        // Erst nach dem ersten Laden: Aenderungen am Entwurf loesen eine Vorschau aus.
+        if (!this._draftWatcher) {
+          this._draftWatcher = true;
+          this.$watch(() => JSON.stringify([this.document.rules, this.document.scenarios, this.document.settings]),
+            () => this.scheduleDraftPreview());
+        }
         if (window.__automationFocusRequest__) this.focusRule(window.__automationFocusRequest__);
         // dashboard.js schickt die Anfrage auch dann, wenn die Seite schon offen ist.
         if (!this._focusRuleListener) {
@@ -325,6 +339,7 @@
         this.hasAutomationsRole = Boolean(session && session.automations);
         this.sessionRoles = session && 'roles' in session ? (Array.isArray(session.roles) ? session.roles : []) : null;
         this.loadRuntimeState();
+        this.loadFindings();
         // dashboard.js verteilt jedes Registry-Update (SSE, mit
         // 30-Sekunden-Fallback) als 'registry-updated' auf window.
         if (!this._registryListener) {
@@ -1901,6 +1916,7 @@
     undoInsert() {
       const undo = this.undo;
       if (!undo) return;
+      if (undo.findingId) return this.undoIgnoredFinding(undo);
       if (undo.kind === 'scenario') {
         this.document.scenarios = this.document.scenarios.filter((entry) => entry.id !== undo.id);
         delete this.scenarioExpanded[undo.id];
@@ -1913,6 +1929,155 @@
       delete this.newIds[undo.id];
       clearTimeout(this._undoTimer);
       this.undo = null;
+    },
+
+    // Befunde: die Liste kommt vom Dienst. Ein Fehler laesst die bisherige Liste stehen.
+    async loadFindings() {
+      try {
+        const doc = await requestJSON('/api/v1/automations/findings');
+        this.findings = (doc && doc.findings) || [];
+        window.dispatchEvent(new CustomEvent('automation-findings-changed'));
+        // Nach dem Speichern entspricht der Entwurf dem Gespeicherten; die Vorschau folgt dem Entwurf.
+        this.draftFindings = null;
+        this.refreshDraftPreview();
+      } catch {
+        // Die bisherige Liste bleibt sichtbar.
+      }
+    },
+    // Statische Befunde des ungespeicherten Entwurfs, ohne Speichern. Ein Fehler
+    // laesst den bisherigen Stand stehen. Eine aeltere Antwort ueberschreibt nie eine neuere.
+    async refreshDraftPreview() {
+      if (!this.canEditAutomations || !this.savedDocument) return;
+      const seq = (this._draftSeq || 0) + 1;
+      this._draftSeq = seq;
+      if (JSON.stringify(this.document) === JSON.stringify(this.savedDocument)) {
+        this.draftFindings = null;
+        return;
+      }
+      try {
+        const body = await requestJSON('/api/v1/automations/findings/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
+          body: JSON.stringify({ ...this.document, scenarios: this.scenariosPayload() }),
+        });
+        if (seq !== this._draftSeq) return;
+        this.draftFindings = Array.isArray(body && body.findings) ? body.findings : [];
+      } catch {
+        // Der bisherige Stand bleibt stehen, ohne Meldung.
+      }
+    },
+    scheduleDraftPreview() {
+      clearTimeout(this._draftTimer);
+      this._draftTimer = setTimeout(() => this.refreshDraftPreview(), DRAFT_PREVIEW_DEBOUNCE_MS);
+    },
+    // Befunde fuer Anzeige und Zaehler: die statischen kommen aus dem Entwurf, wenn
+    // es einen gibt; beobachtete Befunde (haeufig, nie ausgeloest) bleiben aus der gespeicherten Liste.
+    allFindings() {
+      if (this.draftFindings === null) return this.findings;
+      const observed = this.findings.filter((finding) => finding.kind === 'frequent' || finding.kind === 'never_fired');
+      return [...this.draftFindings, ...observed];
+    },
+    findingFor(ruleId) {
+      return this.allFindings().find((finding) => (finding.rule_ids || []).includes(ruleId)) || null;
+    },
+    findingText(finding) {
+      const code = (finding.summary && finding.summary.code) || '';
+      const params = (finding.summary && finding.summary.params) || {};
+      return {
+        title: t(`automations.learn.${code}.title`, params),
+        text: t(`automations.learn.${code}.text`, params),
+      };
+    },
+    fixLabel(fix) {
+      const first = (fix.ops || [])[0];
+      const params = {};
+      if (first && first.value !== undefined) {
+        params.value = typeof first.value === 'number' ? window.I18n.formatNumber(first.value) : first.value;
+      }
+      return t(`automations.learn.fix.${fix.code}`, params);
+    },
+    toggleFinding(ruleId, markEl) {
+      const finding = this.findingFor(ruleId);
+      if (!finding) return;
+      if (this.findingOpen === finding.id) {
+        this.closeFinding();
+        return;
+      }
+      this.findingOpen = finding.id;
+      this.$nextTick(() => this.placeFinding(markEl));
+    },
+    closeFinding() {
+      this.findingOpen = null;
+      this.findingStyle = '';
+    },
+    // Platzierung aus dem Entwurf (alMark.place): 360 px breit, 16 px Rand zum
+    // Viewport, nur nach oben, wenn unten kein Platz ist.
+    placeFinding(markEl) {
+      if (!this.findingOpen || !markEl) return;
+      const rect = markEl.getBoundingClientRect();
+      const viewWidth = document.documentElement.clientWidth || window.innerWidth;
+      const width = Math.min(360, viewWidth - 32);
+      const left = Math.max(16, Math.min(rect.right - width, viewWidth - width - 16));
+      const below = window.innerHeight - rect.bottom;
+      const pop = this.$refs && this.$refs.findingPop;
+      const height = pop ? pop.offsetHeight : 260;
+      const up = below < height + 24 && rect.top > height + 24;
+      const top = up ? rect.top - height - 8 : rect.bottom + 8;
+      const originX = rect.left + rect.width / 2 - left;
+      this.findingStyle = `left:${left}px;top:${top}px;width:${width}px;transform-origin:${originX}px ${up ? '100%' : '0'};`;
+    },
+    // Schreibt die Ops als Pfade in den Entwurf der Regel. Gespeichert wird nicht.
+    // Alle Ziele werden zuerst aufgeloest. Fehlt ein Pfadteil (die Regel hat sich
+    // seit dem Befund geaendert), wird nichts geschrieben, die Regel oeffnet sich trotzdem.
+    applyFix(fix) {
+      const rule = this.document.rules.find((entry) => entry.id === fix.rule_id);
+      if (!rule) return;
+      const targetOf = (path) => {
+        let node = rule;
+        path.slice(0, -1).forEach((key) => {
+          node = node && typeof node === 'object' ? node[key] : undefined;
+        });
+        if (path.length === 0 || !node || typeof node !== 'object') return null;
+        return { parent: node, key: path[path.length - 1] };
+      };
+      const writes = (fix.ops || []).map((op) => ({ target: targetOf(op.path || []), value: op.value }));
+      if (writes.every((write) => write.target)) {
+        writes.forEach((write) => { write.target.parent[write.target.key] = write.value; });
+      }
+      this.startEditing(rule);
+      this.expanded[rule.id] = true;
+      this.closeFinding();
+    },
+    postFindingIgnore(id, undo) {
+      return requestJSON('/api/v1/automations/findings/ignore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
+        body: JSON.stringify({ id, undo }),
+      });
+    },
+    async ignoreFinding(finding) {
+      try {
+        await this.postFindingIgnore(finding.id, false);
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return;
+      }
+      this.findings = this.findings.filter((entry) => entry.id !== finding.id);
+      if (this.draftFindings) this.draftFindings = this.draftFindings.filter((entry) => entry.id !== finding.id);
+      this.closeFinding();
+      this.armUndo({ label: t('automations.learn.undo.ignored'), findingId: finding.id });
+      window.dispatchEvent(new CustomEvent('automation-findings-changed'));
+    },
+    async undoIgnoredFinding(undo) {
+      clearTimeout(this._undoTimer);
+      this.undo = null;
+      try {
+        await this.postFindingIgnore(undo.findingId, true);
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return;
+      }
+      await this.loadFindings();
     },
 
     async removeScenario(scenarioId) {
@@ -2840,6 +3005,7 @@
         this.$store.toasts.push(t('automations.saved'));
         this.savedDocument = JSON.parse(JSON.stringify(payload));
         this.storedDocument = JSON.parse(JSON.stringify(payload));
+        this.loadFindings();
         await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -2898,6 +3064,7 @@
         this.newIds = {};
         clearTimeout(this._undoTimer);
         this.undo = null;
+        this.loadFindings();
         await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
