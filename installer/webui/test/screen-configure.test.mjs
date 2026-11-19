@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
+import { normalizeSelector, outsideBlocks, parseCss, templateBlocks } from './helpers/css.mjs';
 import { mountScreen, realCatalog, fakeShell } from './helpers/mount.mjs';
 import { loadScripts } from './helpers/load.mjs';
 import { MANIFEST, SELECTION, MODULE_MANIFEST, MODULE_SELECTION } from './helpers/fixtures.mjs';
@@ -290,6 +291,9 @@ async function mountTemplate(shared = {}) {
   window.I18n.lang = 'de';
   window.I18n.catalog = realCatalog('de');
   window.fetch = async () => { throw new Error('the template test fetches nothing'); };
+  // jsdom kennt kein requestAnimationFrame, Alpines x-show-Uebergaenge brauchen es.
+  window.requestAnimationFrame = (callback) => window.setTimeout(() => callback(Date.now()), 0);
+  window.cancelAnimationFrame = (id) => window.clearTimeout(id);
   const shell = fakeShell(window, { shared: Object.assign({
     manifest: MODULE_MANIFEST, selection: MODULE_SELECTION, firstInstall: true,
   }, shared) });
@@ -338,4 +342,81 @@ test('im Nur-Dienste-Modus gibt es kein Beispiel, aber Feinabstimmung und Zaehle
   assert.equal(document.querySelector('label.ex'), null);
   assert.equal(document.querySelectorAll('.mods').length, 2);
   assert.equal(document.querySelector('.mods-count').textContent.trim(), '7 von 8 an');
+});
+
+// Bewegung: die Regeln stehen außerhalb der Vorlage, gelesen wie der Browser sie einsortiert:
+// die letzte Regel mit gleichem Selektor und Kontext gewinnt.
+const SCREENS_CSS = fs.readFileSync(path.join(here, '..', 'static', 'css', 'screens.css'), 'utf8');
+const OUTSIDE = parseCss(outsideBlocks(SCREENS_CSS));
+const MOD = '.app[data-screen="configure"] .mod';
+const REDUCED = '@media (prefers-reduced-motion: reduce)';
+const HOVER = '@media (hover: hover) and (pointer: fine)';
+const squashContext = (context) => context.replace(/\s+/g, '');
+
+function effective(selector, prop, context = '') {
+  let value;
+  for (const rule of OUTSIDE) {
+    const selectors = rule.selector.split(',').map(normalizeSelector);
+    if (squashContext(rule.context) === squashContext(context) && selectors.includes(normalizeSelector(selector)) && rule.decls.has(prop)) {
+      value = rule.decls.get(prop);
+    }
+  }
+  return value;
+}
+
+test('Bewegung: .mod wechselt Hintergrund und Rahmen in 150 ms, das Skalieren in 100 ms, und die Vorlage bleibt ungeaendert', () => {
+  const draft = parseCss(templateBlocks(SCREENS_CSS).Konfiguration).find((rule) => rule.selector === MOD);
+  assert.equal(draft.decls.get('transition'), 'background-color .15s ease,border-color .15s ease,transform .1s var(--ease)');
+  assert.equal(effective(MOD, 'transition'), undefined, 'kein Ueberschreiben der Vorlage ausserhalb des Blocks');
+});
+
+test('Bewegung: bei reduzierter Bewegung skaliert das Modul beim Druck nicht mehr', () => {
+  assert.equal(effective(`${MOD}:active`, 'transform', REDUCED), 'none');
+});
+
+test('Bewegung: Hover-Regeln fuer .mod gibt es nur in der Hover-Abfrage, nicht in der Vorlage', () => {
+  const modHover = (rule) => /\.mod(?![\w-])/.test(rule.selector) && rule.selector.includes(':hover');
+  const hovers = OUTSIDE.filter(modHover);
+  assert.ok(hovers.length > 0, 'es gibt eine Hover-Regel');
+  for (const rule of hovers) {
+    assert.equal(squashContext(rule.context), squashContext(HOVER), rule.selector);
+  }
+  const template = parseCss(templateBlocks(SCREENS_CSS).Konfiguration);
+  assert.equal(template.filter(modHover).length, 0, 'die Vorlage hat keine .mod-Hover-Regel');
+});
+
+test('Bewegung: Feinabstimmung blendet mit Deckkraft und leichtem Skalieren ein und aus', () => {
+  assert.equal(effective('.app[data-screen="configure"] .mod-fade-enter', 'transition'), 'opacity .2s ease-out,transform .2s ease-out');
+  assert.equal(effective('.app[data-screen="configure"] .mod-fade-enter-start', 'transform'), 'scale(.97)');
+  assert.equal(effective('.app[data-screen="configure"] .mod-fade-enter-end', 'transform'), 'scale(1)');
+  assert.equal(effective('.app[data-screen="configure"] .mod-fade-leave-end', 'opacity'), '0');
+  assert.equal(effective('.app[data-screen="configure"] .mod-fade-leave-end', 'transform'), 'scale(.97)');
+});
+
+test('Bewegung: bei reduzierter Bewegung bleibt nur die Deckkraft, kein transform', () => {
+  for (const cls of ['mod-fade-enter-start', 'mod-fade-enter-end', 'mod-fade-leave-start', 'mod-fade-leave-end']) {
+    assert.equal(effective(`.app[data-screen="configure"] .${cls}`, 'transform', REDUCED), 'none', cls);
+  }
+  assert.equal(effective('.app[data-screen="configure"] .mod-fade-enter', 'transition', REDUCED), 'opacity .2s ease-out');
+});
+
+test('Bewegung: der Hinweis "Nicht verfuegbar" blendet 200 ms ein, nur per Deckkraft', () => {
+  assert.equal(effective('.app[data-screen="configure"] .mods-na', 'animation'), 'cfg-mods-na-in .2s ease-out both');
+  const frames = OUTSIDE.find((rule) => rule.selector === '@keyframes cfg-mods-na-in');
+  assert.ok(frames, 'die Animation ist definiert');
+  assert.equal(frames.decls.get('@frames'), 'from{opacity:0}to{opacity:1}');
+});
+
+test('Bewegung: die Feinabstimmung hat die x-transition-Klassen, der Hinweis keine Animation', () => {
+  const html = configureMarkup();
+  const tuning = html.match(/<button[^>]*x-show="mod\.available"[^>]*>/)[0];
+  assert.ok(tuning.includes('x-transition:enter="mod-fade-enter"'));
+  assert.ok(tuning.includes('x-transition:enter-start="mod-fade-enter-start"'));
+  assert.ok(tuning.includes('x-transition:enter-end="mod-fade-enter-end"'));
+  assert.ok(tuning.includes('x-transition:leave="mod-fade-leave"'));
+  assert.ok(tuning.includes('x-transition:leave-start="mod-fade-leave-start"'));
+  assert.ok(tuning.includes('x-transition:leave-end="mod-fade-leave-end"'));
+  const hint = html.match(/<p class="mod-hint"[^>]*>/g);
+  assert.equal(hint.length, 2);
+  assert.ok(hint.every((tag) => !tag.includes('x-transition')));
 });

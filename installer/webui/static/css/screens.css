@@ -141,7 +141,19 @@
 .app[data-screen="configure"] .settings-toggle input:checked+.settings-toggle-track .settings-toggle-thumb{transform:translateX(1.03rem);background:var(--accent-ink)}
 /* == Ende Vorlage == */
 /* Ergaenzung configure: der Hinweis "Nicht verfuegbar" (mods-na) steht nicht in der Vorlage. */
-.app[data-screen="configure"] .mods-na{margin:.5rem 0 0;font-size:.75rem;line-height:1.45;color:var(--text-muted)}
+.app[data-screen="configure"] .mods-na{margin:.5rem 0 0;font-size:.75rem;line-height:1.45;color:var(--text-muted);animation:cfg-mods-na-in .2s ease-out both}
+/* Ergaenzung configure, Bewegung: leise. Die Transition von .mod kommt aus der Vorlage (150 ms Hintergrund und Rahmen, 100 ms Skalieren). */
+@keyframes cfg-mods-na-in{from{opacity:0}to{opacity:1}}
+@media (hover: hover) and (pointer: fine){
+  .app[data-screen="configure"] .mod:not(.on):hover{border-color:var(--border)}
+}
+.app[data-screen="configure"] .mod-fade-enter,.app[data-screen="configure"] .mod-fade-leave{transition:opacity .2s ease-out,transform .2s ease-out}
+.app[data-screen="configure"] .mod-fade-enter-start,.app[data-screen="configure"] .mod-fade-leave-end{opacity:0;transform:scale(.97)}
+.app[data-screen="configure"] .mod-fade-enter-end,.app[data-screen="configure"] .mod-fade-leave-start{opacity:1;transform:scale(1)}
+@media (prefers-reduced-motion: reduce){
+  .app[data-screen="configure"] .mod:active,.app[data-screen="configure"] .mod-fade-enter-start,.app[data-screen="configure"] .mod-fade-enter-end,.app[data-screen="configure"] .mod-fade-leave-start,.app[data-screen="configure"] .mod-fade-leave-end{transform:none}
+  .app[data-screen="configure"] .mod-fade-enter,.app[data-screen="configure"] .mod-fade-leave{transition:opacity .2s ease-out}
+}
 /* == Vorlage: Ausfuehrung == */
 .app[data-screen="run"] .prog{flex:none;margin-bottom:1rem}
 .app[data-screen="run"] .prog-top{display:flex;align-items:baseline;gap:.6rem;margin-bottom:.45rem}

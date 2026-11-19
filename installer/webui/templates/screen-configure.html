@@ -92,7 +92,7 @@
           <div class="mods-head"><h2 class="card-h" x-text="t('configure.tuning.heading')"></h2></div>
           <div class="mods">
           <template x-for="mod in mods.tuning" :key="mod.id">
-            <button type="button" class="mod" role="switch" :class="{ on: mod.on }" :aria-checked="mod.on" :aria-describedby="'mod-hint-' + mod.id" @click="toggleModule(mod)" @focus="showHint(mod)" x-show="mod.available">
+            <button type="button" class="mod" role="switch" :class="{ on: mod.on }" :aria-checked="mod.on" :aria-describedby="'mod-hint-' + mod.id" @click="toggleModule(mod)" @focus="showHint(mod)" x-show="mod.available" x-transition:enter="mod-fade-enter" x-transition:enter-start="mod-fade-enter-start" x-transition:enter-end="mod-fade-enter-end" x-transition:leave="mod-fade-leave" x-transition:leave-start="mod-fade-leave-start" x-transition:leave-end="mod-fade-leave-end">
               <span class="mod-ic">
                 <template x-if="mod.icon === 'automation'">{{template "icon-mod-automation"}}</template>
                 <template x-if="mod.icon === 'solar-panel'">{{template "icon-mod-solar-panel"}}</template>
