@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,9 +37,6 @@ type options struct {
 	// deltaVerifyFails: die Teilübertragung besteht die Prüfung auf dem Gerät
 	// nicht. Erst die ganze Übertragung (force_full_transfer) gelingt.
 	deltaVerifyFails bool
-	// journalStep: das Manifest enthält den optionalen Schritt 17 (Journal nur
-	// im Arbeitsspeicher). Die Vorlage kennt ihn nicht, darum nur auf Wunsch.
-	journalStep bool
 	// packageOffline: diese Pakete lassen sich nicht herunterladen und sind auf
 	// dem Gerät nicht installiert. Vorbereiten fragt, bis je Paket "repo" oder
 	// "skip" geantwortet ist.
@@ -368,9 +364,11 @@ func newScenario(name string, opts options) *stagedBackend {
 	steps := []hostapi.StepView{
 		{ID: "10"},
 		{ID: "15", Optional: true, Default: true},
+		{ID: "17", Optional: true, Default: false},
 		{ID: "20"}, {ID: "30"},
 		{ID: "35", Optional: true, Default: false, Requires: "83"},
 		{ID: "40", Optional: true, Default: true},
+		{ID: "41", Optional: true, Default: true, Requires: "40"},
 		{ID: "50"}, {ID: "60"},
 		{ID: "70", Optional: true, Default: true},
 		{ID: "81", ServiceID: "apsystems", Unit: "apsystems-ez1.service", Optional: true, Default: true, Kind: "device"},
@@ -380,14 +378,11 @@ func newScenario(name string, opts options) *stagedBackend {
 		{ID: "85", ServiceID: "tuya", Unit: "tuya.service", Optional: true, Default: true, Kind: "device"},
 		{ID: "88", ServiceID: "automation", Unit: "automation.service", Optional: true, Default: true, Kind: "service"},
 	}
-	if opts.journalStep {
-		steps = append(steps, hostapi.StepView{ID: "17", Optional: true, Default: false})
-		sort.SliceStable(steps, func(i, j int) bool { return steps[i].ID < steps[j].ID })
-	}
 	if !update {
 		// Das Beispiel (Schritt 89): nur bei der Erstinstallation, braucht
-		// APsystems, Shelly und die Automation.
-		steps = append(steps, hostapi.StepView{ID: "89", Optional: true, Default: false, Requires: "81,83,88"})
+		// APsystems, Shelly und die Automation. Seine Vorgabe "an" gilt nur
+		// dort, ein Update laesst es aus.
+		steps = append(steps, hostapi.StepView{ID: "89", Optional: true, Default: true, FirstInstallOnly: true, Requires: "81,83,88"})
 	}
 	if update {
 		steps = append(steps, hostapi.StepView{ID: "89", ServiceID: "modbus", Unit: "modbus.service", Optional: true, Default: false, Kind: "service"})
@@ -404,7 +399,7 @@ func newScenario(name string, opts options) *stagedBackend {
 		BundleBytes: 41 * 1024 * 1024, WheelCount: 12, UnitCount: 8, TemplateCount: 7,
 	}
 
-	selected := map[string]bool{"15": true, "35": false, "40": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true, "89": false}
+	selected := map[string]bool{"15": true, "17": false, "35": false, "40": true, "41": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true, "89": true}
 	fake.SelectionView = &hostapi.SelectionView{Steps: selected, Source: "manifest-default"}
 
 	if update {
@@ -420,9 +415,11 @@ func newScenario(name string, opts options) *stagedBackend {
 			Steps: []hostapi.PlanStep{
 				{ID: "10", State: "done"},
 				{ID: "15", State: "pending", Optional: true, Selected: true},
+				{ID: "17", State: "deselected", Optional: true},
 				{ID: "20", State: "done"}, {ID: "30", State: "done"},
 				{ID: "35", State: "deselected", Optional: true},
 				{ID: "40", State: "done", Optional: true, Selected: true},
+				{ID: "41", State: "pending", Optional: true, Selected: true},
 				{ID: "50", State: "pending"}, {ID: "60", State: "pending"},
 				{ID: "70", State: "done", Optional: true, Selected: true},
 				{ID: "81", State: "done", Optional: true, Selected: true, Unit: "apsystems-ez1.service", From: "v1.0.2", To: "v1.0.2"},

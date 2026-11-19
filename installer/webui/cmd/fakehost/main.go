@@ -48,7 +48,6 @@ func main() {
 	systemUpdates := flag.Bool("system-updates", false, "Systempakete auf Abfrage und in der Diagnose: drei ausstehende Updates")
 	abiMismatch := flag.Bool("abi-mismatch", false, "das Gerät hat Python 3.13, das Paket 3.11: Vorbereiten scheitert, bis die Online-Installation freigegeben ist")
 	deltaFails := flag.Bool("delta-verify-fails", false, "die Teilübertragung besteht die Prüfung nicht: Vorbereiten scheitert, bis das ganze Paket neu übertragen wird")
-	journalStep := flag.Bool("journal-step", false, "das Manifest enthält den optionalen Schritt 17 (Journal nur im Arbeitsspeicher)")
 	packageOffline := flag.String("package-offline", "", "diese Pakete lassen sich nicht herunterladen, Format caddy[,tailscale]: Vorbereiten fragt, bis je Paket geantwortet ist")
 	diagnoseDelay := flag.Duration("diagnose-delay", 0, "Pause zwischen den Abschnitten der Diagnose im Strom, apt wartet das Achtfache (0: die Diagnose kommt auf einmal)")
 	flag.Parse()
@@ -61,7 +60,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	opts := options{dashboard: *dashboard, trusted: *trusted, holdStep: *hold, stepDelay: *delay, systemUpdates: *systemUpdates, abiMismatch: *abiMismatch, deltaVerifyFails: *deltaFails, journalStep: *journalStep, packageOffline: splitPackageList(*packageOffline), english: *language == "en", diagnoseDelay: *diagnoseDelay}
+	opts := options{dashboard: *dashboard, trusted: *trusted, holdStep: *hold, stepDelay: *delay, systemUpdates: *systemUpdates, abiMismatch: *abiMismatch, deltaVerifyFails: *deltaFails, packageOffline: splitPackageList(*packageOffline), english: *language == "en", diagnoseDelay: *diagnoseDelay}
 	if *failStep != "" {
 		opts.failStep, opts.failCode = splitFailSpec(*failStep)
 	}
