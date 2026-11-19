@@ -6,10 +6,11 @@
 #   demo/demo.sh                     # Demo starten, Zustand bleibt
 #   demo/demo.sh --reset             # Zustand loeschen, dann neu einrichten
 #   demo/demo.sh --docs              # Fixture fuer die Doku-Bilder, Zustand in demo/.run/docs
+#   demo/demo.sh --example           # frischer leerer Node mit Beispiel-Set, Zustand in demo/.run/example
 #   demo/demo.sh --no-simulate       # PV, Netz, Batterie und Last bleiben stehen
 #   demo/demo.sh --new-cert          # TLS-Zertifikat neu erzeugen, Zustand bleibt
 #   demo/demo.sh --devices DIR       # zusaetzliche Konfigurationen, spaetere Quelle gewinnt
-#   demo/demo.sh --stop              # laufende Demo beenden (mit --docs: die Docs-Instanz)
+#   demo/demo.sh --stop              # laufende Demo beenden (mit --docs: die Docs-Instanz, mit --example: die Beispiel-Instanz)
 #
 # Abbruch mit Strg-C beendet Dashboard und alle Fakes.
 
@@ -21,17 +22,18 @@ source "$SCRIPT_DIR/lib/env.sh"
 
 usage() {
   cat >&2 <<'EOT'
-Aufruf: demo/demo.sh [--reset] [--new-cert] [--docs] [--no-simulate] [--devices DIR]...
-        demo/demo.sh --stop [--docs]
+Aufruf: demo/demo.sh [--reset] [--new-cert] [--docs | --example] [--no-simulate] [--devices DIR]...
+        demo/demo.sh --stop [--docs | --example]
         demo/demo.sh -h | --help
 
 Optionen:
   --reset          Zustand unter demo/.state loeschen, dann neu einrichten
   --new-cert       TLS-Zertifikat neu erzeugen, Zustand bleibt
   --docs           Fixture fuer die Doku-Bilder, Zustand in demo/.run/docs
+  --example        frischer leerer Node mit Beispiel-Set, Zustand in demo/.run/example
   --no-simulate    PV, Netz, Batterie und Last bleiben stehen
   --devices DIR    zusaetzliche Konfigurationen, mehrfach moeglich, spaetere Quelle gewinnt
-  --stop           laufende Demo beenden (mit --docs: die Docs-Instanz)
+  --stop           laufende Demo beenden (mit --docs: die Docs-Instanz, mit --example: die Beispiel-Instanz)
   -h, --help       diese Hilfe
 
 Umgebungsvariablen (Ports, Standard in Klammern):
@@ -55,7 +57,20 @@ while [[ $# -gt 0 ]]; do
     --reset) RESET=1; shift ;;
     --new-cert) NEW_CERT=1; shift ;;
     --stop) STOP=1; shift ;;
-    --docs) MODE=docs; shift ;;
+    --docs)
+      if [[ "$MODE" == example ]]; then
+        echo "FEHLER: --example und --docs schliessen sich aus" >&2
+        exit 2
+      fi
+      MODE=docs; shift
+      ;;
+    --example)
+      if [[ "$MODE" == docs ]]; then
+        echo "FEHLER: --example und --docs schliessen sich aus" >&2
+        exit 2
+      fi
+      MODE=example; shift
+      ;;
     --no-simulate) SIMULATE=0; shift ;;
     --devices)
       if [[ $# -lt 2 ]]; then
@@ -99,6 +114,19 @@ if [[ "$MODE" == docs ]]; then
     "$REPO_DIR/services/battery_soc"
     "$REPO_DIR/services/automation"
     "$FIXTURES/devices/docs-screenshots"
+  )
+elif [[ "$MODE" == example ]]; then
+  # Frische Installation: kein Layout, keine Einstellungen, Einrichtung offen.
+  # Das Beispiel-Set kommt erst in env_apply_example, keine Demo-Geraete aus fixtures/devices.
+  WORK="$DEMO_DIR/.run/example"
+  FIXTURE="$FIXTURES/leer.json"
+  SEED_DATA=""
+  SIMULATE=0
+  DEVICE_SOURCES=(
+    "$REPO_DIR/services/battery_soc"
+    "$REPO_DIR/services/automation"
+    "$REPO_DIR/services/shelly"
+    "$REPO_DIR/services/apsystems_ez1"
   )
 else
   WORK="$DEMO_DIR/.state"
@@ -147,14 +175,14 @@ PIDFILE="$WORK/demo.pid"
 cleanup_all() {
   env_cleanup
   [[ "$(cat "$PIDFILE" 2>/dev/null)" == "$$" ]] && rm -f "$PIDFILE"
-  if [[ "$MODE" == docs ]]; then
+  if [[ "$MODE" == docs || "$MODE" == example ]]; then
     rm -rf "$WORK"
   fi
 }
 trap cleanup_all EXIT
 trap 'exit 130' INT TERM
 
-if [[ "$MODE" == docs ]]; then
+if [[ "$MODE" == docs || "$MODE" == example ]]; then
   rm -rf "$WORK"
 fi
 if [[ $RESET -eq 1 ]]; then
@@ -196,6 +224,9 @@ if [[ "$NEW_CERT" == "1" ]]; then
 fi
 env_write_cert || exit 1
 env_prepare_devices || exit 1
+if [[ "$MODE" == example ]]; then
+  env_apply_example || exit 1
+fi
 env_prepare_storage || exit 1
 env_write_config || exit 1
 

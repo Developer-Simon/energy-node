@@ -90,12 +90,15 @@ env_prepare_devices() {
     done
   done
   echo "Konfigurationen: $(find "$WORK/devices" -maxdepth 1 -type f -printf '%f\n' | sort | tr '\n' ' ')"
+  env_write_manifests || return 1
+}
 
-  # Je Konfiguration ein Dienst-Manifest neben config.json, wie es der Installer
-  # unter manifests/ ablegt. Nur fuer die dort genannten Dienste beobachtet das
-  # Dashboard outstation/<id>/settings/status.
-  # Die Demo braucht fuer alle fuenf Messdienste eine Zeile auf der Leistungsseite,
-  # auch ohne Konfiguration. ENERGY_NODE_PERFORMANCE_FAKE=1 setzt nur demo/demo.sh.
+# Je Konfiguration ein Dienst-Manifest neben config.json, wie es der Installer
+# unter manifests/ ablegt. Nur fuer die dort genannten Dienste beobachtet das
+# Dashboard outstation/<id>/settings/status.
+# Die Demo braucht fuer alle fuenf Messdienste eine Zeile auf der Leistungsseite,
+# auch ohne Konfiguration. ENERGY_NODE_PERFORMANCE_FAKE=1 setzt nur demo/demo.sh.
+env_write_manifests() {
   mkdir -p "$WORK/manifests" || return 1
   python3 - "$WORK/devices" "$WORK/manifests" "$REPO_DIR" "${ENERGY_NODE_PERFORMANCE_FAKE:-0}" <<'PY' || return 1
 import json, pathlib, sys
@@ -128,6 +131,19 @@ for service_id in sorted(ids):
     (manifests / f"{service_id}.json").write_text(json.dumps(entry) + "\n", encoding="utf-8")
 PY
   echo "Dienste: $(find "$WORK/manifests" -maxdepth 1 -type f -printf '%f\n' | sed 's/\.json$//' | sort | tr '\n' ' ')"
+}
+
+# Haengt das Beispiel-Set an die kopierten Konfigurationen an (example_apply.py apply)
+# und erzeugt danach die Dienst-Manifeste neu, weil das Set auch Dienste einfuehrt,
+# deren Konfiguration vorher fehlte (apsystems).
+env_apply_example() {
+  python3 "$REPO_DIR/scripts/bootstrap/lib/example_apply.py" apply \
+    "$REPO_DIR/scripts/bootstrap/lib/example.json" "$WORK/devices" "$WORK/data" || {
+    echo "FEHLER: Beispiel-Set konnte nicht angelegt werden" >&2
+    return 1
+  }
+  env_write_manifests || return 1
+  echo "Beispiel-Set: angelegt"
 }
 
 # Kopiert $SEED_DATA/*.json nach $WORK/data. Vorhandene Dateien bleiben.

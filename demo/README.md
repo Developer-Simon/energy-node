@@ -16,6 +16,7 @@ demo/demo.sh                    # start, the state is kept between runs
 demo/demo.sh --reset            # delete the state, then set up again
 demo/demo.sh --stop             # stop the running demo (with --docs: the docs instance)
 demo/demo.sh --docs             # fixture for the documentation screenshots
+demo/demo.sh --example          # fresh empty node with the example set, state in demo/.run/example
 demo/demo.sh --no-simulate      # PV, grid, battery and load stay still
 demo/demo.sh --new-cert         # create a new TLS certificate, the state stays
 demo/demo.sh --devices DIR      # extra device configurations, the later source wins
@@ -51,6 +52,12 @@ while one of its ports is taken, and it does not delete anything in that case.
 The state lives in `demo/.state/`: users, layout, history and the installer
 state. `--reset` removes it. `--docs` uses its own state in `demo/.run/docs`,
 which is removed again when the demo ends.
+
+`--example` starts a fresh node for one run: no layout, no settings and the
+onboarding open, as on a first start, plus the example set (`example_pv`,
+`example_grid`, `example_plug` and the scenario `example_surplus`). Its state
+lives in `demo/.run/example` and is deleted at the start and at the end of the
+run. `demo/.state` is not touched. `--stop --example` ends that instance.
 
 ## Fake console
 
