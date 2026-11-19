@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Ein frischer Node startet leer, ein Beispiel zum Ausprobieren lässt sich im Installer wählen"
+  },
+  "en": {
+    "*": "Start empty and offer an example to try out"
+  }
+}

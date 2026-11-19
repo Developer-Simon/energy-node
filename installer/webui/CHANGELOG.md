@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4-pre.5 (2026-11-06)
+## v0.3.4-pre.6 (2026-11-06)
 
 ### Features
 
@@ -9,6 +9,9 @@
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
 - **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
 - **installer:** write a Debian install stick from the media mode (#255) (cb9e1aa)
+- **installer:** allow a step to require several steps (47b7493)
+- **installer:** offer the example on a first install (68b81a0)
+- **onboarding:** start empty and offer an example to try out (#274)
 - **installer:** add the Debian devices to the media device table (7fa1b05)
 - **installer:** pass the Debian write settings and errors through the host (bc13024)
 - **installer:** expose the Debian media settings and steps in the host API (16fbf0a)
@@ -46,6 +49,7 @@
 
 ### Fixes
 
+- **installer:** translate the skip reasons of step 89 (23d333a)
 - **installer:** show the hotspot credentials after every successful run (bbeac07)
 - **webui:** bust the asset cache on every asset change (90fcdf8)
 - **webui:** keep the language switch on the media screens (040d376)
@@ -59,6 +63,7 @@
 
 ### Tests
 
+- **installer:** give the fakehost the example step (2426446)
 - **installer:** cover the Debian stick in the media e2e (46daa09)
 - **installer:** wait for the diagnose skeleton rows instead of the old banner (8ea5ba1)
 - **webui:** cover the media mode end to end (69364e7)

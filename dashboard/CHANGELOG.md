@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.21-pre.20 (2026-11-06)
+## v0.11.21-pre.21 (2026-11-06)
 
 ### Features
 
@@ -21,6 +21,13 @@
 - **performance:** break down the dashboard and automation load (#265) (6bb19a8)
 - **network:** open the dashboard when a phone joins the emergency hotspot (#264) (5620a3d)
 - **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267) (e1e256b)
+- **dashboard:** apply the example seed at start (aaa7853)
+- **dashboard:** stop the example simulation or remove the example (cd0b2c7)
+- **dashboard:** add the endpoint to stop or remove the example (b05d070)
+- **dashboard:** add the example note to the page (016807a)
+- **dashboard:** add the example note actions (63c09c2)
+- **dashboard:** rebuild the example note like the update bar (e4c9c6c)
+- **onboarding:** start empty and offer an example to try out (#274)
 - **network:** scan for Wi-Fi networks right before the hotspot opens (112638a)
 - **network:** show the last scan while the hotspot is active (a013a20)
 - **network:** report the age of a cached Wi-Fi scan (8f01066)
@@ -98,6 +105,9 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **services:** accept an empty device list (a0bbc7b)
+- **backup:** classify the example files (73f65e2)
+- **dashboard:** give the example note buttons their style class (1306adb)
 - **network:** do not touch the NetworkManager drop-in when nothing changed (b541188)
 - **network:** stop the standby fallback from reconnecting a connected WLAN (2a71ea5)
 - **network:** let the watcher connect only saved client profiles (37c4c56)
@@ -129,6 +139,9 @@
 
 ### Refactors
 
+- **bootstrap:** rename the example files and ids to English (73b83cf)
+- **dashboard:** rename the example package and route to English (15af479)
+- **dashboard:** rename the example note assets to English (92d923c)
 - **httpapi:** extract the system config and configuration save paths (5254c6c)
 - **webui:** share the fragment loader between panels and subpages (4cf7f1a)
 
@@ -139,6 +152,9 @@
 
 ### Tests
 
+- **dashboard:** pin the example scenario to the surplus_switch template (b99bda3)
+- **bootstrap:** pin the example seed contract between bootstrap and dashboard (e86b1c8)
+- **dashboard:** check the seed file name against SeedFileName (2fb6205)
 - **performance:** cover discarded ticks and empty sums (6588f84)
 - **webui:** expect settings.page.js at v=37 (7ed6a60)
 - **performance:** cover the performance page in smoke and demo (05cbe1a)
@@ -147,6 +163,8 @@
 
 ### Chores
 
+- **dashboard:** bump cache-bust for the example note (0bbb7a7)
+- **dashboard:** refresh the cache-bust history after the prerelease sync (51e92a6)
 - **dev:** update the cache-bust history rows after the rebase (a2c2157)
 - **webui:** record the cache-bust history for the performance check assets (c01d9e9)
 - **webui:** record the cache-bust marks of the performance page (5b896c1)

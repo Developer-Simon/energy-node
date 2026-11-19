@@ -1,10 +1,17 @@
 # Changelog
 
-## v0.4.5 (2026-11-15)
+## v0.4.6-pre.1 (2026-11-19)
+
+### Features
+
+- **onboarding:** start empty and offer an example to try out (#274)
+
+## v0.4.5 (2026-11-16)
 
 ### Features
 
 - **performance:** show how much load the node puts on the device (#260) (b93bc98)
+- **shelly:** let the simulated 3EM feed in at times (68a992d)
 - **performance:** add the poll floor and the budget setting (7f324af)
 
 ### Refactors
