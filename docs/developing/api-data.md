@@ -332,6 +332,8 @@ supplies `1m` and `5m` rows from the HA recorder and never requests anything.
 | GET | `/api/v1/configurations/{name}/status` | – | Reload result of the owning service: `runtime_status`, `error`, `error_code`, `config_revision`, `applied_revision` |
 | POST | `/api/v1/automations/test` | `automations` + CSRF | Test a single rule action |
 | GET | `/api/v1/automations/history/{rule_id}` | – | Recorded fire events for one rule, read from `automation_history.json` in the devices directory (empty array if the file or rule is absent) |
+| GET | `/api/v1/automations/findings` | – | Findings of the rule check as `{ "findings": [...] }`, most severe first, at most 20, without the ignored ones. Never `null` |
+| POST | `/api/v1/automations/findings/ignore` | `automations` + CSRF | Hides a finding by its `id`, or shows it again with `undo: true`. Answers `204` |
 
 `PUT` validates against the schema, creates a revision, writes atomically and
 then sends a reload command over MQTT to the service. If the reload fails, the
@@ -350,3 +352,22 @@ Body limit for `PUT`: 2 MiB.
 The dashboard then publishes to the fixed topic
 `outstation/automation/test/set`. The automation service does all checks
 (rule exists, index valid, topic allowed), not the dashboard.
+
+`POST /api/v1/automations/findings/ignore` takes the ID of a finding. Each
+finding has an `id` such as `frequent:pv-ueberschuss`, and `undo: true` shows
+it again:
+
+```json
+{ "id": "frequent:pv-ueberschuss", "undo": false }
+```
+
+Errors of the two findings endpoints:
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `automation_finding_invalid` | The body cannot be decoded or the `id` is empty |
+| 401 | `authentication_required` | The POST has no signed-in user |
+| 403 | `automation_findings_forbidden` | The user lacks the `automations` role |
+| 403 | `csrf_failed` | The CSRF token is missing or wrong |
+| 500 | `automation_findings_save_failed` | The ignored findings could not be saved |
+| 501 | `automation_findings_unavailable` | The rule check is not available on this instance, for example without a data directory |
