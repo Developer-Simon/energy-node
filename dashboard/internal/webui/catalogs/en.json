@@ -3624,6 +3624,7 @@
   "onboarding.guest_note.text": "An admin has to sign in once and go through the initial setup. Until then, devices and energy values are missing here.",
   "onboarding.guest_note.title": "Not set up yet.",
   "onboarding.hidden": "Not visible right now.",
+  "onboarding.rule_copy": "{name} (copy)",
   "onboarding.setup.admin.sub": "Name and password of the first account",
   "onboarding.setup.admin.title": "Admin account",
   "onboarding.setup.automations.text": "Automations react to your devices and energy values. A rule can, for example, switch a device on as soon as there is enough PV surplus. Start from a template or create your own rules.",
