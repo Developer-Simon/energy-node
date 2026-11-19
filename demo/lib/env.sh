@@ -100,7 +100,11 @@ env_prepare_devices() {
 # auch ohne Konfiguration. ENERGY_NODE_PERFORMANCE_FAKE=1 setzt nur demo/demo.sh.
 env_write_manifests() {
   mkdir -p "$WORK/manifests" || return 1
-  python3 - "$WORK/devices" "$WORK/manifests" "$REPO_DIR" "${ENERGY_NODE_PERFORMANCE_FAKE:-0}" <<'PY' || return 1
+  # Die Config der Dienste verlangt fuer jeden Abschnitt in config.json ein Manifest.
+  # Der Modus example braucht deshalb dieselben Manifeste wie die Demo mit Leistungsfake.
+  local fake="${ENERGY_NODE_PERFORMANCE_FAKE:-0}"
+  [[ "${EXAMPLE_SERVICES:-0}" == "1" ]] && fake=1
+  python3 - "$WORK/devices" "$WORK/manifests" "$REPO_DIR" "$fake" <<'PY' || return 1
 import json, pathlib, sys
 devices, manifests, repo = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
 fake = sys.argv[4] == "1"
@@ -420,4 +424,22 @@ env_start_console() {
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "Warnung: Fake-Konsole ist nicht gestartet (Log: $WORK/fake-console.log)" >&2
   fi
+}
+
+# Startet im Modus example die Dienste Shelly und AP Systems EZ1 gegen den Demo-Broker
+# (Logs: $WORK/shelly.log, $WORK/apsystems.log). Sie veroeffentlichen Discovery und
+# simulierte Werte fuer die Beispiel-Geraete, sobald das Dashboard die Simulation
+# retained auf outstation/energy_node/settings/simulation_active/set legt.
+# Setzt SHELLY_PID und APSYSTEMS_PID. Die venv liefert paho, requests und APsystemsEZ1.
+env_start_example_services() {
+  local py="$REPO_DIR/.venv/bin/python3"
+  [[ -x "$py" ]] || py="python3"
+  "$py" "$REPO_DIR/services/shelly/shelly_rpc_mqtt.py" --config "$WORK/config.json" \
+    > "$WORK/shelly.log" 2>&1 &
+  SHELLY_PID=$!
+  env_track "$SHELLY_PID"
+  "$py" "$REPO_DIR/services/apsystems_ez1/apsystems_ez1_mqtt.py" --config "$WORK/config.json" \
+    > "$WORK/apsystems.log" 2>&1 &
+  APSYSTEMS_PID=$!
+  env_track "$APSYSTEMS_PID"
 }

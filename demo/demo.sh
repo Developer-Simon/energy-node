@@ -122,6 +122,7 @@ elif [[ "$MODE" == example ]]; then
   FIXTURE="$FIXTURES/leer.json"
   SEED_DATA=""
   SIMULATE=0
+  EXAMPLE_SERVICES=1
   DEVICE_SOURCES=(
     "$REPO_DIR/services/battery_soc"
     "$REPO_DIR/services/automation"
@@ -243,6 +244,9 @@ env_wait_dashboard || exit 1
 env_start_fake_companion
 COMPANION_PID="${ENV_PIDS[-1]}"
 env_start_console
+if [[ "$MODE" == example ]]; then
+  env_start_example_services
+fi
 
 echo "Startcheck:"
 check_part() { # Name, Log, Befehl...
@@ -285,6 +289,13 @@ check_part "Broker-Steuerung" "$WORK/broker.log" check_broker_control
 check_part "Fake-Companion" "$WORK/fake-companion.log" check_companion
 check_part "Fake-Konsole" "$WORK/fake-console.log" check_console
 check_part "Fake-GitHub" "$WORK/updates-api.log" check_updates
+if [[ "$MODE" == example ]]; then
+  # Ein Dienst mit falscher Konfiguration stirbt in Sekunden, daher kurz warten.
+  sleep 3
+  check_alive() { kill -0 "$1"; }
+  check_part "Shelly-Dienst" "$WORK/shelly.log" check_alive "$SHELLY_PID"
+  check_part "AP-Systems-Dienst" "$WORK/apsystems.log" check_alive "$APSYSTEMS_PID"
+fi
 
 touch "$WORK/.initialized"
 

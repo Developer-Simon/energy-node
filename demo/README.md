@@ -16,7 +16,7 @@ demo/demo.sh                    # start, the state is kept between runs
 demo/demo.sh --reset            # delete the state, then set up again
 demo/demo.sh --stop             # stop the running demo (with --docs: the docs instance)
 demo/demo.sh --docs             # fixture for the documentation screenshots
-demo/demo.sh --example          # fresh empty node with the example set, state in demo/.run/example
+demo/demo.sh --example          # fresh empty node with the example set and its shelly and apsystems services, state in demo/.run/example
 demo/demo.sh --no-simulate      # PV, grid, battery and load stay still
 demo/demo.sh --new-cert         # create a new TLS certificate, the state stays
 demo/demo.sh --devices DIR      # extra device configurations, the later source wins
@@ -55,7 +55,9 @@ which is removed again when the demo ends.
 
 `--example` starts a fresh node for one run: no layout, no settings and the
 onboarding open, as on a first start, plus the example set (`example_pv`,
-`example_grid`, `example_plug` and the scenario `example_surplus`). Its state
+`example_grid`, `example_plug` and the scenario `example_surplus`). The shelly and
+apsystems services run against the demo broker, so the example devices show live
+values while the simulation is on. Its state
 lives in `demo/.run/example` and is deleted at the start and at the end of the
 run. `demo/.state` is not touched. `--stop --example` ends that instance.
 
@@ -175,6 +177,7 @@ places. The proxy uses the standard library only. Its tests are
 
 `demo/fixtures/` holds the data the demo and the tests load:
 
+- `leer.json`: an empty broker list, the fixture of `--example`, so the node starts without demo devices.
 - `alle-funktionen.json`: the fixture of `--docs`. Nearly complete, with the
   battery devices, the seven energy entities and a modelled AP Systems inverter
   with two PV strings, a power limit and an operating-status switch. Every
