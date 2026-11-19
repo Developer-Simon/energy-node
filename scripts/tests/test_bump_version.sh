@@ -93,6 +93,24 @@ bump "$r" main
 [ "$(svc_version "$r" trucki)" = 0.4.0 ] \
   || fail "a changelog-only change bumped the service" "$(svc_version "$r" trucki)"
 
+# --- a service's device list is node data, not service code -----------------
+# <name>_devices.json alone bumps nothing; the schema next to it is code and
+# still does; the list together with a code change bumps once.
+r="$tmp/service-devices"
+setup_repo "$r"
+printf '{"devices": []}\n' > "$r/services/trucki/trucki_devices.json"
+commit "$r" "feat(onboarding): ship an empty device list"
+bump "$r" main
+[ "$(svc_version "$r" trucki)" = 0.4.0 ] \
+  || fail "a device-list-only change bumped the service" "$(svc_version "$r" trucki)"
+r="$tmp/service-devices-schema"
+setup_repo "$r"
+printf '{}\n' > "$r/services/trucki/trucki_devices.schema.json"
+commit "$r" "feat(trucki): extend the device schema"
+bump "$r" main
+[ "$(svc_version "$r" trucki)" = 0.4.1 ] \
+  || fail "a device schema change did not bump the service" "$(svc_version "$r" trucki)"
+
 # --- manifest.json gets a bare semver, stays valid JSON --------------------
 r="$tmp/manifest"
 setup_repo "$r"

@@ -387,6 +387,26 @@ test('surplus_switch weekdays add a time window to the start condition', () => {
   });
 });
 
+test('example scenario follows surplus_switch defaults', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx), ctx).entry);
+  const example = JSON.parse(fs.readFileSync(path.join(here, '../../scripts/bootstrap/lib/example.json'), 'utf8'));
+  const scenario = example.scenario;
+  assert.equal(scenario.template, entry.template);
+  assert.equal(scenario.enabled, entry.enabled);
+  assert.deepEqual(scenario.when, entry.when);
+  assert.deepEqual(scenario.until, entry.until);
+  assert.equal(scenario.while.mode, entry.while.mode);
+  assert.equal(scenario.while.repeat_seconds, entry.while.repeat_seconds);
+  assert.equal(scenario.while.actions[0].payload, 'ON');
+  assert.equal(scenario.on_end.actions[0].payload, 'OFF');
+  assert.equal(entry.while.actions[0].payload, 'ON');
+  assert.equal(entry.on_end.actions[0].payload, 'OFF');
+  assert.equal(scenario.on_start.actions.length, entry.on_start.actions.length);
+});
+
 test('battery_warn builds the documented shape', () => {
   const { wizard, templates, t } = load();
   const template = templateById(templates, 'battery_warn');

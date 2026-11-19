@@ -20,7 +20,7 @@ const SERVER_ITEMS = [
   ['companion', 'access', false], ['theme', 'display', true],
   ['title', 'display', true], ['statusbar', 'display', true], ['tabwidth', 'display', true],
   ['tiles', 'display', false], ['updates', 'system', true], ['metrics', 'system', true],
-  ['config', 'devices', false], ['devices', 'devices', false], ['roles', 'devices', false],
+  ['example', 'devices', false], ['config', 'devices', false], ['devices', 'devices', false], ['roles', 'devices', false],
   ['devicemap', 'devices', false],
 ].map(([id, area, installer]) => ({ id, area, installer, state: '' }));
 
@@ -123,8 +123,8 @@ test('the counter counts done and installer rows out of all items', async () => 
   const { total, done } = cl.counts;
   assert.equal(done, 4);
   assert.equal(t('onboarding.checklist.count', { done, total }), `4 von ${total}`);
-  // 15 Einrichtungsschritte plus 3 nur im Installer, Dienst tailscale ist vorausgewaehlt.
-  assert.equal(total, 18);
+  // 16 Einrichtungsschritte plus 3 nur im Installer, Dienst tailscale ist vorausgewaehlt.
+  assert.equal(total, 19);
 });
 
 test('the setup summary says how many items are still open', async () => {

@@ -22,6 +22,9 @@
   var Services = {
     CORE_STEP: CORE_STEP,
     DASHBOARD_UNIT: DASHBOARD_UNIT,
+    // Schritte, die nur bei der Erstinstallation angeboten werden (89: das
+    // Beispiel). Bei einem Update fehlen sie in der Konfiguration ganz.
+    FRESH_ONLY_STEPS: ['89'],
     // Die Bibliotheken, die scripts/build/lib/wheels.sh als eigene Wheels
     // baut (Vorschau und Diagnose). Ein Test haelt die Liste gegen das Skript.
     WHEEL_COMPONENTS: ['energy_node_common', 'battery_soc_core'],
@@ -43,14 +46,19 @@
 
     // requiresMet: ein Schritt mit "requires" (manifest.json) zaehlt nur,
     // solange der benoetigte Schritt gewaehlt ist - 35 (Webhook-Port) nur
-    // mit dem Shelly-Dienst 83. Fehlt der benoetigte Schritt im Manifest,
-    // ist die Bedingung nicht erfuellt.
+    // mit dem Shelly-Dienst 83. "requires" darf eine kommagetrennte Liste
+    // sein ("81,83,88"): dann muessen alle gewaehlt sein. Fehlt ein
+    // benoetigter Schritt im Manifest, ist die Bedingung nicht erfuellt.
     requiresMet: function (manifest, step, selection) {
       if (!step.requires) {
         return true;
       }
-      var needed = ((manifest && manifest.steps) || []).filter(function (s) { return s.id === step.requires; })[0];
-      return !!needed && Services.isSelected(needed, selection);
+      var steps = (manifest && manifest.steps) || [];
+      return String(step.requires).split(',').every(function (part) {
+        var id = part.trim();
+        var needed = steps.filter(function (s) { return s.id === id; })[0];
+        return !!needed && Services.isSelected(needed, selection);
+      });
     },
 
     // dropUnmet schaltet in der Auswahl jeden Schritt ab, dessen benoetigter
@@ -115,9 +123,13 @@
           on: chips.some(function (chip) { return chip.on; }), known: true, chips: chips,
         });
       }
+      var hideFresh = !shell.shared || shell.shared.firstInstall !== true;
       parts.system.forEach(function (step) {
         // Erst sichtbar, wenn der benoetigte Schritt an ist (35 mit Shelly).
         if (!Services.requiresMet(manifest, step, selection)) {
+          return;
+        }
+        if (hideFresh && Services.FRESH_ONLY_STEPS.indexOf(step.id) !== -1) {
           return;
         }
         rows.push({

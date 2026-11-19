@@ -16,6 +16,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/example"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -121,6 +122,88 @@ func itemState(view onboardingView, id string) string {
 		}
 	}
 	return ""
+}
+
+// newOnboardingRouterWithExample is newTestOnboardingRouter with the data dir
+// of the example in dataDir and the settings in settingsDir, so a test can
+// write the example note and the simulation switch first.
+func newOnboardingRouterWithExample(t *testing.T, dataDir, settingsDir string) (http.Handler, *auth.Manager) {
+	t.Helper()
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", usersAdminPassword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub := companion.NewHub()
+	manager.SetHAVerifier(hub)
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(settingsDir), nil, nil, nil, nil, nil, RouterDependencies{
+		Auth:              manager,
+		Onboarding:        onboarding.NewStore(t.TempDir()),
+		InstallerStateDir: t.TempDir(),
+		DataDir:           dataDir,
+	})
+	return router, manager
+}
+
+// setupItem returns the item with the given id from the setup list and whether
+// it is there at all. An open item is there with an empty state.
+func setupItem(view onboardingView, id string) (string, bool) {
+	for _, item := range view.Setup.Items {
+		if item.ID == id {
+			return item.State, true
+		}
+	}
+	return "", false
+}
+
+// TestExampleStepOpenWhileRunning checks that the example step is in the setup
+// list and open while the example note exists and the simulation runs.
+func TestExampleStepOpenWhileRunning(t *testing.T) {
+	dataDir, settingsDir := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(dataDir, example.NoteFileName), []byte(`{"version":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := settings.NewStore(settingsDir)
+	mqtt, err := store.LoadMQTT()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mqtt.SimulationActive = true
+	if err := store.SaveMQTT(mqtt); err != nil {
+		t.Fatal(err)
+	}
+	router, _ := newOnboardingRouterWithExample(t, dataDir, settingsDir)
+	adminCookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	state, present := setupItem(getOnboarding(t, router, adminCookie), "example")
+	if !present {
+		t.Fatal("example step missing while the example runs")
+	}
+	if state != "" {
+		t.Fatalf("example = %q while running, want open", state)
+	}
+}
+
+// TestExampleStepDoneWhenSimulationOff checks that the example step counts as
+// done once the note exists but the simulation is off.
+func TestExampleStepDoneWhenSimulationOff(t *testing.T) {
+	dataDir, settingsDir := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(dataDir, example.NoteFileName), []byte(`{"version":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	router, _ := newOnboardingRouterWithExample(t, dataDir, settingsDir)
+	adminCookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	if state, _ := setupItem(getOnboarding(t, router, adminCookie), "example"); state != string(onboarding.StepDone) {
+		t.Fatalf("example = %q with the simulation off, want %q", state, onboarding.StepDone)
+	}
+}
+
+// TestExampleStepMissingWithoutNote checks that the example step is absent when
+// no example note exists.
+func TestExampleStepMissingWithoutNote(t *testing.T) {
+	router, _ := newOnboardingRouterWithExample(t, t.TempDir(), t.TempDir())
+	adminCookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	if _, present := setupItem(getOnboarding(t, router, adminCookie), "example"); present {
+		t.Fatal("example step present without a note")
+	}
 }
 
 func newTestOnboardingRouter(t *testing.T) (http.Handler, *auth.Manager) {

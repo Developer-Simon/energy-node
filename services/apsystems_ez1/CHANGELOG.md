@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.4.5 (2026-11-15)
+## v0.4.6-pre.1 (2026-11-19)
+
+### Features
+
+- **onboarding:** start empty and offer an example to try out (#274)
+
+## v0.4.5 (2026-11-16)
 
 ### Features
 
@@ -9,6 +15,7 @@
 
 ### Fixes
 
+- **services:** accept an empty device list (a0bbc7b)
 - **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
 
 ## v0.4.4 (2026-10-21)

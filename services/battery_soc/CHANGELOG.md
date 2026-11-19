@@ -1,12 +1,18 @@
 # Changelog
 
-## v0.4.9-pre.1 (2026-11-15)
+## v0.4.9-pre.2 (2026-11-19)
 
 ### Features
 
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 - **performance:** show how much load the node puts on the device (#260) (b93bc98)
+- **bundle:** ship empty device templates (1f964f2)
+- **onboarding:** start empty and offer an example to try out (#274)
 - **performance:** add the poll floor and the budget setting (7f324af)
+
+### Fixes
+
+- **services:** accept an empty device list (a0bbc7b)
 
 ### Refactors
 

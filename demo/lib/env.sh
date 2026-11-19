@@ -90,14 +90,21 @@ env_prepare_devices() {
     done
   done
   echo "Konfigurationen: $(find "$WORK/devices" -maxdepth 1 -type f -printf '%f\n' | sort | tr '\n' ' ')"
+  env_write_manifests || return 1
+}
 
-  # Je Konfiguration ein Dienst-Manifest neben config.json, wie es der Installer
-  # unter manifests/ ablegt. Nur fuer die dort genannten Dienste beobachtet das
-  # Dashboard outstation/<id>/settings/status.
-  # Die Demo braucht fuer alle fuenf Messdienste eine Zeile auf der Leistungsseite,
-  # auch ohne Konfiguration. ENERGY_NODE_PERFORMANCE_FAKE=1 setzt nur demo/demo.sh.
+# Je Konfiguration ein Dienst-Manifest neben config.json, wie es der Installer
+# unter manifests/ ablegt. Nur fuer die dort genannten Dienste beobachtet das
+# Dashboard outstation/<id>/settings/status.
+# Die Demo braucht fuer alle fuenf Messdienste eine Zeile auf der Leistungsseite,
+# auch ohne Konfiguration. ENERGY_NODE_PERFORMANCE_FAKE=1 setzt nur demo/demo.sh.
+env_write_manifests() {
   mkdir -p "$WORK/manifests" || return 1
-  python3 - "$WORK/devices" "$WORK/manifests" "$REPO_DIR" "${ENERGY_NODE_PERFORMANCE_FAKE:-0}" <<'PY' || return 1
+  # Die Config der Dienste verlangt fuer jeden Abschnitt in config.json ein Manifest.
+  # Der Modus example braucht deshalb dieselben Manifeste wie die Demo mit Leistungsfake.
+  local fake="${ENERGY_NODE_PERFORMANCE_FAKE:-0}"
+  [[ "${EXAMPLE_SERVICES:-0}" == "1" ]] && fake=1
+  python3 - "$WORK/devices" "$WORK/manifests" "$REPO_DIR" "$fake" <<'PY' || return 1
 import json, pathlib, sys
 devices, manifests, repo = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
 fake = sys.argv[4] == "1"
@@ -128,6 +135,19 @@ for service_id in sorted(ids):
     (manifests / f"{service_id}.json").write_text(json.dumps(entry) + "\n", encoding="utf-8")
 PY
   echo "Dienste: $(find "$WORK/manifests" -maxdepth 1 -type f -printf '%f\n' | sed 's/\.json$//' | sort | tr '\n' ' ')"
+}
+
+# Haengt das Beispiel-Set an die kopierten Konfigurationen an (example_apply.py apply)
+# und erzeugt danach die Dienst-Manifeste neu, weil das Set auch Dienste einfuehrt,
+# deren Konfiguration vorher fehlte (apsystems).
+env_apply_example() {
+  python3 "$REPO_DIR/scripts/bootstrap/lib/example_apply.py" apply \
+    "$REPO_DIR/scripts/bootstrap/lib/example.json" "$WORK/devices" "$WORK/data" || {
+    echo "FEHLER: Beispiel-Set konnte nicht angelegt werden" >&2
+    return 1
+  }
+  env_write_manifests || return 1
+  echo "Beispiel-Set: angelegt"
 }
 
 # Kopiert $SEED_DATA/*.json nach $WORK/data. Vorhandene Dateien bleiben.
@@ -404,4 +424,22 @@ env_start_console() {
   if ! kill -0 "$pid" 2>/dev/null; then
     echo "Warnung: Fake-Konsole ist nicht gestartet (Log: $WORK/fake-console.log)" >&2
   fi
+}
+
+# Startet im Modus example die Dienste Shelly und AP Systems EZ1 gegen den Demo-Broker
+# (Logs: $WORK/shelly.log, $WORK/apsystems.log). Sie veroeffentlichen Discovery und
+# simulierte Werte fuer die Beispiel-Geraete, sobald das Dashboard die Simulation
+# retained auf outstation/energy_node/settings/simulation_active/set legt.
+# Setzt SHELLY_PID und APSYSTEMS_PID. Die venv liefert paho, requests und APsystemsEZ1.
+env_start_example_services() {
+  local py="$REPO_DIR/.venv/bin/python3"
+  [[ -x "$py" ]] || py="python3"
+  "$py" "$REPO_DIR/services/shelly/shelly_rpc_mqtt.py" --config "$WORK/config.json" \
+    > "$WORK/shelly.log" 2>&1 &
+  SHELLY_PID=$!
+  env_track "$SHELLY_PID"
+  "$py" "$REPO_DIR/services/apsystems_ez1/apsystems_ez1_mqtt.py" --config "$WORK/config.json" \
+    > "$WORK/apsystems.log" 2>&1 &
+  APSYSTEMS_PID=$!
+  env_track "$APSYSTEMS_PID"
 }

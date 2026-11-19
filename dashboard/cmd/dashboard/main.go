@@ -39,6 +39,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/example"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
@@ -225,6 +226,10 @@ func main() {
 		if err := onboarding.ApplySeed(seedPath, authManager, settingsStore, onboardingStore, slog.Default()); err != nil {
 			log.Printf("energy-node-dashboard: Vorgaben aus %s nicht vollständig übernommen: %v", onboarding.SeedFileName, err)
 		}
+	}
+	// Der Beispiel-Seed aus dem Bootstrap gilt ebenfalls einmal beim Start.
+	if err := example.ApplySeed(dataDir, settingsStore); err != nil {
+		log.Printf("energy-node-dashboard: Beispiel aus %s nicht vollständig übernommen: %v", example.SeedFileName, err)
 	}
 	// Nur ein echter Reader im Interface, sonst waere ServiceLogs nie nil.
 	var serviceLogs httpapi.ServiceLogReader

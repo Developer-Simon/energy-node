@@ -214,3 +214,11 @@ test('eine gespeicherte Auswahl mit Webhook, aber ohne Shelly wird beim Laden be
   } });
   assert.equal(screen.steps['35'], false);
 });
+
+test('init records firstInstall from the first selection only', async () => {
+  const { screen, shell } = await mount();
+  assert.equal(shell.shared.firstInstall, true, 'erste Antwort manifest-default');
+  shell.shared.selection = { source: 'pending', steps: {} };
+  await screen.init();
+  assert.equal(shell.shared.firstInstall, true, 'ein spaeteres Laden aendert es nicht');
+});

@@ -69,3 +69,9 @@ func TestBatterySchemaCases(t *testing.T) {
 		}
 	}
 }
+
+func TestBatterySchemaAcceptsEmptyList(t *testing.T) {
+	if err := ValidateDocument([]byte("[]"), batterySchema(t)); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -384,6 +384,11 @@ func newScenario(name string, opts options) *stagedBackend {
 		steps = append(steps, hostapi.StepView{ID: "17", Optional: true, Default: false})
 		sort.SliceStable(steps, func(i, j int) bool { return steps[i].ID < steps[j].ID })
 	}
+	if !update {
+		// Das Beispiel (Schritt 89): nur bei der Erstinstallation, braucht
+		// APsystems, Shelly und die Automation.
+		steps = append(steps, hostapi.StepView{ID: "89", Optional: true, Default: false, Requires: "81,83,88"})
+	}
 	if update {
 		steps = append(steps, hostapi.StepView{ID: "89", ServiceID: "modbus", Unit: "modbus.service", Optional: true, Default: false, Kind: "service"})
 	}
@@ -399,7 +404,7 @@ func newScenario(name string, opts options) *stagedBackend {
 		BundleBytes: 41 * 1024 * 1024, WheelCount: 12, UnitCount: 8, TemplateCount: 7,
 	}
 
-	selected := map[string]bool{"15": true, "35": false, "40": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true}
+	selected := map[string]bool{"15": true, "35": false, "40": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true, "89": false}
 	fake.SelectionView = &hostapi.SelectionView{Steps: selected, Source: "manifest-default"}
 
 	if update {
@@ -409,6 +414,7 @@ func newScenario(name string, opts options) *stagedBackend {
 		// Die Auswahl auf dem Node stammt von vor Schritt 15: der Schalter
 		// steht trotzdem an (Manifest-Vorgabe eines Systemschritts).
 		delete(selected, "15")
+		delete(selected, "89")
 		fake.PlanResult = &hostapi.PlanView{
 			BundleVersion: "v1.4.2",
 			Steps: []hostapi.PlanStep{
@@ -505,6 +511,7 @@ func newScenario(name string, opts options) *stagedBackend {
 		{ID: "60", Log: []string{say(opts.english, "energy-node-dashboard 1.4.2 installiert", "installed energy-node-dashboard 1.4.2"), say(opts.english, "auth.pw geschrieben (0640)", "wrote auth.pw (0640)")}},
 		{ID: "70", Log: []string{"caddy validate: Valid configuration"}},
 		{ID: "81"}, {ID: "82", State: "skip", Detail: "nicht ausgewaehlt"}, {ID: "83"}, {ID: "84"}, {ID: "85"}, {ID: "88"},
+		{ID: "89", State: "skip", Detail: "nicht ausgewaehlt"},
 	}
 	fake.PrepareNotes = []hostapitest.FakeNote{
 		{Key: "package.log.github_search", Args: map[string]string{"arch": "armv6"}},

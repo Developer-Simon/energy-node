@@ -73,8 +73,8 @@ class TuyaDevice:
 def load_devices(path: str) -> list[TuyaDeviceConfig]:
     raw = common_config.load_json(path)
 
-    if not isinstance(raw, list) or not raw:
-        raise ValueError(f"Tuya-Konfiguration {path} muss eine nichtleere Liste sein")
+    if not isinstance(raw, list):
+        raise ValueError(f"Tuya-Konfiguration {path} muss eine Liste sein")
 
     configs: list[TuyaDeviceConfig] = []
     for index, item in enumerate(raw):

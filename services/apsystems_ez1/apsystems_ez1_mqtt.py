@@ -102,9 +102,6 @@ def load_devices(path: str) -> list[APsystemsDeviceConfig]:
     ids = [d.id for d in devices]
     if len(ids) != len(set(ids)):
         raise ValueError(f"Doppelte Geraete-IDs in {path}: {ids}")
-    if not devices:
-        raise ValueError(f"Keine Geraete in {path} konfiguriert")
-
     return devices
 
 

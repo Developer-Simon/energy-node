@@ -36,6 +36,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/example"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/netmgr"
@@ -411,13 +412,19 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
 		g.HandleFunc("/api/v1/companion/", handleCompanion(dependencies.Auth, dependencies.Companion, dependencies.CompanionFingerprint))
 		if dependencies.Onboarding != nil {
+			// Der Beispiel-Zustand wird pro Anfrage gelesen, weil er sich ändert.
+			exampleState := func() (exists, active bool) {
+				note, err := example.LoadNote(dependencies.DataDir)
+				exists = err == nil && note != nil
+				return exists, example.Active(dependencies.DataDir, store)
+			}
 			onboardingInstalledServices := onboardingInstalled(dependencies.InstalledServices)
 			var tourTargets map[string]bool
 			if dependencies.TourTargets != nil {
 				tourTargets = dependencies.TourTargets()
 			}
-			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets))
-			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets))
+			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets, exampleState))
+			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets, exampleState))
 		}
 	}
 	if dependencies.SystemActions != nil {
@@ -483,6 +490,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
 		g.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
 		g.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))
+		g.HandleFunc("/api/v1/example/stop", handleExampleStop(dependencies.DataDir, configs, store, dependencies.Auth, dependencies.NodeSimulation))
 		g.HandleFunc("/api/v1/mqtt/test", handleMQTTTest(dependencies.MQTTCredentials, dependencies.Auth))
 		g.HandleFunc("/api/v1/mqtt/reconnect", handleMQTTReconnect(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTReconfigure, dependencies.MQTT, dependencies.MQTTBase))
 		g.HandleFunc("/api/v1/mqtt/status", handleMQTTStatus(dependencies.MQTT))
@@ -523,7 +531,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if dependencies.Onboarding != nil {
 		setupPending = func() bool { return !dependencies.Onboarding.Load().SetupDone }
 	}
-	g.HandleFunc("/", webui.OverviewWithOnboarding(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices, setupPending))
+	exampleActive := func() bool { return example.Active(dependencies.DataDir, store) }
+	g.HandleFunc("/", webui.OverviewWithOnboarding(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices, setupPending, exampleActive))
 	return g.ServeMux()
 }
 

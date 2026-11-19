@@ -69,6 +69,8 @@ done
 # --- kein Dienst-Skript ohne Eintrag in der Tabelle ----------------------
 for file in "$boot"/8?-*.sh; do
   name="$(basename "$file")"
+  # 89 ist das Beispiel (kein Dienst, scripts/bootstrap/89-example.sh).
+  [ "$name" = 89-example.sh ] && continue
   printf '%s\n' "${TABLE[@]}" | grep -q "^$name:" \
     || fail "unbekanntes Dienst-Skript: $name"
 done

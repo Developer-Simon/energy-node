@@ -20,3 +20,9 @@ def test_device_block_uses_configured_node_id():
 def test_devices_config_path_follows_convention(app_config):
     config = app_config()
     assert config.devices_config("apsystems").name == "apsystems_devices.json"
+
+
+def test_empty_device_list_is_valid(tmp_path):
+    path = tmp_path / "apsystems_devices.json"
+    path.write_text("[]")
+    assert apsystems.load_devices(str(path)) == []

@@ -19,8 +19,9 @@ type Step struct {
 	Needs     string
 }
 
-// Catalog liefert die Schritte in Anzeigereihenfolge. Die Schritte tailscale
-// und automations entfallen, wenn ihr Dienst nicht installiert ist.
+// Catalog liefert die Schritte in Anzeigereihenfolge. Die Schritte tailscale,
+// example und automations entfallen, wenn ihr Dienst nicht installiert ist.
+// Der Schritt example steht, solange das Beispiel existiert.
 func Catalog(installed map[string]bool) []Step {
 	steps := []Step{
 		{ID: "users", Area: "access", Installer: true},
@@ -38,6 +39,11 @@ func Catalog(installed map[string]bool) []Step {
 		Step{ID: "tiles", Area: "display"},
 		Step{ID: "updates", Area: "system", Installer: true},
 		Step{ID: "metrics", Area: "system", Installer: true},
+	)
+	if installed["example"] {
+		steps = append(steps, Step{ID: "example", Area: "devices", Needs: "example"})
+	}
+	steps = append(steps,
 		Step{ID: "configservice", Area: "devices"},
 		Step{ID: "config", Area: "devices"},
 		Step{ID: "devices", Area: "devices"},
@@ -51,20 +57,23 @@ func Catalog(installed map[string]bool) []Step {
 }
 
 // DetectInput is everything Detect reads. GuestAccess is the state of the
-// guest access switch, true is the default.
+// guest access switch, true is the default. ExampleEnded is true when the
+// example note exists but the example is no longer running.
 type DetectInput struct {
-	Settings    settings.Settings
-	Energy      settings.EnergyConfig
-	MQTT        settings.MQTTConfig
-	Users       []auth.User
-	GuestAccess bool
+	Settings     settings.Settings
+	Energy       settings.EnergyConfig
+	MQTT         settings.MQTTConfig
+	Users        []auth.User
+	GuestAccess  bool
+	ExampleEnded bool
 }
 
 // Detect liefert StepDone für die Schritte, deren Einstellungen vom Standard
 // abweichen. Offene Schritte fehlen in der Karte. Geräte einrichten, Geräte,
 // Gerätekarte und Kacheln werden nie automatisch erledigt. Metriken gelten als
 // erledigt, sobald eine Metrik aus ist, Gastzugang, sobald er abgeschaltet ist,
-// und der Systemstatus, sobald er vom Standard abweicht.
+// der Systemstatus, sobald er vom Standard abweicht, und das Beispiel, sobald
+// es beendet ist.
 func Detect(in DetectInput) map[string]StepState {
 	set := in.Settings
 	defaults := settings.Default()
@@ -86,6 +95,7 @@ func Detect(in DetectInput) map[string]StepState {
 	mark("users", hasNonAdminAccount(in.Users))
 	mark("metrics", anyMetricOff(in.MQTT))
 	mark("guest", !in.GuestAccess)
+	mark("example", in.ExampleEnded)
 	return detected
 }
 

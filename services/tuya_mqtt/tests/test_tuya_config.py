@@ -18,3 +18,9 @@ def test_service_uses_config_values(app_config):
 
     assert service.base_topic == "outstation/tuya-x"
     assert service.service_config.poll_interval_s == 45.0
+
+
+def test_empty_device_list_is_valid(tmp_path):
+    path = tmp_path / "tuya_devices.json"
+    path.write_text("[]")
+    assert tuya_mqtt.load_devices(str(path)) == []

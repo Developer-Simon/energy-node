@@ -72,7 +72,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
   <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=51">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/onboarding.css?v=5">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/onboarding.css?v=6">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -136,6 +136,19 @@
     <svg class="ob-guest-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
     <p><strong>{{t "onboarding.guest_note.title"}}</strong> {{t "onboarding.guest_note.text"}}</p>
   </div>{{end}}
+  {{if .ExampleNote}}<div class="example-note" role="status" data-tour="example" data-example-note data-example-kept="{{t "example.note.kept"}}" data-example-failed="{{t "example.note.failed"}}">
+    <svg class="example-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
+    <div class="example-note-main">
+      <div class="example-note-title">{{t "example.note.title"}}</div>
+      <div class="example-note-detail">{{t "example.note.text"}}</div>
+      <p class="example-note-msg" data-example-msg hidden></p>
+    </div>
+    <div class="example-note-actions">
+      <button type="button" class="example-note-btn is-primary" data-example-off>{{t "example.note.off"}}</button>
+      <button type="button" class="example-note-btn" data-example-remove>{{t "example.note.remove"}}</button>
+    </div>
+  </div>
+  <script src="{{.BasePath}}/static/js/example-note.js?v=1" defer></script>{{end}}
   <div class="nav-shell" data-nav-mode="more" x-bind:data-nav-mode="navMode" x-on:click.outside="navOpen = false; navMoreOpen = false" x-on:keydown.escape="navOpen = false; navMoreOpen = false">
     <button class="nav-menu-toggle" type="button" aria-controls="dashboard-tabs"
             x-bind:aria-expanded="navOpen ? 'true' : 'false'"
@@ -331,7 +344,7 @@
   <script src="{{.BasePath}}/static/js/onboarding-actions.js?v=4" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-model.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js/highlight-details.js?v=1" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=3" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=4" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding.js?v=9" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>

@@ -127,4 +127,23 @@ out="$(EN_STATE_DIR="$fp/state" EN_BUNDLE_DIR="$fp/bundle" EN_BUNDLE_VERSION=v0.
 [ "$(get 'd["steps"][1]["state"]')" = "pending" ] || fail "anderer Fingerabdruck nicht pending" "$out"
 [ "$(get 'd["steps"][2]["state"]')" = "pending" ] || fail "ohne Fingerabdruck alter Stempel nicht pending" "$out"
 
+# --- requires als Liste: fehlt einer der Schritte, ist der abhaengige aus ---
+ls_dir="$tmp/liste"
+mkdir -p "$ls_dir/bundle" "$ls_dir/state/steps"
+cat > "$ls_dir/bundle/manifest.json" <<'JSON'
+{ "version": "v0.3.0", "steps": [
+  { "id": "81", "optional": true, "default": true, "service_id": "apsystems", "unit": "apsystems-ez1.service" },
+  { "id": "83", "optional": true, "default": true, "service_id": "shelly", "unit": "shelly-rpc.service" },
+  { "id": "89", "optional": true, "default": false, "requires": "81,83" } ] }
+JSON
+printf '{"steps":{"89":true,"83":false}}\n' > "$ls_dir/selection.json"
+out="$(EN_STATE_DIR="$ls_dir/state" EN_BUNDLE_DIR="$ls_dir/bundle" EN_BUNDLE_VERSION=v0.3.0 \
+  EN_SELECTION="$ls_dir/selection.json" bash "$script")"
+[ "$(get 'd["steps"][2]["selected"]')" = "False" ] || fail "89 trotz abgewaehltem 83 gewaehlt" "$out"
+[ "$(get 'd["steps"][2]["state"]')" = "deselected" ] || fail "89 trotz abgewaehltem 83 nicht deselected" "$out"
+printf '{"steps":{"89":true,"83":true,"81":true}}\n' > "$ls_dir/selection.json"
+out="$(EN_STATE_DIR="$ls_dir/state" EN_BUNDLE_DIR="$ls_dir/bundle" EN_BUNDLE_VERSION=v0.3.0 \
+  EN_SELECTION="$ls_dir/selection.json" bash "$script")"
+[ "$(get 'd["steps"][2]["selected"]')" = "True" ] || fail "89 mit allen genannten Schritten nicht gewaehlt" "$out"
+
 echo "OK: $(basename "$0")"

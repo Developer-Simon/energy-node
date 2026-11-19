@@ -397,6 +397,77 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
   .ob-guest-note { animation: masthead-rise .42s var(--ease-out) both; }
 }
 
+/* --- Hinweis zum Beispiel ------------------------------------------------
+   Gleiche Bauweise wie die Update-Leiste: Icon, Text (Titel plus Zeile
+   darunter), Aktionen rechts in derselben Reihe. Schmal stehen die Aktionen
+   unter dem Text. Die Hauptaktion traegt den Ton, die zweite bleibt leise. */
+.example-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem .9rem;
+  margin-top: 1rem;
+  padding: .65rem .9rem;
+  border: 1px solid color-mix(in srgb, var(--info-line) 55%, transparent);
+  border-radius: 12px;
+  background: var(--info-bg);
+  color: var(--text);
+  font-size: .92rem;
+  line-height: 1.4;
+}
+.example-note-icon { flex: none; width: 1.15rem; height: 1.15rem; fill: none; stroke: var(--info); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.example-note-main { flex: 1 1 18rem; min-width: 0; }
+.example-note-title { color: var(--text-strong); font-weight: 600; }
+.example-note-detail { margin-top: .1rem; color: var(--text-muted); font-size: .82rem; text-wrap: pretty; }
+.example-note-msg { margin: .4rem 0 0; color: var(--text); font-size: .82rem; text-wrap: pretty; }
+.example-note-msg[hidden] { display: none; }
+.example-note-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.example-note-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: .35rem .75rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s var(--ease-out), opacity .15s ease;
+}
+.example-note-btn.is-primary { border-color: color-mix(in srgb, var(--info-line) 60%, transparent); background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); }
+.example-note-btn:active:not(:disabled) { transform: scale(.97); }
+.example-note-btn:disabled { opacity: .5; cursor: progress; }
+.example-note-btn:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .example-note-btn:hover:not(:disabled) { color: var(--text-strong); background: color-mix(in srgb, var(--info) 10%, transparent); }
+  .example-note-btn.is-primary:hover:not(:disabled) { color: var(--text-strong); background: color-mix(in srgb, var(--info) 24%, transparent); }
+}
+/* Schmal: Text oben, die Aktionen darunter ueber die ganze Breite, mit
+   Tippflaechen von 2.5rem Hoehe. */
+@media (max-width: 640px) {
+  .example-note-icon { align-self: flex-start; margin-top: .15rem; }
+  .example-note-main { flex-basis: calc(100% - 2.4rem); }
+  .example-note-actions { flex: 1 1 100%; flex-direction: column; align-items: stretch; }
+  .example-note-btn { min-height: 2.5rem; }
+  .example-note-btn:not(.is-primary) { border-color: var(--border); color: var(--text); }
+}
+/* Die Rueckmeldung blendet kurz ein, statt ploetzlich aufzutauchen. */
+.example-note-msg { transition: opacity .2s var(--ease-out), transform .2s var(--ease-out); }
+@starting-style { .example-note-msg { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: no-preference) {
+  .example-note { animation: masthead-rise .42s var(--ease-out) both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .example-note-msg { transition: opacity .2s ease; }
+  @starting-style { .example-note-msg { transform: none; } }
+  .example-note-btn:active:not(:disabled) { transform: none; }
+}
+
 /* --- Marker fuer ungesehene Neuerungen ----------------------------------- */
 .ob-marker {
   display: inline-block;

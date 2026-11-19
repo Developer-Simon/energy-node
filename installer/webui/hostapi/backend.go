@@ -154,8 +154,9 @@ type StepView struct {
 	// anderen Python-Dienst und leer fuer einen Systemschritt.
 	Kind string `json:"kind,omitempty"`
 	// Requires ist der Schritt, ohne den dieser nicht laeuft (manifest.json,
-	// "requires"). Die Konfiguration sperrt den Schalter, solange der
-	// benoetigte Schritt aus ist.
+	// "requires", kommagetrennte Liste wie "81,83" moeglich). Die
+	// Konfiguration sperrt den Schalter, solange einer der benoetigten
+	// Schritte aus ist.
 	Requires string `json:"requires,omitempty"`
 }
 

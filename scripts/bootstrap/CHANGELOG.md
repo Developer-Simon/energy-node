@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4-pre.6 (2026-11-16)
+## v0.3.4-pre.7 (2026-11-16)
 
 ### Features
 
@@ -9,6 +9,10 @@
 - **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
 - **network:** open the dashboard when a phone joins the emergency hotspot (#264) (5620a3d)
 - **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267) (e1e256b)
+- **installer:** allow a step to require several steps (47b7493)
+- **bootstrap:** add the example data and its apply helper (e96afa4)
+- **bootstrap:** add step 89 for the optional example (d598545)
+- **onboarding:** start empty and offer an example to try out (#274)
 - **network:** keep the emergency hotspot on its own MAC (12960e9)
 - **network:** send hotspot clients to the node for the captive portal check (11d9c1e)
 - **network:** show a start page to emergency hotspot clients (c739a91)
@@ -18,10 +22,15 @@
 ### Fixes
 
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **bootstrap:** read the real config keys in step 89 and fake the publish in the chain test (0cb5915)
 - **network:** start the emergency hotspot with PMF off (93060d2)
 - **network:** offer only RSN with CCMP and allow DHCP in the hotspot (0953912)
 - **network:** leave the hotspot cipher suite at the defaults (53e5b88)
 - **storage:** render the storage helper for the node user (00faf59)
+
+### Refactors
+
+- **bootstrap:** rename the example files and ids to English (73b83cf)
 
 ## v0.3.3 (2026-11-16)
 

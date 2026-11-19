@@ -38,10 +38,14 @@ var notNodeData = map[string]bool{
 	"previous-manifest.json":  true,
 	"selection.json":          true,
 	"onboarding-seed.json":    true,
-	"_devices.json":           true,
-	"changelog.json":          true,
-	"components.json":         true,
-	"job.json":                true,
+	// Seed des Beispiels (Schritt 89) und die Vorlage dazu im Repo. Der Seed wird
+	// beim Start einmal uebernommen und zur Notiz example.json.
+	"example-seed.json":                  true,
+	"scripts/bootstrap/lib/example.json": true,
+	"_devices.json":                      true,
+	"changelog.json":                     true,
+	"components.json":                    true,
+	"job.json":                           true,
 	// Installer-Artefakt unter /etc/energy-node (Schritt 67), nicht in Data oder Devices.
 	// Das Backup nimmt es bewusst nicht auf (Idee P2.28).
 	"hotspot.json": true,
@@ -72,6 +76,26 @@ func classifiedName(tok, name string) bool {
 		}
 	}
 	return false
+}
+
+// TestExampleFilesAreClassified prueft die Dateien des Beispiels: die Notiz
+// example.json im Datenverzeichnis steht im Katalog, Seed und Vorlage sind als
+// Nicht-Knotendaten erfasst.
+func TestExampleFilesAreClassified(t *testing.T) {
+	if !classifiedName("example.json", "example.json") {
+		t.Error("example.json im Datenverzeichnis ist nicht klassifiziert")
+	}
+	e, ok := Lookup(RootData, "example.json")
+	if !ok {
+		t.Fatal("Lookup(RootData, example.json): kein Katalogeintrag")
+	}
+	if e.Class != ClassConfig || e.Area != AreaSettings {
+		t.Errorf("Lookup(RootData, example.json) = Klasse %q, Bereich %q; want %q, %q",
+			e.Class, e.Area, ClassConfig, AreaSettings)
+	}
+	if !notNodeData["scripts/bootstrap/lib/example.json"] {
+		t.Error("scripts/bootstrap/lib/example.json ist nicht in notNodeData")
+	}
 }
 
 func TestLookupClassifies(t *testing.T) {
