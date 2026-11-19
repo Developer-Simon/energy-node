@@ -25,6 +25,8 @@
   };
   const CHAIN_KINDS = ['any', 'drift', 'frozen', 'contradiction', 'sign', 'unit'];
   const CHAIN_VALUE_DEFAULT = 10;
+  // Entwurfsvorschau der Regelpruefung: Wartezeit nach der letzten Aenderung.
+  const DRAFT_PREVIEW_DEBOUNCE_MS = 400;
 
   // Monatstage fuer Zeitfenster und Sonnenfenster, 1 bis 31.
   const MONTH_DAY_NUMBERS = Array.from({ length: 31 }, (_, index) => index + 1);
@@ -229,6 +231,8 @@
     findings: [],
     findingOpen: null,
     findingStyle: '',
+    // Statische Befunde des ungespeicherten Entwurfs (null, solange er dem Gespeicherten entspricht).
+    draftFindings: null,
     scenarioExpanded: {},
     durationUnits: {},
     scenarioEditing: {},
@@ -317,6 +321,12 @@
           this.document.settings.publish_allowed_prefixes = [];
         }
         this.savedDocument = JSON.parse(JSON.stringify(this.document));
+        // Erst nach dem ersten Laden: Aenderungen am Entwurf loesen eine Vorschau aus.
+        if (!this._draftWatcher) {
+          this._draftWatcher = true;
+          this.$watch(() => JSON.stringify([this.document.rules, this.document.scenarios, this.document.settings]),
+            () => this.scheduleDraftPreview());
+        }
         if (window.__automationFocusRequest__) this.focusRule(window.__automationFocusRequest__);
         // dashboard.js schickt die Anfrage auch dann, wenn die Seite schon offen ist.
         if (!this._focusRuleListener) {
@@ -1927,12 +1937,48 @@
         const doc = await requestJSON('/api/v1/automations/findings');
         this.findings = (doc && doc.findings) || [];
         window.dispatchEvent(new CustomEvent('automation-findings-changed'));
+        // Nach dem Speichern entspricht der Entwurf dem Gespeicherten; die Vorschau folgt dem Entwurf.
+        this.draftFindings = null;
+        this.refreshDraftPreview();
       } catch {
         // Die bisherige Liste bleibt sichtbar.
       }
     },
+    // Statische Befunde des ungespeicherten Entwurfs, ohne Speichern. Ein Fehler
+    // laesst den bisherigen Stand stehen. Eine aeltere Antwort ueberschreibt nie eine neuere.
+    async refreshDraftPreview() {
+      if (!this.canEditAutomations || !this.savedDocument) return;
+      const seq = (this._draftSeq || 0) + 1;
+      this._draftSeq = seq;
+      if (JSON.stringify(this.document) === JSON.stringify(this.savedDocument)) {
+        this.draftFindings = null;
+        return;
+      }
+      try {
+        const body = await requestJSON('/api/v1/automations/findings/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
+          body: JSON.stringify({ ...this.document, scenarios: this.scenariosPayload() }),
+        });
+        if (seq !== this._draftSeq) return;
+        this.draftFindings = Array.isArray(body && body.findings) ? body.findings : [];
+      } catch {
+        // Der bisherige Stand bleibt stehen, ohne Meldung.
+      }
+    },
+    scheduleDraftPreview() {
+      clearTimeout(this._draftTimer);
+      this._draftTimer = setTimeout(() => this.refreshDraftPreview(), DRAFT_PREVIEW_DEBOUNCE_MS);
+    },
+    // Befunde fuer Anzeige und Zaehler: die statischen kommen aus dem Entwurf, wenn
+    // es einen gibt; beobachtete Befunde (haeufig, nie ausgeloest) bleiben aus der gespeicherten Liste.
+    allFindings() {
+      if (this.draftFindings === null) return this.findings;
+      const observed = this.findings.filter((finding) => finding.kind === 'frequent' || finding.kind === 'never_fired');
+      return [...this.draftFindings, ...observed];
+    },
     findingFor(ruleId) {
-      return this.findings.find((finding) => (finding.rule_ids || []).includes(ruleId)) || null;
+      return this.allFindings().find((finding) => (finding.rule_ids || []).includes(ruleId)) || null;
     },
     findingText(finding) {
       const code = (finding.summary && finding.summary.code) || '';
@@ -2017,6 +2063,7 @@
         return;
       }
       this.findings = this.findings.filter((entry) => entry.id !== finding.id);
+      if (this.draftFindings) this.draftFindings = this.draftFindings.filter((entry) => entry.id !== finding.id);
       this.closeFinding();
       this.armUndo({ label: t('automations.learn.undo.ignored'), findingId: finding.id });
       window.dispatchEvent(new CustomEvent('automation-findings-changed'));

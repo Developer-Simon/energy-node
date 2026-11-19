@@ -52,6 +52,8 @@ function createAutomationsPanel(setup) {
   component.$refs = {};
   // Alpine stellt $nextTick bereit; ohne DOM laeuft der Rueckruf sofort.
   component.$nextTick = (callback) => callback();
+  // Alpine stellt $watch bereit; ohne Alpine genuegt ein stiller Stub.
+  component.$watch = () => {};
   const stores = attachStores(component);
   return { component, window: dom.window, stores };
 }
@@ -3433,4 +3435,101 @@ test('a successful save() calls loadFindings', async () => {
   await component.save();
   assert.ok(sent.body, 'save must send the document');
   assert.equal(calls, 1);
+});
+
+// Befunde fuer den ungespeicherten Entwurf: Vorschau nach dem Speichern-Stand,
+// Vorschau-Befunde ersetzen die statischen, beobachtete bleiben gespuelt.
+const draftDocument = (threshold) => ({ version: 1, settings: { tick_interval_s: 10 }, rules: [
+  { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold, hysteresis: 0 }], actions: [] },
+  { id: 'r2', name: 'Anderes', conditions: [], actions: [] },
+] });
+
+const draftDuplicate = { ...sampleFinding, id: 'd-dup', kind: 'duplicate', rule_ids: ['r1', 'r2'] };
+
+test('a changed draft shows the preview duplicate through findingFor', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.document = draftDocument(120);
+  component.savedDocument = draftDocument(100);
+  window.fetch = async () => ({ ok: true, json: async () => ({ findings: [draftDuplicate] }) });
+  await component.refreshDraftPreview();
+  assert.deepEqual(component.draftFindings, [draftDuplicate]);
+  assert.equal(component.findingFor('r2').id, 'd-dup');
+});
+
+test('an equal document drops the draft findings and shows the saved list again', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = draftDocument(100);
+  component.savedDocument = draftDocument(100);
+  component.findings = [sampleFinding];
+  component.draftFindings = [draftDuplicate];
+  let calls = 0;
+  window.fetch = async () => { calls += 1; return { ok: true, json: async () => ({ findings: [] }) }; };
+  await component.refreshDraftPreview();
+  assert.equal(component.draftFindings, null);
+  assert.equal(calls, 0, 'an equal document must not call the preview');
+  assert.equal(component.findingFor('r1').id, 'f-hyst');
+});
+
+test('the preview posts the document with the CSRF header', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.document = draftDocument(120);
+  component.savedDocument = draftDocument(100);
+  const sent = [];
+  window.fetch = async (url, options) => { sent.push({ url, options }); return { ok: true, json: async () => ({ findings: [] }) }; };
+  await component.refreshDraftPreview();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].url, '/api/v1/automations/findings/preview');
+  assert.equal(sent[0].options.method, 'POST');
+  assert.equal(sent[0].options.headers['X-CSRF-Token'], 'tok');
+  assert.deepEqual(JSON.parse(sent[0].options.body), { ...draftDocument(120), scenarios: [] });
+});
+
+test('a failing preview keeps the previous draft findings and shows no toast', async () => {
+  const { component, window, stores } = createAutomationsPanel();
+  component.document = draftDocument(120);
+  component.savedDocument = draftDocument(100);
+  component.draftFindings = [draftDuplicate];
+  window.fetch = async () => { throw new Error('offline'); };
+  await component.refreshDraftPreview();
+  assert.deepEqual(component.draftFindings, [draftDuplicate]);
+  assert.equal(stores.toasts.items.length, 0);
+});
+
+test('a stale preview response does not overwrite a newer one', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = draftDocument(120);
+  component.savedDocument = draftDocument(100);
+  const answers = [];
+  window.fetch = () => new Promise((resolve) => { answers.push(resolve); });
+  const older = component.refreshDraftPreview();
+  component.document = draftDocument(130);
+  const newer = component.refreshDraftPreview();
+  answers[1]({ ok: true, json: async () => ({ findings: [draftDuplicate] }) });
+  await newer;
+  answers[0]({ ok: true, json: async () => ({ findings: [] }) });
+  await older;
+  assert.deepEqual(component.draftFindings, [draftDuplicate]);
+});
+
+test('observed kinds of the saved list stay while a draft preview exists', () => {
+  const { component } = createAutomationsPanel();
+  const frequent = { id: 'o-freq', kind: 'frequent', rule_ids: ['r1'], severity: 'info', summary: {}, apply: [] };
+  const neverFired = { id: 'o-never', kind: 'never_fired', rule_ids: ['r2'], severity: 'info', summary: {}, apply: [] };
+  component.findings = [sampleFinding, frequent, neverFired];
+  component.draftFindings = [draftDuplicate];
+  const ids = component.allFindings().map((finding) => finding.id).sort();
+  assert.equal(ids.join(','), 'd-dup,o-freq,o-never');
+  assert.equal(component.findingFor('r1').id, 'd-dup');
+});
+
+test('ignoreFinding removes a draft finding from the draft list', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.findings = [];
+  component.draftFindings = [draftDuplicate];
+  window.fetch = async () => ({ ok: true, json: async () => ({}) });
+  await component.ignoreFinding(draftDuplicate);
+  assert.deepEqual(component.draftFindings, []);
 });
