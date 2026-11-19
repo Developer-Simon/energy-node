@@ -148,10 +148,10 @@ test('mit gewaehltem Shelly-Webhook zeigt die Diagnose Port und Hinweis', () => 
   await connect(page, { trusted: true });
   await page.locator('.app[data-screen="precheck"] .chk').first().waitFor();
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
-  await page.locator('.app[data-screen="configure"] .tog').first().waitFor();
-  const webhook = page.getByRole('switch', { name: 'Shelly-Wake-Webhook in der Firewall' });
-  assert.equal(await webhook.isChecked(), false, 'Opt-in: standardmaessig aus');
-  await webhook.click({ force: true });
+  await page.locator('.app[data-screen="configure"] .mod').first().waitFor();
+  const webhook = page.locator('.app[data-screen="configure"] .mod[aria-describedby="mod-hint-35"]');
+  assert.equal(await webhook.getAttribute('aria-checked'), 'false', 'Opt-in: standardmaessig aus');
+  await webhook.click();
   await fillSecrets(page);
   await startFromDashboard(page);
   await page.locator('.app[data-screen="result"] .hero h1').waitFor({ timeout: 20000 });

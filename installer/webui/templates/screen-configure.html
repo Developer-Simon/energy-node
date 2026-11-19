@@ -56,34 +56,78 @@
         </div>
       </template>
 
-      <section class="card">
-        <h2 class="card-h" x-text="t('configure.services.heading')"></h2>
-        <p class="card-p" x-text="t('configure.services.text')"></p>
-
-        <template x-for="row in rows" :key="row.key">
-          <div class="tog">
-            <label class="settings-toggle">
-              <input type="checkbox" role="switch" :checked="row.on" :aria-label="row.name" @change="toggle(row)">
-              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
-            </label>
-            <span>
-              <span class="tog-t" x-text="row.name"></span>
-              <template x-if="row.hint"><div class="tog-s" x-text="row.hint"></div></template>
-              <template x-if="row.chips">
-                <div class="chips">
-                  <template x-for="chip in row.chips" :key="chip.id">
-                    <span class="chipk" :class="{ on: chip.on }" role="checkbox" tabindex="0" :aria-checked="chip.on"
-                          @click="toggleChip(chip)" @keydown.enter.prevent="toggleChip(chip)" @keydown.space.prevent="toggleChip(chip)"
-                          x-text="chip.name"></span>
-                  </template>
-                </div>
-              </template>
-            </span>
+      <template x-if="mods">
+      <div class="stack">
+        <section class="card mods-card">
+          <div class="mods-head"><h2 class="card-h" x-text="t('configure.services.heading')"></h2><span class="mods-count" x-text="t('configure.services.count', mods.count)"></span></div>
+          <p class="card-p" x-text="t('configure.services.text')"></p>
+          <div class="mods">
+          <template x-for="mod in mods.services" :key="mod.id">
+            <button type="button" class="mod" role="switch" :class="{ on: mod.on }" :aria-checked="mod.on" :aria-describedby="'mod-hint-' + mod.id" @click="toggleModule(mod)" @focus="showHint(mod)">
+              <span class="mod-ic">
+                <template x-if="mod.icon === 'automation'">{{template "icon-mod-automation"}}</template>
+                <template x-if="mod.icon === 'solar-panel'">{{template "icon-mod-solar-panel"}}</template>
+                <template x-if="mod.icon === 'battery'">{{template "icon-mod-battery"}}</template>
+                <template x-if="mod.icon === 'plug-smart'">{{template "icon-mod-plug-smart"}}</template>
+                <template x-if="mod.icon === 'lightning-bolt-circle'">{{template "icon-mod-lightning-bolt-circle"}}</template>
+                <template x-if="mod.icon === 'tuya'">{{template "icon-mod-tuya"}}</template>
+                <template x-if="mod.icon === 'tailscale'">{{template "icon-mod-tailscale"}}</template>
+                <template x-if="mod.icon === 'lock'">{{template "icon-mod-lock"}}</template>
+                <template x-if="mod.icon === 'refresh'">{{template "icon-mod-refresh"}}</template>
+                <template x-if="mod.icon === 'drive'">{{template "icon-mod-drive"}}</template>
+                <template x-if="mod.icon === 'network'">{{template "icon-mod-network"}}</template>
+                <template x-if="mod.icon === 'history'">{{template "icon-mod-history"}}</template>
+                <template x-if="mod.icon === 'play'">{{template "icon-mod-play"}}</template>
+                <template x-if="mod.icon === 'device'">{{template "icon-mod-device"}}</template>
+              </span>
+              <span class="mod-nm"><span class="mod-long" x-text="mod.name"></span><span class="mod-short" x-text="mod.short"></span></span>
+              <span class="mod-st" x-text="mod.state"></span>
+              <span class="sr-only" :id="'mod-hint-' + mod.id" x-text="mod.hint"></span>
+            </button>
+          </template>
           </div>
+          <p class="mod-hint" aria-hidden="true" x-text="hintText.services"></p>
+        </section>
+        <section class="card mods-card">
+          <div class="mods-head"><h2 class="card-h" x-text="t('configure.tuning.heading')"></h2></div>
+          <div class="mods">
+          <template x-for="mod in mods.tuning" :key="mod.id">
+            <button type="button" class="mod" role="switch" :class="{ on: mod.on }" :aria-checked="mod.on" :aria-describedby="'mod-hint-' + mod.id" @click="toggleModule(mod)" @focus="showHint(mod)" x-show="mod.available">
+              <span class="mod-ic">
+                <template x-if="mod.icon === 'automation'">{{template "icon-mod-automation"}}</template>
+                <template x-if="mod.icon === 'solar-panel'">{{template "icon-mod-solar-panel"}}</template>
+                <template x-if="mod.icon === 'battery'">{{template "icon-mod-battery"}}</template>
+                <template x-if="mod.icon === 'plug-smart'">{{template "icon-mod-plug-smart"}}</template>
+                <template x-if="mod.icon === 'lightning-bolt-circle'">{{template "icon-mod-lightning-bolt-circle"}}</template>
+                <template x-if="mod.icon === 'tuya'">{{template "icon-mod-tuya"}}</template>
+                <template x-if="mod.icon === 'tailscale'">{{template "icon-mod-tailscale"}}</template>
+                <template x-if="mod.icon === 'lock'">{{template "icon-mod-lock"}}</template>
+                <template x-if="mod.icon === 'refresh'">{{template "icon-mod-refresh"}}</template>
+                <template x-if="mod.icon === 'drive'">{{template "icon-mod-drive"}}</template>
+                <template x-if="mod.icon === 'network'">{{template "icon-mod-network"}}</template>
+                <template x-if="mod.icon === 'history'">{{template "icon-mod-history"}}</template>
+                <template x-if="mod.icon === 'play'">{{template "icon-mod-play"}}</template>
+                <template x-if="mod.icon === 'device'">{{template "icon-mod-device"}}</template>
+              </span>
+              <span class="mod-nm"><span class="mod-long" x-text="mod.name"></span><span class="mod-short" x-text="mod.short"></span></span>
+              <span class="mod-st" x-text="mod.state"></span>
+              <span class="sr-only" :id="'mod-hint-' + mod.id" x-text="mod.hint"></span>
+            </button>
+          </template>
+          </div>
+          <p class="mod-hint" aria-hidden="true" x-text="hintText.tuning"></p>
+          <template x-if="mods.unavailable"><p class="mods-na" x-text="mods.unavailable"></p></template>
+        </section>
+        <template x-if="mods.example">
+          <label class="card ex" :class="{ on: mods.example.on }">
+            <span class="ex-ic">{{template "icon-mod-play"}}</span>
+            <span class="ex-txt"><span class="ex-t" x-text="t('step.89')"></span><span class="ex-s" x-text="mods.example.available ? t('configure.example.text') : t('configure.example.needs')"></span></span>
+            <span class="settings-toggle"><input type="checkbox" role="switch" :checked="mods.example.on" :disabled="!mods.example.available" @change="toggleModule(mods.example)"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></span>
+          </label>
         </template>
-
         <div class="later"><span x-text="t('configure.later.before')"></span><em x-text="t('configure.later.file')"></em><span x-text="t('configure.later.after')"></span></div>
-      </section>
+      </div>
+      </template>
     </div>
   </div>
 

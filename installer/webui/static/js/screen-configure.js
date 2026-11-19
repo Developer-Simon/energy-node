@@ -67,22 +67,6 @@
         }
       },
 
-      get rows() {
-        return this.manifest ? window.Services.toggles(this.manifest, { steps: this.steps }, this.shell) : [];
-      },
-
-      toggle(row) {
-        var next = !row.on;
-        var steps = this.steps;
-        row.ids.forEach(function (id) { steps[id] = next; });
-        window.Services.dropUnmet(this.manifest, steps);
-      },
-
-      toggleChip(chip) {
-        this.steps[chip.id] = !chip.on;
-        window.Services.dropUnmet(this.manifest, this.steps);
-      },
-
       // Die Module der Konfiguration (services, tuning, example), null ohne Manifest.
       get mods() {
         return this.manifest ? window.Services.modules(this.manifest, { steps: this.steps }, this.shell) : null;

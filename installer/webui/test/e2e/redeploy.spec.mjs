@@ -41,7 +41,7 @@ test('Kriterium 9: ein neuer Dienst kommt nur mit ausdruecklicher Zustimmung, Ab
   await page.locator('.app[data-screen="preview"] .svc').first().waitFor();
 
   await page.getByRole('button', { name: 'Dienste ändern' }).click();
-  await page.locator('.app[data-screen="configure"] .tog').first().waitFor();
+  await page.locator('.app[data-screen="configure"] .mod').first().waitFor();
   assert.equal(await page.locator('.card-h', { hasText: 'Zugangsdaten' }).count(), 0, 'nur die Dienste-Karte');
   await page.getByRole('switch', { name: 'modbus' }).click();
   await page.getByRole('button', { name: 'Auswahl übernehmen' }).click();

@@ -149,7 +149,7 @@ export async function startFromDashboard(page, { next = 'Weiter', start = 'Insta
 export async function startInstall(page) {
   await page.locator('.app[data-screen="precheck"] .chk').first().waitFor();
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
-  await page.locator('.app[data-screen="configure"] .tog').first().waitFor();
+  await page.locator('.app[data-screen="configure"] .mod').first().waitFor();
   await fillSecrets(page);
   await startFromDashboard(page);
   await page.locator('.app[data-screen="run"]').waitFor();

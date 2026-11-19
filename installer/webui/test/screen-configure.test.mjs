@@ -1,7 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mountScreen, realCatalog } from './helpers/mount.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
+import { mountScreen, realCatalog, fakeShell } from './helpers/mount.mjs';
+import { loadScripts } from './helpers/load.mjs';
 import { MANIFEST, SELECTION, MODULE_MANIFEST, MODULE_SELECTION } from './helpers/fixtures.mjs';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 async function mount(options = {}) {
   const mounted = mountScreen('screen-configure.js', 'screenConfigure', Object.assign({
@@ -38,16 +45,6 @@ test('was die Shell schon kennt, wird nicht noch einmal geholt', async () => {
   assert.deepEqual(calls, []);
 });
 
-test('der Geraete-Schalter schaltet alle, ein Chip einen', async () => {
-  const { screen } = await mount();
-  const devices = () => screen.rows.find((row) => row.kind === 'devices');
-  screen.toggle(devices());
-  assert.deepEqual(['81', '82', '83', '84', '85'].map((id) => screen.steps[id]), [false, false, false, false, false]);
-  screen.toggleChip(devices().chips[1]);
-  assert.equal(screen.steps['82'], true);
-  assert.equal(devices().on, true);
-});
-
 test('ohne beide Passwoerter startet nichts', async () => {
   const { screen } = await mount();
   assert.equal(screen.canStart, false);
@@ -60,7 +57,7 @@ test('ohne beide Passwoerter startet nichts', async () => {
 test('Weiter reicht die Eingaben an das Dashboard weiter, ohne etwas zu schicken', async () => {
   const { screen, shell, calls } = await mount();
   fillSecrets(screen);
-  screen.toggle(screen.rows.find((row) => row.name === 'Tailscale'));
+  screen.steps['40'] = false;
   screen.start();
 
   assert.deepEqual(calls.map((call) => call.key), ['GET /api/manifest', 'GET /api/selection']);
@@ -140,10 +137,10 @@ test('Zurueck aus der Konfiguration verwirft die gemerkten Eingaben', async () =
 });
 
 test('im Nur-Dienste-Modus speichert apply und kehrt in die Vorschau zurueck', async () => {
-  const { screen, shell, calls } = await mount({ shell: { entry: 'redeploy', shared: { servicesOnly: true } } });
+  const { screen, shell, calls } = await mountModules({ shell: { entry: 'redeploy', shared: { servicesOnly: true } } });
   assert.equal(screen.servicesOnly, true);
   assert.equal(screen.canApply, true);
-  screen.toggleChip(screen.rows.find((row) => row.kind === 'devices').chips[1]);
+  screen.toggleModule(moduleOf(screen, '82'));
   await screen.apply();
   assert.equal(calls.at(-1).key, 'PUT /api/selection');
   assert.equal(calls.at(-1).body.steps['82'], true);
@@ -182,28 +179,16 @@ test('ein allgemeines Bundle ohne Ziel nimmt den SSH-Benutzer und sein Heimatver
   assert.equal(screen.mqttUser, 'orgelbau');
 });
 
-test('der Shelly-Webhook folgt dem Shelly-Chip: ausgeblendet und abgewaehlt ohne Shelly', async () => {
-  const steps = MANIFEST.steps.slice();
-  steps.splice(steps.findIndex((step) => step.id === '30') + 1, 0, { id: '35', optional: true, default: false, requires: '83' });
-  const manifest = Object.assign({}, MANIFEST, { steps });
-  const { screen } = await mount({ responses: {
-    'GET /api/manifest': manifest,
-    'GET /api/selection': SELECTION,
-    'PUT /api/selection': (body) => ({ source: 'node', steps: body.steps }),
-  } });
-  const webhook = () => screen.rows.find((row) => row.ids[0] === '35');
-  assert.equal(webhook().on, false, 'Opt-in: ohne Zustimmung aus');
-  screen.toggle(webhook());
-  assert.equal(screen.steps['35'], true);
+test('der Shelly-Webhook folgt dem Shelly-Modul: nicht verfuegbar ohne Shelly, danach nicht ungefragt an', async () => {
+  const { screen } = await mountModules();
+  assert.equal(moduleOf(screen, '35').on, true, 'Ausgangslage: an');
+  screen.toggleModule(moduleOf(screen, '83'));
+  assert.equal(screen.steps['35'], false, 'ohne Shelly faellt der Webhook weg');
+  assert.equal(moduleOf(screen, '35').available, false);
 
-  const shellyChip = () => screen.rows.find((row) => row.kind === 'devices').chips.find((chip) => chip.id === '83');
-  screen.toggleChip(shellyChip());
-  assert.equal(screen.steps['83'], false);
-  assert.equal(webhook(), undefined, 'ohne Shelly ist der Schalter ausgeblendet');
-  assert.equal(screen.steps['35'], false, 'und das Opt-in zurueckgenommen');
-
-  screen.toggleChip(shellyChip());
-  assert.equal(webhook().on, false, 'wieder eingeblendet, aber nicht ungefragt an');
+  screen.toggleModule(moduleOf(screen, '83'));
+  assert.equal(moduleOf(screen, '35').available, true, 'wieder verfuegbar');
+  assert.equal(screen.steps['35'], false, 'aber nicht ungefragt an');
 });
 
 test('eine gespeicherte Auswahl mit Webhook, aber ohne Shelly wird beim Laden bereinigt', async () => {
@@ -277,4 +262,80 @@ test('der Beispielschalter ist gesperrt, wenn ein Dienst fehlt, und bleibt danac
   screen.toggleModule(moduleOf(screen, '81'));
   assert.equal(screen.steps['89'], false, 'nach dem Wiedereinschalten bleibt es aus');
   assert.equal(screen.mods.example.available, true);
+});
+
+// Das echte Template, von Alpine gebunden: die Go-Platzhalter fallen weg, die
+// Icons kommen aus icons.html. Alpine startet erst, wenn die Komponente
+// registriert ist (deferLoadingAlpine), damit x-data sie findet.
+function configureMarkup() {
+  const templates = path.join(here, '..', 'templates');
+  const icons = fs.readFileSync(path.join(templates, 'icons.html'), 'utf8');
+  const parts = {};
+  for (const match of icons.matchAll(/\{\{define "([^"]+)"\}\}([\s\S]*?)\{\{end\}\}/g)) {
+    parts[match[1]] = match[2];
+  }
+  const source = fs.readFileSync(path.join(templates, 'screen-configure.html'), 'utf8');
+  const html = source.replace(/\{\{template "([^"]+)"\}\}/g, (_, name) => parts[name] || '');
+  return html.slice(html.indexOf('<div class="screen"'), html.lastIndexOf('</template>'));
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
+
+async function mountTemplate(shared = {}) {
+  const alpine = fs.readFileSync(path.join(here, '..', 'static', 'js-deps', 'alpine.min.js'), 'utf8');
+  const dom = loadScripts(['i18n.js', 'format.js', 'api.js', 'services.js', 'screen-configure.js'], {
+    html: `<!doctype html><html><body><div class="app" x-data="harness">${configureMarkup()}</div></body></html>`,
+  });
+  const { window } = dom;
+  window.I18n.lang = 'de';
+  window.I18n.catalog = realCatalog('de');
+  window.fetch = async () => { throw new Error('the template test fetches nothing'); };
+  const shell = fakeShell(window, { shared: Object.assign({
+    manifest: MODULE_MANIFEST, selection: MODULE_SELECTION, firstInstall: true,
+  }, shared) });
+  window.Installer = { shell };
+
+  // Wie app.js: die Komponenten erst im Ereignis alpine:init registrieren.
+  window.document.addEventListener('alpine:init', () => {
+    window.Alpine.data('harness', () => ({ t: (key, params) => shell.t(key, params) }));
+    window.Alpine.data('screenConfigure', window.Screens.screenConfigure);
+  });
+  vm.runInContext(alpine, dom.getInternalVMContext(), { filename: 'alpine.min.js' });
+  await settle();
+  return { window, document: window.document, shell };
+}
+
+test('jedes Modul ist ein Schalter mit eigener Beschreibung, der Hinweis ist verborgen', async () => {
+  const { document, window } = await mountTemplate();
+  const mods = [...document.querySelectorAll('.mod')];
+  assert.equal(mods.length, 12, '8 Dienste und 4 Feinabstimmungen');
+  for (const mod of mods) {
+    assert.equal(mod.getAttribute('role'), 'switch');
+    assert.equal(mod.getAttribute('aria-checked'), String(mod.classList.contains('on')));
+    const target = document.getElementById(mod.getAttribute('aria-describedby'));
+    assert.ok(target, 'aria-describedby zeigt auf ein Element');
+    assert.equal(mod.querySelector('.sr-only'), target, 'die Beschreibung steckt im Modul');
+    assert.ok(target.textContent.length > 0, 'mit Langtext');
+  }
+  assert.equal(document.getElementById('mod-hint-83').textContent, window.I18n.t('configure.hint.service.shelly'));
+  const hints = [...document.querySelectorAll('.mod-hint')];
+  assert.equal(hints.length, 2);
+  assert.ok(hints.every((hint) => hint.getAttribute('aria-hidden') === 'true'));
+});
+
+test('ein Klick schaltet das Modul, und aria-checked folgt', async () => {
+  const { document } = await mountTemplate();
+  const shelly = document.querySelector('.mod[aria-describedby="mod-hint-83"]');
+  assert.equal(shelly.getAttribute('aria-checked'), 'true');
+  shelly.click();
+  await settle();
+  assert.equal(shelly.getAttribute('aria-checked'), 'false');
+  assert.equal(shelly.classList.contains('on'), false);
+});
+
+test('im Nur-Dienste-Modus gibt es kein Beispiel, aber Feinabstimmung und Zaehler', async () => {
+  const { document } = await mountTemplate({ servicesOnly: true, firstInstall: false });
+  assert.equal(document.querySelector('label.ex'), null);
+  assert.equal(document.querySelectorAll('.mods').length, 2);
+  assert.equal(document.querySelector('.mods-count').textContent.trim(), '7 von 8 an');
 });

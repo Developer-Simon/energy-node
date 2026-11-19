@@ -100,7 +100,7 @@ test('Verbindung, Vorpruefung, Konfiguration, Dashboard und Ergebnis liegen wie 
   await assertMatchesDraft(page, 'Vorpruefung');
 
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
-  await page.locator('.app[data-screen="configure"] .tog').nth(3).waitFor();
+  await page.locator('.app[data-screen="configure"] .mod').nth(3).waitFor();
   await assertMatchesDraft(page, 'Konfiguration');
 
   await fillSecrets(page);
