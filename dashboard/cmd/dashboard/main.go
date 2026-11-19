@@ -26,6 +26,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/backup"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
@@ -367,6 +368,52 @@ func main() {
 	chainSuggestPath := filepath.Join(dataDir, "energystats", "chains", "suggest.json")
 	chainSuggest := chainsuggest.Load(chainSuggestPath, chainsuggest.ThresholdsFromEnv(os.Getenv), time.Local, log.Printf)
 	chainSuggest.SetPersistence(chainSuggestPath, log.Printf)
+	// Regelpruefung der Automationen. Die Beobachtungen laufen in der
+	// 10-s-Schleife unten, ignorierte Hinweise liegen in autolearn/ignored.json.
+	autolearnDir := filepath.Join(dataDir, "autolearn")
+	automationObserver := autolearn.LoadObserver(filepath.Join(autolearnDir, "checks.json"), time.Local, log.Printf)
+	automationObserver.SetPersistence(filepath.Join(autolearnDir, "checks.json"), log.Printf)
+	automationChecker := autolearn.NewChecker(
+		automationObserver,
+		autolearn.EnergyStatsSeason(energyStatsStore),
+		func() ([]byte, error) { return configManager.Read("automation_rules") },
+		func(entityID string) bool {
+			for _, device := range reg.Snapshot() {
+				for _, entity := range device.Entities {
+					if entity.UniqueID == entityID {
+						return true
+					}
+				}
+			}
+			return false
+		},
+		filepath.Join(autolearnDir, "ignored.json"),
+		log.Printf,
+	)
+	automationEntityValue := func(entityID string) (float64, bool) {
+		for _, value := range reg.Values([]string{entityID}) {
+			if !value.HasValue {
+				return 0, false
+			}
+			parsed, err := strconv.ParseFloat(value.Value, 64)
+			return parsed, err == nil
+		}
+		return 0, false
+	}
+	// Der State-Payload des Automations-Dienstes, leer ohne Dienst.
+	automationState := func() string {
+		device, ok := reg.Get("automation")
+		if !ok {
+			return ""
+		}
+		for _, entity := range device.Entities {
+			if entity.ObjectID == "state" {
+				payload, _ := reg.StatePayload(entity.StateTopic)
+				return payload
+			}
+		}
+		return ""
+	}
 	// Nur nach einem erfolgreichen Laden von energy.json: sonst wuerden die
 	// gelernten Paare einer unlesbaren Konfiguration verworfen.
 	if value, err := settingsStore.LoadEnergy(); err == nil {
@@ -1018,17 +1065,18 @@ func main() {
 			DemoSpace: os.Getenv(storageDemoEnv) != "",
 			Usage:     storageUsage,
 		},
-		InstallerStateDir: installerStateDir,
-		AppConfigPath:     *configPath,
-		BridgeTargetPath:  cfg.Dashboard.MosquittoBridgeTarget,
-		Tailscale:         tailscaleClient,
-		Network:           networkClient,
-		Resolver:          energyResolver,
-		EnergyStats:       energyStats,
-		ChainMonitor:      chainMonitor,
-		ChainSuggest:      chainSuggest,
-		StorageFallback:   storageFallback,
-		HistorySampler:    historySampler,
+		InstallerStateDir:  installerStateDir,
+		AppConfigPath:      *configPath,
+		BridgeTargetPath:   cfg.Dashboard.MosquittoBridgeTarget,
+		Tailscale:          tailscaleClient,
+		Network:            networkClient,
+		Resolver:           energyResolver,
+		EnergyStats:        energyStats,
+		ChainMonitor:       chainMonitor,
+		ChainSuggest:       chainSuggest,
+		AutomationFindings: automationChecker,
+		StorageFallback:    storageFallback,
+		HistorySampler:     historySampler,
 		InstalledServices: map[string]bool{
 			"automation": cfg.ServiceInstalled("automation"),
 			"tailscale":  cfg.ServiceInstalled("tailscale"),
@@ -1092,6 +1140,7 @@ func main() {
 				chainMonitor.Close()
 				lossTotals.Close()
 				chainSuggest.Close()
+				automationObserver.Close()
 				return
 			case <-ticker.C:
 				start := time.Now()
@@ -1143,6 +1192,7 @@ func main() {
 					perfTiming.Since(performance.PartBackground, start)
 					continue
 				}
+				automationChecker.ObserveTick(time.Now(), automationState(), balanceRuleValues(snapshot.Balance), automationEntityValue)
 				if err := client.PublishRetained(energydiscovery.StateTopic, string(payload)); err != nil {
 					log.Printf("energy-node-dashboard: energy balance publish skipped: %v", err)
 				}
@@ -1318,6 +1368,25 @@ type chainSignalsGate struct{ published bool }
 // Want reports whether a payload is due for chainCount chains.
 func (g *chainSignalsGate) Want(chainCount int) bool {
 	return chainCount > 0 || g.published
+}
+
+// balanceRuleValues names the balance values by the field a balance condition
+// reads. Custom categories are keyed as custom:<id>.
+func balanceRuleValues(balance energy.Balance) map[string]float64 {
+	values := map[string]float64{
+		"pv":                balance.PV,
+		"grid_import":       balance.GridImport,
+		"grid_export":       balance.GridExport,
+		"battery_charge":    balance.BatteryCharge,
+		"battery_discharge": balance.BatteryDischarge,
+		"wallbox":           balance.Wallbox,
+		"heat_pump":         balance.HeatPump,
+		"load_total":        balance.LoadTotal,
+	}
+	for id, value := range balance.Categories {
+		values["custom:"+id] = value
+	}
+	return values
 }
 
 func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now time.Time) ([]byte, energy.Snapshot, error) {

@@ -91,6 +91,12 @@ var catalog = []Entry{
 	{RootData, "energystats/chains/suggest.json", ClassRuntime, AreaStats},
 	{RootData, "energystats/chains/*", ClassRuntime, AreaStats},
 	{RootDevices, "automation_history.json", ClassRuntime, AreaHistory},
+	// Regelpruefung: beobachtete Ausloesungen und Wertebereiche je Regel
+	// sowie die ausgeblendeten Befunde. Die Dateien stehen einzeln da, weil der
+	// Code sie nur mit ihrem Namen nennt.
+	{RootData, "autolearn/checks.json", ClassRuntime, AreaHistory},
+	{RootData, "autolearn/ignored.json", ClassRuntime, AreaHistory},
+	{RootData, "autolearn/*", ClassRuntime, AreaHistory},
 
 	{RootData, "energydiscovery/*", ClassDisposable, ""},
 	{RootData, "runtime.json", ClassDisposable, ""},
