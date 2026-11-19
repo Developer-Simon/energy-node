@@ -4473,13 +4473,13 @@ func TestExampleNoteShownAfterSetup(t *testing.T) {
 	}
 }
 
-// TestExampleNoteHiddenDuringSetup checks that the example note waits for the
-// initial setup to finish.
-func TestExampleNoteHiddenDuringSetup(t *testing.T) {
+// TestExampleNoteShownDuringSetup checks that the example note also shows while
+// the initial setup is still open, so the setup step has a target.
+func TestExampleNoteShownDuringSetup(t *testing.T) {
 	admin := auth.User{Username: "admin", Roles: auth.AllRoles()}
 	open := func() bool { return true }
-	if body := renderExampleNote(t, admin, open, true); strings.Contains(body, "data-example-note") {
-		t.Fatal("example note shown during the initial setup")
+	if body := renderExampleNote(t, admin, open, true); !strings.Contains(body, "data-example-note") {
+		t.Fatal("example note missing during the initial setup while the simulation runs")
 	}
 }
 

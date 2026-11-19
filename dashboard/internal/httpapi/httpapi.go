@@ -412,13 +412,19 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
 		g.HandleFunc("/api/v1/companion/", handleCompanion(dependencies.Auth, dependencies.Companion, dependencies.CompanionFingerprint))
 		if dependencies.Onboarding != nil {
+			// Der Beispiel-Zustand wird pro Anfrage gelesen, weil er sich ändert.
+			exampleState := func() (exists, active bool) {
+				note, err := example.LoadNote(dependencies.DataDir)
+				exists = err == nil && note != nil
+				return exists, example.Active(dependencies.DataDir, store)
+			}
 			onboardingInstalledServices := onboardingInstalled(dependencies.InstalledServices)
 			var tourTargets map[string]bool
 			if dependencies.TourTargets != nil {
 				tourTargets = dependencies.TourTargets()
 			}
-			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets))
-			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets))
+			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets, exampleState))
+			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets, exampleState))
 		}
 	}
 	if dependencies.SystemActions != nil {

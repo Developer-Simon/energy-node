@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -318,8 +319,10 @@ func onboardingSeed(user auth.User, role string, fresh bool, ids, olderIDs []str
 // comes from the request context. settingsStore and installed feed the setup
 // items that are detected from the current configuration, stateDir holds the
 // changelog for "Neu erkunden", tourTargets the data-tour targets of the web UI
-// that mark a tour as stale.
-func handleOnboarding(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, tourTargets map[string]bool) http.HandlerFunc {
+// that mark a tour as stale. exampleState reports whether the example note
+// exists and whether the example still runs. It is called per request, nil
+// means no note.
+func handleOnboarding(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, tourTargets map[string]bool, exampleState func() (exists, active bool)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, ok := auth.UserFromContext(r.Context())
 		if !ok {
@@ -333,7 +336,7 @@ func handleOnboarding(manager *auth.Manager, store *onboarding.Store, settingsSt
 				methodNotAllowed(w, http.MethodGet)
 				return
 			}
-			handleOnboardingGet(manager, store, settingsStore, installed, stateDir, tourTargets, user)(w, r)
+			handleOnboardingGet(manager, store, settingsStore, installed, stateDir, tourTargets, user, exampleState)(w, r)
 		case "step":
 			if r.Method != http.MethodPut {
 				methodNotAllowed(w, http.MethodPut)
@@ -396,8 +399,13 @@ func requireOnboardingAdmin(w http.ResponseWriter, r *http.Request, manager *aut
 	return true
 }
 
-func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, tourTargets map[string]bool, user auth.User) http.HandlerFunc {
+func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, tourTargets map[string]bool, user auth.User, exampleState func() (exists, active bool)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Der Beispiel-Zustand ändert sich zur Laufzeit, deshalb pro Anfrage.
+		var exampleExists, exampleActive bool
+		if exampleState != nil {
+			exampleExists, exampleActive = exampleState()
+		}
 		role := onboardingRoleOf(user)
 		currentVersion, exploreItems, readable := onboardingExplore(stateDir, user, tourTargets, tourConditions{Companion: manager != nil && manager.CompanionStatus().Paired})
 		ids := make([]string, 0, len(exploreItems))
@@ -435,8 +443,15 @@ func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, setting
 		if queue == nil {
 			queue = []string{}
 		}
-		states := onboarding.Merge(onboardingDetected(settingsStore, manager), progress.SetupSteps)
-		catalog := onboarding.Catalog(installed)
+		states := onboarding.Merge(onboardingDetected(settingsStore, manager, exampleExists && !exampleActive), progress.SetupSteps)
+		// Der Schritt example steht, solange die Notiz existiert. Die Karte
+		// der Aufrufer bleibt unverändert.
+		catalogInstalled := maps.Clone(installed)
+		if catalogInstalled == nil {
+			catalogInstalled = map[string]bool{}
+		}
+		catalogInstalled["example"] = exampleExists
+		catalog := onboarding.Catalog(catalogInstalled)
 		items := make([]onboardingItem, 0, len(catalog))
 		for _, step := range catalog {
 			items = append(items, onboardingItem{
@@ -486,8 +501,9 @@ func onboardingSessionQueue(role string, setupDone, welcome bool) []string {
 
 // onboardingDetected reads the current settings and accounts for the steps
 // that are detected rather than marked. Missing settings count as defaults.
-func onboardingDetected(settingsStore *settings.Store, manager *auth.Manager) map[string]onboarding.StepState {
-	in := onboarding.DetectInput{Settings: settings.Default(), GuestAccess: true}
+// exampleEnded is true when the example note exists but the example is off.
+func onboardingDetected(settingsStore *settings.Store, manager *auth.Manager, exampleEnded bool) map[string]onboarding.StepState {
+	in := onboarding.DetectInput{Settings: settings.Default(), GuestAccess: true, ExampleEnded: exampleEnded}
 	if settingsStore != nil {
 		if value, err := settingsStore.LoadSettings(); err == nil {
 			in.Settings = value

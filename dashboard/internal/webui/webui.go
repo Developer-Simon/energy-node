@@ -884,7 +884,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 // which reports whether the installation's initial setup is still open. While
 // it is, a guest sees the guest note above the overview. nil means no note.
 // exampleActive reports whether the example is running (example.Active). It
-// shows the example note to accounts with mqtt_config once the setup is done.
+// shows the example note to accounts with mqtt_config, also during the setup.
 // nil means no example note.
 func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store, engine *diagnostics.Engine, installedServices map[string]bool, setupPending func() bool, exampleActive func() bool) http.HandlerFunc {
 	resolver := energy.NewResolver(nil)
@@ -1062,10 +1062,10 @@ func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, sto
 		// Der Gast-Hinweis steht serverseitig im Seitenkopf, solange die
 		// Ersteinrichtung offen ist. Gäste sehen die Anlage sonst leer.
 		onboardingGuestNote := hasUser && user.Guest && setupPending != nil && setupPending()
-		// Der Beispiel-Hinweis steht nach der Ersteinrichtung, solange die
-		// Simulation laeuft. Er braucht das Recht mqtt_config, weil er die
-		// Simulation abschaltet.
-		exampleNote := exampleActive != nil && (setupPending == nil || !setupPending()) && can[auth.RoleMQTTConfig] && exampleActive()
+		// Der Beispiel-Hinweis steht, solange die Simulation laeuft, auch
+		// waehrend der Ersteinrichtung. Er braucht das Recht mqtt_config, weil
+		// er die Simulation abschaltet.
+		exampleNote := exampleActive != nil && can[auth.RoleMQTTConfig] && exampleActive()
 		view := map[string]any{
 			"BasePath":           basepath.From(r),
 			"Manager":            manager,

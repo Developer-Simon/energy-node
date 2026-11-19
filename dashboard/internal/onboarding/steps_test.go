@@ -51,6 +51,38 @@ func TestCatalogAutomationsNeedsService(t *testing.T) {
 	}
 }
 
+func TestCatalogExampleNeedsNote(t *testing.T) {
+	if slices.Contains(stepIDs(Catalog(map[string]bool{})), "example") {
+		t.Fatal("example step present although the note is missing")
+	}
+	if slices.Contains(stepIDs(Catalog(map[string]bool{"example": false})), "example") {
+		t.Fatal("example step present with example=false")
+	}
+	steps := Catalog(map[string]bool{"example": true})
+	idx := slices.IndexFunc(steps, func(step Step) bool { return step.ID == "example" })
+	if idx < 0 {
+		t.Fatal("example step missing although the note exists")
+	}
+	if next := steps[idx+1]; next.ID != "configservice" {
+		t.Fatalf("step after example = %q, want configservice", next.ID)
+	}
+	step := steps[idx]
+	if step.Area != "devices" || step.Installer || step.Needs != "example" {
+		t.Fatalf("example step = %+v, want devices, not installer, Needs example", step)
+	}
+}
+
+func TestDetectExampleEndedIsDone(t *testing.T) {
+	if got := Detect(defaultInput()); got["example"] != "" {
+		t.Fatalf("example = %q without an ended example, want open", got["example"])
+	}
+	in := defaultInput()
+	in.ExampleEnded = true
+	if got := Detect(in); got["example"] != StepDone {
+		t.Fatalf("example = %q, want %q", got["example"], StepDone)
+	}
+}
+
 func TestCatalogOrderAndAreas(t *testing.T) {
 	steps := Catalog(map[string]bool{"tailscale": true, "automation": true})
 	wantIDs := []string{
