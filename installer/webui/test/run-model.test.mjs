@@ -76,6 +76,8 @@ test('ein Skip traegt seinen Grund, login ausstehend wird gemerkt', () => {
   assert.equal(model.loginPending, true);
   assert.equal(M.skipText('login ausstehend', t), 'wartet auf die Anmeldung');
   assert.equal(M.skipText('nicht ausgewaehlt', t), 'nicht ausgewählt');
+  assert.equal(M.SKIP_REASONS['keine Erstinstallation'], 'not_first_install');
+  assert.equal(M.skipText('keine Erstinstallation', t), 'keine Erstinstallation');
   assert.equal(M.skipText('ein neuer Grund', t), 'ein neuer Grund');
 });
 

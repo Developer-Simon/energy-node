@@ -56,13 +56,34 @@ snapshot() {
   find "$EN_ROOT" -type f -print0 | sort -z | xargs -0 sha256sum
 }
 
-# --- ohne Auswahl: kein Opt-in, nichts geaendert ---------------------------
+# --- ausdruecklich abgewaehlt: kein Beispiel, nichts geaendert --------------
 setup_node
+printf '{"steps":{"89":false,"81":true,"83":true,"88":true}}\n' > "$EN_SELECTION"
 before="$(snapshot)"
 out="$(bash "$script")"
-grep -qx '##STEP 89 skip nicht ausgewaehlt' <<<"$out" || fail "ohne Auswahl nicht uebersprungen" "$out"
-[ "$(snapshot)" = "$before" ] || fail "ohne Auswahl wurde etwas geaendert"
-[ -f "$marker" ] && fail "ohne Auswahl gestempelt"
+grep -qx '##STEP 89 skip nicht ausgewaehlt' <<<"$out" || fail "abgewaehlt nicht uebersprungen" "$out"
+[ "$(snapshot)" = "$before" ] || fail "abgewaehlt wurde etwas geaendert"
+[ -f "$marker" ] && fail "abgewaehlt gestempelt"
+
+# --- Eintrag fehlt in der Auswahl: Vorgabe an, Beispiel laeuft --------------
+setup_node
+printf '{"steps":{"81":true,"83":true,"88":true}}\n' > "$EN_SELECTION"
+out="$(bash "$script")"
+grep -qx '##STEP 89 ok' <<<"$out" || fail "ohne Eintrag in der Auswahl kein ok-Marker" "$out"
+grep -q 'example_grid' "$devices/shelly_devices.json" || fail "Beispielgeraet fehlt ohne Eintrag in der Auswahl"
+
+# --- Erstinstallation nachweisbar (installed-manifest.json): kein Beispiel ---
+setup_node
+printf '%s\n' "$ALL_SELECTED" > "$EN_SELECTION"
+mkdir -p "$EN_STATE_DIR"
+touch "$EN_STATE_DIR/installed-manifest.json"
+before="$(cat "$devices/shelly_devices.json")"
+out="$(bash "$script")"
+grep -qx '##STEP 89 skip keine Erstinstallation' <<<"$out" || fail "nach frueherer Installation nicht uebersprungen" "$out"
+[ "$(cat "$devices/shelly_devices.json")" = "$before" ] || fail "nach frueherer Installation wurde Geraetedatei geschrieben"
+[ -s "$PUBLISH_LOG" ] && fail "nach frueherer Installation veroeffentlicht"
+[ -s "$SYSTEMCTL_LOG" ] && fail "nach frueherer Installation Dienste neu gestartet"
+[ -f "$marker" ] && fail "nach frueherer Installation gestempelt"
 
 # --- ausgewaehlt, leerer Knoten: Beispiel wird angelegt --------------------
 setup_node

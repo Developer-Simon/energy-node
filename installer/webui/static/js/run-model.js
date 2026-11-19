@@ -13,6 +13,7 @@
     'nicht ausgewaehlt': 'deselected',
     'bereits erledigt': 'done',
     'login ausstehend': 'login_pending',
+    'keine Erstinstallation': 'not_first_install',
     'Tailscale nicht installiert': 'tailscale_missing',
     'Beispiel wurde schon angelegt': 'example_exists',
     'Node hat schon Geraete': 'has_devices',

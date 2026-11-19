@@ -873,6 +873,7 @@
   "run.skip.example_exists": "Beispiel schon angelegt",
   "run.skip.has_devices": "Node hat schon Geräte",
   "run.skip.login_pending": "wartet auf die Anmeldung",
+  "run.skip.not_first_install": "keine Erstinstallation",
   "run.skip.tailscale_missing": "Tailscale nicht installiert",
   "service.apsystems": "APsystems",
   "service.automation": "Automation",
