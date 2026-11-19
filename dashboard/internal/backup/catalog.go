@@ -66,7 +66,7 @@ var catalog = []Entry{
 	{RootData, "energy.json", ClassConfig, AreaSettings},
 	{RootData, "onboarding.json", ClassConfig, AreaSettings},
 	// Notiz des Beispiels: merkt sich, welche Beispiel-Teile noch zu entfernen sind.
-	{RootData, "beispiel.json", ClassConfig, AreaSettings},
+	{RootData, "example.json", ClassConfig, AreaSettings},
 	{RootData, "ignored_devices.json", ClassConfig, AreaSettings},
 	{RootData, "mqtt.json", ClassConfig, AreaSettings},
 	{RootData, "bridge.json", ClassConfig, AreaSettings},

@@ -14,7 +14,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
-func newBeispielTestRouter(t *testing.T, dataDir string, store *settings.Store, sim NodeSettingsPublisher) (http.Handler, *auth.Manager) {
+func newExampleTestRouter(t *testing.T, dataDir string, store *settings.Store, sim NodeSettingsPublisher) (http.Handler, *auth.Manager) {
 	t.Helper()
 	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
 	if err != nil {
@@ -26,8 +26,8 @@ func newBeispielTestRouter(t *testing.T, dataDir string, store *settings.Store, 
 	return router, manager
 }
 
-// loginBeispiel meldet einen Konto-Namen an und liefert Cookie und CSRF-Token.
-func loginBeispiel(t *testing.T, router http.Handler, username, password string) (*http.Cookie, string) {
+// loginExample meldet einen Konto-Namen an und liefert Cookie und CSRF-Token.
+func loginExample(t *testing.T, router http.Handler, username, password string) (*http.Cookie, string) {
 	t.Helper()
 	body := `{"username":"` + username + `","password":"` + password + `"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
@@ -47,8 +47,8 @@ func loginBeispiel(t *testing.T, router http.Handler, username, password string)
 	return rec.Result().Cookies()[0], session.CSRFToken
 }
 
-func postBeispielStop(router http.Handler, cookie *http.Cookie, csrf, body string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/beispiel/stop", strings.NewReader(body))
+func postExampleStop(router http.Handler, cookie *http.Cookie, csrf, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/example/stop", strings.NewReader(body))
 	req.AddCookie(cookie)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	req.Header.Set("X-CSRF-Token", csrf)
@@ -57,18 +57,18 @@ func postBeispielStop(router http.Handler, cookie *http.Cookie, csrf, body strin
 	return rec
 }
 
-func TestBeispielStopNeedsEditConfigForRemove(t *testing.T) {
+func TestExampleStopNeedsEditConfigForRemove(t *testing.T) {
 	dataDir := t.TempDir()
 	store := settings.NewStore(dataDir)
-	router, manager := newBeispielTestRouter(t, dataDir, store, &fakeNodeSim{})
+	router, manager := newExampleTestRouter(t, dataDir, store, &fakeNodeSim{})
 
 	const password = "mqtt-only-password"
 	if _, err := manager.CreateUser("admin", "mqttonly", password, []string{auth.RoleMQTTConfig}); err != nil {
 		t.Fatal(err)
 	}
-	cookie, csrf := loginBeispiel(t, router, "mqttonly", password)
+	cookie, csrf := loginExample(t, router, "mqttonly", password)
 
-	rec := postBeispielStop(router, cookie, csrf, `{"remove":true}`)
+	rec := postExampleStop(router, cookie, csrf, `{"remove":true}`)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("remove without edit_config: status %d, want 403: %s", rec.Code, rec.Body.String())
 	}
@@ -76,19 +76,19 @@ func TestBeispielStopNeedsEditConfigForRemove(t *testing.T) {
 		t.Fatalf("403 body does not name edit_config_forbidden: %s", rec.Body.String())
 	}
 
-	rec = postBeispielStop(router, cookie, csrf, `{"remove":false}`)
+	rec = postExampleStop(router, cookie, csrf, `{"remove":false}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("stop without remove for mqtt_config user: status %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
-func TestBeispielStopRejectsGet(t *testing.T) {
+func TestExampleStopRejectsGet(t *testing.T) {
 	dataDir := t.TempDir()
 	store := settings.NewStore(dataDir)
-	router, _ := newBeispielTestRouter(t, dataDir, store, &fakeNodeSim{})
-	cookie, _ := loginBeispiel(t, router, "admin", "secret")
+	router, _ := newExampleTestRouter(t, dataDir, store, &fakeNodeSim{})
+	cookie, _ := loginExample(t, router, "admin", "secret")
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/beispiel/stop", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/example/stop", nil)
 	req.AddCookie(cookie)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	rec := httptest.NewRecorder()
@@ -98,7 +98,7 @@ func TestBeispielStopRejectsGet(t *testing.T) {
 	}
 }
 
-func TestBeispielStopTurnsSimulationOffAndReturnsEmptyLists(t *testing.T) {
+func TestExampleStopTurnsSimulationOffAndReturnsEmptyLists(t *testing.T) {
 	dataDir := t.TempDir()
 	store := settings.NewStore(dataDir)
 	mqttCfg, err := store.LoadMQTT()
@@ -110,10 +110,10 @@ func TestBeispielStopTurnsSimulationOffAndReturnsEmptyLists(t *testing.T) {
 		t.Fatal(err)
 	}
 	sim := &fakeNodeSim{}
-	router, _ := newBeispielTestRouter(t, dataDir, store, sim)
-	cookie, csrf := loginBeispiel(t, router, "admin", "secret")
+	router, _ := newExampleTestRouter(t, dataDir, store, sim)
+	cookie, csrf := loginExample(t, router, "admin", "secret")
 
-	rec := postBeispielStop(router, cookie, csrf, `{"remove":false}`)
+	rec := postExampleStop(router, cookie, csrf, `{"remove":false}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
 	}

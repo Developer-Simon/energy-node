@@ -883,7 +883,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 // OverviewWithOnboarding is OverviewWithDeviceFilterAndEngine plus setupPending,
 // which reports whether the installation's initial setup is still open. While
 // it is, a guest sees the guest note above the overview. nil means no note.
-// exampleActive reports whether the example is running (beispiel.Active). It
+// exampleActive reports whether the example is running (example.Active). It
 // shows the example note to accounts with mqtt_config once the setup is done.
 // nil means no example note.
 func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store, engine *diagnostics.Engine, installedServices map[string]bool, setupPending func() bool, exampleActive func() bool) http.HandlerFunc {

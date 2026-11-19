@@ -1,6 +1,6 @@
-// Package beispiel übernimmt beim Start den Beispiel-Seed aus dem Bootstrap:
+// Package example übernimmt beim Start den Beispiel-Seed aus dem Bootstrap:
 // Zuordnungen, Simulation und Kacheln für die Beispiel-Geräte.
-package beispiel
+package example
 
 import (
 	"encoding/json"
@@ -20,13 +20,13 @@ import (
 
 // SeedFileName ist der Seed des Bootstrap-Schritts, liegt im Datenverzeichnis
 // und wird beim Start einmal übernommen.
-const SeedFileName = "beispiel-seed.json"
+const SeedFileName = "example-seed.json"
 
 // NoteFileName ist die Notiz, zu der der Seed nach der Übernahme wird. Sie
 // bleibt liegen, damit die Beispiel-Geräte später zuzuordnen sind.
-const NoteFileName = "beispiel.json"
+const NoteFileName = "example.json"
 
-// Note entspricht dem Schema aus scripts/bootstrap/lib/beispiel.json.
+// Note entspricht dem Schema aus scripts/bootstrap/lib/example.json.
 type Note struct {
 	Version       int                          `json:"version"`
 	Devices       map[string][]json.RawMessage `json:"devices,omitempty"`
@@ -200,7 +200,7 @@ func deviceIDs(note Note) []string {
 				ID string `json:"id"`
 			}
 			if err := json.Unmarshal(raw, &device); err != nil || device.ID == "" {
-				slog.Warn("beispiel-seed: Gerät ohne ID wird übersprungen", "kategorie", category)
+				slog.Warn("example-seed: Gerät ohne ID wird übersprungen", "kategorie", category)
 				continue
 			}
 			ids = append(ids, device.ID)

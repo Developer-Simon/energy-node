@@ -14,10 +14,10 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
-	"github.com/Developer-Simon/energy-node-dashboard/internal/beispiel"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/example"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -4432,14 +4432,14 @@ func TestGuestNoteVisibleUntilComplete(t *testing.T) {
 	}
 }
 
-// renderExampleNote renders the overview for user with a beispiel.json note in
+// renderExampleNote renders the overview for user with a example.json note in
 // a temp data dir. simulated sets the global simulation switch, pending is the
 // setup source. It returns the page body.
 func renderExampleNote(t *testing.T, user auth.User, pending func() bool, simulated bool) string {
 	t.Helper()
 	reg := registry.New()
 	dataDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dataDir, beispiel.NoteFileName), []byte(`{"version":1}`), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dataDir, example.NoteFileName), []byte(`{"version":1}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	store := settings.NewStore(t.TempDir())
@@ -4451,7 +4451,7 @@ func renderExampleNote(t *testing.T, user auth.User, pending func() bool, simula
 	if err := store.SaveMQTT(mqtt); err != nil {
 		t.Fatal(err)
 	}
-	exampleActive := func() bool { return beispiel.Active(dataDir, store) }
+	exampleActive := func() bool { return example.Active(dataDir, store) }
 	handler := OverviewWithOnboarding(reg, config.NewManager(t.TempDir()), store, nil, diagnostics.NewEngine(reg, nil), nil, pending, exampleActive)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req = req.WithContext(auth.WithUser(req.Context(), user))

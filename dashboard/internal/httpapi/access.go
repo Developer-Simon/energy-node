@@ -65,7 +65,7 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/mqtt/credentials":         {group: groupOpen},
 	"/api/v1/mqtt/energy-device":       {group: groupOpen},
 	"/api/v1/mqtt/node-settings":       {group: groupOpen},
-	"/api/v1/beispiel/stop":            {group: groupOpen},
+	"/api/v1/example/stop":             {group: groupOpen},
 	"/api/v1/mqtt/test":                {group: groupOpen},
 	"/api/v1/mqtt/reconnect":           {group: groupOpen},
 	"/api/v1/mqtt/status":              {group: groupOpen},

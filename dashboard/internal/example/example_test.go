@@ -1,4 +1,4 @@
-package beispiel
+package example
 
 import (
 	"encoding/json"
@@ -16,28 +16,28 @@ const testSeed = `{
   "version": 1,
   "devices": {
     "apsystems_devices": [
-      {"id": "beispiel_pv", "name": "Beispiel PV-Wechselrichter", "host": "192.0.2.50"}
+      {"id": "example_pv", "name": "Beispiel PV-Wechselrichter", "host": "192.0.2.50"}
     ],
     "shelly_devices": [
-      {"id": "beispiel_netz", "name": "Beispiel Netzzähler", "host": "192.0.2.51", "generation": 1},
-      {"id": "beispiel_steckdose", "name": "Beispiel Steckdose", "host": "192.0.2.52", "generation": 2}
+      {"id": "example_grid", "name": "Beispiel Netzzähler", "host": "192.0.2.51", "generation": 1},
+      {"id": "example_plug", "name": "Beispiel Steckdose", "host": "192.0.2.52", "generation": 2}
     ]
   },
   "scenario": {
-    "id": "beispiel_ueberschuss", "name": "Beispiel Steckdose bei Überschuss", "enabled": true, "template": "surplus_switch",
+    "id": "example_surplus", "name": "Beispiel Steckdose bei Überschuss", "enabled": true, "template": "surplus_switch",
     "when": {"conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 1500, "hysteresis": 0, "hold_seconds": 120}]},
     "on_start": {"actions": []},
-    "on_end": {"actions": [{"type": "publish", "topic": "outstation/beispiel_steckdose/relay/0/set", "retain": false, "payload_source": "constant", "payload": "OFF", "entity_id": "beispiel_steckdose_relay"}]},
-    "while": {"mode": "hold", "actions": [{"type": "publish", "topic": "outstation/beispiel_steckdose/relay/0/set", "retain": false, "payload_source": "constant", "payload": "ON", "entity_id": "beispiel_steckdose_relay"}], "repeat_seconds": 60},
+    "on_end": {"actions": [{"type": "publish", "topic": "outstation/example_plug/relay/0/set", "retain": false, "payload_source": "constant", "payload": "OFF", "entity_id": "example_plug_relay"}]},
+    "while": {"mode": "hold", "actions": [{"type": "publish", "topic": "outstation/example_plug/relay/0/set", "retain": false, "payload_source": "constant", "payload": "ON", "entity_id": "example_plug_relay"}], "repeat_seconds": 60},
     "until": {"conditions": [{"type": "balance_threshold", "field": "grid_import", "comparison": "above", "threshold": 100, "hysteresis": 0, "hold_seconds": 120}]}
   },
-  "publish_prefix": "outstation/beispiel_steckdose/relay/0/set",
+  "publish_prefix": "outstation/example_plug/relay/0/set",
   "assignments": {
-    "beispiel_pv_total_power": {"role": "pv"},
-    "beispiel_netz_power_l1": {"role": "grid"},
-    "beispiel_netz_power_l2": {"role": "grid"},
-    "beispiel_netz_power_l3": {"role": "grid"},
-    "beispiel_steckdose_relay": {"role": "switch"}
+    "example_pv_total_power": {"role": "pv"},
+    "example_grid_power_l1": {"role": "grid"},
+    "example_grid_power_l2": {"role": "grid"},
+    "example_grid_power_l3": {"role": "grid"},
+    "example_plug_relay": {"role": "switch"}
   }
 }`
 
@@ -71,7 +71,7 @@ func TestApplySeedWithoutFileIsNoop(t *testing.T) {
 func TestApplySeedSetsAssignmentsOnlyWhenUnset(t *testing.T) {
 	dir, st := newFixture(t)
 	if _, err := st.PatchEnergy(func(cfg *settings.EnergyConfig) error {
-		cfg.Assignments["beispiel_netz_power_l1"] = energy.Assignment{Role: energy.RoleLoad}
+		cfg.Assignments["example_grid_power_l1"] = energy.Assignment{Role: energy.RoleLoad}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -85,14 +85,14 @@ func TestApplySeedSetsAssignmentsOnlyWhenUnset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.Assignments["beispiel_netz_power_l1"].Role; got != energy.RoleLoad {
+	if got := cfg.Assignments["example_grid_power_l1"].Role; got != energy.RoleLoad {
 		t.Errorf("l1 Rolle = %q, want load (vorhandene Zuordnung bleibt)", got)
 	}
 	for id, role := range map[string]energy.Role{
-		"beispiel_netz_power_l2":   energy.RoleGrid,
-		"beispiel_netz_power_l3":   energy.RoleGrid,
-		"beispiel_pv_total_power":  energy.RolePV,
-		"beispiel_steckdose_relay": energy.RoleSwitch,
+		"example_grid_power_l2":  energy.RoleGrid,
+		"example_grid_power_l3":  energy.RoleGrid,
+		"example_pv_total_power": energy.RolePV,
+		"example_plug_relay":     energy.RoleSwitch,
 	} {
 		if got := cfg.Assignments[id].Role; got != role {
 			t.Errorf("%s Rolle = %q, want %q", id, got, role)
@@ -185,7 +185,7 @@ func TestApplySeedRenamesSeedToNote(t *testing.T) {
 	if note == nil {
 		t.Fatal("LoadNote = nil, want Notiz")
 	}
-	if note.Version != 1 || note.PublishPrefix != "outstation/beispiel_steckdose/relay/0/set" {
+	if note.Version != 1 || note.PublishPrefix != "outstation/example_plug/relay/0/set" {
 		t.Errorf("Notiz = %+v", note)
 	}
 	if len(note.Devices) != 2 || len(note.Assignments) != 5 || len(note.Scenario) == 0 {
@@ -215,14 +215,14 @@ func writeConfigs(t *testing.T, dir, host, threshold string, manual bool) *confi
 		}
 	}
 	apsystems := string(seed.Devices["apsystems_devices"])
-	shelly := deviceArray(t, seed.Devices["shelly_devices"], "beispiel_steckdose", host)
+	shelly := deviceArray(t, seed.Devices["shelly_devices"], "example_plug", host)
 	scenario := string(seed.Scenario)
 	if threshold != "" {
 		scenario = strings.Replace(scenario, `"threshold": 1500`, `"threshold": `+threshold, 1)
 	}
-	prefixes := `"publish_allowed_prefixes":["outstation/beispiel_steckdose/relay/0/set"],"publish_allowed_prefixes_auto":true`
+	prefixes := `"publish_allowed_prefixes":["outstation/example_plug/relay/0/set"],"publish_allowed_prefixes_auto":true`
 	if manual {
-		prefixes = `"publish_allowed_prefixes":["outstation/beispiel_steckdose/relay/0/set","manuell/topic"],"publish_allowed_prefixes_auto":false`
+		prefixes = `"publish_allowed_prefixes":["outstation/example_plug/relay/0/set","manuell/topic"],"publish_allowed_prefixes_auto":false`
 	}
 	automation := `{"version":1,"settings":{"tick_interval_s":10,"settling_seconds":60,"balance_max_age_s":30,` +
 		prefixes + `},"rules":[],"scenarios":[` + scenario + `]}`
@@ -361,7 +361,7 @@ func TestStopRemoveDeletesUnchangedParts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{"beispiel_pv_total_power", "beispiel_steckdose_relay"} {
+	for _, id := range []string{"example_pv_total_power", "example_plug_relay"} {
 		if _, ok := cfg.Assignments[id]; ok {
 			t.Errorf("Zuordnung %s bleibt, want entfernt", id)
 		}
@@ -378,7 +378,7 @@ func TestStopRemoveKeepsEditedDevice(t *testing.T) {
 		t.Fatalf("Stop: %v", err)
 	}
 	shelly := readDocArray(t, configs, "shelly_devices")
-	if len(shelly) != 1 || shelly[0]["id"] != "beispiel_steckdose" || shelly[0]["host"] != "10.0.0.7" {
+	if len(shelly) != 1 || shelly[0]["id"] != "example_plug" || shelly[0]["host"] != "10.0.0.7" {
 		t.Fatalf("shelly_devices = %v, want nur die geaenderte Steckdose", shelly)
 	}
 	note, err := LoadNote(dir)
@@ -388,8 +388,8 @@ func TestStopRemoveKeepsEditedDevice(t *testing.T) {
 	if len(note.Devices) != 1 || len(note.Devices["shelly_devices"]) != 1 {
 		t.Fatalf("Notiz-Geraete = %v, want nur die Steckdose", note.Devices)
 	}
-	if !contains(res.Kept, "device:beispiel_steckdose") {
-		t.Errorf("Kept = %v, want device:beispiel_steckdose", res.Kept)
+	if !contains(res.Kept, "device:example_plug") {
+		t.Errorf("Kept = %v, want device:example_plug", res.Kept)
 	}
 }
 
@@ -409,8 +409,8 @@ func TestStopRemoveKeepsEditedScenario(t *testing.T) {
 	if len(note.Scenario) == 0 {
 		t.Error("Notiz ohne Szenario, want es behalten")
 	}
-	if !contains(res.Kept, "scenario:beispiel_ueberschuss") {
-		t.Errorf("Kept = %v, want scenario:beispiel_ueberschuss", res.Kept)
+	if !contains(res.Kept, "scenario:example_surplus") {
+		t.Errorf("Kept = %v, want scenario:example_surplus", res.Kept)
 	}
 }
 
@@ -428,10 +428,10 @@ func TestStopRemoveKeepsManualPrefixes(t *testing.T) {
 	if err != nil || note == nil {
 		t.Fatalf("LoadNote = %v, %v, want Notiz", note, err)
 	}
-	if note.PublishPrefix != "outstation/beispiel_steckdose/relay/0/set" {
+	if note.PublishPrefix != "outstation/example_plug/relay/0/set" {
 		t.Errorf("PublishPrefix = %q, want behalten", note.PublishPrefix)
 	}
-	if !contains(res.Kept, "publish_prefix:outstation/beispiel_steckdose/relay/0/set") {
+	if !contains(res.Kept, "publish_prefix:outstation/example_plug/relay/0/set") {
 		t.Errorf("Kept = %v, want publish_prefix", res.Kept)
 	}
 }

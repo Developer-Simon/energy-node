@@ -27,7 +27,6 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
-	"github.com/Developer-Simon/energy-node-dashboard/internal/beispiel"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/dataflow"
@@ -37,6 +36,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/example"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/netmgr"
@@ -484,7 +484,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
 		g.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
 		g.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))
-		g.HandleFunc("/api/v1/beispiel/stop", handleBeispielStop(dependencies.DataDir, configs, store, dependencies.Auth, dependencies.NodeSimulation))
+		g.HandleFunc("/api/v1/example/stop", handleExampleStop(dependencies.DataDir, configs, store, dependencies.Auth, dependencies.NodeSimulation))
 		g.HandleFunc("/api/v1/mqtt/test", handleMQTTTest(dependencies.MQTTCredentials, dependencies.Auth))
 		g.HandleFunc("/api/v1/mqtt/reconnect", handleMQTTReconnect(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTReconfigure, dependencies.MQTT, dependencies.MQTTBase))
 		g.HandleFunc("/api/v1/mqtt/status", handleMQTTStatus(dependencies.MQTT))
@@ -525,7 +525,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if dependencies.Onboarding != nil {
 		setupPending = func() bool { return !dependencies.Onboarding.Load().SetupDone }
 	}
-	exampleActive := func() bool { return beispiel.Active(dependencies.DataDir, store) }
+	exampleActive := func() bool { return example.Active(dependencies.DataDir, store) }
 	g.HandleFunc("/", webui.OverviewWithOnboarding(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices, setupPending, exampleActive))
 	return g.ServeMux()
 }

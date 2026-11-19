@@ -28,7 +28,6 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/backup"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
-	"github.com/Developer-Simon/energy-node-dashboard/internal/beispiel"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/chainsuggest"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/chainwatch"
@@ -40,6 +39,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/example"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
@@ -228,8 +228,8 @@ func main() {
 		}
 	}
 	// Der Beispiel-Seed aus dem Bootstrap gilt ebenfalls einmal beim Start.
-	if err := beispiel.ApplySeed(dataDir, settingsStore); err != nil {
-		log.Printf("energy-node-dashboard: Beispiel aus %s nicht vollständig übernommen: %v", beispiel.SeedFileName, err)
+	if err := example.ApplySeed(dataDir, settingsStore); err != nil {
+		log.Printf("energy-node-dashboard: Beispiel aus %s nicht vollständig übernommen: %v", example.SeedFileName, err)
 	}
 	// Nur ein echter Reader im Interface, sonst waere ServiceLogs nie nil.
 	var serviceLogs httpapi.ServiceLogReader
