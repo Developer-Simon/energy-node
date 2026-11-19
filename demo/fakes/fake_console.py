@@ -240,7 +240,7 @@ def build_tabs(args: argparse.Namespace, log: Log) -> list[Tab]:
         tabs.append(PerformanceTab(log, Path(args.performance_state)))
     if args.automation_rules:
         from console_rulecheck import RuleCheckTab
-        tabs.append(RuleCheckTab(log, Path(args.automation_rules)))
+        tabs.append(RuleCheckTab(log, Path(args.automation_rules), args.broker_control))
     if args.highlights_repo:
         from console_highlights import HighlightsTab
         installer = Path(args.installer_state) if args.installer_state else None

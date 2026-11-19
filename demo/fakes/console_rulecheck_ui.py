@@ -64,6 +64,15 @@ RULECHECK_HTML = """<div id="tab-rulecheck">
 
     const end = document.createElement("span");
     end.className = "end";
+    if (item.triggerable) {
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "btn";
+      trigger.dataset.act = "trigger";
+      trigger.dataset.scenario = item.id;
+      trigger.textContent = "4× auslösen";
+      end.append(trigger);
+    }
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = item.inserted ? "btn" : "btn btn-primary";

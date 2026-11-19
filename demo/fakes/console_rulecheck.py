@@ -7,6 +7,10 @@ console_rulecheck_ui.py.
 
 Jede Aktion ist eine Zeile in ACTIONS. Eine fehlende oder unlesbare Datei
 und unbekannte Szenarien werden als ValueError geworfen (400).
+
+Die Demo hat keinen Automationsdienst. Damit der Befund "Löst nie aus" und
+"Löst sehr oft aus" entstehen kann, veröffentlicht der Reiter den Zustand des
+Dienstes selbst, mit den Auslösungen je Regel. Der Broker kommt aus --broker-control.
 """
 import copy
 import json
@@ -15,12 +19,17 @@ import tempfile
 import threading
 from pathlib import Path
 
+from console_remote import RemoteFake
 from console_rulecheck_ui import RULECHECK_HTML
 from fake_console import Log, Tab
 
-ACTIONS = ("insert", "remove", "insert_all", "remove_all")
+ACTIONS = ("insert", "remove", "insert_all", "remove_all", "trigger")
 PREFIX = "chk_"
 UNREADABLE = "Regeldatei nicht lesbar"
+STATE_TOPIC = "outstation/automation/state"
+STATIC_STATE = {"rules_enabled": 3, "online": True}
+TRIGGER_DEFAULT = 4
+TRIGGER_MAX = 50
 
 
 def _balance(field: str, comparison: str, threshold: float, hysteresis: float = 100,
@@ -111,7 +120,7 @@ SCENARIOS = [
         "id": "never_fired",
         "title": "Löst nie aus",
         "expect": "Löst nie aus",
-        "note": "Die Schwelle liegt so hoch, dass sie nie erreicht wird. Der Hinweis erscheint nach dem ersten Takt der Demo.",
+        "note": "Die Konsole meldet die Regel mit 0 Auslösungen. Der Befund erscheint nach etwa 10 Sekunden, Seite neu laden, weil die Schwelle nie erreicht wird.",
         "rules": [
             _rule("chk_nie", "Prüfung Nie",
                   [_balance("grid_export", "above", 99999, hysteresis=0, hold_seconds=30)],
@@ -122,7 +131,8 @@ SCENARIOS = [
         "id": "frequent",
         "title": "Löst sehr oft aus",
         "expect": "Löst sehr oft aus",
-        "note": "Löst erst aus, wenn der Wert mehrmals über und unter 50 pendelt. Im Reiter MQTT mehrmals abwechselnd 80 und 20 auf demo/check/pendeln veröffentlichen (mindestens 3 Auslösungen innerhalb einer Stunde).",
+        "note": "Der Knopf meldet dem Dashboard 4 Auslösungen auf einmal (mit dem Fast-Modus der Demo genügen 3 pro Stunde). Der Befund erscheint nach etwa 10 Sekunden, Seite neu laden.",
+        "triggerable": True,
         "rules": [
             _rule("chk_pendeln", "Prüfung Pendeln",
                   [{"type": "topic_value", "topic": "demo/check/pendeln", "comparison": "above",
@@ -159,10 +169,52 @@ class RuleCheckTab(Tab):
     title = "Regelprüfung"
     html = RULECHECK_HTML
 
-    def __init__(self, log: Log, rules_path: Path) -> None:
+    def __init__(self, log: Log, rules_path: Path, broker_control: str = "") -> None:
         self._log = log
         self._path = Path(rules_path)
         self._lock = threading.Lock()
+        # Ohne Steuer-URL des Brokers wird nichts veroeffentlicht
+        self._remote = RemoteFake(broker_control, "regelpruefung", log) if broker_control else None
+        self._counts: dict[str, int] = {}
+
+    def _post_state(self, payload: dict) -> None:
+        """Veroeffentlicht den Zustand retained. Fehler gehen ins Protokoll, nie als Ausnahme."""
+        if self._remote is None:
+            return
+        try:
+            self._remote.post("publish", {"topic": STATE_TOPIC, "payload": json.dumps(payload),
+                                          "retain": True})
+        except (OSError, ValueError) as exc:
+            self._log.add("regelpruefung", f"Zustand des Automationsdienstes nicht veröffentlicht: {exc}",
+                          "error")
+
+    def _publish_state(self) -> None:
+        """Zustand aus der Regeldatei und den Auslösungen. Aufrufer halten den Lock."""
+        if self._remote is None:
+            return
+        try:
+            rules = _load(self._path)["rules"]
+        except ValueError as exc:
+            self._log.add("regelpruefung", f"Zustand des Automationsdienstes nicht veröffentlicht: {exc}",
+                          "error")
+            return
+        self._post_state({
+            "rules_enabled": sum(1 for rule in rules if rule.get("enabled")),
+            "online": True,
+            "rules": {rule["id"]: {"trigger_count": self._counts.get(rule["id"], 0)}
+                      for rule in rules if "id" in rule},
+        })
+
+    def _trigger(self, body: dict) -> str:
+        scenario = BY_ID.get(body.get("scenario"))
+        if scenario is None or not scenario.get("triggerable"):
+            raise ValueError("Szenario ist ungültig")
+        times = body.get("times", TRIGGER_DEFAULT)
+        if type(times) is not int or not 1 <= times <= TRIGGER_MAX:
+            raise ValueError("Anzahl ist ungültig")
+        for rule in scenario["rules"]:
+            self._counts[rule["id"]] = self._counts.get(rule["id"], 0) + times
+        return f"{times} Auslösungen gemeldet: {scenario['title']}"
 
     def _write(self, data: dict) -> None:
         """Schreibt atomar: temporaere Datei im selben Ordner, dann os.replace."""
@@ -209,10 +261,14 @@ class RuleCheckTab(Tab):
                     for rule in scenario["rules"]:
                         _put(rules, rule)
                 text = "Alle Beispiele eingefügt"
+            elif action == "trigger":
+                text = self._trigger(body)
             else:
                 rules[:] = [rule for rule in rules if not str(rule.get("id", "")).startswith(PREFIX)]
                 text = "Alle Beispiele entfernt"
-            self._write(data)
+            if action != "trigger":
+                self._write(data)
+            self._publish_state()
             self._log.add("regelpruefung", text)
         return self.state()
 
@@ -220,7 +276,8 @@ class RuleCheckTab(Tab):
         with self._lock:
             rules = _load(self._path)["rules"]
             return [{"id": s["id"], "title": s["title"], "expect": s["expect"], "note": s["note"],
-                     "inserted": self._inserted(rules, s)} for s in SCENARIOS]
+                     "inserted": self._inserted(rules, s),
+                     "triggerable": bool(s.get("triggerable"))} for s in SCENARIOS]
 
     def summary(self) -> dict:
         try:
@@ -238,3 +295,5 @@ class RuleCheckTab(Tab):
             data["rules"] = [rule for rule in data["rules"]
                              if not str(rule.get("id", "")).startswith(PREFIX)]
             self._write(data)
+            self._counts.clear()
+            self._post_state(STATIC_STATE)
