@@ -58,8 +58,10 @@ Repeat (`repeat_seconds`) runs the actions again while all conditions keep
 holding, once `repeat_seconds` have passed since the last firing. A repeat
 does not wait for the cooldown, because the cooldown only applies to starting
 a new episode. Each repeat counts up `fire_count`, but only the first trigger of
-an episode is written to the history. The repeat uses the same actions as the
-first trigger, so a rule with a `toggle` action cannot repeat.
+an episode is written to the history. `trigger_count` in the state document
+`<base>/state` under `rules.<id>` counts the episodes, not the repeats, and
+starts at 0 after a restart. The repeat uses the same actions as the first
+trigger, so a rule with a `toggle` action cannot repeat.
 
 ## 3. Restart and rejected rules
 
