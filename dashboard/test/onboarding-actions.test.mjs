@@ -624,6 +624,103 @@ function configPage(document, { configs = ['grid', 'battery_soc_devices'], formF
   return page;
 }
 
+// Die Vorlage hat Bedingung und Aktion und ist aktiviert, der Name zeigt die Lokalisierung.
+const duplicateSource = (id, extra = {}) => ({
+  id,
+  name: 'Mittag',
+  enabled: true,
+  history_enabled: true,
+  cooldown_seconds: 60,
+  conditions: [{ type: 'time_window', start: '12:00', end: '13:00', weekdays: [] }],
+  actions: [{ type: 'notification', severity: 'info', title: 'Hallo', message: 'Hallo' }],
+  ...extra,
+});
+
+function withCopyLabel(document, page) {
+  document.defaultView.I18n = {
+    t: (key, params) => (key === 'onboarding.rule_copy' ? `${params.name} (Kopie)` : key),
+  };
+  return page;
+}
+
+test('duplicate-rule inserts an equal copy with a unique id and the localized name, revert removes it', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  ruleItem(document, 'a');
+  const page = withCopyLabel(document, rulesPage(document, [duplicateSource('a')]));
+  const run = runOf(['@duplicate-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  assert.equal(page.document.rules.length, 2);
+  const [source, copy] = page.document.rules;
+  assert.equal(copy.id, 'a_kopie');
+  assert.equal(copy.name, 'Mittag (Kopie)');
+  assert.equal(copy.enabled, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(copy.conditions)), source.conditions);
+  assert.deepEqual(JSON.parse(JSON.stringify(copy.actions)), source.actions);
+  assert.equal(page.expanded.a_kopie, true);
+  assert.notEqual(page.editing.a_kopie, true, 'editing does not start');
+  assert.equal(page.undo, null, 'no undo band for tour inserts');
+  assert.equal(run.records[0].scope, document.querySelector('li[data-rule-id="a_kopie"]'));
+  run.records[0].revert();
+  assert.deepEqual(page.document.rules.map((r) => r.id), ['a']);
+  assert.equal(page.expanded.a_kopie, undefined);
+});
+
+test('duplicate-rule picks the next free copy id', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  ruleItem(document, 'a');
+  const page = withCopyLabel(document, rulesPage(document, [duplicateSource('a'), { id: 'a_kopie', conditions: [], actions: [] }]));
+  const run = runOf(['@duplicate-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  assert.equal(page.document.rules.at(-1).id, 'a_kopie2');
+  assert.equal(run.records[0].scope.getAttribute('data-rule-id'), 'a_kopie2');
+});
+
+test('duplicate-rule without a source inserts two identical example rules and revert removes both', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const page = rulesPage(document, [{ id: 'x', enabled: true, conditions: [], actions: [] }]);
+  const run = runOf(['@duplicate-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  const added = page.document.rules.slice(1);
+  assert.equal(added.length, 2);
+  const [first, second] = added;
+  assert.ok(first.id.startsWith('regel_') && first.id.endsWith('_a'));
+  assert.ok(second.id.endsWith('_b'));
+  assert.equal(first.name, 'Beispielregel A');
+  assert.equal(second.name, 'Beispielregel B');
+  assert.equal(first.enabled, true);
+  assert.equal(second.enabled, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(first.conditions)), JSON.parse(JSON.stringify(second.conditions)));
+  assert.equal(page.expanded[second.id], true, 'rule B carries the mark and opens');
+  assert.equal(run.records[0].scope.getAttribute('data-rule-id'), second.id);
+  run.records[0].revert();
+  assert.deepEqual(page.document.rules.map((r) => r.id), ['x']);
+});
+
+test('duplicate-rule revert keeps a copy that was edited', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  ruleItem(document, 'a');
+  const page = withCopyLabel(document, rulesPage(document, [duplicateSource('a')]));
+  const run = runOf(['@duplicate-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  page.document.rules[1].cooldown_seconds = 300;
+  run.records[0].revert();
+  assert.equal(page.document.rules.length, 2);
+  assert.equal(page.document.rules[1].cooldown_seconds, 300);
+});
+
+test('duplicate-rule returns null without the automations page', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  document.defaultView.Alpine = { $data: () => null };
+  const run = runOf(['@duplicate-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  assert.equal(run.records.length, 0);
+});
+
 test('battery-soc sets the battery service on the page and reverts the old one', async () => {
   const { document, a } = load();
   document.body.innerHTML = `
