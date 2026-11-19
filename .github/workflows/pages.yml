@@ -92,7 +92,15 @@ jobs:
         run: |
           scripts/docs/doc-versions.sh . > docs/_data/doc_versions.yml
           python3 scripts/docs/release-versions.py . > docs/_data/release_versions.yml
-          python3 scripts/docs/whats-new.py . > docs/_data/whats_new.json
+          # The prerelease notes come from a checkout of the prerelease branch.
+          # Only builds of main refresh them, a push to prerelease does not
+          # trigger this workflow. Without the branch the page stays empty.
+          if git rev-parse --verify -q origin/prerelease >/dev/null; then
+            git worktree add --detach "$RUNNER_TEMP/prerelease" origin/prerelease
+            python3 scripts/docs/whats-new.py . "$RUNNER_TEMP/prerelease" > docs/_data/whats_new.json
+          else
+            python3 scripts/docs/whats-new.py . > docs/_data/whats_new.json
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/jekyll-build-pages@v1
         with:

@@ -46,7 +46,6 @@
 
 ### Fixes
 
-- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 - **installer:** show the hotspot credentials after every successful run (bbeac07)
 - **webui:** bust the asset cache on every asset change (90fcdf8)
 - **webui:** keep the language switch on the media screens (040d376)
@@ -64,6 +63,12 @@
 - **installer:** wait for the diagnose skeleton rows instead of the old banner (8ea5ba1)
 - **webui:** cover the media mode end to end (69364e7)
 - **webui:** pick the device list, not the language switch, in the media e2e (6087dff)
+
+## v0.3.3 (2026-11-16)
+
+### Fixes
+
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 
 ## v0.3.2 (2026-11-07)
 

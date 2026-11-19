@@ -18,11 +18,16 @@
 ### Fixes
 
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
-- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 - **network:** start the emergency hotspot with PMF off (93060d2)
 - **network:** offer only RSN with CCMP and allow DHCP in the hotspot (0953912)
 - **network:** leave the hotspot cipher suite at the defaults (53e5b88)
 - **storage:** render the storage helper for the node user (00faf59)
+
+## v0.3.3 (2026-11-16)
+
+### Fixes
+
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 
 ## v0.3.2 (2026-11-07)
 

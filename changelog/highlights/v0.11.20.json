@@ -1,0 +1,130 @@
+{
+  "246": {
+    "de": {
+      "*": "Die Backup-Seite bleibt mit einem HTTPS-Hinweis sichtbar, wenn die Verbindung nicht sicher ist"
+    },
+    "en": {
+      "*": "Keep the backup page visible with a hint when HTTPS is missing"
+    }
+  },
+  "249": {
+    "de": {
+      "*": "Neustart über die Systemaktionen zeigt keinen falschen Fehler mehr"
+    },
+    "en": {
+      "*": "Do not report an error when a reboot stops the dashboard"
+    }
+  },
+  "253": {
+    "de": {
+      "*": "Home-Assistant-Benutzer behalten im Panel alle Rechte auch ohne HTTPS, wenn ein Admin es erlaubt"
+    },
+    "details": {
+      "*": {
+        "en": "Under Settings, Users, Home Assistant, a switch allows the permissions of Home Assistant users in the panel even when Home Assistant is only reachable over http.",
+        "de": "Unter Einstellungen, Benutzer, Home Assistant erlaubt ein Schalter die Rechte der Home-Assistant-Benutzer im Panel auch dann, wenn Home Assistant nur über http erreichbar ist.",
+        "image": "dashboard-settings-users-home-assistant.png",
+        "doc": "dashboard/settings-users.html#home-assistant-users"
+      }
+    },
+    "en": {
+      "*": "Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "user_management",
+            "open": [
+              "users-accounts"
+            ],
+            "page": "users",
+            "panel": "settings-panel",
+            "target": "companion",
+            "title": {
+              "en": "Home Assistant section",
+              "de": "Bereich Home Assistant"
+            },
+            "text": {
+              "en": "With a paired Home Assistant, functions that need HTTPS can now also be switched on over HTTP.",
+              "de": "Mit einem gekoppelten Home Assistant lassen sich jetzt Funktionen, die HTTPS brauchen, auch über HTTP aktivieren."
+            }
+          },
+          {
+            "need": "user_management",
+            "open": [
+              "users-accounts"
+            ],
+            "page": "users",
+            "panel": "settings-panel",
+            "target": "companion-http",
+            "title": {
+              "en": "HTTPS actions without HTTPS",
+              "de": "HTTPS-Aktionen ohne HTTPS"
+            },
+            "text": {
+              "en": "If Home Assistant runs on plain HTTP, switch this on. Home Assistant users then keep all their permissions in the panel. Only do this in your own network, because passwords and keys travel unencrypted through the network.",
+              "de": "Läuft Home Assistant nur über HTTP, schaltest du das hier ein. Home-Assistant-Benutzer behalten dann alle ihre Rechte im Panel. Tu das nur im eigenen Netz, denn Passwörter und Schlüssel gehen dann unverschlüsselt durch das Netzwerk."
+            },
+            "when": "companion"
+          }
+        ]
+      }
+    }
+  },
+  "266": {
+    "de": {
+      "*": "Betriebshinweise eines Geräts stehen im Geräte-Modal hinter einer Glocke im Kopf"
+    },
+    "details": {
+      "*": {
+        "crop": [
+          0.45,
+          0.0,
+          0.55,
+          0.2
+        ],
+        "de": "Die Glocke erscheint nur, wenn das Gerät Hinweise hat, mit deren Anzahl. Ein Klick zeigt die Kurztexte. Mit dem Analyse-Recht öffnet Details in Analyse die vollständigen Karten.",
+        "doc": "dashboard/device-modal.html#hint-bell",
+        "en": "The bell only appears when the device has notices, with a count of them. Click it for the short texts. With the analysis right, Details in Analysis opens the full cards.",
+        "image": "dashboard-device-modal.png"
+      }
+    },
+    "en": {
+      "*": "Operational notices of a device sit behind a bell in the device modal header"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_devices",
+            "open": [
+              "device-density-toggle",
+              "@device-modal",
+              "@device-hint-demo",
+              "device-hints-bell"
+            ],
+            "panel": "devices-panel",
+            "target": "device-hints-popover",
+            "text": {
+              "de": "Betriebshinweise eines Geräts, etwa wenn es offline ist, stehen jetzt hinter einer Glocke im Kopf. Sie erscheint nur, wenn das Gerät Hinweise hat. Das Fenster nennt jeden Hinweis in wenigen Worten. Mit dem Analyse-Recht führt dich Details in Analyse zu den vollständigen Karten.",
+              "en": "Operational notices of a device, such as being offline, now sit behind a bell in the header. It only appears when the device has notices. The popover lists every notice in a few words. With the analysis right, Details in Analysis takes you to the full cards."
+            },
+            "title": {
+              "de": "Hinweis-Glocke",
+              "en": "Hint bell"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "271": {
+    "de": {
+      "*": "Weniger Schreibzugriffe auf die SD-Karte durch Tailscale-Logs und runtime.json"
+    },
+    "en": {
+      "*": "Cut SD card writes from tailscaled logs and runtime.json"
+    }
+  }
+}

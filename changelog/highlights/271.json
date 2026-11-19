@@ -1,8 +1,0 @@
-{
-  "de": {
-    "*": "Weniger Schreibzugriffe auf die SD-Karte durch Tailscale-Logs und runtime.json"
-  },
-  "en": {
-    "*": "Cut SD card writes from tailscaled logs and runtime.json"
-  }
-}
