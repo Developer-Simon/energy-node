@@ -4465,10 +4465,10 @@ func renderExampleNote(t *testing.T, user auth.User, pending func() bool, simula
 func TestExampleNoteShownAfterSetup(t *testing.T) {
 	admin := auth.User{Username: "admin", Roles: auth.AllRoles()}
 	done := func() bool { return false }
-	if body := renderExampleNote(t, admin, done, true); !strings.Contains(body, "data-beispiel-note") || !strings.Contains(body, `class="beispiel-note-btn is-primary" data-beispiel-off`) {
+	if body := renderExampleNote(t, admin, done, true); !strings.Contains(body, "data-example-note") || !strings.Contains(body, `class="example-note-btn is-primary" data-example-off`) {
 		t.Fatal("example note missing after setup while the simulation runs")
 	}
-	if body := renderExampleNote(t, admin, done, false); strings.Contains(body, "data-beispiel-note") {
+	if body := renderExampleNote(t, admin, done, false); strings.Contains(body, "data-example-note") {
 		t.Fatal("example note shown while the simulation is off")
 	}
 }
@@ -4478,7 +4478,7 @@ func TestExampleNoteShownAfterSetup(t *testing.T) {
 func TestExampleNoteHiddenDuringSetup(t *testing.T) {
 	admin := auth.User{Username: "admin", Roles: auth.AllRoles()}
 	open := func() bool { return true }
-	if body := renderExampleNote(t, admin, open, true); strings.Contains(body, "data-beispiel-note") {
+	if body := renderExampleNote(t, admin, open, true); strings.Contains(body, "data-example-note") {
 		t.Fatal("example note shown during the initial setup")
 	}
 }
@@ -4489,7 +4489,7 @@ func TestExampleNoteHiddenDuringSetup(t *testing.T) {
 func TestExampleNoteHiddenWithoutPermission(t *testing.T) {
 	viewer := auth.User{Username: "viewer", Roles: []string{auth.RoleViewOverview}}
 	done := func() bool { return false }
-	if body := renderExampleNote(t, viewer, done, true); strings.Contains(body, "data-beispiel-note") {
+	if body := renderExampleNote(t, viewer, done, true); strings.Contains(body, "data-example-note") {
 		t.Fatal("example note shown without mqtt_config")
 	}
 }

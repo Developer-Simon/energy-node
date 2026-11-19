@@ -1,6 +1,6 @@
-// Hinweis zum Beispiel oben auf der Seite (base.html, data-beispiel-note).
+// Hinweis zum Beispiel oben auf der Seite (base.html, data-example-note).
 // "Simulation aus" und "Simulation aus und Beispiel entfernen" rufen
-// POST /api/v1/beispiel/stop auf. Ohne behaltene Eintraege wird die Seite neu
+// POST /api/v1/example/stop auf. Ohne behaltene Eintraege wird die Seite neu
 // geladen. Behaltene Eintraege (vom Nutzer veraendert) stehen dagegen im
 // Hinweis, damit der Nutzer sie sieht.
 (() => {
@@ -27,7 +27,7 @@
   // Der CSRF-Token kommt wie auf den anderen Seiten aus GET /api/v1/auth/session.
   const stopExample = async (deps, remove) => {
     const session = await requestJSON(deps, `${basePath()}/api/v1/auth/session`);
-    return requestJSON(deps, `${basePath()}/api/v1/beispiel/stop`, {
+    return requestJSON(deps, `${basePath()}/api/v1/example/stop`, {
       method: 'POST',
       headers: {
         'X-CSRF-Token': (session && session.csrf_token) || '',
@@ -38,10 +38,10 @@
   };
 
   const bind = (root, deps = defaultDeps) => {
-    const keptTemplate = root.dataset.beispielKept || '';
-    const failedText = root.dataset.beispielFailed || '';
-    const msg = root.querySelector('[data-beispiel-msg]');
-    const buttons = Array.from(root.querySelectorAll('[data-beispiel-off], [data-beispiel-remove]'));
+    const keptTemplate = root.dataset.exampleKept || '';
+    const failedText = root.dataset.exampleFailed || '';
+    const msg = root.querySelector('[data-example-msg]');
+    const buttons = Array.from(root.querySelectorAll('[data-example-off], [data-example-remove]'));
     let busy = false;
 
     const show = (text) => {
@@ -76,13 +76,13 @@
     };
 
     buttons.forEach((b) => {
-      if (b.hasAttribute('data-beispiel-off')) b.addEventListener('click', () => run(false));
-      if (b.hasAttribute('data-beispiel-remove')) b.addEventListener('click', () => run(true));
+      if (b.hasAttribute('data-example-off')) b.addEventListener('click', () => run(false));
+      if (b.hasAttribute('data-example-remove')) b.addEventListener('click', () => run(true));
     });
   };
 
-  window.beispielNote = { bind, stripKind };
+  window.exampleNote = { bind, stripKind };
 
-  const root = document.querySelector('[data-beispiel-note]');
+  const root = document.querySelector('[data-example-note]');
   if (root) bind(root);
 })();

@@ -401,7 +401,7 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
    Gleiche Bauweise wie die Update-Leiste: Icon, Text (Titel plus Zeile
    darunter), Aktionen rechts in derselben Reihe. Schmal stehen die Aktionen
    unter dem Text. Die Hauptaktion traegt den Ton, die zweite bleibt leise. */
-.beispiel-note {
+.example-note {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -415,14 +415,14 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
   font-size: .92rem;
   line-height: 1.4;
 }
-.beispiel-note-icon { flex: none; width: 1.15rem; height: 1.15rem; fill: none; stroke: var(--info); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.beispiel-note-main { flex: 1 1 18rem; min-width: 0; }
-.beispiel-note-title { color: var(--text-strong); font-weight: 600; }
-.beispiel-note-detail { margin-top: .1rem; color: var(--text-muted); font-size: .82rem; text-wrap: pretty; }
-.beispiel-note-msg { margin: .4rem 0 0; color: var(--text); font-size: .82rem; text-wrap: pretty; }
-.beispiel-note-msg[hidden] { display: none; }
-.beispiel-note-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
-.beispiel-note-btn {
+.example-note-icon { flex: none; width: 1.15rem; height: 1.15rem; fill: none; stroke: var(--info); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.example-note-main { flex: 1 1 18rem; min-width: 0; }
+.example-note-title { color: var(--text-strong); font-weight: 600; }
+.example-note-detail { margin-top: .1rem; color: var(--text-muted); font-size: .82rem; text-wrap: pretty; }
+.example-note-msg { margin: .4rem 0 0; color: var(--text); font-size: .82rem; text-wrap: pretty; }
+.example-note-msg[hidden] { display: none; }
+.example-note-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.example-note-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -439,33 +439,33 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
   -webkit-tap-highlight-color: transparent;
   transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .1s var(--ease-out), opacity .15s ease;
 }
-.beispiel-note-btn.is-primary { border-color: color-mix(in srgb, var(--info-line) 60%, transparent); background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); }
-.beispiel-note-btn:active:not(:disabled) { transform: scale(.97); }
-.beispiel-note-btn:disabled { opacity: .5; cursor: progress; }
-.beispiel-note-btn:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.example-note-btn.is-primary { border-color: color-mix(in srgb, var(--info-line) 60%, transparent); background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); }
+.example-note-btn:active:not(:disabled) { transform: scale(.97); }
+.example-note-btn:disabled { opacity: .5; cursor: progress; }
+.example-note-btn:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) {
-  .beispiel-note-btn:hover:not(:disabled) { color: var(--text-strong); background: color-mix(in srgb, var(--info) 10%, transparent); }
-  .beispiel-note-btn.is-primary:hover:not(:disabled) { color: var(--text-strong); background: color-mix(in srgb, var(--info) 24%, transparent); }
+  .example-note-btn:hover:not(:disabled) { color: var(--text-strong); background: color-mix(in srgb, var(--info) 10%, transparent); }
+  .example-note-btn.is-primary:hover:not(:disabled) { color: var(--text-strong); background: color-mix(in srgb, var(--info) 24%, transparent); }
 }
 /* Schmal: Text oben, die Aktionen darunter ueber die ganze Breite, mit
    Tippflaechen von 2.5rem Hoehe. */
 @media (max-width: 640px) {
-  .beispiel-note-icon { align-self: flex-start; margin-top: .15rem; }
-  .beispiel-note-main { flex-basis: calc(100% - 2.4rem); }
-  .beispiel-note-actions { flex: 1 1 100%; flex-direction: column; align-items: stretch; }
-  .beispiel-note-btn { min-height: 2.5rem; }
-  .beispiel-note-btn:not(.is-primary) { border-color: var(--border); color: var(--text); }
+  .example-note-icon { align-self: flex-start; margin-top: .15rem; }
+  .example-note-main { flex-basis: calc(100% - 2.4rem); }
+  .example-note-actions { flex: 1 1 100%; flex-direction: column; align-items: stretch; }
+  .example-note-btn { min-height: 2.5rem; }
+  .example-note-btn:not(.is-primary) { border-color: var(--border); color: var(--text); }
 }
 /* Die Rueckmeldung blendet kurz ein, statt ploetzlich aufzutauchen. */
-.beispiel-note-msg { transition: opacity .2s var(--ease-out), transform .2s var(--ease-out); }
-@starting-style { .beispiel-note-msg { opacity: 0; transform: translateY(-4px); } }
+.example-note-msg { transition: opacity .2s var(--ease-out), transform .2s var(--ease-out); }
+@starting-style { .example-note-msg { opacity: 0; transform: translateY(-4px); } }
 @media (prefers-reduced-motion: no-preference) {
-  .beispiel-note { animation: masthead-rise .42s var(--ease-out) both; }
+  .example-note { animation: masthead-rise .42s var(--ease-out) both; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .beispiel-note-msg { transition: opacity .2s ease; }
-  @starting-style { .beispiel-note-msg { transform: none; } }
-  .beispiel-note-btn:active:not(:disabled) { transform: none; }
+  .example-note-msg { transition: opacity .2s ease; }
+  @starting-style { .example-note-msg { transform: none; } }
+  .example-note-btn:active:not(:disabled) { transform: none; }
 }
 
 /* --- Marker fuer ungesehene Neuerungen ----------------------------------- */
