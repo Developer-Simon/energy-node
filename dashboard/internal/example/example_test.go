@@ -472,6 +472,9 @@ func TestApplySeedReadsBootstrapSeed(t *testing.T) {
 	if src == "" {
 		t.Skip("EXAMPLE_SEED_FILE nicht gesetzt")
 	}
+	if base := filepath.Base(src); base != SeedFileName {
+		t.Fatalf("seed file written by bootstrap is called %q, the dashboard reads %q", base, SeedFileName)
+	}
 	data, err := os.ReadFile(src)
 	if err != nil {
 		t.Fatalf("Seed lesen: %v", err)
