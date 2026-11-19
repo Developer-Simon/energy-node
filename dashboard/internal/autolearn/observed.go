@@ -169,7 +169,7 @@ func aboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, season Seaso
 			Group:      "check",
 			RuleIDs:    []string{rule.ID},
 			Severity:   "info",
-			Confidence: "medium",
+			Confidence: "estimate",
 			Summary: Text{Code: "check.seasonal_rest", Params: map[string]any{
 				"rule": rule.Name, "threshold": x}},
 			Evidence: scale,
@@ -186,7 +186,7 @@ func aboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, season Seaso
 		Group:      "check",
 		RuleIDs:    []string{rule.ID},
 		Severity:   "warn",
-		Confidence: "medium",
+		Confidence: "estimate",
 		Summary: Text{Code: "check.never_fired", Params: map[string]any{
 			"rule": rule.Name, "threshold": x}},
 		Evidence: scale,
@@ -205,7 +205,7 @@ func belowFinding(rule Rule, i int, c Condition, y, lo, hi float64) (Finding, bo
 		Group:      "check",
 		RuleIDs:    []string{rule.ID},
 		Severity:   "warn",
-		Confidence: "medium",
+		Confidence: "estimate",
 		Summary: Text{Code: "check.never_fired", Params: map[string]any{
 			"rule": rule.Name, "threshold": y}},
 		Evidence: scale,

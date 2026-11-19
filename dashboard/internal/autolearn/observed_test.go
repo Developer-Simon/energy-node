@@ -65,6 +65,9 @@ func TestObservedFrequentWithBothFixes(t *testing.T) {
 	if f.ID != "frequent:heat" || f.Group != "check" || f.Severity != "warn" {
 		t.Errorf("finding = %s/%s/%s, want frequent:heat/check/warn", f.ID, f.Group, f.Severity)
 	}
+	if f.Confidence != "high" {
+		t.Errorf("Confidence = %q, want high", f.Confidence)
+	}
 	if f.Evidence.Shape != "events" {
 		t.Errorf("Shape = %q, want events", f.Evidence.Shape)
 	}
@@ -116,6 +119,9 @@ func TestObservedNeverFiredWarnWithThresholdFix(t *testing.T) {
 		t.Fatalf("never_fired findings = %d, want 1: %+v", len(got), findings)
 	}
 	f := got[0]
+	if f.Group != "check" || f.Confidence != "estimate" {
+		t.Errorf("Group/Confidence = %q/%q, want check/estimate", f.Group, f.Confidence)
+	}
 	if f.Severity != "warn" || f.Summary.Code != "check.never_fired" {
 		t.Errorf("severity/code = %s/%s, want warn/check.never_fired", f.Severity, f.Summary.Code)
 	}
@@ -150,6 +156,9 @@ func TestObservedNeverFiredSeasonalRestIsInfo(t *testing.T) {
 		t.Fatalf("never_fired findings = %d, want 1: %+v", len(got), findings)
 	}
 	f := got[0]
+	if f.Group != "check" || f.Confidence != "estimate" {
+		t.Errorf("Group/Confidence = %q/%q, want check/estimate", f.Group, f.Confidence)
+	}
 	if f.Severity != "info" || f.Summary.Code != "check.seasonal_rest" {
 		t.Errorf("severity/code = %s/%s, want info/check.seasonal_rest", f.Severity, f.Summary.Code)
 	}
