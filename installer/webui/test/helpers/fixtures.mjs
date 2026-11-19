@@ -80,3 +80,21 @@ export const DIAGNOSE = {
     { name: 'tailscale login', ok: true, detail: 'angemeldet=true', retry_step_id: '40', group: 'system', subject: 'tailscale' },
   ],
 };
+
+// Die Schritte fuer die Module-Ansicht (Konfiguration): wie make_bundle.sh sie
+// fuehrt. 15 Systempakete (Vorgabe an), 17 Journal im RAM (Opt-in), 35 Webhook
+// (Opt-in, braucht 83), 41 Tailscale-Logs im RAM (braucht 40), 89 Beispiel (nur
+// Erstinstallation, braucht 81, 83 und 88).
+export const MODULE_MANIFEST = Object.assign({}, MANIFEST, {
+  steps: MANIFEST.steps.concat([
+    { id: '15', optional: true, default: true },
+    { id: '17', optional: true, default: false },
+    { id: '35', optional: true, default: false, requires: '83' },
+    { id: '41', optional: true, default: true, requires: '40' },
+    { id: '89', optional: true, default: true, first_install_only: true, requires: '81,83,88' },
+  ]),
+});
+export const MODULE_SELECTION = {
+  source: 'manifest-default',
+  steps: Object.assign({}, SELECTION.steps, { 15: true, 17: false, 35: true, 41: true, 89: true }),
+};

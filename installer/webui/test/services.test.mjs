@@ -2,7 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadScripts } from './helpers/load.mjs';
 import { realCatalog } from './helpers/mount.mjs';
-import { MANIFEST, SELECTION } from './helpers/fixtures.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { MANIFEST, SELECTION, MODULE_MANIFEST, MODULE_SELECTION } from './helpers/fixtures.mjs';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 function plain(value) {
   return JSON.parse(JSON.stringify(value));
@@ -246,4 +251,118 @@ test('toggles hides step 89 when shelly is off', () => {
   });
   const selection = Object.assign({}, SELECTION, { steps: Object.assign({}, SELECTION.steps, { 83: false }) });
   assert.ok(!S.toggles(manifest, selection, shell).some((row) => row.key === 'step-89'));
+});
+
+// --- Module (Konfiguration): Dienste, Feinabstimmung, Beispiel -----------------
+
+const TUNING_IDS = ['15', '17', '35', '41'];
+const MODULE_IDS = ['88', '81', '82', '83', '84', '85', '40', '70', '15', '17', '35', '41'];
+
+test('modules splits services, tuning and example in the order of the draft', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: true };
+  const m = S.modules(MODULE_MANIFEST, MODULE_SELECTION, shell);
+  assert.deepEqual(plain(m.services.map((mod) => mod.id)), ['88', '81', '82', '83', '84', '85', '40', '70']);
+  assert.deepEqual(plain(m.tuning.map((mod) => mod.id)), TUNING_IDS);
+  assert.equal(m.example.id, '89');
+  assert.equal(m.services[0].name, 'Automation');
+  assert.equal(m.services[0].state, 'Regeln laufen');
+  assert.equal(m.services[0].icon, 'automation');
+  assert.equal(m.services[0].hint, shell.t('configure.hint.service.automation'));
+  assert.equal(m.services[2].on, false);
+  assert.equal(m.services[2].state, 'aus');
+  assert.equal(m.services[2].short, 'Batterie');
+  assert.deepEqual(plain(m.count), { on: 7, total: 8 });
+});
+
+test('modules lists an unmet tuning step as unavailable and forgets its state', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: true };
+  const selection = { source: 'node', steps: { 83: false, 35: true, 40: false, 41: true } };
+  S.dropUnmet(MODULE_MANIFEST, selection.steps);
+  let m = S.modules(MODULE_MANIFEST, selection, shell);
+  const byId = (list, id) => list.filter((mod) => mod.id === id)[0];
+  assert.equal(byId(m.tuning, '35').available, false);
+  assert.equal(byId(m.tuning, '41').available, false);
+  assert.equal(m.unavailable, 'Nicht verfügbar: Shelly-Webhook (braucht Shelly), Tailscale-Logs im RAM (braucht Tailscale)');
+  // Shelly und Tailscale wieder an: die Module sind verfuegbar, aber aus.
+  selection.steps[83] = true;
+  selection.steps[40] = true;
+  m = S.modules(MODULE_MANIFEST, selection, shell);
+  assert.equal(byId(m.tuning, '35').available, true);
+  assert.equal(byId(m.tuning, '35').on, false);
+  assert.equal(byId(m.tuning, '41').available, true);
+  assert.equal(byId(m.tuning, '41').on, false);
+});
+
+test('modules has no unavailable line when every requirement is met', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: true };
+  assert.equal(S.modules(MODULE_MANIFEST, MODULE_SELECTION, shell).unavailable, '');
+});
+
+test('modules counts only the services the manifest has', () => {
+  const { S, shell } = load();
+  const noDevices = Object.assign({}, MODULE_MANIFEST, {
+    steps: MODULE_MANIFEST.steps.filter((step) => !['84', '85', '70'].includes(step.id)),
+  });
+  assert.equal(S.modules(noDevices, MODULE_SELECTION, shell).count.total, 5);
+  const noTuning = Object.assign({}, MODULE_MANIFEST, {
+    steps: MODULE_MANIFEST.steps.filter((step) => !['17', '41'].includes(step.id)),
+  });
+  assert.deepEqual(plain(S.modules(noTuning, MODULE_SELECTION, shell).tuning.map((mod) => mod.id)), ['15', '35']);
+});
+
+test('an unknown optional system step lands in tuning', () => {
+  const { S, shell } = load();
+  const step = { id: '99', optional: true, default: true };
+  const manifest = Object.assign({}, MODULE_MANIFEST, { steps: MODULE_MANIFEST.steps.concat([step]) });
+  assert.equal(S.groupOfStep(step), 'tuning');
+  const m = S.modules(manifest, MODULE_SELECTION, shell);
+  const mod = m.tuning.filter((item) => item.id === '99')[0];
+  assert.ok(mod, 'Schritt 99 steht in tuning');
+  assert.equal(mod.name, 'step.99');
+});
+
+test('every optional step of make_bundle.sh has a group', () => {
+  const { S } = load();
+  const script = fs.readFileSync(path.join(here, '..', '..', '..', 'scripts', 'build', 'make_bundle.sh'), 'utf8');
+  const match = /OPTIONAL_STEPS=\(([0-9 ]+)\)/.exec(script);
+  assert.ok(match, 'make_bundle.sh lists OPTIONAL_STEPS');
+  for (const id of match[1].trim().split(/\s+/)) {
+    assert.ok(Object.prototype.hasOwnProperty.call(S.GROUP_OF, id), `Schritt ${id} hat keine Gruppe`);
+  }
+});
+
+test('the example is hidden on an update and shown on a first install', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: false };
+  assert.equal(S.modules(MODULE_MANIFEST, MODULE_SELECTION, shell).example, null);
+  shell.shared = { firstInstall: true };
+  assert.equal(S.modules(MODULE_MANIFEST, MODULE_SELECTION, shell).example.id, '89');
+});
+
+test('the example is on by default and off when a required service is off', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: true };
+  const example = S.modules(MODULE_MANIFEST, SELECTION, shell).example;
+  assert.equal(example.on, true);
+  assert.equal(example.available, true);
+  const apsystemsOff = { source: 'node', steps: Object.assign({}, SELECTION.steps, { 81: false }) };
+  assert.equal(S.modules(MODULE_MANIFEST, apsystemsOff, shell).example.available, false);
+});
+
+test('every module id has name, short, on and off in both catalogs', () => {
+  for (const lang of ['de', 'en']) {
+    const catalog = realCatalog(lang);
+    for (const id of MODULE_IDS) {
+      for (const part of ['name', 'short', 'on', 'off']) {
+        const key = `configure.module.${id}.${part}`;
+        assert.ok(catalog[key], `${lang}.json fehlt ${key}`);
+      }
+    }
+    for (const part of ['on', 'off']) {
+      assert.ok(catalog[`configure.module.default.${part}`], `${lang}.json fehlt configure.module.default.${part}`);
+    }
+  }
 });
