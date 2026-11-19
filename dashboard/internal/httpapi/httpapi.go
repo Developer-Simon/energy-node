@@ -184,6 +184,9 @@ type RouterDependencies struct {
 	// ChainSuggest liefert die Messketten-Vorschlaege und speichert das
 	// Verwerfen eines Paares. nil heisst "nicht verfuegbar" (501).
 	ChainSuggest chainSuggester
+	// AutomationFindings liefert die Regelprüfung und das Ignorieren eines
+	// Befunds. nil heisst "nicht verfuegbar" (501).
+	AutomationFindings automationFindingSource
 	// HistorySampler fuellt den Ringpuffer der Verlaufsvermittlung einmal
 	// pro Minute mit role:grid und den Szenario-Ausgaben. nil heisst: nur
 	// der Browser schreibt in den Puffer.
@@ -381,6 +384,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/energy/chains/", handleEnergyChains(store, resolver, dependencies.Auth, reg, dependencies.ChainMonitor))
 	g.HandleFunc("/api/v1/energy/chain-suggestions", handleEnergyChainSuggestions(store, resolver, dependencies.ChainSuggest))
 	g.HandleFunc("/api/v1/energy/chain-suggestions/dismiss", handleEnergyChainSuggestionDismiss(dependencies.Auth, dependencies.ChainSuggest))
+	g.HandleFunc("/api/v1/automations/findings", handleAutomationFindings(dependencies.AutomationFindings))
+	g.HandleFunc("/api/v1/automations/findings/ignore", handleAutomationFindingIgnore(dependencies.Auth, dependencies.AutomationFindings))
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	g.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
