@@ -93,6 +93,8 @@
       get arranged() { return arrange(this.items, this.all ? this.items.length : BAND_MAX); },
       get visible() { return this.arranged.visible; },
       get rest() { return this.arranged.rest; },
+      // Der Knopf zeigt "+N" oder, aufgeklappt, "Weniger". Ohne Rest und zugeklappt entfaellt er.
+      get moreShown() { return this.all || this.rest > 0; },
       get current() {
         const id = this.open;
         return this.items.find((s) => s.id === id) || null;

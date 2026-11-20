@@ -376,3 +376,29 @@ test('the band texts and the evidence come from the shared helpers', async () =>
   assert.equal(calls[0].key, 'automations.learn.switch_time.off.title');
   close();
 });
+
+test('expand all shows the less button, and the same method collapses again', async () => {
+  const list = [finding('1'), finding('2'), finding('3'), finding('4'), finding('5')];
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: list, learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  assert.equal(band.moreShown, true, 'the more button shows while there is a rest');
+  band.open = '5';
+  band.expandAll();
+  assert.equal(band.all, true);
+  assert.equal(band.visible.length, 5);
+  assert.equal(band.rest, 0);
+  assert.equal(band.moreShown, true, 'the less button stays reachable once expanded');
+  band.expandAll();
+  assert.equal(band.all, false);
+  assert.equal(band.visible.length, 3);
+  assert.equal(band.open, '', 'a card outside the collapsed tiles closes');
+  assert.equal(band.moreShown, true);
+  close();
+});
+
+test('the more button hides when everything fits and the band is collapsed', async () => {
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [finding('1'), finding('2')], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  assert.equal(band.moreShown, false);
+  close();
+});

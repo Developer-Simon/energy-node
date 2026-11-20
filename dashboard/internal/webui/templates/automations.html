@@ -96,12 +96,12 @@
               <span class="auto-learn-tile-line" x-text="lineOf(s, $t)"></span>
             </button>
           </template>
-          <button class="auto-learn-more" type="button" x-show="rest > 0" x-on:click="expandAll()"
+          <button class="auto-learn-more" type="button" x-show="moreShown" x-on:click="expandAll()"
                   x-bind:aria-expanded="all ? 'true' : 'false'"
                   x-text="all ? $t('automations.learn.band.less') : $t('automations.learn.band.more', { count: rest })"></button>
         </div>
 
-        <div id="auto-learn-detail" class="auto-learn-detail" x-bind:class="{ 'is-open': current }" role="region" aria-live="polite">
+        <div id="auto-learn-detail" class="auto-learn-detail" x-bind:class="{ 'is-open': current }" role="region">
           <div class="auto-learn-detail-clip">
             <template x-if="current">
               <article class="auto-learn-card">
