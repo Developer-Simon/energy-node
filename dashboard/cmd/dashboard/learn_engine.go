@@ -29,7 +29,10 @@ func engineGroupsFor(value settings.Settings) map[string]bool {
 // laufen in der Gruppe Gewohnheiten wie die Vorschlaege und liefern Werte statt
 // Befunde.
 func registerLearnDetectors(e *autolearn.Engine) {
-	for _, det := range []autolearn.Detector{autolearn.LearnSwitchTimeDetector, autolearn.LearnRuntimeDetector} {
+	for _, det := range []autolearn.Detector{
+		autolearn.LearnSwitchTimeDetector, autolearn.LearnRuntimeDetector,
+		autolearn.LearnDayBoundsDetector, autolearn.LearnHouseStateDetector,
+	} {
 		e.Register(det)
 	}
 }
