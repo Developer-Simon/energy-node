@@ -269,12 +269,16 @@ func (s *DayStore) observeDeviceLocked(dm learnrec.DeviceMinute, q int) {
 		s.n[dm.ID] = n
 	}
 	var sum float64
+	hasPower := false
 	for _, w := range dm.Power {
 		if finite(w) {
 			sum += w
+			hasPower = true
 		}
 	}
-	addMean(&dd.AvgW[q], &n[q], sum)
+	if hasPower {
+		addMean(&dd.AvgW[q], &n[q], sum)
+	}
 	dd.Wh[q] += float32(sum / 60)
 	bump(&dd.Seen[q])
 	if dm.Reachable {

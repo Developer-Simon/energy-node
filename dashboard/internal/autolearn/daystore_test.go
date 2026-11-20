@@ -76,6 +76,27 @@ func TestDayStoreQuarterAggregation(t *testing.T) {
 	}
 }
 
+func TestDayStoreAvgIgnoresSwitchOnlyMinutes(t *testing.T) {
+	loc := berlinLoc(t)
+	s := OpenDayStore(t.TempDir(), loc, nil, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	for i := 0; i < 5; i++ {
+		s.ObserveMinute(frameWith(base.Add(time.Duration(i)*time.Minute), lampMinute(true, 100)))
+	}
+	for i := 5; i < 15; i++ {
+		s.ObserveMinute(frameWith(base.Add(time.Duration(i)*time.Minute),
+			learnrec.DeviceMinute{ID: "lamp", Switch: map[string]bool{"switch": true}, Reachable: true}))
+	}
+	days := mustDays(t, s, base, base)
+	d := days[0].Devices["lamp"]
+	if d.Seen[40] != 15 || d.OnMin[40] != 15 {
+		t.Errorf("seen %d on_min %d, want 15 and 15", d.Seen[40], d.OnMin[40])
+	}
+	if d.AvgW[40] != 100 {
+		t.Errorf("avg_w = %v, want 100 (switch-only minutes must not count)", d.AvgW[40])
+	}
+}
+
 func TestDayStoreRestartKeepsToday(t *testing.T) {
 	loc := berlinLoc(t)
 	dir := t.TempDir()
