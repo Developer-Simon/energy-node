@@ -48,8 +48,8 @@ function createShell({ navHtml = TABS, routes = {} } = {}) {
 }
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
-const EDIT = { status: 200, body: { csrf_token: 'tok', edit_setup: true } };
-const NO_EDIT = { status: 200, body: { csrf_token: 'tok', edit_setup: false } };
+const EDIT = { status: 200, body: { csrf_token: 'tok', edit_setup: true, roles: ['edit_setup'] } };
+const NO_EDIT = { status: 200, body: { csrf_token: 'tok', edit_setup: false, roles: ['view_overview'] } };
 const status = (overrides = {}) => ({
   status: 200,
   body: {
@@ -133,4 +133,10 @@ test('das Ereignis learning-acknowledged aktualisiert den Punkt', async () => {
   window.dispatchEvent(new window.CustomEvent('learning-acknowledged', { detail: { ids: ['auto_patterns'] } }));
   await settle();
   assert.equal(component.learningNewOpen, false);
+});
+
+test('ohne Rollenliste in der Sitzung gilt der Punkt wie auf der Einstellungsseite als erlaubt', async () => {
+  const { component } = createShell({ routes: { '/api/v1/auth/session': { status: 200, body: { csrf_token: 'tok' } }, '/api/v1/learning/status': status() } });
+  await component.refreshLearningNew();
+  assert.equal(component.learningNewOpen, true);
 });

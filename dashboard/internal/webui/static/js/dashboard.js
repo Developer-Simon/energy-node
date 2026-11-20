@@ -288,8 +288,9 @@
       if (!this.hasTab('settings-panel')) return;
       try {
         if (this.learningCanEdit === null) {
-          const session = await requestJSON('/api/v1/auth/session');
-          this.learningCanEdit = session.edit_setup === true;
+          // Ohne Konten oder ohne Rollenliste gilt wie auf der Einstellungsseite: erlaubt.
+          const session = await requestJSON('/api/v1/auth/session').catch(() => null);
+          this.learningCanEdit = !session || !Array.isArray(session.roles) || session.roles.includes('edit_setup');
         }
         if (!this.learningCanEdit) {
           this.learningNewOpen = false;

@@ -128,7 +128,7 @@
   <section id="settings-general" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'general'" x-data="learningPage()" x-init="load()">
     <div class="setting-card setting-card--wide learn-new-card" x-show="newHintVisible" role="status">
       <div class="learn-new-strip">
-        <svg class="learn-new-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
+        <svg class="automation-icon learn-new-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
         <div class="learn-new-text">
           <b x-text="newHintTitle"></b>
           <span x-text="newHintBody"></span>
@@ -188,19 +188,19 @@
       <p class="learn-row-note" x-show="automationPatternsDisabled">{{t "settings.learning.auto.patterns_off_note"}}</p>
 
       <button type="button" class="learn-fine-toggle" x-show="!automationPatternsDisabled" x-on:click="fine = !fine" x-bind:aria-expanded="fine ? 'true' : 'false'" aria-controls="learning-fine">
-        <svg class="learn-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+        <svg class="automation-icon learn-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
         <span>{{t "settings.learning.auto.fine"}}</span>
       </button>
       <div class="learn-fine" id="learning-fine" x-show="fine && !automationPatternsDisabled">
         <button type="button" class="learn-pick-row" x-bind:disabled="!canEditSetup" x-on:click="chooseExcluded()">
           <span class="learn-pick-text"><span>{{t "settings.learning.auto.excluded"}}</span><small x-text="excludedLabel()"></small></span>
-          <svg class="learn-pick-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+          <svg class="automation-icon learn-pick-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
         </button>
         <button type="button" class="learn-link" x-show="learning_excluded_devices.length > 0" x-bind:disabled="!canEditSetup" x-on:click="clearExcluded()">{{t "settings.learning.exclude.clear"}}</button>
       </div>
 
       <div class="learn-check-row">
-        <svg class="learn-check-icon" aria-hidden="true"><use href="#ico-check"></use></svg>
+        <svg class="automation-icon learn-check-icon" aria-hidden="true"><use href="#ico-check"></use></svg>
         <span><b>{{t "settings.learning.auto.check_title"}}</b> {{t "settings.learning.auto.check_body"}}</span>
       </div>
     </div>
