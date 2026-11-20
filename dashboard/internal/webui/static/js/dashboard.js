@@ -124,8 +124,11 @@
     efficiencyTabNew: !efficiencyTabWasSeen(),
     // Punkt am Reiter Energie, solange Messketten-Vorschlaege offen sind.
     energySuggestionsOpen: false,
-    // Punkt am Reiter Automationen, solange Regel-Befunde offen sind.
+    // Punkt am Reiter Automationen, solange Regel-Befunde oder offene Vorschlaege da sind.
+    // automationFindingsOpen ergibt sich aus den beiden Teilen (siehe updateAutomationDot).
     automationFindingsOpen: false,
+    automationFindingsHas: false,
+    automationSuggestionsHas: false,
     // Punkt am Reiter Einstellungen, solange neu aktive Lernfunktionen auf eine
     // Quittung warten. learningCanEdit kommt aus der Sitzung (null = noch nicht gefragt).
     learningNewOpen: false,
@@ -278,7 +281,26 @@
       } catch (error) {
         return;
       }
-      this.automationFindingsOpen = Array.isArray(body && body.findings) && body.findings.length > 0;
+      this.automationFindingsHas = Array.isArray(body && body.findings) && body.findings.length > 0;
+      this.updateAutomationDot();
+    },
+
+    // Offene Vorschlaege zaehlen fuer den Punkt am Automationen-Reiter, aber nur,
+    // solange "Muster lernen" an ist. Fehler lassen den Punkt, wie er ist.
+    async refreshAutomationSuggestions() {
+      if (!this.hasTab('automations-panel')) return;
+      let body;
+      try {
+        body = await requestJSON('/api/v1/automations/suggestions');
+      } catch (error) {
+        return;
+      }
+      this.automationSuggestionsHas = !!(body && body.enabled) && Array.isArray(body.suggestions) && body.suggestions.length > 0;
+      this.updateAutomationDot();
+    },
+
+    updateAutomationDot() {
+      this.automationFindingsOpen = this.automationFindingsHas || this.automationSuggestionsHas;
     },
 
     // Punkt am Reiter Einstellungen, solange neu aktive Lernfunktionen offen sind.
@@ -514,9 +536,16 @@
       // fuenf Minuten und nach jeder Aenderung an den Befunden.
       if (this.hasTab('automations-panel')) {
         this.refreshAutomationFindings();
-        window.setInterval(() => this.refreshAutomationFindings(), 5 * 60 * 1000);
+        this.refreshAutomationSuggestions();
+        window.setInterval(() => {
+          this.refreshAutomationFindings();
+          this.refreshAutomationSuggestions();
+        }, 5 * 60 * 1000);
       }
-      window.addEventListener('automation-findings-changed', () => this.refreshAutomationFindings());
+      window.addEventListener('automation-findings-changed', () => {
+        this.refreshAutomationFindings();
+        this.refreshAutomationSuggestions();
+      });
 
       // Der Punkt am Einstellungen-Reiter folgt den Lernfunktionen: beim Start und
       // nachdem die Seite Lernfunktionen neue Funktionen quittiert hat.
