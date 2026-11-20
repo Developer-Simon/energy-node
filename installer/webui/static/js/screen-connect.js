@@ -120,12 +120,22 @@
         this.prefilled = true;
       },
 
+      // nodeOffered: das Paket, das schon auf dem Node liegt, ist nur bei
+      // Aktualisierung und Diagnose eine Quelle.
+      get nodeOffered() {
+        var entry = this.shell.entry;
+        return entry === 'redeploy' || entry === 'diagnose';
+      },
+
       choiceUsable(choice, info) {
         if (choice.kind === 'bundled') {
           return !!info.bundled;
         }
         if (choice.kind === 'repo') {
           return !!(info.repo && info.repo.available);
+        }
+        if (choice.kind === 'node') {
+          return this.nodeOffered;
         }
         return choice.kind === 'github';
       },

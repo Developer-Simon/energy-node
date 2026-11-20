@@ -130,6 +130,17 @@
               </div>
             </template>
 
+            <template x-if="nodeOffered">
+              <div class="opt" :class="{ on: packageKind === 'node' }" role="radio" tabindex="0" :aria-checked="packageKind === 'node'"
+                   @click="selectPackage('node')" @keydown.enter.prevent="selectPackage('node')" @keydown.space.prevent="selectPackage('node')">
+                <span class="radio"></span>
+                <span>
+                  <span class="opt-t" x-text="t('connect.package.node')"></span>
+                  <span class="opt-s" x-text="t('connect.package.node_hint')"></span>
+                </span>
+              </div>
+            </template>
+
             <div class="opt" :class="{ on: packageKind === 'github' }" role="radio" tabindex="0" :aria-checked="packageKind === 'github'"
                  @click="selectPackage('github')" @keydown.enter.prevent="selectPackage('github')" @keydown.space.prevent="selectPackage('github')">
               <span class="radio"></span>

@@ -451,3 +451,34 @@ test('Uebergabe aus Medium belegt Schluessel-Anmeldung vor', () => {
   assert.equal(screen.makeKey, false);
   assert.equal(shell.shared.handover, null);
 });
+
+test('die Option Abgelegtes Paket auf dem Node gibt es bei redeploy und diagnose, bei install nicht', () => {
+  for (const entry of ['redeploy', 'diagnose']) {
+    const { screen } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP, entry } });
+    assert.equal(screen.nodeOffered, true, `${entry} bietet die Option an`);
+  }
+  const { screen } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP, entry: 'install' } });
+  assert.equal(screen.nodeOffered, false, 'install bietet die Option nicht an');
+});
+
+test('connect mit node schickt PUT /api/package mit kind node und leerem Pfad', async () => {
+  const { screen, calls } = mount({
+    shell: { bootstrap: PACKAGE_BOOTSTRAP, entry: 'redeploy' },
+    responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR, 'PUT /api/package': {} },
+  });
+  fill(screen);
+  screen.selectPackage('node');
+  assert.equal(screen.packageKind, 'node');
+  await screen.connect();
+  const packageCall = calls.find((c) => c.key === 'PUT /api/package');
+  assert.deepEqual(packageCall.body, { kind: 'node', path: '' });
+});
+
+test('eine gemerkte Node-Wahl gilt nur bei redeploy und diagnose, bei install fällt sie auf die Vorgabe zurück', () => {
+  const choice = { kind: 'node', repoPath: '' };
+  const offered = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP, entry: 'redeploy', shared: { packageChoice: choice } } });
+  assert.equal(offered.screen.packageKind, 'node');
+
+  const install = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP, entry: 'install', shared: { packageChoice: choice } } });
+  assert.equal(install.screen.packageKind, 'bundled');
+});
