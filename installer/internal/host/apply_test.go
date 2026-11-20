@@ -1,11 +1,15 @@
 package host
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
 	"github.com/Developer-Simon/energy-node-installer/internal/selection"
+	"github.com/Developer-Simon/energy-node-installer/internal/steps"
+	"github.com/Developer-Simon/energy-node-installer/internal/transport"
+	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
 
 // applyTestManifest mirrors the step layout the apply-selection rules are
@@ -81,5 +85,53 @@ func TestApplyStepsMissingEntryCountsAsSelected(t *testing.T) {
 	want := []string{"65", "81"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("ApplySteps = %v, want %v", got, want)
+	}
+}
+
+func TestPlanCarriesApplyStepsOnlyForTheInstalledNodePackage(t *testing.T) {
+	origPreview, origNode := previewPlan, nodeSelection
+	t.Cleanup(func() { previewPlan, nodeSelection = origPreview, origNode })
+	previewPlan = func(context.Context, *transport.Client, string, string, string, *selection.Selection) (*steps.Plan, error) {
+		return &steps.Plan{}, nil
+	}
+	nodeSelection = func(*Host) *hostapi.SelectionView {
+		return &hostapi.SelectionView{Steps: map[string]bool{"81": false}, Source: "node"}
+	}
+	m := applyTestManifest()
+	pending := selectionOf(map[string]bool{"81": true})
+
+	cases := []struct {
+		name     string
+		resolved *hostapi.ResolvedInfo
+		want     []string
+	}{
+		{"github package", &hostapi.ResolvedInfo{Kind: "github", Installed: true}, nil},
+		{"node package not installed", &hostapi.ResolvedInfo{Kind: "node"}, nil},
+		{"installed node package", &hostapi.ResolvedInfo{Kind: "node", Installed: true}, []string{"65", "81"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := &Host{client: &transport.Client{}, manifest: m, bundleDir: "/bundle", resolved: c.resolved, pending: pending}
+			view, err := h.Plan(context.Background())
+			if err != nil {
+				t.Fatalf("Plan: %v", err)
+			}
+			if !reflect.DeepEqual(view.ApplySteps, c.want) {
+				t.Fatalf("ApplySteps = %v, want %v", view.ApplySteps, c.want)
+			}
+		})
+	}
+}
+
+func TestApplyListNeedsANodeSelection(t *testing.T) {
+	// Without a connection the node cannot be asked, so there is no current
+	// selection to compare against and the list stays empty.
+	h := &Host{
+		manifest: applyTestManifest(),
+		resolved: &hostapi.ResolvedInfo{Kind: "node", Installed: true},
+		pending:  selectionOf(map[string]bool{"81": true}),
+	}
+	if got := h.applyList(h.manifest); got != nil {
+		t.Fatalf("applyList = %v, want nil", got)
 	}
 }

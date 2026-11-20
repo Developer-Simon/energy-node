@@ -463,7 +463,7 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	if err != nil {
 		return nil, err
 	}
-	preview, err := steps.Preview(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, manifest.Version, h.pendingSelection())
+	preview, err := previewPlan(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, manifest.Version, h.pendingSelection())
 	if err != nil {
 		return nil, &hostapi.Error{Code: "PLAN_FAILED", Detail: err.Error()}
 	}
@@ -482,7 +482,48 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	for name, versions := range preview.Components {
 		view.Components[name] = hostapi.ComponentDelta{From: versions.From, To: versions.To}
 	}
+	view.ApplySteps = h.applyList(manifest)
 	return view, nil
+}
+
+// previewPlan is a seam for tests; production always runs steps.Preview.
+var previewPlan = steps.Preview
+
+// applyList returns the steps an apply-selection run executes, or nil when
+// there is none to run. It needs the installed node package, a pending
+// selection and a selection read from the node. The steps are the ones whose
+// effective state differs between the node and the pending selection.
+func (h *Host) applyList(manifest *bundle.Manifest) []string {
+	h.mu.Lock()
+	resolved := h.resolved
+	h.mu.Unlock()
+	if resolved == nil || resolved.Kind != string(bundlesource.KindNode) || !resolved.Installed {
+		return nil
+	}
+	pending := h.pendingSelection()
+	if pending == nil {
+		return nil
+	}
+	current := nodeSelection(h)
+	if current == nil {
+		return nil
+	}
+	return ApplySteps(manifest, &selection.Selection{Steps: current.Steps}, pending)
+}
+
+// nodeSelection is a seam for tests; production always runs
+// (*Host).currentSelection, which reads the selection from the node.
+var nodeSelection = (*Host).currentSelection
+
+// applyEntries returns the manifest entries for ids, in the order of ids.
+func applyEntries(manifest *bundle.Manifest, ids []string) []bundle.StepEntry {
+	var list []bundle.StepEntry
+	for _, id := range ids {
+		if entry, ok := manifest.StepByID(id); ok {
+			list = append(list, entry)
+		}
+	}
+	return list
 }
 
 // readInstalledManifest is a seam for tests; production always runs
@@ -541,7 +582,12 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		return err
 	}
 	list := manifest.Steps
-	if req.Only != "" {
+	if req.Mode == hostapi.ModeApplySelection {
+		list = applyEntries(manifest, h.applyList(manifest))
+		if len(list) == 0 {
+			return &hostapi.Error{Code: "APPLY_NOT_AVAILABLE", Status: http.StatusConflict}
+		}
+	} else if req.Only != "" {
 		entry, ok := manifest.StepByID(req.Only)
 		if !ok {
 			return &hostapi.Error{Code: "UNKNOWN_STEP", Detail: req.Only, Status: http.StatusBadRequest}
@@ -586,7 +632,7 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		},
 		OnLog: func(stepID, line string) { sink.Log(stepID, line) },
 	}
-	if err := steps.Run(ctx, opts); err != nil {
+	if err := runSteps(ctx, opts); err != nil {
 		var failure *steps.StepFailure
 		if errors.As(err, &failure) {
 			return &hostapi.Error{Code: failure.Code, Detail: "Schritt " + failure.StepID}
@@ -646,6 +692,9 @@ func forceStamps(req hostapi.RunRequest) bool {
 	}
 	return false
 }
+
+// runSteps is a seam for tests; production always runs steps.Run.
+var runSteps = steps.Run
 
 // recordInstalled is a seam for tests; production always runs
 // steps.RecordInstalled.
