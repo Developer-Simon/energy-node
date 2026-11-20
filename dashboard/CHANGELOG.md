@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.21-pre.22 (2026-11-06)
+## v0.11.21-pre.23 (2026-11-06)
 
 ### Features
 
@@ -22,6 +22,28 @@
 - **network:** open the dashboard when a phone joins the emergency hotspot (#264) (5620a3d)
 - **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267) (e1e256b)
 - **onboarding:** start empty and offer an example to try out (#274) (35490ab)
+- **automations:** flag rules that do not work and offer a fix (#278) (d369133)
+- **learnrec:** add levels, minute frame and entity helpers (1d660d2)
+- **learnrec:** add the hub with minute frames and the hourly save cadence (75b36af)
+- **autolearn:** tell rule, manual and external switching apart (80238d1)
+- **httpapi:** report successful entity commands to an observer (d0364f8)
+- **dashboard:** attribute switching to rules, manual commands and outside sources (84ce4b7)
+- **autolearn:** keep daily profiles of devices and switching (6e80394)
+- **autolearn:** add events, retention and usage to the day store (ce64bfb)
+- **backup:** classify autolearn day profiles as runtime history (51cdf74)
+- **dashboard:** record daily profiles through the shared collector (00a50a5)
+- **settings:** add the learning feature settings (b44882a)
+- **dashboard:** feed the learning settings to the collector (6c5f134)
+- **learnrec:** remember the first start and let learned state be reset (96dbe50)
+- **dashboard:** report the state of the learning features (f1a6de2)
+- **settings:** add the learning page script (55bd4b6)
+- **settings:** add the texts and icon of the learning page (6ee59b3)
+- **settings:** replace the general page with the learning page (f593b04)
+- **settings:** move the save and stale intervals to storage and MQTT (c39ae23)
+- **settings:** point out learning features that are newly active (a6fe529)
+- **settings:** make the exclude devices row read as a button (ea17fbb)
+- **settings:** add tour targets to the learning page cards (266921d)
+- **settings:** add the learning page and collect device profiles (#279)
 - **autolearn:** parse the rule document and define the finding shape (149f193)
 - **autolearn:** add static rule checks (4ab557e)
 - **autolearn:** observe rule triggers and value ranges (b050fa0)
@@ -40,7 +62,6 @@
 - **dashboard:** preview rule findings for an unsaved draft (86fc82b)
 - **automations:** show rule findings for the unsaved draft (5d24d61)
 - **onboarding:** add the tour for the rule check (4828ddb)
-- **automations:** flag rules that do not work and offer a fix (#278)
 - **dashboard:** apply the example seed at start (aaa7853)
 - **dashboard:** stop the example simulation or remove the example (cd0b2c7)
 - **dashboard:** add the endpoint to stop or remove the example (b05d070)
@@ -126,6 +147,12 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **autolearn:** resolve rule actions after the attribution grace and pair the latest command (91faefe)
+- **autolearn:** average day profile power over minutes with power data only (a2e22ad)
+- **autolearn:** keep the day profile mean and pending days correct across restarts and write errors (4c37b4b)
+- **settings:** word the new-on pill of the learning page (f6aec6b)
+- **settings:** draw the learning page icons and show the settings dot without a role list (03b2655)
+- **settings:** put the learning dot behind the settings tab label like the other tabs (c61b585)
 - **autolearn:** set the check group on static findings (5d9587c)
 - **autolearn:** use the estimate confidence for observed findings (7aad595)
 - **automations:** harden the evidence graphic against odd input (66aafca)
@@ -166,6 +193,8 @@
 
 ### Refactors
 
+- **chainsuggest:** read minute means from the shared collector (f1f3c68)
+- **dashboard:** feed chain learning and the rule observer through the shared collector (5b8386f)
 - **bootstrap:** rename the example files and ids to English (73b83cf)
 - **dashboard:** rename the example package and route to English (15af479)
 - **dashboard:** rename the example note assets to English (92d923c)
@@ -179,6 +208,7 @@
 
 ### Tests
 
+- **settings:** follow the learning page in the settings tests (a155ef5)
 - **dashboard:** pin the example scenario to the surplus_switch template (b99bda3)
 - **bootstrap:** pin the example seed contract between bootstrap and dashboard (e86b1c8)
 - **dashboard:** check the seed file name against SeedFileName (2fb6205)
@@ -190,6 +220,7 @@
 
 ### Chores
 
+- **dashboard:** bump the cache-bust marks for the learning page (426edb3)
 - **dashboard:** bump the cache-bust marks for the rule check (4c75b79)
 - **dashboard:** refresh the cache-bust history for the new base (fb4fa4c)
 - **dashboard:** bump cache-bust for the example note (0bbb7a7)

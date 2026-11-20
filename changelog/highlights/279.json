@@ -1,0 +1,59 @@
+{
+  "de": {
+    "*": "Die Node lernt sichtbar aus deinen Geräten, die neue Seite Lernfunktionen ersetzt Allgemein"
+  },
+  "en": {
+    "*": "Add the learning page and collect device profiles"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "edit_setup",
+          "page": "general",
+          "panel": "settings-panel",
+          "target": "settings-learning",
+          "text": {
+            "de": "Die Seite Lernfunktionen ersetzt Allgemein. Hier schaltest du das Lernen der Messketten ab, wenn du es nicht brauchst. Neu aktive Funktionen markiert ein Punkt am Reiter, mit Alle behalten quittierst du sie.",
+            "en": "The Learning features page replaces General. Here you switch off the chain learning if you do not need it. A dot on the tab marks newly active features, and Keep all acknowledges them."
+          },
+          "title": {
+            "de": "Lernfunktionen an einem Ort",
+            "en": "Learning features in one place"
+          }
+        },
+        {
+          "device": "any",
+          "need": "edit_setup",
+          "page": "general",
+          "panel": "settings-panel",
+          "target": "learning-auto",
+          "text": {
+            "de": "Die Node merkt sich, wann Geräte schalten und ob eine Regel, du von Hand oder etwas von außen schaltet. Regeln ändern sich dadurch nie von selbst. Einzelne Geräte kannst du in der Feineinstellung ausnehmen.",
+            "en": "The node remembers when devices switch and whether a rule, you by hand or something outside did it. Rules never change on their own because of it. In the fine settings you can exclude single devices."
+          },
+          "title": {
+            "de": "Muster aus deinen Geräten",
+            "en": "Patterns from your devices"
+          }
+        },
+        {
+          "device": "any",
+          "need": "edit_setup",
+          "page": "general",
+          "panel": "settings-panel",
+          "target": "learning-record",
+          "text": {
+            "de": "Die Profile werden standardmäßig 56 Tage aufbewahrt. Hier stellst du die Dauer ein, siehst den Speicherverbrauch und kannst das Gelernte löschen.",
+            "en": "Profiles are kept for 56 days by default. Here you set the duration, see the storage used and can delete what was learned."
+          },
+          "title": {
+            "de": "Aufzeichnung und Speicher",
+            "en": "Recording and storage"
+          }
+        }
+      ]
+    }
+  }
+}
