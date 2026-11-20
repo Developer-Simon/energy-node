@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Installer zeigt Konfiguration und Aktualisierung als Module"
+  },
+  "en": {
+    "*": "Show the configure and update services as modules"
+  }
+}

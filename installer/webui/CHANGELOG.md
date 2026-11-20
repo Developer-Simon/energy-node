@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4-pre.6 (2026-11-06)
+## v0.3.4-pre.7 (2026-11-06)
 
 ### Features
 
@@ -10,6 +10,13 @@
 - **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
 - **installer:** write a Debian install stick from the media mode (#255) (cb9e1aa)
 - **onboarding:** start empty and offer an example to try out (#274) (35490ab)
+- **installer:** group the configure steps into service, tuning and example modules (e1ea6c1)
+- **installer:** add the module icons from the dashboard pool (f651129)
+- **installer:** drive the configure screen from the service modules (5c7624e)
+- **installer:** show the configure services as control center modules (66bdc03)
+- **installer:** animate the configure modules quietly (3c1c6d0)
+- **installer:** show the update preview services as modules (7a2fca3)
+- **installer:** show the configure and update services as modules (#280)
 - **installer:** allow a step to require several steps (47b7493)
 - **installer:** offer the example on a first install (68b81a0)
 - **installer:** add the Debian devices to the media device table (7fa1b05)
@@ -59,15 +66,22 @@
 
 ### Documentation
 
+- **installer:** draw the configure modules in the reference draft (ffb05a9)
+- **installer:** draw the update preview modules in the reference draft (505550a)
 - **installer:** tighten the media texts and describe the Wi-Fi list (553f296)
 
 ### Tests
 
+- **installer:** show the journal and tailscale log steps in the fakehost (d894248)
 - **installer:** give the fakehost the example step (2426446)
 - **installer:** cover the Debian stick in the media e2e (46daa09)
 - **installer:** wait for the diagnose skeleton rows instead of the old banner (8ea5ba1)
 - **webui:** cover the media mode end to end (69364e7)
 - **webui:** pick the device list, not the language switch, in the media e2e (6087dff)
+
+### Chores
+
+- **installer:** polish the German module texts (f8bd618)
 
 ## v0.3.3 (2026-11-16)
 
