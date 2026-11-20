@@ -415,7 +415,8 @@ env_start_console() {
            --journal-epoch "$WORK/journal-epoch")
   fi
   args+=(--storage-dir "$WORK/storage" --performance-state "$WORK/fake-performance.json"
-         --automation-rules "$WORK/devices/automation_rules.json" --highlights-repo "$REPO_DIR")
+         --automation-rules "$WORK/devices/automation_rules.json" --data-dir "$WORK/data"
+         --highlights-repo "$REPO_DIR")
   python3 "$FAKES/fake_console.py" "${args[@]}" \
     > "$WORK/fake-console.log" 2>&1 &
   local pid=$!
