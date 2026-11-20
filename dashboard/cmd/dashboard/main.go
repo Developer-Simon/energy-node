@@ -445,7 +445,12 @@ func main() {
 	originTracker := autolearn.NewTracker(reactions)
 	learnHub.AddMinute("origin", originTracker)
 	learnHub.AddSaver("reactions", reactions)
-	origin := newOriginLearner(originTracker, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
+	// Tagesdateien: je Minute der Rahmen, je Minute die Ereignisse des Trackers.
+	// 0 heisst Standard von 56 Tagen, Task 6 ersetzt die Funktion durch die Einstellung.
+	dayStore := autolearn.OpenDayStore(filepath.Join(autolearnDir, "days"), time.Local, func() int { return 0 }, log.Printf)
+	learnHub.AddMinute("daystore", dayStore)
+	learnHub.AddSaver("daystore", dayStore)
+	origin := newOriginLearner(originTracker, dayStore, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
 	origin.rebuild()
 	go origin.run(ctx)
 	energyCategories := func() map[string]energy.Category { return energyResolver.Model().Categories }

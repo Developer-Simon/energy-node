@@ -32,13 +32,14 @@ type originTables struct {
 // originLearner fuettert den Tracker aus dem MQTT-Takt und den HTTP-Befehlen.
 type originLearner struct {
 	tracker   *autolearn.Tracker
+	days      *autolearn.DayStore
 	reg       *registry.Registry
 	readRules func() ([]byte, error)
 	tables    atomic.Pointer[originTables]
 }
 
-func newOriginLearner(tracker *autolearn.Tracker, reg *registry.Registry, readRules func() ([]byte, error)) *originLearner {
-	return &originLearner{tracker: tracker, reg: reg, readRules: readRules}
+func newOriginLearner(tracker *autolearn.Tracker, days *autolearn.DayStore, reg *registry.Registry, readRules func() ([]byte, error)) *originLearner {
+	return &originLearner{tracker: tracker, days: days, reg: reg, readRules: readRules}
 }
 
 func isSwitchComponent(component string) bool {
@@ -144,8 +145,8 @@ func switchOfPayload(info registry.CommandInfo, payload string) (bool, bool) {
 	})
 }
 
-// run baut die Tabellen je Minute neu und zieht den Tracker leer. Bis der
-// Tagesspeicher angebunden ist, werden die Ergebnisse verworfen.
+// run baut die Tabellen je Minute neu und zieht den Tracker leer. Die
+// Ergebnisse gehen in den Tagesspeicher.
 func (o *originLearner) run(ctx context.Context) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -156,8 +157,7 @@ func (o *originLearner) run(ctx context.Context) {
 		case now := <-ticker.C:
 			o.rebuild()
 			events, actions := o.tracker.Drain(now)
-			// Task 5 feeds the day store here.
-			_, _ = events, actions
+			o.days.Add(events, actions)
 		}
 	}
 }
