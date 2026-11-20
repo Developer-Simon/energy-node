@@ -4137,7 +4137,7 @@
   "settings.history_exchange.tile.source": "Last filled in by",
   "settings.history_exchange.tile.source_none": "Nobody yet",
   "settings.language_switch.label": "Language switcher in masthead and sign-in",
-  "settings.learning.auto.check_body": "always runs. It only needs the trigger history and writes nothing new.",
+  "settings.learning.auto.check_body": "always runs. Without the reliability checks it only needs the trigger history and writes nothing new.",
   "settings.learning.auto.check_title": "Rule check",
   "settings.learning.auto.excluded": "Exclude devices",
   "settings.learning.auto.fine": "Fine-tuning",
