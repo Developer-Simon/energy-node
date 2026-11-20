@@ -39,6 +39,7 @@ func writeManifest(t *testing.T, dir string) {
 		"steps": []map[string]any{
 			{"id": "10", "optional": false},
 			{"id": "40", "optional": true, "default": true},
+			{"id": "89", "optional": true, "default": true, "first_install_only": true},
 		},
 		"files": map[string]string{},
 	}
@@ -84,8 +85,11 @@ func TestManifestViewMirrorsTheBundleManifest(t *testing.T) {
 	if view.BundleVersion != "v1.4.2" || view.TargetUser != "orgelbau" {
 		t.Errorf("ManifestView = %+v", view)
 	}
-	if len(view.Steps) != 2 || !view.Steps[1].Optional || !view.Steps[1].Default {
+	if len(view.Steps) != 3 || !view.Steps[1].Optional || !view.Steps[1].Default {
 		t.Errorf("steps = %+v, want the optional step to keep its default", view.Steps)
+	}
+	if view.Steps[0].FirstInstallOnly || view.Steps[1].FirstInstallOnly || !view.Steps[2].FirstInstallOnly {
+		t.Errorf("steps = %+v, want first_install_only on step 89 only", view.Steps)
 	}
 }
 

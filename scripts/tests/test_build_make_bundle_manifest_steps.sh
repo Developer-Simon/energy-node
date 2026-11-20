@@ -58,15 +58,18 @@ if [s["id"] for s in manifest["steps"] if s.get("requires")] != ["35", "41", "89
     sys.exit("requires steht an anderen Schritten als 35, 41 und 89")
 # 89 (Beispiel): Opt-in, braucht Shelly, Wechselrichter-Dienst, Automation.
 step89 = by_id.get("89")
-if not step89 or step89.get("optional") is not True or step89.get("default") is not False \
-        or step89.get("requires") != "81,83,88":
-    sys.exit("step 89: erwartet optional, default false, requires 81,83,88, gefunden %r" % step89)
+if not step89 or step89.get("optional") is not True or step89.get("default") is not True \
+        or step89.get("requires") != "81,83,88" or step89.get("first_install_only") is not True:
+    sys.exit("step 89: erwartet optional, default true, requires 81,83,88, first_install_only true, gefunden %r" % step89)
+# first_install_only steht nur an 89: nur bei der Erstinstallation vorgegeben.
+if [s["id"] for s in manifest["steps"] if s.get("first_install_only")] != ["89"]:
+    sys.exit("first_install_only steht nicht genau an Schritt 89")
 # 17 legt das Journal in den Arbeitsspeicher: ebenfalls Opt-in, ohne Abhaengigkeit.
 step17 = by_id.get("17")
 if not step17 or step17.get("optional") is not True or step17.get("default") is not False or step17.get("requires"):
     sys.exit("step 17: erwartet optional mit default false und ohne requires, gefunden %r" % step17)
 for step in manifest["steps"]:
-    if step["optional"] and step["id"] not in ("17", "35", "89") and step.get("default") is not True:
+    if step["optional"] and step["id"] not in ("17", "35") and step.get("default") is not True:
         sys.exit("step %s: optionaler Schritt ohne default true" % step["id"])
 # 15 aktualisiert die Systempakete: optional, Vorgabe an, direkt nach 10.
 step15 = by_id.get("15")

@@ -25,7 +25,8 @@ test('Kriterium 10: die Vorschau laeuft gegen einen Wirt ohne SSH bis zum Ergebn
   assert.equal(await page.locator('.vd-to').textContent(), '1.4.2');
   assert.equal(await page.locator('.lang').count(), 0, 'feste Sprache im Dashboard-Wirt');
   assert.equal(await page.locator('.reuse').count(), 0);
-  assert.equal(await page.locator('.svc.off', { hasText: 'modbus' }).locator('.svc-tag').count(), 1);
+  assert.equal(await page.locator('.app[data-screen="preview"] .mod', { hasText: 'modbus' }).getAttribute('class'), 'mod');
+  assert.equal(await page.locator('.app[data-screen="preview"] .mod', { hasText: 'modbus' }).locator('.svc-tag').count(), 1);
 
   await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click();
   await page.locator('.app[data-screen="result"] .hero p').waitFor({ timeout: 20000 });
@@ -38,20 +39,20 @@ test('Kriterium 10: die Vorschau laeuft gegen einen Wirt ohne SSH bis zum Ergebn
 
 test('Kriterium 9: ein neuer Dienst kommt nur mit ausdruecklicher Zustimmung, Abbrechen nimmt sie zurueck', () => withHost(['--dashboard', '--scenario', 'vorlage-update'], async (host) => {
   const { page, context } = await openPage(browser, host.url);
-  await page.locator('.app[data-screen="preview"] .svc').first().waitFor();
+  await page.locator('.app[data-screen="preview"] .mod').first().waitFor();
 
   await page.getByRole('button', { name: 'Dienste ändern' }).click();
-  await page.locator('.app[data-screen="configure"] .tog').first().waitFor();
+  await page.locator('.app[data-screen="configure"] .mod').first().waitFor();
   assert.equal(await page.locator('.card-h', { hasText: 'Zugangsdaten' }).count(), 0, 'nur die Dienste-Karte');
   await page.getByRole('switch', { name: 'modbus' }).click();
   await page.getByRole('button', { name: 'Auswahl übernehmen' }).click();
 
   await page.locator('.vd-note', { hasText: 'Auswahl geändert' }).waitFor();
-  assert.equal(await page.locator('.svc', { hasText: 'modbus' }).getAttribute('class'), 'svc');
+  assert.equal(await page.locator('.app[data-screen="preview"] .mod', { hasText: 'modbus' }).getAttribute('class'), 'mod on');
 
   await page.getByRole('button', { name: 'Abbrechen', exact: true }).click();
   await page.locator('.vd-note', { hasText: 'Auswahl unverändert' }).waitFor();
-  assert.equal(await page.locator('.svc', { hasText: 'modbus' }).getAttribute('class'), 'svc off');
+  assert.equal(await page.locator('.app[data-screen="preview"] .mod', { hasText: 'modbus' }).getAttribute('class'), 'mod');
   await context.close();
 }));
 

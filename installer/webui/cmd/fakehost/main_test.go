@@ -243,24 +243,36 @@ func TestOfflinePackageAsksUntilChosen(t *testing.T) {
 	}
 }
 
-func TestTheJournalStepAppearsOnlyOnRequest(t *testing.T) {
-	has := func(b *stagedBackend) bool {
-		view, err := b.Manifest(context.Background())
-		if err != nil {
-			t.Fatalf("manifest: %v", err)
-		}
-		for _, step := range view.Steps {
-			if step.ID == "17" {
-				return step.Optional && !step.Default
-			}
-		}
-		return false
+// Das Standardszenario hat den Journal-Schritt 17 (aus), 41 (an, braucht 40)
+// und das Beispiel 89 (an, nur Erstinstallation). Die Auswahl passt dazu.
+func TestTheDraftScenarioOffersJournalTailscaleLogAndExample(t *testing.T) {
+	backend := newScenario("vorlage", options{})
+	view, err := backend.Manifest(context.Background())
+	if err != nil {
+		t.Fatalf("manifest: %v", err)
 	}
-	if has(newScenario("vorlage", options{})) {
-		t.Errorf("step 17 must not be part of the draft scenario")
+	steps := map[string]hostapi.StepView{}
+	for _, step := range view.Steps {
+		steps[step.ID] = step
 	}
-	if !has(newScenario("vorlage", options{journalStep: true})) {
-		t.Errorf("--journal-step must add step 17 as optional and off by default")
+	if step := steps["17"]; !step.Optional || step.Default {
+		t.Errorf("step 17 = %+v, want optional and off by default", step)
+	}
+	if step := steps["41"]; !step.Optional || !step.Default || step.Requires != "40" {
+		t.Errorf("step 41 = %+v, want optional, on by default, requires 40", step)
+	}
+	if step := steps["89"]; !step.Optional || !step.Default || !step.FirstInstallOnly || step.Requires != "81,83,88" {
+		t.Errorf("step 89 = %+v, want optional, on by default for a first install only, requires 81,83,88", step)
+	}
+	selection, err := backend.Selection(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{"17": false, "41": true, "89": true}
+	for id, on := range want {
+		if got, listed := selection.Steps[id]; !listed || got != on {
+			t.Errorf("selection[%s] = %v (listed %v), want %v", id, got, listed, on)
+		}
 	}
 }
 

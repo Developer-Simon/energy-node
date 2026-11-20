@@ -14,6 +14,18 @@
   // Konfiguration bleibt er ein eigener Schalter.
   var RUN_GROUP_OF = { '35': '30' };
 
+  // Gruppe je optionalem Systemschritt fuer die Konfiguration (Module). Die
+  // Dienste mit service_id sind immer "services". Ein unbekannter Schritt
+  // landet in "tuning", damit er nicht verschwindet.
+  var GROUP_OF = { '15': 'tuning', '17': 'tuning', '35': 'tuning', '41': 'tuning', '40': 'services', '70': 'services', '89': 'example' };
+  // Der Hinweis, der bei "Aus" oder bei der Vorgabe als Erstes steht.
+  var DEFAULT_HINT = { services: '88', tuning: '17' };
+  // Icon je Modul, aus dem Dashboard-Icon-Pool (Sprite oder energy-node:*).
+  // Das Beispiel (89 ohne service_id) hat sein Symbol "play" fuer sich, siehe modules().
+  var ICON_OF = { '88': 'automation', '81': 'solar-panel', '82': 'battery', '83': 'plug-smart', '84': 'lightning-bolt-circle',
+    '85': 'tuya', '40': 'tailscale', '70': 'lock', '15': 'refresh', '17': 'drive', '35': 'network', '41': 'history' };
+  var EXAMPLE_ICON = 'play';
+
   function optionalText(shell, key) {
     var text = shell.t(key);
     return text === key ? '' : text;
@@ -22,9 +34,9 @@
   var Services = {
     CORE_STEP: CORE_STEP,
     DASHBOARD_UNIT: DASHBOARD_UNIT,
-    // Schritte, die nur bei der Erstinstallation angeboten werden (89: das
-    // Beispiel). Bei einem Update fehlen sie in der Konfiguration ganz.
-    FRESH_ONLY_STEPS: ['89'],
+    GROUP_OF: GROUP_OF,
+    DEFAULT_HINT: DEFAULT_HINT,
+    ICON_OF: ICON_OF,
     // Die Bibliotheken, die scripts/build/lib/wheels.sh als eigene Wheels
     // baut (Vorschau und Diagnose). Ein Test haelt die Liste gegen das Skript.
     WHEEL_COMPONENTS: ['energy_node_common', 'battery_soc_core'],
@@ -103,45 +115,6 @@
       return out;
     },
 
-    toggles: function (manifest, selection, shell) {
-      var parts = Services.split(manifest);
-      var rows = parts.services.map(function (step) {
-        return {
-          key: 'service-' + step.id, kind: 'service', ids: [step.id],
-          name: Services.serviceName(step, shell),
-          hint: optionalText(shell, 'configure.hint.service.' + step.service_id),
-          on: Services.isSelected(step, selection), known: Services.isKnown(step, selection), chips: null,
-        };
-      });
-      if (parts.devices.length) {
-        var chips = parts.devices.map(function (step) {
-          return { id: step.id, name: Services.serviceName(step, shell), on: Services.isSelected(step, selection), known: Services.isKnown(step, selection) };
-        });
-        rows.push({
-          key: 'devices', kind: 'devices', ids: parts.devices.map(function (step) { return step.id; }),
-          name: shell.t('configure.devices.title'), hint: optionalText(shell, 'configure.hint.devices'),
-          on: chips.some(function (chip) { return chip.on; }), known: true, chips: chips,
-        });
-      }
-      var hideFresh = !shell.shared || shell.shared.firstInstall !== true;
-      parts.system.forEach(function (step) {
-        // Erst sichtbar, wenn der benoetigte Schritt an ist (35 mit Shelly).
-        if (!Services.requiresMet(manifest, step, selection)) {
-          return;
-        }
-        if (hideFresh && Services.FRESH_ONLY_STEPS.indexOf(step.id) !== -1) {
-          return;
-        }
-        rows.push({
-          key: 'step-' + step.id, kind: 'system', ids: [step.id],
-          name: Services.stepName(step.id, shell),
-          hint: optionalText(shell, 'configure.hint.step.' + step.id),
-          on: Services.isSelected(step, selection), known: Services.isKnown(step, selection), chips: null,
-        });
-      });
-      return rows;
-    },
-
     // runGroups: die Stationen der Ausfuehrung, eine je Schritt in
     // Manifest-Reihenfolge - so laufen sie auch, und die Leiste springt nie
     // zurueck. Dienste stehen wie Systemschritte in der Liste.
@@ -191,6 +164,114 @@
       return ((updates && updates.packages) || []).map(function (pkg) {
         return pkg.name + ' ' + (pkg.from ? pkg.from + ' → ' : '') + pkg.to;
       }).join(', ');
+    },
+
+    // groupOfStep: in welcher Modul-Gruppe ein Schritt der Konfiguration
+    // steht. Ein Dienst (service_id) ist "services", sonst GROUP_OF, sonst
+    // "tuning". Der Name ist von groupOf (Diagnose, Stationen) verschieden.
+    groupOfStep: function (step) {
+      if (step.service_id) {
+        return 'services';
+      }
+      return Object.prototype.hasOwnProperty.call(GROUP_OF, step.id) ? GROUP_OF[step.id] : 'tuning';
+    },
+
+    // labelOf: der Name eines Moduls, sonst die Bezeichnung des Schritts
+    // (ein neuer Dienst ohne Katalogtext zeigt seine service_id).
+    moduleName: function (manifest, id, shell) {
+      return optionalText(shell, 'configure.module.' + id + '.name') || Services.stepLabel(manifest, id, shell);
+    },
+
+    // module: eine Kachel der Konfiguration. state ist die on/off-Variante
+    // des Katalogs, hint der Langtext. available sagt, ob die Voraussetzung
+    // (requires) erfuellt ist.
+    module: function (manifest, step, selection, shell) {
+      var id = step.id;
+      var on = Services.isSelected(step, selection);
+      var name = Services.moduleName(manifest, id, shell);
+      var stateKey = 'configure.module.' + id + (on ? '.on' : '.off');
+      var state = optionalText(shell, stateKey) || shell.t('configure.module.default.' + (on ? 'on' : 'off'));
+      var hint = step.service_id
+        ? optionalText(shell, 'configure.hint.service.' + step.service_id)
+        : optionalText(shell, 'configure.hint.step.' + id);
+      return {
+        id: id,
+        group: Services.groupOfStep(step),
+        name: name,
+        short: optionalText(shell, 'configure.module.' + id + '.short') || name,
+        state: state,
+        hint: hint,
+        icon: ICON_OF[id] || 'device',
+        on: on,
+        known: Services.isKnown(step, selection),
+        available: Services.requiresMet(manifest, step, selection),
+      };
+    },
+
+    // modules: die Module der Konfiguration in drei Gruppen. services: Automation
+    // zuerst, dann die Geraete in Manifest-Reihenfolge, dann Tailscale und
+    // HTTPS. tuning: die optionalen Systemschritte, auch die nicht verfuegbaren
+    // (die Oberflaeche blendet sie aus). example: das Beispiel, null bei
+    // einem Update. count zaehlt nur die Dienste, die das Manifest hat.
+    // unavailable: "Nicht verfuegbar: ..." fuer die Feinabstimmung.
+    modules: function (manifest, selection, shell) {
+      var steps = (manifest && manifest.steps) || [];
+      var firstInstall = !!(shell.shared && shell.shared.firstInstall === true);
+      var services = [];
+      var tuning = [];
+      var tuningSteps = [];
+      var example = null;
+      steps.forEach(function (step) {
+        if (!step.service_id && !step.optional) {
+          return;
+        }
+        var group = Services.groupOfStep(step);
+        if (group === 'services') {
+          services.push({ step: step, index: services.length, module: Services.module(manifest, step, selection, shell) });
+        } else if (group === 'tuning') {
+          tuning.push(Services.module(manifest, step, selection, shell));
+          tuningSteps.push({ step: step, module: tuning[tuning.length - 1] });
+        }
+      });
+      // Reihenfolge der Dienste: 88 (Automation) zuerst, dann Geraete, dann
+      // die uebrigen (40, 70). Innerhalb einer Stufe bleibt die Manifest-Reihenfolge.
+      var rank = function (entry) {
+        if (entry.step.id === '88') {
+          return 0;
+        }
+        return entry.step.kind === 'device' ? 1 : 2;
+      };
+      services.sort(function (a, b) { return rank(a) - rank(b) || a.index - b.index; });
+      services = services.map(function (entry) { return entry.module; });
+
+      // Das Beispiel ist der Schritt 89 OHNE service_id. Der Dienst 89 (modbus)
+      // aus dem Update ist ein normaler Dienst in "services".
+      var exampleStep = steps.filter(function (step) { return step.id === '89' && !step.service_id; })[0];
+      if (exampleStep && (!exampleStep.first_install_only || firstInstall)) {
+        example = Services.module(manifest, exampleStep, selection, shell);
+        example.icon = EXAMPLE_ICON;
+      }
+
+      var unavailableItems = tuningSteps.filter(function (entry) {
+        return !entry.module.available;
+      }).map(function (entry) {
+        var needs = String(entry.step.requires).split(',').map(function (part) {
+          return Services.moduleName(manifest, part.trim(), shell);
+        }).join(', ');
+        return shell.t('configure.unavailable.item', { name: entry.module.name, needs: needs });
+      });
+      return {
+        services: services,
+        tuning: tuning,
+        example: example,
+        count: {
+          on: services.filter(function (mod) { return mod.on; }).length,
+          total: services.length,
+        },
+        unavailable: unavailableItems.length
+          ? shell.t('configure.unavailable.list', { items: unavailableItems.join(', ') })
+          : '',
+      };
     },
 
     groupOf: function (groups, stepId) {

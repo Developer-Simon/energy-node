@@ -67,20 +67,44 @@
         }
       },
 
-      get rows() {
-        return this.manifest ? window.Services.toggles(this.manifest, { steps: this.steps }, this.shell) : [];
+      // Die Module der Konfiguration (services, tuning, example), null ohne Manifest.
+      get mods() {
+        return this.manifest ? window.Services.modules(this.manifest, { steps: this.steps }, this.shell) : null;
       },
 
-      toggle(row) {
-        var next = !row.on;
-        var steps = this.steps;
-        row.ids.forEach(function (id) { steps[id] = next; });
-        window.Services.dropUnmet(this.manifest, steps);
+      // Der Hinweis je Gruppe: das zuletzt angetippte Modul, sonst die Vorgabe.
+      hintId: {
+        services: window.Services.DEFAULT_HINT.services,
+        tuning: window.Services.DEFAULT_HINT.tuning,
       },
 
-      toggleChip(chip) {
-        this.steps[chip.id] = !chip.on;
+      toggleModule(mod) {
+        this.steps[mod.id] = !mod.on;
         window.Services.dropUnmet(this.manifest, this.steps);
+        this.showHint(mod);
+      },
+
+      showHint(mod) {
+        if (mod.group === 'services') {
+          this.hintId.services = mod.id;
+        } else if (mod.group === 'tuning') {
+          this.hintId.tuning = mod.id;
+        }
+      },
+
+      get hintText() {
+        var mods = this.mods;
+        var pick = function (list, id) {
+          var found = list.filter(function (mod) { return mod.id === id; })[0] || list[0];
+          return found ? found.hint : '';
+        };
+        if (!mods) {
+          return { services: '', tuning: '' };
+        }
+        return {
+          services: pick(mods.services, this.hintId.services),
+          tuning: pick(mods.tuning, this.hintId.tuning),
+        };
       },
 
       // Leer heisst "der Node erzeugt eins". Sonst gilt die Regel des Helpers:

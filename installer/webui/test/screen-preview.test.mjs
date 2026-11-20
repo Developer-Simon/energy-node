@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mountScreen, realCatalog } from './helpers/mount.mjs';
+import vm from 'node:vm';
+import { mountScreen, realCatalog, fakeShell } from './helpers/mount.mjs';
+import { loadScripts } from './helpers/load.mjs';
 import { MANIFEST_UPDATE, SELECTION_NODE, PLAN_UPDATE } from './helpers/fixtures.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -124,20 +126,29 @@ test('start sendet restart_all nur, wenn der Schalter an ist', async () => {
   assert.equal(calls.filter((call) => call.key === 'POST /api/run').pop().body.restart_all, true);
 });
 
-test('der Funktionsumfang zeigt die Auswahl und einen neuen Dienst als aus', async () => {
+test('der Funktionsumfang: Dienste in der Reihenfolge der Vorlage, der neue Dienst aus und als neu markiert', async () => {
   const { screen } = await mount();
-  assert.deepEqual(plain(screen.serviceParts.map((part) => [part.type, part.name || '', part.on, part.isNew || false])), [
-    ['svc', 'Automation', true, false],
-    ['svc', 'modbus', false, true],
-    ['svc', 'Geräte-Dienste', true, false],
-    ['chips', '', null, false],
-    ['svc', 'Tailscale', true, false],
-    ['svc', 'HTTPS über Caddy', true, false],
+  assert.deepEqual(plain(screen.mods.services.map((mod) => [mod.id, mod.name, mod.on, mod.isNew])), [
+    ['88', 'Automation', true, false],
+    ['81', 'APsystems', true, false],
+    ['82', 'Batterie-SoC', false, false],
+    ['83', 'Shelly', true, false],
+    ['84', 'Trucki', true, false],
+    ['85', 'Tuya', true, false],
+    ['40', 'Tailscale', true, false],
+    ['70', 'HTTPS', true, false],
+    ['89', 'modbus', false, true],
   ]);
-  assert.equal(screen.serviceParts[1].cls, 'svc off');
-  assert.deepEqual(plain(screen.serviceParts[3].chips.map((chip) => [chip.name, chip.on])), [
-    ['APsystems', true], ['Batterie-SoC', false], ['Shelly', true], ['Trucki', true], ['Tuya', true],
-  ]);
+  assert.deepEqual(plain(screen.mods.tuning), [], 'ohne Systemschritte keine Feinabstimmung');
+  assert.equal(screen.mods.services[8].icon, 'device');
+});
+
+test('die Feinabstimmung zeigt nur die verfuegbaren Module', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/manifest': MANIFEST_15 } });
+  assert.deepEqual(plain(screen.mods.tuning.map((mod) => [mod.id, mod.on, mod.isNew])), [['15', true, true]]);
+  const unmet = Object.assign({}, MANIFEST_15, { steps: MANIFEST_15.steps.concat([{ id: '35', optional: true, default: false, requires: '99' }]) });
+  const { screen: other } = await mount({ responses: { 'GET /api/manifest': unmet } });
+  assert.deepEqual(plain(other.mods.tuning.map((mod) => mod.id)), ['15'], 'ein Schalter mit fehlender Voraussetzung fehlt');
 });
 
 test('Dienste aendern fuehrt in die Konfiguration im Nur-Dienste-Modus', async () => {
@@ -255,32 +266,110 @@ test('die Zeile Systempakete aktualisieren zaehlt die Updates erst auf Abfrage',
     'GET /api/system-updates': { count: 12, checked_at: '2026-10-04T06:12:00+00:00', packages: [] },
   } });
   assert.ok(!calls.some((call) => call.key === 'GET /api/system-updates'), 'die Vorschau fragt nicht von sich aus');
-  let row = screen.serviceParts.find((part) => part.key === 'step-15');
-  assert.ok(row, 'Zeile fuer Schritt 15 fehlt');
-  assert.equal(row.check, true);
-  assert.equal(row.detail, '');
-  assert.ok(screen.serviceParts.filter((part) => part.key !== 'step-15').every((part) => !part.check && !part.detail));
+  let line = screen.updatesLine;
+  assert.ok(line, 'Zeile fuer Schritt 15 fehlt');
+  assert.equal(line.check, true);
+  assert.equal(line.detail, '');
 
   const pending = screen.checkUpdates();
-  row = screen.serviceParts.find((part) => part.key === 'step-15');
-  assert.equal(row.check, false);
-  assert.equal(row.detail, 'prüft …');
+  line = screen.updatesLine;
+  assert.equal(line.check, false);
+  assert.equal(line.detail, 'prüft …');
   await pending;
-  row = screen.serviceParts.find((part) => part.key === 'step-15');
-  assert.equal(row.detail, '12 Updates · Stand 04.10.');
-  assert.equal(row.check, false);
+  line = screen.updatesLine;
+  assert.equal(line.detail, '12 Updates · Stand 04.10.');
+  assert.equal(line.check, false);
+});
+
+test('ohne Systempakete (Schritt 15) im Manifest gibt es keine Zeile', async () => {
+  const { screen, calls } = await mount();
+  assert.equal(screen.updatesLine, null);
+  await screen.checkUpdates();
+  assert.equal(calls.filter((call) => call.key === 'GET /api/system-updates').length, 1, 'nur auf Abfrage');
 });
 
 test('eine unbekannte Zahl oder ein Fehler heisst nicht ermittelbar, erneut pruefbar', async () => {
   const unknown = await mount({ responses: { 'GET /api/manifest': MANIFEST_15, 'GET /api/system-updates': null } });
   await unknown.screen.checkUpdates();
-  let row = unknown.screen.serviceParts.find((part) => part.key === 'step-15');
-  assert.equal(row.detail, 'nicht ermittelbar');
-  assert.equal(row.check, true);
+  let line = unknown.screen.updatesLine;
+  assert.equal(line.detail, 'nicht ermittelbar');
+  assert.equal(line.check, true);
 
   const failed = await mount({ responses: { 'GET /api/manifest': MANIFEST_15 }, errors: { 'GET /api/system-updates': { code: 'SYSTEM_UPDATES_FAILED', status: 502 } } });
   await failed.screen.checkUpdates();
-  row = failed.screen.serviceParts.find((part) => part.key === 'step-15');
-  assert.equal(row.detail, 'nicht ermittelbar');
+  line = failed.screen.updatesLine;
+  assert.equal(line.detail, 'nicht ermittelbar');
   assert.equal(failed.shell.error, null, 'kein Banner fuer eine Zusatzinfo');
+});
+
+// Das echte Template, von Alpine gebunden (wie screen-configure.test.mjs): die
+// Go-Platzhalter fallen weg, die Icons kommen aus icons.html.
+function previewMarkup() {
+  const templates = path.join(here, '..', 'templates');
+  const icons = fs.readFileSync(path.join(templates, 'icons.html'), 'utf8');
+  const parts = {};
+  for (const match of icons.matchAll(/\{\{define "([^"]+)"\}\}([\s\S]*?)\{\{end\}\}/g)) {
+    parts[match[1]] = match[2];
+  }
+  const source = fs.readFileSync(path.join(templates, 'screen-preview.html'), 'utf8');
+  const html = source.replace(/\{\{template "([^"]+)"\}\}/g, (_, name) => parts[name] || '');
+  return html.slice(html.indexOf('<div class="screen"'), html.lastIndexOf('</template>'));
+}
+
+async function mountPreviewTemplate(manifest) {
+  const alpine = fs.readFileSync(path.join(here, '..', 'static', 'js-deps', 'alpine.min.js'), 'utf8');
+  const dom = loadScripts(['i18n.js', 'format.js', 'api.js', 'services.js', 'changelog-model.js', 'screen-preview.js'], {
+    html: `<!doctype html><html><body><div class="app" x-data="harness">${previewMarkup()}</div></body></html>`,
+  });
+  const { window } = dom;
+  window.Api.configure({ basePath: '', token: 'tok' });
+  window.I18n.lang = 'de';
+  window.I18n.catalog = realCatalog('de');
+  const answers = {
+    'GET /api/manifest': manifest,
+    'GET /api/selection': structuredClone(SELECTION_NODE),
+    'GET /api/plan': PLAN_UPDATE,
+  };
+  window.fetch = async (url) => {
+    const key = `GET ${String(url).split('?')[0]}`;
+    if (!(key in answers)) {
+      throw new Error(`no canned response for ${key}`);
+    }
+    return { ok: true, status: 200, json: async () => answers[key] };
+  };
+  const shell = fakeShell(window, { entry: 'redeploy', screen: 'preview', connected: true });
+  window.Installer = { shell };
+  window.document.addEventListener('alpine:init', () => {
+    window.Alpine.data('harness', () => ({ t: (key, params) => shell.t(key, params) }));
+    window.Alpine.data('screenPreview', window.Screens.screenPreview);
+  });
+  vm.runInContext(alpine, dom.getInternalVMContext(), { filename: 'alpine.min.js' });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  return { document: window.document };
+}
+
+test('die Vorschau zeigt die Module nur lesend: Divs ohne Schalterrolle, der neue Dienst mit Tag', async () => {
+  const { document } = await mountPreviewTemplate(MANIFEST_15);
+  const mods = [...document.querySelectorAll('.mods .mod')];
+  assert.equal(mods.length, 10, '9 Dienste und die Systempakete');
+  for (const mod of mods) {
+    assert.equal(mod.tagName, 'DIV');
+    assert.equal(mod.hasAttribute('role'), false);
+    assert.equal(mod.hasAttribute('aria-checked'), false);
+    assert.ok(mod.querySelector('.mod-svg'), 'jedes Modul hat ein Symbol');
+  }
+  assert.equal(document.querySelectorAll('.mods [role="switch"]').length, 0, 'die Module sind keine Schalter (der Schalter "Alle neu starten" steht daneben)');
+  const modbus = mods.find((mod) => mod.querySelector('.mod-long').textContent === 'modbus');
+  assert.ok(modbus, 'der Dienst modbus steht in der Liste');
+  assert.equal(modbus.classList.contains('on'), false);
+  assert.equal(modbus.querySelector('.svc-tag').textContent, 'neu im Paket');
+  assert.equal(document.querySelectorAll('.svc-tag').length, 2, 'modbus und die Systempakete sind neu');
+  assert.equal(document.querySelector('.mod-hint .svc-check').textContent, 'Updates prüfen');
+  assert.ok(document.querySelector('.svc-edit'), 'Dienste aendern bleibt');
+});
+
+test('ohne Systempakete zeigt die Vorschau keine Zeile unter der Liste', async () => {
+  const { document } = await mountPreviewTemplate(MANIFEST_UPDATE);
+  assert.equal(document.querySelector('.mod-hint'), null);
+  assert.equal(document.querySelectorAll('.mod').length, 9);
 });

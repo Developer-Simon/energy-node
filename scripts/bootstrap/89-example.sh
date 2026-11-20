@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 #
-# Schritt 89: Beispiel fuer einen leeren Knoten (Opt-in).
+# Schritt 89: Beispiel fuer einen leeren Knoten (Vorgabe an, nur bei der
+# Erstinstallation).
 #
 # Legt Beispielgeraete, ein Beispielszenario und die Freigabe fuer das
 # Schalten der Beispiel-Steckdose an. Das Beispiel laeuft nur, wenn der
-# Betreiber den Schritt ausdruecklich gewaehlt hat, die Schritte 81, 83 und
+# Betreiber den Schritt nicht abgewaehlt hat, die Schritte 81, 83 und
 # 88 gewaehlt sind und der Node noch keine Geraete und keine Regeln hat.
+# Nach einer frueheren Installation (installed-manifest.json liegt vor, der
+# Installer legt es nach jedem vollstaendigen Lauf an) kommt es nicht.
 # Die Marke example-created verhindert ein zweites Anlegen, auch nachdem
 # der Betreiber das Beispiel wieder geloescht hat.
 #
@@ -26,7 +29,13 @@ DEVICES="${EN_ROOT}${EN_TARGET_BASE}/devices"
 
 step_begin 89
 
-if ! step_opted_in 89 || ! step_selected 81 || ! step_selected 83 || ! step_selected 88; then
+# Nur bei der Erstinstallation: das Manifest der installierten Version legt
+# der Installer nach jedem vollstaendigen Lauf an.
+if [[ -f "${EN_STATE_DIR}/installed-manifest.json" ]]; then
+  step_skip "keine Erstinstallation"
+  exit 0
+fi
+if ! step_selected 89 || ! step_selected 81 || ! step_selected 83 || ! step_selected 88; then
   step_skip "nicht ausgewaehlt"
   exit 0
 fi

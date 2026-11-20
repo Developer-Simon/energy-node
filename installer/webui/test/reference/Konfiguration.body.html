@@ -66,48 +66,99 @@
         </section>
       </div>
 
-      <section class="card">
-        <h2 class="card-h">Dienste</h2>
-        <p class="card-p">Kern läuft immer: Broker, Firewall, MQTT-Brücke und Dashboard. Alles andere wählst du hier.</p>
-
-        <div class="tog">
-          <span class="sw on"></span>
-          <span>
-            <span class="tog-t">Automation</span>
-            <div class="tog-s">Regeln, Zeitpläne und Schwellwerte auf dem Gerät. Fehlt der Dienst, blendet das Dashboard den Automationen-Tab aus.</div>
-          </span>
-        </div>
-        <div class="tog">
-          <span class="sw on"></span>
-          <span>
-            <span class="tog-t">Geräte-Dienste</span>
-            <div class="tog-s">Je ein Dienst pro Geräteart. Abgewählte Arten fehlen auch im Dashboard.</div>
-            <div class="chips">
-              <span class="chipk on">Tuya</span>
-              <span class="chipk on">Shelly</span>
-              <span class="chipk on">APsystems</span>
-              <span class="chipk on">Trucki</span>
-              <span class="chipk">Batterie-SoC</span>
-            </div>
-          </span>
-        </div>
-        <div class="tog">
-          <span class="sw on"></span>
-          <span>
-            <span class="tog-t">Tailscale</span>
-            <div class="tog-s">Verbindet den Node mit deinem Tailnet. Fehlt der Dienst, fehlt im Dashboard der Tailscale-Tab.</div>
-          </span>
-        </div>
-        <div class="tog">
-          <span class="sw on"></span>
-          <span>
-            <span class="tog-t">HTTPS über Caddy</span>
-            <div class="tog-s">Ohne HTTPS bleibt die Admin-Anmeldung im Dashboard gesperrt. Das ist Absicht.</div>
-          </span>
-        </div>
-
+      <div class="stack">
+        <section class="card mods-card">
+          <div class="mods-head"><h2 class="card-h">Dienste</h2><span class="mods-count">7 von 8 an</span></div>
+          <p class="card-p">Kern läuft immer: Broker, Firewall, MQTT-Brücke, Dashboard.</p>
+          <div class="mods">
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-88">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><rect x="3" y="8.5" width="6" height="7" rx="1.5"/><circle cx="18" cy="12" r="3"/><path d="M9 12h6" stroke-dasharray="1.5 2.5"/></svg></span>
+            <span class="mod-nm"><span class="mod-long">Automation</span><span class="mod-short">Automation</span></span>
+            <span class="mod-st">Regeln laufen</span>
+            <span class="sr-only" id="mod-hint-88">Regeln, Zeitpläne und Schwellwerte auf dem Gerät. Fehlt der Dienst, blendet das Dashboard den Automationen-Tab aus.</span>
+          </button>
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-81">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><path d="M3.5 15 7 5h13.5L17 15Z"/><path d="M5.25 10h13.5"/><path d="M11.5 5 8 15"/><path d="M16 5l-3.5 10"/><path d="M10.2 15v4"/><path d="M7 19h6.5"/></svg></span>
+            <span class="mod-nm"><span class="mod-long">APsystems</span><span class="mod-short">APsystems</span></span>
+            <span class="mod-st">liest Wechselrichter</span>
+            <span class="sr-only" id="mod-hint-81">Liest APsystems-EZ1-Wechselrichter im LAN aus.</span>
+          </button>
+          <button type="button" class="mod" role="switch" aria-checked="false" aria-describedby="mod-hint-82">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><rect x="2.5" y="7" width="16.5" height="10" rx="2.5"/><path d="M19 10h1.5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H19"/><path d="M6 10v4"/></svg></span>
+            <span class="mod-nm"><span class="mod-long">Batterie-SoC</span><span class="mod-short">Batterie</span></span>
+            <span class="mod-st">aus</span>
+            <span class="sr-only" id="mod-hint-82">Rechnet den Ladestand von Batterien aus Strom und Spannung.</span>
+          </button>
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-83">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><g transform="translate(1.1 .25) rotate(-28 12 12)"><path d="M16.2 6.6H9.4A3.4 3.4 0 0 0 6 10v4a3.4 3.4 0 0 0 3.4 3.4h6.8"/><ellipse cx="16.2" cy="12" rx="2.4" ry="5.4"/><circle cx="16.5" cy="10.1" r="0.8"/><circle cx="16.5" cy="13.9" r="0.8"/><path d="M2.6 9.9h3.4M2.6 14.1h3.4"/></g></svg></span>
+            <span class="mod-nm"><span class="mod-long">Shelly</span><span class="mod-short">Shelly</span></span>
+            <span class="mod-st">Zähler und Steckdosen</span>
+            <span class="sr-only" id="mod-hint-83">Liest Shelly-Zähler und schaltet Shelly-Steckdosen im LAN.</span>
+          </button>
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-84">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><circle cx="12" cy="12" r="8.4"/><path d="M13 7 9.25 12.63 11.63 12.63 11 17 14.75 11.38 12.38 11.38Z"/></svg></span>
+            <span class="mod-nm"><span class="mod-long">Trucki</span><span class="mod-short">Trucki</span></span>
+            <span class="mod-st">steuert Einspeiser</span>
+            <span class="sr-only" id="mod-hint-84">Steuert Trucki-Einspeiser über HTTP.</span>
+          </button>
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-85">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M11 7v7.2a2.8 2.8 0 0 0 2.8 2.8H15.5"/><path d="M8.5 10.2h7"/></svg></span>
+            <span class="mod-nm"><span class="mod-long">Tuya</span><span class="mod-short">Tuya</span></span>
+            <span class="mod-st">Geräte lokal</span>
+            <span class="sr-only" id="mod-hint-85">Bindet Tuya-Geräte lokal ein, ohne Cloud.</span>
+          </button>
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-40">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><g fill="currentColor" stroke="none"><circle cx="5" cy="5" r="2.1" opacity=".32"/><circle cx="12" cy="5" r="2.1" opacity=".32"/><circle cx="19" cy="5" r="2.1" opacity=".32"/><circle cx="5" cy="12" r="2.1"/><circle cx="12" cy="12" r="2.1"/><circle cx="19" cy="12" r="2.1"/><circle cx="5" cy="19" r="2.1" opacity=".32"/><circle cx="12" cy="19" r="2.1"/><circle cx="19" cy="19" r="2.1" opacity=".32"/></g></svg></span>
+            <span class="mod-nm"><span class="mod-long">Tailscale</span><span class="mod-short">Tailscale</span></span>
+            <span class="mod-st">von unterwegs</span>
+            <span class="sr-only" id="mod-hint-40">Verbindet den Node mit deinem Tailnet. Fehlt der Dienst, fehlt im Dashboard der Tailscale-Tab.</span>
+          </button>
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-70">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><g fill="currentColor" stroke="none"><path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/></g></svg></span>
+            <span class="mod-nm"><span class="mod-long">HTTPS</span><span class="mod-short">HTTPS</span></span>
+            <span class="mod-st">über Caddy</span>
+            <span class="sr-only" id="mod-hint-70">Ohne HTTPS bleibt die Admin-Anmeldung im Dashboard gesperrt. Das ist Absicht.</span>
+          </button>
+          </div>
+          <p class="mod-hint" aria-hidden="true">Regeln, Zeitpläne und Schwellwerte auf dem Gerät. Fehlt der Dienst, blendet das Dashboard den Automationen-Tab aus.</p>
+        </section>
+        <section class="card mods-card">
+          <div class="mods-head"><h2 class="card-h">Feinabstimmung</h2></div>
+          <div class="mods">
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-15">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><g fill="currentColor" stroke="none"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.140,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></g></svg></span>
+            <span class="mod-nm"><span class="mod-long">Systempakete</span><span class="mod-short">Pakete</span></span>
+            <span class="mod-st">werden aktualisiert</span>
+            <span class="sr-only" id="mod-hint-15">Spielt mit jeder neuen Installer-Version die Updates der Systempakete ein. Abgewählt prüft der Installer nur und nennt die Zahl im Protokoll.</span>
+          </button>
+          <button type="button" class="mod" role="switch" aria-checked="false" aria-describedby="mod-hint-17">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><path d="M3.5 14.5 7.3 5.3A1.8 1.8 0 0 1 9 4h6a1.8 1.8 0 0 1 1.7 1.3l3.8 9.2"/><path d="M3.5 14.5v3.7A1.8 1.8 0 0 0 5.3 20h13.4a1.8 1.8 0 0 0 1.8-1.8v-3.7Z"/><path d="M7.5 17.25h.01"/><path d="M11 17.25h.01"/></svg></span>
+            <span class="mod-nm"><span class="mod-long">Journal im RAM</span><span class="mod-short">Journal</span></span>
+            <span class="mod-st">Logs auf der Karte</span>
+            <span class="sr-only" id="mod-hint-17">Schreibt die Systemlogs in den Arbeitsspeicher statt auf die SD-Karte. Das spart Schreibzyklen und etwas Platz. Die Logs, auch die Dienstlogs im Dashboard, sind nach jedem Neustart weg, und das alte Journal auf der Karte wird entfernt. Standardmäßig aus.</span>
+          </button>
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-35">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><rect x="7.5" y="2" width="9" height="9.5" rx="1.5"/><path d="M10.5 4.5V7"/><path d="M13.5 4.5V7"/><path d="m9 11.5 1 3h4l1-3"/><path d="M12 14.5V18a3.5 3.5 0 0 1-3.5 3.5H5"/></svg></span>
+            <span class="mod-nm"><span class="mod-long">Shelly-Webhook</span><span class="mod-short">Webhook</span></span>
+            <span class="mod-st">Port 8082 offen</span>
+            <span class="sr-only" id="mod-hint-35">Öffnet Port 8082 im LAN, damit ein schlafender Shelly H&amp;T (Gen1) beim Aufwachen sofort abgefragt wird. Standardmäßig aus. Den Webhook selbst schaltest du danach im Dashboard ein.</span>
+          </button>
+          <button type="button" class="mod on" role="switch" aria-checked="true" aria-describedby="mod-hint-41">
+            <span class="mod-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><g id="ico-history-arrow"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5v4h4"/></g><path id="ico-history-hands" d="M12 7.5V12l3 2"/></svg></span>
+            <span class="mod-nm"><span class="mod-long">Tailscale-Logs im RAM</span><span class="mod-short">TS-Logs</span></span>
+            <span class="mod-st">schont die Karte</span>
+            <span class="sr-only" id="mod-hint-41">Hält den Log-Puffer von Tailscale im Arbeitsspeicher statt auf der SD-Karte. Das spart Schreibzyklen. Bei einem Neustart geht nur der noch nicht hochgeladene Teil verloren. Braucht Tailscale.</span>
+          </button>
+          </div>
+          <p class="mod-hint" aria-hidden="true">Schreibt die Systemlogs in den Arbeitsspeicher statt auf die SD-Karte. Das spart Schreibzyklen und etwas Platz. Die Logs, auch die Dienstlogs im Dashboard, sind nach jedem Neustart weg, und das alte Journal auf der Karte wird entfernt. Standardmäßig aus.</p>
+        </section>
+        <label class="card ex on">
+          <span class="ex-ic"><svg viewBox="0 0 24 24" aria-hidden="true" class="mod-svg"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+          <span class="ex-txt"><span class="ex-t">Beispiel zum Ausprobieren</span><span class="ex-s">Drei simulierte Geräte und eine Regel. Im Dashboard mit einem Klick wieder weg.</span></span>
+          <span class="settings-toggle"><input type="checkbox" role="switch" checked><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></span>
+        </label>
         <div class="later">Die Auswahl merkt sich das Gerät und passt die <em>config.json</em> des Dashboards an, damit dort nur die Tabs der installierten Dienste erscheinen. Ein Update spielt genau diese Auswahl wieder ein; neue Dienste aus späteren Paketen bleiben aus, bis du sie aufnimmst.</div>
-      </section>
+      </div>
     </div>
   </div>
 

@@ -158,6 +158,8 @@ type StepView struct {
 	// Konfiguration sperrt den Schalter, solange einer der benoetigten
 	// Schritte aus ist.
 	Requires string `json:"requires,omitempty"`
+	// FirstInstallOnly: die Vorgabe "an" gilt nur bei der Erstinstallation.
+	FirstInstallOnly bool `json:"first_install_only,omitempty"`
 }
 
 // ManifestView ist der fuer die Oberflaeche interessante Teil des Manifests.

@@ -97,6 +97,26 @@ out="$(bash "$script")"
 [ "$(get 'd["steps"][1]["state"]')" = "pending" ] || fail "35 mit 81 nicht pending" "$out"
 rm -f "$EN_SELECTION"
 
+# --- first_install_only: Vorgabe an, aber nur bei der Erstinstallation ----
+fio="$tmp/first"
+mkdir -p "$fio/bundle" "$fio/state"
+cat > "$fio/bundle/manifest.json" <<'JSON'
+{ "version": "v0.3.0", "steps": [
+  { "id": "81", "optional": true, "default": true },
+  { "id": "83", "optional": true, "default": true },
+  { "id": "89", "optional": true, "default": true, "requires": "81,83", "first_install_only": true } ] }
+JSON
+out="$(EN_STATE_DIR="$fio/state" EN_BUNDLE_DIR="$fio/bundle" EN_BUNDLE_VERSION=v0.3.0 \
+  EN_SELECTION="$fio/none.json" bash "$script")"
+[ "$(get 'd["steps"][2]["selected"]')" = "True" ] || fail "89 ohne installierten Stand nicht gewaehlt" "$out"
+[ "$(get 'd["steps"][2]["state"]')" = "pending" ] || fail "89 ohne installierten Stand nicht pending" "$out"
+printf '{"components":{}}\n' > "$fio/state/installed-manifest.json"
+printf '{"steps":{"89":true}}\n' > "$fio/selection.json"
+out="$(EN_STATE_DIR="$fio/state" EN_BUNDLE_DIR="$fio/bundle" EN_BUNDLE_VERSION=v0.3.0 \
+  EN_SELECTION="$fio/selection.json" bash "$script")"
+[ "$(get 'd["steps"][2]["selected"]')" = "False" ] || fail "89 mit installiertem Stand trotz Auswahl gewaehlt" "$out"
+[ "$(get 'd["steps"][2]["state"]')" = "deselected" ] || fail "89 mit installiertem Stand nicht deselected" "$out"
+
 # --- keine ##STEP-Marker --------------------------------------------------
 grep -q '^##STEP' <<<"$out" && fail "plan.sh gibt Schritt-Marker aus" "$out"
 
