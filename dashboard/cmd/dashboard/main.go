@@ -424,9 +424,15 @@ func main() {
 	// Der Lernhub verteilt jede Beobachtung der Energieschleife an die Lerner
 	// und sichert sie stuendlich sowie beim Beenden. lossTotals laeuft nicht
 	// ueber den Hub, es ist Statistik und kein Lernstand.
+	// Die Lernstufe kommt bei jedem Aufruf aus den Einstellungen. Ohne lesbare
+	// Einstellungen gilt auto, leer heisst ebenfalls auto (ResolveLevel).
 	learnLimits := func() learnrec.Limits {
 		cores := runtime.NumCPU()
-		return learnrec.LimitsFor(learnrec.ResolveLevel("auto", cores), cores)
+		level := settings.LearningLevelAuto
+		if value, err := settingsStore.LoadSettings(); err == nil {
+			level = value.LearningLevel
+		}
+		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores), cores)
 	}
 	learnHub := learnrec.NewHub(time.Local, learnLimits, log.Printf)
 	learnHub.AddMinute("chainsuggest", chainSuggest)
@@ -446,8 +452,13 @@ func main() {
 	learnHub.AddMinute("origin", originTracker)
 	learnHub.AddSaver("reactions", reactions)
 	// Tagesdateien: je Minute der Rahmen, je Minute die Ereignisse des Trackers.
-	// 0 heisst Standard von 56 Tagen, Task 6 ersetzt die Funktion durch die Einstellung.
-	dayStore := autolearn.OpenDayStore(filepath.Join(autolearnDir, "days"), time.Local, func() int { return 0 }, log.Printf)
+	// Die Aufbewahrung kommt aus den Einstellungen, 0 heisst 56 Tage.
+	dayStore := autolearn.OpenDayStore(filepath.Join(autolearnDir, "days"), time.Local, func() int {
+		if value, err := settingsStore.LoadSettings(); err == nil && value.LearningProfileDays > 0 {
+			return value.LearningProfileDays
+		}
+		return settings.LearningProfileDaysDefault
+	}, log.Printf)
 	learnHub.AddMinute("daystore", dayStore)
 	learnHub.AddSaver("daystore", dayStore)
 	origin := newOriginLearner(originTracker, dayStore, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
@@ -1186,13 +1197,18 @@ func main() {
 				if energyRecorder.Status().ClockReady {
 					// Die Schalter aus den Einstellungen gelten ohne Neustart. Ohne
 					// lesbare Einstellungen bleibt alles an.
-					learningOn, suggestionsOn := true, true
+					learningOn, suggestionsOn, patternsOn := true, true, true
+					var excludedDevices []string
 					if value, err := settingsStore.LoadSettings(); err == nil {
 						learningOn = !value.ChainLearningDisabled
 						suggestionsOn = !value.ChainSuggestionsDisabled
+						patternsOn = !value.AutomationPatternsDisabled
+						excludedDevices = value.LearningExcludedDevices
 					}
 					chainMonitor.SetLearning(learningOn)
 					chainSuggest.SetEnabled(suggestionsOn)
+					dayStore.SetEnabled(patternsOn)
+					dayStore.SetExcluded(excludedDevices)
 					learnHub.Observe(now, reg.Snapshot(), snapshot, balanceRuleValues(snapshot.Balance))
 					// Wie das Pruning oben: ohne lesbare energy.json fehlen
 					// Ketten im Snapshot, und Observe wuerde ihre Summen loeschen.
