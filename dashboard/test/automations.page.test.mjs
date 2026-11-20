@@ -2820,10 +2820,10 @@ const assistantSnapshot = {
   ],
 };
 
-function stubAssistantFetch(window) {
+function stubAssistantFetch(window, devices = assistantDevices) {
   window.fetch = async (url) => {
     let body = null;
-    if (url.endsWith('/api/v1/devices')) body = assistantDevices;
+    if (url.endsWith('/api/v1/devices')) body = devices;
     if (url.endsWith('/api/v1/energy')) body = assistantSnapshot;
     if (body === null) throw new Error(`unexpected fetch ${url}`);
     return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(body)) };
@@ -2831,9 +2831,9 @@ function stubAssistantFetch(window) {
 }
 
 // Panel mit gespeichertem Stand, damit unsavedCount() die Aenderungen zaehlt.
-async function assistantPanel() {
+async function assistantPanel(devices) {
   const harness = createAutomationsPanel();
-  stubAssistantFetch(harness.window);
+  stubAssistantFetch(harness.window, devices);
   harness.component.savedDocument = JSON.parse(JSON.stringify(harness.component.document));
   return harness;
 }
@@ -3532,4 +3532,99 @@ test('ignoreFinding removes a draft finding from the draft list', async () => {
   window.fetch = async () => ({ ok: true, json: async () => ({}) });
   await component.ignoreFinding(draftDuplicate);
   assert.deepEqual(component.draftFindings, []);
+});
+
+// Fixture mit einem Schalter mit Zustandsthema, fuer die Vorlagen mit Vorbelegung.
+const prefillDevices = [
+  ...assistantDevices,
+  {
+    id: 'lampe', name: 'Lampe',
+    entities: [{
+      unique_id: 'lamp_switch', name: 'Schalter', command_topic: 'werkstatt/lamp/switch', state_topic: 'werkstatt/lamp/state',
+      payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF',
+    }],
+  },
+];
+
+function prefillPanel() {
+  return assistantPanel(prefillDevices);
+}
+
+test('prefillToAnswers maps a time point to the action and the five minute window', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = prefillToAnswers('time_point', { device: 'lamp_switch', on: false, time: '22:30', days: [0, 1, 2, 3, 4, 5, 6] });
+  assert.deepEqual(JSON.parse(JSON.stringify(answers)), {
+    device: 'lamp_switch', action: 'off', time: { from: '22:30', to: '22:35', days: [0, 1, 2, 3, 4, 5, 6] },
+  });
+  const wrapped = prefillToAnswers('time_point', { device: 'lamp_switch', on: true, time: '23:58', days: [5] });
+  assert.equal(wrapped.action, 'on');
+  assert.equal(wrapped.time.to, '00:03');
+});
+
+test('prefillToAnswers maps a runtime limit to minutes', () => {
+  const { window } = createAutomationsPanel();
+  const answers = window.__automationsPrefill.prefillToAnswers('runtime_off', { device: 'lamp_switch', minutes: 120 });
+  assert.deepEqual(JSON.parse(JSON.stringify(answers)), { device: 'lamp_switch', minutes: 120 });
+});
+
+test('prefillToAnswers maps a following switch to on and off tiles', () => {
+  const { window } = createAutomationsPanel();
+  const answers = window.__automationsPrefill.prefillToAnswers('follow_switch', {
+    source: 'lamp_switch', source_on: true, target: 'wb_switch', target_on: false,
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(answers)), {
+    source: 'lamp_switch', source_on: 'on', target: 'wb_switch', target_on: 'off',
+  });
+});
+
+test('prefillToAnswers returns null for unknown templates and malformed prefill', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.equal(prefillToAnswers('gibt_es_nicht', { device: 'x' }), null);
+  assert.equal(prefillToAnswers('time_point', null), null);
+  assert.equal(prefillToAnswers('time_point', 'text'), null);
+  assert.equal(prefillToAnswers('time_point', { on: 'ja' }), null);
+  assert.equal(prefillToAnswers('time_point', { time: '7:00' }), null);
+  assert.equal(prefillToAnswers('time_point', { days: [7] }), null);
+  assert.equal(prefillToAnswers('runtime_off', { minutes: 'viel' }), null);
+  assert.equal(prefillToAnswers('follow_switch', { source_on: 'on' }), null);
+});
+
+test('openAssistantWith sets the time point answers and lands on the summary', async () => {
+  const { component } = await prefillPanel();
+  await component.openAssistantWith('time_point', { device: 'lamp_switch', on: false, time: '22:30', days: [0, 1, 2, 3, 4, 5, 6] });
+  assert.equal(component.assistant.templateId, 'time_point');
+  assert.equal(component.assistant.answers.device, 'lamp_switch');
+  assert.equal(component.assistant.answers.action, 'off');
+  assert.equal(component.assistant.answers.time.from, '22:30');
+  assert.equal(component.assistant.answers.time.to, '22:35');
+  assert.equal(component.assistantStep().id, 'summary');
+});
+
+test('openAssistantWith lands on the first incomplete step', async () => {
+  const { component } = await prefillPanel();
+  await component.openAssistantWith('time_point', { device: 'gibt_keinen_schalter' });
+  assert.equal(component.assistant.templateId, 'time_point');
+  assert.equal(component.assistant.answers.device, '', 'an unknown device is not taken over');
+  assert.equal(component.assistantStep().id, 'device');
+
+  await component.openAssistantWith('runtime_off', { device: 'lamp_switch', minutes: 5 });
+  assert.equal(component.assistant.templateId, 'runtime_off');
+  assert.equal(component.assistantStep().id, 'minutes', 'five minutes is below the step minimum');
+});
+
+test('openAssistantWith opens the gallery for unknown or malformed prefill without throwing', async () => {
+  const { component } = await prefillPanel();
+  await component.openAssistantWith('gibt_es_nicht', { device: 'lamp_switch' });
+  assert.equal(component.assistant.open, true);
+  assert.equal(component.assistant.templateId, '');
+
+  await component.openAssistantWith('time_point', { on: 'ja', time: 'spaet' });
+  assert.equal(component.assistant.open, true);
+  assert.equal(component.assistant.templateId, '');
+
+  await component.openAssistantWith('time_point', null);
+  assert.equal(component.assistant.open, true);
+  assert.equal(component.assistant.templateId, '');
 });
