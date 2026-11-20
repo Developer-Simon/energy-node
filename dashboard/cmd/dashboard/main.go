@@ -544,6 +544,10 @@ func main() {
 	// stuendlich mit dem Hub. Verworfene und zurueckgestellte bleiben in suggestions.json.
 	suggestionState := autolearn.LoadSuggestionState(filepath.Join(autolearnDir, "suggestions.json"), log.Printf)
 	learnHub.AddSaver("suggestions", suggestionState)
+	// Gelernte Werte fuer die Regeln, veroeffentlicht nach jeder Runde. Die
+	// Datei liegt unter autolearn/ und wird mit dem Hub gespeichert.
+	learnedStore := autolearn.LoadLearnedStore(filepath.Join(autolearnDir, "learned.json"), log.Printf)
+	learnHub.AddSaver("learned", learnedStore)
 	suggestions := &suggestionBook{state: suggestionState}
 	suggestionExists := func(device string) bool {
 		if deviceFilterStore.IsIgnored(device) {
@@ -552,10 +556,6 @@ func main() {
 		_, ok := reg.Get(device)
 		return ok
 	}
-	engineLoop.afterRound = func() {
-		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
-	}
-	go engineLoop.Run(ctx)
 
 	origin := newOriginLearner(originTracker, dayStore, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
 	origin.rebuild()
@@ -712,6 +712,17 @@ func main() {
 		log.Printf("energy-node-dashboard: mqtt not connected, retrying in the background: see the MQTT tab")
 	}
 	defer client.Close()
+	// Nach jeder Engine-Runde: Vorschlaege durch die Gates, dann die gelernten
+	// Werte veroeffentlichen. Erst hier, weil die Veroeffentlichung den MQTT-Client braucht.
+	learnedExists := func(device string) bool {
+		_, ok := reg.Get(device)
+		return ok
+	}
+	engineLoop.afterRound = func() {
+		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
+		publishLearned(learnedStore, automationEngine, client, engineGroups()["habit"], learnedExists, time.Now())
+	}
+	go engineLoop.Run(ctx)
 
 	// nodeagent publiziert den Pi-Knoten selbst als HA-Geraet "energy_node"
 	// (Systemdiagnose ueber MQTT). Das Dashboard ist ab hier alleiniger
@@ -1204,6 +1215,7 @@ func main() {
 			ChainLearnInfo:   chainMonitor.LearnedSpan,
 			SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
 			Reset: func() error {
+				resetLearned(learnedStore, client)
 				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset())
 			},
 		},
