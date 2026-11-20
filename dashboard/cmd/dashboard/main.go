@@ -474,6 +474,20 @@ func main() {
 	learnHub.AddSaver("reactions", reactions)
 	// Tagesdateien: je Minute der Rahmen, je Minute die Ereignisse des Trackers.
 	// Die Aufbewahrung kommt aus den Einstellungen, 0 heisst 56 Tage.
+	// Demo: mit ENERGY_NODE_AUTOLEARN_FAST=1 bekommt ein leeres Tagesverzeichnis
+	// die Demo-Profile. Vorhandene Dateien bleiben unberührt.
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" {
+		demoDir := filepath.Join(autolearnDir, "days")
+		if empty, err := autolearn.DaysDirEmpty(demoDir); err != nil {
+			log.Printf("autolearn: demo profiles skipped: %v", err)
+		} else if empty {
+			if err := autolearn.SeedDemo(demoDir, time.Now(), time.Local); err != nil {
+				log.Printf("autolearn: demo profiles: %v", err)
+			} else {
+				log.Printf("autolearn: demo profiles written to %s", demoDir)
+			}
+		}
+	}
 	dayStore := autolearn.OpenDayStore(filepath.Join(autolearnDir, "days"), time.Local, func() int {
 		if value, err := settingsStore.LoadSettings(); err == nil && value.LearningProfileDays > 0 {
 			return value.LearningProfileDays
