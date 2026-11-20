@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,6 +31,10 @@ type options struct {
 	english bool
 	// systemUpdates: Vorschau und Diagnose nennen ausstehende Systempakete.
 	systemUpdates bool
+	// nodePackage: das Paket des Nodes ist das vorbereitete. Die Vorschau
+	// zeigt keinen Versionsdelta, und sobald die gemerkte Auswahl von der des
+	// Nodes abweicht, nennt sie die Schritte fuer "Dienste aendern".
+	nodePackage bool
 	// abiMismatch: das Gerät hat eine andere Python-Version als das Paket.
 	// Das Vorbereiten scheitert mit PYTHON_ABI_MISMATCH, bis der Betreiber die
 	// Online-Installation freigibt.
@@ -68,6 +73,42 @@ type stagedBackend struct {
 	// ein Reparaturlauf von Schritt 20 mit einem Passwort ihn freigibt.
 	mqttDenied bool
 	mqttFixed  bool
+	// nodeSteps ist die Auswahl, die der Node beim Start hatte. Die Vorschau
+	// vergleicht die gemerkte Auswahl damit (siehe Plan).
+	nodeSteps map[string]bool
+}
+
+// Plan liefert die Vorschau der Attrappe. Mit nodePackage nennt sie die
+// Schritte fuer "Dienste aendern", sobald die gemerkte Auswahl von der des
+// Nodes abweicht: die geaenderten Schritte plus 65, in Manifest-Reihenfolge
+// (die IDs sind aufsteigend, daher genuegt der Zahlenvergleich).
+func (b *stagedBackend) Plan(ctx context.Context) (*hostapi.PlanView, error) {
+	plan, err := b.FakeBackend.Plan(ctx)
+	if err != nil || plan == nil || !b.opts.nodePackage {
+		return plan, err
+	}
+	selection, err := b.FakeBackend.Selection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, step := range b.ManifestView.Steps {
+		if selection.Steps[step.ID] != b.nodeSteps[step.ID] {
+			ids = append(ids, step.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return plan, nil
+	}
+	ids = append(ids, "65")
+	sort.Slice(ids, func(i, j int) bool {
+		a, _ := strconv.Atoi(ids[i])
+		c, _ := strconv.Atoi(ids[j])
+		return a < c
+	})
+	withApply := *plan
+	withApply.ApplySteps = ids
+	return &withApply, nil
 }
 
 // wrongSudoPassword lehnt die Attrappe ab; jedes andere nichtleere Passwort
@@ -351,6 +392,9 @@ func newScenario(name string, opts options) *stagedBackend {
 		// Wie dashboard/internal/updaterhost: nur Aktualisieren, keine Diagnose.
 		fake.Description.EntryPoints = []string{"redeploy"}
 	}
+	if opts.nodePackage {
+		fake.Description.Package.Resolved = &hostapi.ResolvedInfo{Kind: "node", Installed: true}
+	}
 	fake.ConnectResult = hostapi.ConnectResult{Connected: true, Host: "energy-node.local", User: "pi"}
 
 	fake.PrecheckView = &hostapi.Precheck{
@@ -527,6 +571,13 @@ func newScenario(name string, opts options) *stagedBackend {
 		}
 	}
 
+	if opts.nodePackage && fake.PlanResult != nil {
+		// Das Paket des Nodes ist das installierte: die Vorschau hat keinen
+		// Versionsdelta.
+		fake.PlanResult.BundleVersion = "v1.4.1"
+		fake.PlanResult.Components = map[string]hostapi.ComponentDelta{}
+	}
+
 	if updater {
 		fake.Steps = jobSteps(fake.Steps)
 	}
@@ -541,7 +592,11 @@ func newScenario(name string, opts options) *stagedBackend {
 		fake.DiagnoseView.SystemUpdates = updates
 	}
 
-	return &stagedBackend{FakeBackend: fake, opts: opts, trusted: opts.trusted, mqttDenied: name == "mqtt-denied"}
+	nodeSteps := map[string]bool{}
+	for id, on := range fake.SelectionView.Steps {
+		nodeSteps[id] = on
+	}
+	return &stagedBackend{FakeBackend: fake, opts: opts, trusted: opts.trusted, mqttDenied: name == "mqtt-denied", nodeSteps: nodeSteps}
 }
 
 // logEntry ist eine Zeile der Neustart-Folge aus dem Mockup (livelog-layout.html).

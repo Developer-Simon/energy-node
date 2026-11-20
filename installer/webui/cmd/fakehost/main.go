@@ -46,6 +46,7 @@ func main() {
 	failStep := flag.String("fail-step", "", "diesen Schritt fehlschlagen lassen, Format <id>:<CODE>")
 	delay := flag.Duration("step-delay", 150*time.Millisecond, "Pause je Schritt")
 	systemUpdates := flag.Bool("system-updates", false, "Systempakete auf Abfrage und in der Diagnose: drei ausstehende Updates")
+	nodePackage := flag.Bool("node-package", false, "das vorbereitete Paket ist das des Nodes: Vorschau ohne Versionsdelta, und 'Dienste aendern' erscheint, sobald die gemerkte Auswahl abweicht")
 	abiMismatch := flag.Bool("abi-mismatch", false, "das Gerät hat Python 3.13, das Paket 3.11: Vorbereiten scheitert, bis die Online-Installation freigegeben ist")
 	deltaFails := flag.Bool("delta-verify-fails", false, "die Teilübertragung besteht die Prüfung nicht: Vorbereiten scheitert, bis das ganze Paket neu übertragen wird")
 	packageOffline := flag.String("package-offline", "", "diese Pakete lassen sich nicht herunterladen, Format caddy[,tailscale]: Vorbereiten fragt, bis je Paket geantwortet ist")
@@ -60,7 +61,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	opts := options{dashboard: *dashboard, trusted: *trusted, holdStep: *hold, stepDelay: *delay, systemUpdates: *systemUpdates, abiMismatch: *abiMismatch, deltaVerifyFails: *deltaFails, packageOffline: splitPackageList(*packageOffline), english: *language == "en", diagnoseDelay: *diagnoseDelay}
+	opts := options{dashboard: *dashboard, trusted: *trusted, holdStep: *hold, stepDelay: *delay, systemUpdates: *systemUpdates, nodePackage: *nodePackage, abiMismatch: *abiMismatch, deltaVerifyFails: *deltaFails, packageOffline: splitPackageList(*packageOffline), english: *language == "en", diagnoseDelay: *diagnoseDelay}
 	if *failStep != "" {
 		opts.failStep, opts.failCode = splitFailSpec(*failStep)
 	}
