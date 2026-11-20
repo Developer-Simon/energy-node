@@ -4027,6 +4027,7 @@
   "settings.learning.chains.suggestions": "Suggestions",
   "settings.learning.chains.suggestions_help": "Searches the power values for devices that measure the same thing and suggests chains.",
   "settings.learning.chains.title": "Chains",
+  "settings.learning.exclude.choose": "Choose",
   "settings.learning.exclude.clear": "Allow all",
   "settings.learning.exclude.confirm": "Apply",
   "settings.learning.exclude.count.one": "{n} device excluded",

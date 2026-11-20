@@ -4027,6 +4027,7 @@
   "settings.learning.chains.suggestions": "Vorschläge",
   "settings.learning.chains.suggestions_help": "Sucht in den Leistungswerten nach Geräten, die dasselbe messen, und schlägt Messketten vor.",
   "settings.learning.chains.title": "Messketten",
+  "settings.learning.exclude.choose": "Auswählen",
   "settings.learning.exclude.clear": "Alle zulassen",
   "settings.learning.exclude.confirm": "Übernehmen",
   "settings.learning.exclude.count.one": "{n} Gerät ausgenommen",

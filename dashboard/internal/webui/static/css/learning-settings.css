@@ -13,17 +13,24 @@
 .learn-fine-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .learn-fine { margin: 0 0 .6rem .9rem; padding-left: .8rem; border-left: 2px solid var(--border-soft); }
 
-/* Auswahlzeile mit Picker: Wert unter dem Namen, Pfeil rechts wie eine Navigationszeile */
-.learn-pick-row { box-sizing: border-box; display: flex; align-items: center; gap: .6rem; width: 100%; margin: .15rem 0; padding: .55rem .2rem;
-  border: 0; border-top: 1px solid var(--border-soft); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 0; }
+/* Auswahlzeile mit Picker: eine abgesetzte Flaeche mit Aktionstext und Pfeil, damit sie als anklickbar erkennbar ist.
+   Druck zeigt sofort (pointerdown), Hover nur mit Maus, nur transform und Farben animieren. */
+.learn-pick-row { box-sizing: border-box; display: flex; align-items: center; gap: .6rem; width: 100%; margin: .35rem 0; padding: .6rem .8rem;
+  border: 1px solid var(--border-soft); border-radius: 10px; background: var(--panel-alt); color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out), transform 120ms var(--ease-out); }
 .learn-pick-row:disabled { cursor: not-allowed; opacity: .55; }
 .learn-pick-text { flex: 1; display: grid; gap: 1px; min-width: 0; }
-.learn-pick-text > span { font-size: .9rem; color: var(--text); }
+.learn-pick-text > span { font-size: .9rem; color: var(--text-strong); }
 .learn-pick-text small { font-size: .78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.learn-pick-chevron { flex: none; width: .85rem; height: .85rem; color: var(--text-faint); }
-@media (hover: hover) and (pointer: fine) { .learn-pick-row:hover .learn-pick-chevron { color: var(--text-muted); } }
-.learn-pick-row:active { background: color-mix(in srgb, var(--text-strong) 5%, transparent); }
-.learn-pick-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
+.learn-pick-text small.is-set { color: var(--accent-line); font-weight: 600; }
+.learn-pick-action { flex: none; font-size: .82rem; font-weight: 600; color: var(--accent-line); }
+.learn-pick-chevron { flex: none; width: .85rem; height: .85rem; color: var(--accent-line); transition: transform 150ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .learn-pick-row:not(:disabled):hover { border-color: var(--accent-line); background: color-mix(in srgb, var(--accent-line) 8%, var(--panel-alt)); }
+  .learn-pick-row:not(:disabled):hover .learn-pick-chevron { transform: translateX(2px); }
+}
+.learn-pick-row:not(:disabled):active { transform: scale(.985); background: color-mix(in srgb, var(--accent-line) 14%, var(--panel-alt)); }
+.learn-pick-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .learn-link { display: inline-block; margin: .1rem 0 .3rem .2rem; padding: .25rem .35rem; border: 0; background: transparent;
   color: var(--accent-line); font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; border-radius: 6px; }
@@ -58,4 +65,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .learn-chevron { transition: none; }
+  .learn-pick-row { transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out); }
+  .learn-pick-row:not(:disabled):active { transform: none; }
+  .learn-pick-chevron { transition: none; }
+  .learn-pick-row:not(:disabled):hover .learn-pick-chevron { transform: none; }
 }

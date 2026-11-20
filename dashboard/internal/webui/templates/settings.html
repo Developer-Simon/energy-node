@@ -193,7 +193,8 @@
       </button>
       <div class="learn-fine" id="learning-fine" x-show="fine && !automationPatternsDisabled">
         <button type="button" class="learn-pick-row" x-bind:disabled="!canEditSetup" x-on:click="chooseExcluded()">
-          <span class="learn-pick-text"><span>{{t "settings.learning.auto.excluded"}}</span><small x-text="excludedLabel()"></small></span>
+          <span class="learn-pick-text"><span>{{t "settings.learning.auto.excluded"}}</span><small x-bind:class="{ 'is-set': learning_excluded_devices.length > 0 }" x-text="excludedLabel()"></small></span>
+          <span class="learn-pick-action">{{t "settings.learning.exclude.choose"}}</span>
           <svg class="automation-icon learn-pick-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
         </button>
         <button type="button" class="learn-link" x-show="learning_excluded_devices.length > 0" x-bind:disabled="!canEditSetup" x-on:click="clearExcluded()">{{t "settings.learning.exclude.clear"}}</button>
