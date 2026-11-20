@@ -1,7 +1,6 @@
-// Die Karte "Lernfunktionen" in den allgemeinen Einstellungen. Geprueft werden
-// Laden und Speichern der beiden Schalter, das Ereignis nach dem Speichern und
-// die Markup-Regeln: der Automations-Schalter ist nur angezeigt, die beiden
-// Messketten-Schalter sind an die Rechte gebunden.
+// Die Karte "Messketten" auf der Seite Lernfunktionen. Geprueft werden Laden
+// und Speichern der beiden Schalter, das Ereignis nach dem Speichern und die
+// Markup-Regeln: die Messketten-Schalter sind an die Rechte gebunden.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -90,17 +89,6 @@ test('save() meldet das Ende der Messketten-Aenderung auf window', async () => {
   dom.window.close();
 });
 
-test('Der Automations-Schalter ist nur angezeigt und hat keine Bindung', () => {
-  const doc = new JSDOM(templateSource).window.document;
-  const input = doc.getElementById('learning-automation-suggestions');
-  assert.ok(input, 'Automations-Schalter fehlt');
-  assert.equal(input.hasAttribute('disabled'), true);
-  assert.equal(input.hasAttribute('x-model'), false);
-  assert.equal(input.hasAttribute('x-on:change'), false);
-  assert.equal(input.hasAttribute('x-bind:checked'), false);
-  assert.match(templateSource, /settings\.learning\.automation_suggestions\.planned/);
-});
-
 test('Beide Messketten-Schalter sind an canEditSetup gebunden', () => {
   const doc = new JSDOM(templateSource).window.document;
   for (const id of ['learning-chain-suggestions', 'learning-chain-learning']) {
@@ -110,9 +98,9 @@ test('Beide Messketten-Schalter sind an canEditSetup gebunden', () => {
   }
 });
 
-test('Die drei Zeilen haben den Hilfe-Anker am Ende wie die Versions-Karte, ohne field-help-align-start', () => {
+test('Die beiden Zeilen haben den Hilfe-Anker am Ende wie die Versions-Karte, ohne field-help-align-start', () => {
   const doc = new JSDOM(templateSource).window.document;
-  const ids = ['learning-chain-suggestions', 'learning-chain-learning', 'learning-automation-suggestions'];
+  const ids = ['learning-chain-suggestions', 'learning-chain-learning'];
   for (const id of ids) {
     const label = doc.querySelector(`label[for="${id}"]`);
     assert.ok(label, `Label fuer ${id} fehlt`);

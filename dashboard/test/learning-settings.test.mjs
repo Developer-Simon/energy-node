@@ -136,8 +136,7 @@ test('reset() asks first, then posts with the CSRF header and reloads', async ()
   const post = calls.find(call => call.method === 'POST');
   assert.equal(post.url, '/api/v1/learning/reset');
   assert.equal(post.headers['X-CSRF-Token'], 'tok');
-  // The catalog key comes with the next part, until then t() returns the key.
-  assert.deepEqual(toasts.messages, ['settings.learning.reset.done']);
+  assert.deepEqual(toasts.messages, ['Das Gelernte wurde gelöscht.']);
 });
 
 test('clearExcluded() empties the excluded devices without asking', () => {

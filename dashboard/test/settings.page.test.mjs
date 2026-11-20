@@ -302,7 +302,7 @@ test('settingsPage opens the sub page named in ?page=', () => {
 test('settingsPage ignores an unknown ?page=', () => {
   const page = createSettingsPage('?page=nope');
   page.init();
-  assert.equal(page.activeSettingsPage, 'general');
+  assert.equal(page.activeSettingsPage, 'display');
 });
 
 // The sidebar is the one source of the sub pages: the narrow picker and its
