@@ -264,24 +264,25 @@ func overriddenCandidate(device string, in *Input, rule Rule, sw []overrideSwitc
 		}
 	}
 
-	split, hasSplit := overriddenSplit(cases, in.Base)
-	if hasSplit && split.acc < overriddenMinSeparation {
-		hasSplit = false
-	}
+	// A split that cannot be turned into a fix is not reported, the rule falls
+	// back to the shift or to no fix.
 	feature := "none"
 	var apply []Fix
 	var soll []int64
 	var sollSpans [][2]int64
-	if hasSplit {
-		feature = split.feature
+	if split, ok := overriddenSplit(cases, in.Base); ok {
 		if fix, spans, ok := overriddenAddFix(rule, in.Base, split); ok {
+			feature = split.feature
 			apply = []Fix{fix}
 			sollSpans = spans
 		}
-	} else if fix, med, ok := overriddenShiftFix(rule, cases); ok {
-		feature = "clock"
-		apply = []Fix{fix}
-		soll = []int64{med}
+	}
+	if apply == nil {
+		if fix, med, ok := overriddenShiftFix(rule, cases); ok {
+			feature = "clock"
+			apply = []Fix{fix}
+			soll = []int64{med}
+		}
 	}
 
 	share := math.Round(float64(hits)/float64(n)*100) / 100
@@ -337,8 +338,10 @@ func overriddenCandidate(device string, in *Input, rule Rule, sw []overrideSwitc
 }
 
 // overriddenSplit searches the feature whose split separates the reversed cases
-// from the accepted ones with the largest information gain. Each side needs
-// overriddenMinSide cases. The accuracy of the split is returned with it.
+// from the accepted ones with the largest information gain among the splits
+// that pass the gates of overrideEvaluate: each side needs overriddenMinSide
+// cases and the split needs overriddenMinSeparation accuracy. The accuracy of
+// the split is returned with it.
 func overriddenSplit(cases []overrideCase, base Base) (overrideSplit, bool) {
 	var best overrideSplit
 	found := false
@@ -461,7 +464,9 @@ func overriddenNumericSplit(feature string, pts []overridePoint) (overrideSplit,
 
 // overrideEvaluate returns the information gain of a split into left and right,
 // the share of cases it classifies right, and whether the left side holds the
-// reversed cases. It is not ok when a side has fewer than overriddenMinSide cases.
+// reversed cases. It is not ok when a side has fewer than overriddenMinSide cases
+// or when the share it classifies right is below overriddenMinSeparation. The
+// separation is a filter, so only well separated splits compete on gain.
 func overrideEvaluate(left, right overrideCounts) (gain, acc float64, leftOverride, ok bool) {
 	if left.n < overriddenMinSide || right.n < overriddenMinSide {
 		return 0, 0, false, false
@@ -475,7 +480,7 @@ func overrideEvaluate(left, right overrideCounts) (gain, acc float64, leftOverri
 	asRight := (left.n - left.ov) + right.ov
 	leftOverride = asLeft >= asRight
 	acc = float64(max(asLeft, asRight)) / n
-	ok = acc >= 0 && acc <= 1
+	ok = acc >= overriddenMinSeparation
 	return gain, acc, leftOverride, ok
 }
 

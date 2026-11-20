@@ -197,3 +197,57 @@ func TestOverriddenCancelledRunGivesNothing(t *testing.T) {
 		t.Fatalf("cancelled run gave %d candidates", len(got))
 	}
 }
+
+func TestOverriddenSplitTakesBestWellSeparatedFeature(t *testing.T) {
+	// Reversed at house load index 0 and 6 of 20 cases. The cut after index 6
+	// has the largest gain but classifies only 75 % right. The cut after index 3
+	// classifies 80 % right with a smaller gain, and must be chosen.
+	reversedAt := map[int]bool{0: true, 6: true}
+	var cases []overrideCase
+	for i := 0; i < 20; i++ {
+		cases = append(cases, overrideCase{house: float64(i), hour: 18, reversed: reversedAt[i]})
+	}
+	split, ok := overriddenSplit(cases, Base{})
+	if !ok {
+		t.Fatal("no split found")
+	}
+	if split.feature != overriddenHouseLoad {
+		t.Errorf("feature = %q, want house_load", split.feature)
+	}
+	if split.cut != 3.5 {
+		t.Errorf("cut = %v, want 3.5 (the well separated cut, not 6.5)", split.cut)
+	}
+	if split.acc < overriddenMinSeparation {
+		t.Errorf("acc = %v, want at least %v", split.acc, overriddenMinSeparation)
+	}
+}
+
+func TestOverriddenSplitWithoutBuildableFixIsNotReported(t *testing.T) {
+	// The day type split is the only one, but its accepted side covers all seven
+	// days, so no add_condition can be built. The split must not be reported.
+	loc := berlinLoc(t)
+	start := time.Date(2026, 11, 2, 0, 0, 0, 0, loc)
+	n := 35
+	reversed := make([]bool, n)
+	for i := range reversed {
+		wd := start.AddDate(0, 0, i).Weekday()
+		reversed[i] = wd != time.Saturday && wd != time.Sunday
+	}
+	days := ovDays(t, loc, start, reversed, func(int) float64 { return 300 })
+	base := ovBase(loc, start, n)
+	base.Groups = [][]time.Weekday{
+		{},
+		{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday, time.Saturday, time.Sunday},
+	}
+	got := ovRun(loc, days, base, relRule("heat", "Heizung"))
+	if len(got) != 1 {
+		t.Fatalf("candidates = %d, want 1: %+v", len(got), got)
+	}
+	f := got[0].Finding
+	if len(f.Apply) != 0 {
+		t.Errorf("apply = %+v, want none", f.Apply)
+	}
+	if f.Summary.Params["feature"] != "none" {
+		t.Errorf("feature = %v, want none for an unbuildable split", f.Summary.Params["feature"])
+	}
+}
