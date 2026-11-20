@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +28,10 @@ var (
 		return bundle.DeployProgress(ctx, c, archive, remoteDir, onProgress)
 	}
 	verifyStaged = defaultVerifyStaged
+	// downloadRemote holds a file of the node's bundle directory; tests replace it.
+	downloadRemote = func(c *transport.Client, remote, local string) error {
+		return c.DownloadFile(remote, local)
+	}
 	deltaBase    = bundle.DeltaBase
 	markVerified = bundle.MarkVerified
 	stageDelta   = func(ctx context.Context, c *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
@@ -110,6 +115,8 @@ func (h *Host) SelectPackage(ctx context.Context, sel hostapi.PackageSelection) 
 			return &hostapi.Error{Code: "NO_PACKAGE", Status: http.StatusBadRequest}
 		}
 	case bundlesource.KindGitHub:
+	case bundlesource.KindNode:
+		// Whether the node holds a package can only be asked after connecting.
 	case bundlesource.KindRepo:
 		if err := bundlesource.CheckRepo(sel.Path); err != nil {
 			return &hostapi.Error{Code: err.Code, Detail: err.Detail, Status: http.StatusBadRequest}
@@ -212,6 +219,13 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		}
 	}
 
+	if choice.Kind == bundlesource.KindNode {
+		if err := ensureSudoNopasswd(ctx, client, h.currentSudoPassword()); err != nil {
+			return err
+		}
+		return h.prepareFromNode(ctx, client, notef)
+	}
+
 	notef("package.log.detect_arch", map[string]string{})
 	machine, err := detectMachine(ctx, client)
 	if err != nil {
@@ -286,6 +300,78 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 	h.keepSkippedSteps(sel)
 	adopted = true
 	return nil
+}
+
+// prepareFromNode uebernimmt das Paket, das auf dem Node liegt. Es wird nichts
+// uebertragen: Manifest, Signatur und Changelog werden geholt, der Node prueft
+// sein Bundle selbst, und ob die Version dort schon laeuft, wird vermerkt.
+func (h *Host) prepareFromNode(ctx context.Context, client *transport.Client, notef func(string, map[string]string)) error {
+	dir, err := os.MkdirTemp("", "energy-node-nodebundle-*")
+	if err != nil {
+		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
+	}
+	adopted := false
+	defer func() {
+		if !adopted {
+			os.RemoveAll(dir)
+		}
+	}()
+
+	remoteDir := h.cfg.RemoteBundleDir
+	if err := downloadRemote(client, path.Join(remoteDir, "manifest.json"), filepath.Join(dir, "manifest.json")); err != nil {
+		return &hostapi.Error{Code: "NODE_PACKAGE_MISSING", Detail: err.Error(), Status: http.StatusConflict}
+	}
+	for _, name := range []string{"manifest.json.sig", "changelog.json"} {
+		// A file the node does not have is no error, only a missing optional part.
+		if err := downloadRemote(client, path.Join(remoteDir, name), filepath.Join(dir, name)); err != nil {
+			os.Remove(filepath.Join(dir, name))
+		}
+	}
+
+	signed := bundle.HasSignature(dir)
+	abiTolerated, err := verifyStaged(ctx, client, remoteDir, signed, h.onlineDepsAllowed())
+	if err != nil {
+		return err
+	}
+	h.mu.Lock()
+	h.abiTolerated = abiTolerated
+	h.mu.Unlock()
+
+	m, err := bundle.LoadManifest(dir)
+	if err != nil {
+		return err
+	}
+	raw, err := readInstalledManifest(ctx, client, h.cfg.RemoteStateDir)
+	if err != nil {
+		return err
+	}
+	installed := raw != nil && installedVersion(raw) == m.Version
+	notef("package.log.node_used", map[string]string{"bundle": m.Version})
+	switch {
+	case raw == nil:
+		notef("package.log.node_no_installed", map[string]string{})
+	case !installed:
+		notef("package.log.node_not_installed", map[string]string{"bundle": m.Version, "installed": installedVersion(raw)})
+	}
+
+	h.adopt(&bundlesource.Resolved{Dir: dir, Manifest: m, Signed: signed, Cleanup: func() { os.RemoveAll(dir) }}, bundlesource.KindNode)
+	h.mu.Lock()
+	h.resolved.Installed = installed
+	h.mu.Unlock()
+	adopted = true
+	return nil
+}
+
+// installedVersion reads the version of the node's installed-manifest.json.
+// Unreadable content counts as no version.
+func installedVersion(raw []byte) string {
+	var parsed struct {
+		Version string `json:"version"`
+	}
+	if json.Unmarshal(raw, &parsed) != nil {
+		return ""
+	}
+	return parsed.Version
 }
 
 // stagePins legt die gepinnten .deb-Pakete und Wheels auf den Node, damit
