@@ -187,6 +187,9 @@ type RouterDependencies struct {
 	// AutomationFindings liefert die Regelprüfung und das Ignorieren eines
 	// Befunds. nil heisst "nicht verfuegbar" (501).
 	AutomationFindings automationFindingSource
+	// AutomationSuggestions liefert die Vorschlaege der Automationen und das
+	// Verwerfen, Zurueckstellen und Rueckgaengigmachen. nil heisst 501.
+	AutomationSuggestions automationSuggestionSource
 	// HistorySampler fuellt den Ringpuffer der Verlaufsvermittlung einmal
 	// pro Minute mit role:grid und den Szenario-Ausgaben. nil heisst: nur
 	// der Browser schreibt in den Puffer.
@@ -394,6 +397,15 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/automations/findings", handleAutomationFindings(dependencies.AutomationFindings))
 	g.HandleFunc("/api/v1/automations/findings/ignore", handleAutomationFindingIgnore(dependencies.Auth, dependencies.AutomationFindings))
 	g.HandleFunc("/api/v1/automations/findings/preview", handleAutomationFindingsPreview(dependencies.Auth, dependencies.AutomationFindings))
+	suggestionDeviceExists := func(device string) bool {
+		if dependencies.DeviceFilter != nil && dependencies.DeviceFilter.IsIgnored(device) {
+			return false
+		}
+		_, ok := reg.Get(device)
+		return ok
+	}
+	g.HandleFunc("/api/v1/automations/suggestions", handleAutomationSuggestions(dependencies.Learning, dependencies.AutomationSuggestions, suggestionDeviceExists))
+	g.HandleFunc("/api/v1/automations/suggestions/", handleAutomationSuggestionAction(dependencies.Auth, dependencies.AutomationSuggestions))
 	g.HandleFunc("/api/v1/learning/status", handleLearningStatus(dependencies.Learning))
 	g.HandleFunc("/api/v1/learning/reset", handleLearningReset(dependencies.Auth, dependencies.Learning))
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))

@@ -21,7 +21,9 @@ type engineRunner struct {
 	engine      *autolearn.Engine
 	groups      func() map[string]bool
 	onDowngrade func()
-	ticks       chan time.Time
+	// afterRound runs after every round, set before Run starts.
+	afterRound func()
+	ticks      chan time.Time
 }
 
 func newEngineRunner(engine *autolearn.Engine, groups func() map[string]bool, onDowngrade func()) *engineRunner {
@@ -52,6 +54,9 @@ func (r *engineRunner) Run(ctx context.Context) {
 			r.engine.Tick(at, r.groups())
 			if r.engine.Downgrade() {
 				r.onDowngrade()
+			}
+			if r.afterRound != nil {
+				r.afterRound()
 			}
 		}
 	}

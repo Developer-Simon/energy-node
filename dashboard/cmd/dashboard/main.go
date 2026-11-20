@@ -526,6 +526,21 @@ func main() {
 	}
 	engineLoop := newEngineRunner(automationEngine, engineGroups, engineDowngrade)
 	learnHub.AddMinute("autolearn-engine", engineLoop)
+	// Vorschlaege der Gewohnheiten: nach jeder Runde durch die Gates, gespeichert
+	// stuendlich mit dem Hub. Verworfene und zurueckgestellte bleiben in suggestions.json.
+	suggestionState := autolearn.LoadSuggestionState(filepath.Join(autolearnDir, "suggestions.json"), log.Printf)
+	learnHub.AddSaver("suggestions", suggestionState)
+	suggestions := &suggestionBook{state: suggestionState}
+	suggestionExists := func(device string) bool {
+		if deviceFilterStore.IsIgnored(device) {
+			return false
+		}
+		_, ok := reg.Get(device)
+		return ok
+	}
+	engineLoop.afterRound = func() {
+		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
+	}
 	go engineLoop.Run(ctx)
 
 	origin := newOriginLearner(originTracker, dayStore, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
@@ -1175,7 +1190,7 @@ func main() {
 			ChainLearnInfo:   chainMonitor.LearnedSpan,
 			SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
 			Reset: func() error {
-				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned())
+				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset())
 			},
 		},
 		TourTargets: dashwebui.TourTargets,
@@ -1189,19 +1204,20 @@ func main() {
 			DemoSpace: os.Getenv(storageDemoEnv) != "",
 			Usage:     storageUsage,
 		},
-		InstallerStateDir:  installerStateDir,
-		AppConfigPath:      *configPath,
-		BridgeTargetPath:   cfg.Dashboard.MosquittoBridgeTarget,
-		Tailscale:          tailscaleClient,
-		Network:            networkClient,
-		Resolver:           energyResolver,
-		EnergyStats:        energyStats,
-		ChainMonitor:       chainMonitor,
-		ChainSuggest:       chainSuggest,
-		AutomationFindings: automationChecker,
-		CommandObserver:    origin.observeCommand,
-		StorageFallback:    storageFallback,
-		HistorySampler:     historySampler,
+		InstallerStateDir:     installerStateDir,
+		AppConfigPath:         *configPath,
+		BridgeTargetPath:      cfg.Dashboard.MosquittoBridgeTarget,
+		Tailscale:             tailscaleClient,
+		Network:               networkClient,
+		Resolver:              energyResolver,
+		EnergyStats:           energyStats,
+		ChainMonitor:          chainMonitor,
+		ChainSuggest:          chainSuggest,
+		AutomationFindings:    automationChecker,
+		AutomationSuggestions: suggestions,
+		CommandObserver:       origin.observeCommand,
+		StorageFallback:       storageFallback,
+		HistorySampler:        historySampler,
 		InstalledServices: map[string]bool{
 			"automation": cfg.ServiceInstalled("automation"),
 			"tailscale":  cfg.ServiceInstalled("tailscale"),
