@@ -25,7 +25,7 @@ const SUMMARY_CODES = [
   'check.flapping', 'check.no_effect', 'check.overridden', 'check.offline_window',
 ];
 const LEGEND_SHAPES = ['day', 'events', 'scale'];
-const FACT_CODES = ['window_s', 'direction_share', 'spread_min', 'hit_rate', 'overnight', 'cause', 'limit_s', 'feature', 'min_runtime'];
+const FACT_CODES = ['window_s', 'direction_share', 'spread_min', 'hit_rate', 'overnight', 'cause', 'limit_s', 'feature', 'min_runtime', 'per_hour_max', 'season_months'];
 const CAUSE_VALUES = ['offline_window', 'clustered', 'scattered'];
 const FIX_CODES = ['min_runtime', 'repeat', 'open_rule', 'add_condition', 'shift_time', 'move_before'];
 const BUTTONS = ['open_assistant', 'later', 'never', 'undo'];
@@ -196,4 +196,183 @@ test('a day suggestion draws its marks on both edges of the axis through the ban
   assert.ok(xs.every((x) => x >= 0 && x <= 100), 'no mark outside the axis');
   assert.ok(xs.some((x) => x.toFixed(3) === '99.653'));
   assert.ok(xs.some((x) => x === 0));
+});
+
+// Band tests: the Alpine data object with a fake fetch. The factory comes from a fake
+// Alpine.data, the way automations.page.js registers its own component.
+function finding(id, extra = {}) {
+  return {
+    id,
+    group: 'habit',
+    device: 'Werkstatt',
+    confidence: 'high',
+    summary: { code: 'switch_time.off', params: { device: 'Leiste', time: '22:30', hits: 12, days: 14 } },
+    evidence: { shape: 'day', from: 0, to: 1440, ist: [1435], soll: [0], ist_spans: [], soll_spans: [] },
+    facts: [{ code: 'hit_rate', value: 0.8 }],
+    apply: [{ code: 'open_rule', rule_id: 'r1' }],
+    ...extra,
+  };
+}
+
+// Objects made inside the vm realm fail strict deep equality, so compare plain copies.
+const plain = (value) => JSON.parse(JSON.stringify(value));
+
+function withTemplate(s) {
+  return { ...s, apply: [{ code: 'follow_switch', template: 'follow_switch', prefill: { source: 'a' } }] };
+}
+
+function loadBand(routes) {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  const calls = [];
+  let factory = null;
+  dom.window.Alpine = { data: (name, fn) => { if (name === 'autoLearnBand') factory = fn; } };
+  dom.window.fetch = async (url, options = {}) => {
+    const method = options.method || 'GET';
+    calls.push({ url, method, headers: options.headers || {} });
+    const body = routes(url, method);
+    return { ok: true, status: 200, json: async () => body };
+  };
+  const context = dom.getInternalVMContext();
+  vm.runInContext(suggestionsSource, context);
+  vm.runInContext(evidenceSource, context);
+  assert.equal(typeof factory, 'function', 'autoLearnBand is registered with Alpine');
+  const band = factory();
+  return { band, calls, window: dom.window, close: () => dom.window.close() };
+}
+
+const SUGGESTIONS_PATH = '/api/v1/automations/suggestions';
+const listRoutes = (body) => (url, method) => (method === 'GET' ? body : { ok: true });
+
+test('the band loads once and reads the suggestions and the learning counts', async () => {
+  const a = finding('a:1');
+  const b = finding('b:2');
+  const { band, calls, close } = loadBand(listRoutes({ enabled: true, suggestions: [a, b], learning: { since: 1, devices: 14, days: 4 } }));
+  await band.load();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.endsWith(SUGGESTIONS_PATH), true);
+  assert.equal(band.shown, true);
+  assert.equal(band.count, 2);
+  assert.equal(band.days, 4);
+  assert.equal(band.devices, 14);
+  close();
+});
+
+test('the band is absent when learning is off, and also when the load fails', async () => {
+  const off = loadBand(listRoutes({ enabled: false, suggestions: [], learning: { since: 1, devices: 2, days: 1 } }));
+  await off.band.load();
+  assert.equal(off.band.shown, false);
+  off.close();
+
+  const failing = loadBand(() => { throw new Error('offline'); });
+  await failing.band.load();
+  assert.equal(failing.band.shown, false);
+  failing.close();
+});
+
+test('without suggestions the band shows the learning text with days and devices', async () => {
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [], learning: { since: 1, devices: 14, days: 4 } }));
+  await band.load();
+  const { t, calls } = recorder();
+  assert.equal(band.count, 0);
+  band.learningText(t);
+  assert.equal(calls[0].key, 'automations.learn.band.learning');
+  assert.deepEqual(plain(calls[0].params), { days: 4, devices: 14 });
+  close();
+});
+
+test('collapsed the band shows three tiles and counts the rest, expanded it shows all', async () => {
+  const list = [finding('1'), finding('2'), finding('3'), finding('4'), finding('5'), finding('6')];
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: list, learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  assert.equal(band.visible.length, 3);
+  assert.equal(band.rest, 3);
+  band.expandAll();
+  assert.equal(band.visible.length, 6);
+  assert.equal(band.rest, 0);
+  close();
+});
+
+test('dismiss removes the suggestion, shows the hint and posts the dismiss route', async () => {
+  const a = finding('a:1');
+  const b = finding('b:2');
+  const { band, calls, window, close } = loadBand(listRoutes({ enabled: true, suggestions: [a, b], learning: { since: 1, devices: 1, days: 1 } }));
+  let changed = 0;
+  window.addEventListener('automation-findings-changed', () => { changed += 1; });
+  await band.load();
+  await band.dismiss(band.items[0]);
+  const post = calls[calls.length - 1];
+  assert.equal(post.method, 'POST');
+  assert.equal(post.url, `${SUGGESTIONS_PATH}/${encodeURIComponent('a:1')}/dismiss`);
+  assert.equal(post.headers['X-CSRF-Token'], '');
+  assert.equal(band.count, 1);
+  assert.notEqual(band.dropped, null, 'the hint is shown');
+  assert.equal(band.dropped.item.id, 'a:1');
+  assert.equal(changed, 1);
+  close();
+});
+
+test('later posts the later route and shows the same hint', async () => {
+  const { band, calls, close } = loadBand(listRoutes({ enabled: true, suggestions: [finding('a:1')], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  band.csrf = 'token-1';
+  await band.later(band.items[0]);
+  const post = calls[calls.length - 1];
+  assert.equal(post.url.endsWith('/later'), true);
+  assert.equal(post.headers['X-CSRF-Token'], 'token-1');
+  assert.equal(band.count, 0);
+  assert.notEqual(band.dropped, null);
+  close();
+});
+
+test('undo posts the undo route and puts the suggestion back at its place', async () => {
+  const a = finding('a:1');
+  const b = finding('b:2');
+  const c = finding('c:3');
+  const { band, calls, window, close } = loadBand(listRoutes({ enabled: true, suggestions: [a, b, c], learning: { since: 1, devices: 1, days: 1 } }));
+  let changed = 0;
+  window.addEventListener('automation-findings-changed', () => { changed += 1; });
+  await band.load();
+  await band.dismiss(band.items[1]);
+  await band.undo();
+  const post = calls[calls.length - 1];
+  assert.equal(post.url, `${SUGGESTIONS_PATH}/${encodeURIComponent('b:2')}/undo`);
+  assert.deepEqual(band.items.map((s) => s.id), ['a:1', 'b:2', 'c:3']);
+  assert.equal(band.dropped, null);
+  assert.equal(changed, 2);
+  close();
+});
+
+test('the assistant button needs a template fix and the editing permission', async () => {
+  const unplanned = finding('p:1');
+  const templ = withTemplate(finding('t:1'));
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [unplanned, templ], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  band.canEdit = true;
+  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, later: true, dismiss: true });
+  assert.deepEqual(plain(band.actionsOf(band.items[1])), { assistant: true, later: true, dismiss: true });
+  assert.equal(band.fixOf(band.items[1]).template, 'follow_switch');
+  close();
+});
+
+test('without the automations permission there are no buttons at all', async () => {
+  const templ = withTemplate(finding('t:1'));
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [templ], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  band.canEdit = false;
+  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, later: false, dismiss: false });
+  close();
+});
+
+test('the band texts and the evidence come from the shared helpers', async () => {
+  const s = finding('a:1');
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [s], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  const { t, calls } = recorder();
+  assert.equal(band.titleOf(s, t), 'automations.learn.switch_time.off.title');
+  assert.equal(band.groupLabel(s, t), 'automations.learn.group.habit');
+  assert.equal(band.confidenceOf(s, t).tone, 'ok');
+  assert.equal(band.confidenceOf({ ...s, confidence: 'medium' }, t).tone, 'wait');
+  assert.match(band.evidenceOf(s, t), /auto-learn-shape-day/);
+  assert.equal(calls[0].key, 'automations.learn.switch_time.off.title');
+  close();
 });
