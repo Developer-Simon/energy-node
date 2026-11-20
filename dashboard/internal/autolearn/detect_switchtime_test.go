@@ -170,21 +170,80 @@ func TestSwitchTimeMorningAndEveningAreTwoCandidates(t *testing.T) {
 func TestSwitchTimeNoiseGivesNoCandidate(t *testing.T) {
 	loc := berlinLoc(t)
 	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
-	days := synthDays(start, 14, synthOpts{Seed: 15, Devices: []string{"lamp"}})
-	rng := rand.New(rand.NewSource(16))
-	for i := range days {
-		day, err := time.ParseInLocation(dayLayout, days[i].Day, loc)
-		if err != nil {
-			t.Fatal(err)
+	for seed := int64(15); seed < 20; seed++ {
+		days := synthDays(start, 14, synthOpts{Seed: seed, Devices: []string{"lamp"}})
+		rng := rand.New(rand.NewSource(seed + 100))
+		for i := range days {
+			day, err := time.ParseInLocation(dayLayout, days[i].Day, loc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for k := 0; k < 3; k++ {
+				at := day.Add(time.Duration(rng.Intn(1440)) * time.Minute)
+				days[i].Events = append(days[i].Events, EventRec{At: at.Unix(), Device: "lamp",
+					Entity: "switch.lamp", On: rng.Intn(2) == 0, Origin: string(OriginHand)})
+			}
 		}
-		for k := 0; k < 3; k++ {
-			at := day.Add(time.Duration(rng.Intn(1440)) * time.Minute)
-			days[i].Events = append(days[i].Events, EventRec{At: at.Unix(), Device: "lamp",
-				Entity: "switch.lamp", On: rng.Intn(2) == 0, Origin: string(OriginHand)})
+		if got := SwitchTimeDetector.Run(context.Background(), switchTimeInput(t, days), "lamp"); len(got) != 0 {
+			t.Errorf("seed %d: noise gave %d candidates, first %s", seed, len(got), got[0].Finding.ID)
 		}
 	}
-	if got := SwitchTimeDetector.Run(context.Background(), switchTimeInput(t, days), "lamp"); len(got) != 0 {
-		t.Errorf("noise gave %d candidates, want 0: %+v", len(got), got[0].Finding.ID)
+}
+
+// TestSwitchTimeMidnightReadsPreviousDay: the off habit is at 00:02. Day 1 ends
+// with the lamp off, so day 2 at 00:02 is already in the target state and must
+// not count. Day 0 has no previous day and does not count either. Reading the
+// quarter before from the same day would count day 1 and not day 2, which
+// gives 13 days instead of 12.
+func TestSwitchTimeMidnightReadsPreviousDay(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	var days []DayFile
+	for i := 0; i < 14; i++ {
+		day := start.AddDate(0, 0, i)
+		dd := &DeviceDay{}
+		for q := range dd.Seen {
+			dd.Seen[q] = dayCounterMax
+			dd.Reach[q] = dayCounterMax
+			dd.OnMin[q] = 15
+		}
+		if i == 1 {
+			dd.OnMin[dayQuarters-1] = 0
+		}
+		f := DayFile{V: dayFileVersion, Day: day.Format(dayLayout), Devices: map[string]*DeviceDay{"lamp": dd},
+			Events:  []EventRec{{At: day.Add(2 * time.Minute).Unix(), Device: "lamp", Entity: "switch.lamp", Origin: string(OriginHand)}},
+			Actions: []ActionRec{}}
+		for q := range f.Site.Seen {
+			f.Site.Seen[q] = dayCounterMax
+		}
+		days = append(days, f)
+	}
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeInput(t, days), "lamp"), "lamp", "off")
+	if len(got) != 1 {
+		t.Fatalf("off candidates = %d, want 1", len(got))
+	}
+	if got[0].Finding.Summary.Params["time"] != "00:00" {
+		t.Errorf("time = %v, want 00:00", got[0].Finding.Summary.Params["time"])
+	}
+	if d := got[0].Finding.Summary.Params["days"]; d != 12 {
+		t.Errorf("counted days = %v, want 12", d)
+	}
+}
+
+func TestSwitchTimeSeasonNilAcrossYearEnd(t *testing.T) {
+	loc := berlinLoc(t)
+	var refs []swRef
+	for d := 0; d < 42; d += 7 {
+		refs = append(refs, swRef{t: time.Date(2025, 12, 1, 0, 0, 0, 0, loc).AddDate(0, 0, d)})
+	}
+	counted := []int{0, 1, 2, 3, 4, 5}
+	// Hits in weeks 52 and 1 of the year end: a range 52 to 1 would wrap.
+	if got := switchTimeSeason(refs, counted, []int{3, 4}); got != nil {
+		t.Errorf("season across year end = %+v, want nil", got)
+	}
+	// Hits in weeks 50 and 51 stay a plain range.
+	if got := switchTimeSeason(refs, counted, []int{1, 2}); got == nil || got.FromWeek != 50 || got.ToWeek != 51 {
+		t.Errorf("season = %+v, want weeks 50 to 51", got)
 	}
 }
 

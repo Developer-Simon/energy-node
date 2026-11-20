@@ -44,10 +44,13 @@ const (
 
 // swRef is one day of the device that the detector reads.
 type swRef struct {
-	date   string
-	t      time.Time
-	group  int
-	dd     *DeviceDay
+	date  string
+	t     time.Time
+	group int
+	dd    *DeviceDay
+	// prev is the device of the previous calendar day, nil when that day is
+	// missing. The quarter before 00:00 is read from it.
+	prev   *DeviceDay
 	weight float64
 	// events holds the minutes of the day of the hand and external events,
 	// index 0 for off and 1 for on.
@@ -78,6 +81,10 @@ func switchTimeRefs(in *Input, device string) []swRef {
 	if loc == nil {
 		loc = time.Local
 	}
+	byDate := map[string]*DeviceDay{}
+	for i := range in.Days {
+		byDate[in.Days[i].Day] = in.Days[i].Devices[device]
+	}
 	var refs []swRef
 	for i := range in.Days {
 		f := &in.Days[i]
@@ -91,6 +98,7 @@ func switchTimeRefs(in *Input, device string) []swRef {
 		}
 		age := math.Max(0, in.Now.Sub(t).Hours()/24)
 		r := swRef{date: f.Day, t: t, group: g, dd: f.Devices[device], weight: DayWeight(age)}
+		r.prev = byDate[t.AddDate(0, 0, -1).Format(dayLayout)]
 		for _, ev := range f.Events {
 			if ev.Device != device || (ev.Origin != string(OriginHand) && ev.Origin != string(OriginExternal)) {
 				continue
@@ -109,8 +117,8 @@ func switchTimeRefs(in *Input, device string) []swRef {
 }
 
 // switchTimeGroup finds the candidates of one group and direction. Each peak
-// of the circular density gives at most one candidate, and peaks that end up
-// with the same ID are merged.
+// of the circular density gives at most one candidate. Peaks are visited in
+// time order, and a peak whose ID is already taken by an earlier one is dropped.
 func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []Candidate {
 	dir := 0
 	if on {
@@ -164,14 +172,23 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 	prev := (q + dayQuarters - 1) % dayQuarters
 
 	// Counted days: the quarter of the centre was seen, and the device was not
-	// already in the target state in the quarter before.
+	// already in the target state in the quarter before. For a centre in
+	// quarter 0 the quarter before is quarter 95 of the previous day, and a day
+	// without a previous day is not counted.
 	var counted, hit []int
 	for _, i := range group {
 		r := &refs[i]
 		if r.dd == nil || r.dd.Seen[q] == 0 {
 			continue
 		}
-		if (on && r.dd.OnMin[prev] == 15) || (!on && r.dd.OnMin[prev] == 0) {
+		before, pq := r.dd, prev
+		if q == 0 {
+			before, pq = r.prev, dayQuarters-1
+			if before == nil {
+				continue
+			}
+		}
+		if (on && before.OnMin[pq] == 15) || (!on && before.OnMin[pq] == 0) {
 			continue
 		}
 		counted = append(counted, i)
@@ -315,6 +332,10 @@ func switchTimeSeason(refs []swRef, counted, hit []int) *Season {
 	for k := range hitWeeks {
 		from = min(from, k)
 		to = max(to, k)
+	}
+	if from%100 > to%100 {
+		// The hits lie across the year end, a range would wrap around.
+		return nil
 	}
 	return &Season{FromWeek: from % 100, ToWeek: to % 100}
 }
