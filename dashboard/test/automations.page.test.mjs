@@ -3674,3 +3674,35 @@ test('openAssistantWith clears a switch entity that is not in the list', async (
   assert.equal(component.assistant.answers.device, '', 'an unknown entity is not taken over, not even via the device');
   assert.equal(component.assistantStep().id, 'device');
 });
+
+test('prefillToAnswers carries the learned key of a time point into the answers', () => {
+  const { window } = createAutomationsPanel();
+  const answers = window.__automationsPrefill.prefillToAnswers('time_point', {
+    device: 'lamp_switch', on: true, time: '07:00', days: [0, 1, 2, 3, 4, 5, 6], learned: 'device/lamp/usual_on',
+  });
+  assert.equal(answers.learned, 'device/lamp/usual_on');
+  assert.equal(answers.device, 'lamp_switch');
+  assert.equal(answers.action, 'on');
+  assert.equal(answers.source, undefined);
+  assert.equal(window.__automationsPrefill.prefillToAnswers('time_point', { device: 'lamp_switch', learned: 7 }), null);
+});
+
+test('prefillToAnswers carries the learned runtime and its offset into the answers', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = prefillToAnswers('runtime_off', {
+    device: 'lamp_switch', minutes: 60, learned: 'device/lamp/usual_runtime_s', offset_s: 300,
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(answers)), {
+    device: 'lamp_switch', minutes: 60, learned: 'device/lamp/usual_runtime_s', offset_s: 300,
+  });
+  assert.equal(prefillToAnswers('runtime_off', { device: 'lamp_switch', offset_s: 1.5 }), null);
+  assert.equal(prefillToAnswers('runtime_off', { device: 'lamp_switch', learned: '' }), null);
+});
+
+test('prefillToAnswers maps the device of a quiet switch-off', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.deepEqual(JSON.parse(JSON.stringify(prefillToAnswers('quiet_off', { device: 'lamp_switch' }))), { device: 'lamp_switch' });
+  assert.equal(prefillToAnswers('quiet_off', { device: 3 }), null);
+});

@@ -202,6 +202,11 @@
         }
         out.time = time;
       }
+      // Lernschluessel des Lernvorschlags: der Schritt Quelle waehlt dann die gelernte Uhrzeit.
+      if (prefill.learned !== undefined) {
+        if (!isPrefillText(prefill.learned)) return null;
+        out.learned = prefill.learned;
+      }
       return out;
     },
     runtime_off(prefill) {
@@ -214,6 +219,22 @@
       if (prefill.minutes !== undefined) {
         if (!Number.isInteger(prefill.minutes)) return null;
         out.minutes = prefill.minutes;
+      }
+      if (prefill.learned !== undefined) {
+        if (!isPrefillText(prefill.learned)) return null;
+        out.learned = prefill.learned;
+      }
+      if (prefill.offset_s !== undefined) {
+        if (!Number.isInteger(prefill.offset_s)) return null;
+        out.offset_s = prefill.offset_s;
+      }
+      return out;
+    },
+    quiet_off(prefill) {
+      const out = {};
+      if (prefill.device !== undefined) {
+        if (!isPrefillText(prefill.device)) return null;
+        out.device = prefill.device;
       }
       return out;
     },
@@ -249,7 +270,7 @@
   const ASSIST_TILE_ICONS = {
     sun: 'ico-sun', min: 'ico-clock', battery: 'ico-battery', always: 'ico-play', fixed: 'ico-calendar',
     import: 'ico-grid', runtime: 'ico-clock', sunset: 'ico-sun', info: 'ico-info', warning: 'ico-warning', critical: 'ico-bell',
-    calm: 'ico-clock', fast: 'ico-flash', time: 'ico-clock', manual: 'ico-power-on',
+    calm: 'ico-clock', fast: 'ico-flash', time: 'ico-clock', manual: 'ico-power-on', learned: 'ico-learning',
   };
 
   const automationsPanel = () => ({
