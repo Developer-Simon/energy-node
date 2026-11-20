@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -109,6 +110,16 @@ type DayStore struct {
 	// Mittelwerte. Anders als Seen saettigen sie nicht bei 15.
 	n     map[string]*[dayQuarters]uint16
 	siteN [6][dayQuarters]uint16
+	// written zaehlt die geschriebenen Bytes je Tag, nur fuer Usage.
+	written map[string]int64
+}
+
+// Usage fasst den Speicherbedarf der Tagesdateien zusammen.
+type Usage struct {
+	Bytes         int64 `json:"bytes"`
+	WrittenPerDay int64 `json:"written_per_day"`
+	Since         int64 `json:"since"`
+	Devices       int   `json:"devices"`
 }
 
 // OpenDayStore liefert einen Speicher in dir. Die Tagesdatei von heute wird
@@ -122,7 +133,7 @@ func OpenDayStore(dir string, loc *time.Location, keepDays func() int, logf func
 		logf = log.Printf
 	}
 	s := &DayStore{dir: dir, loc: loc, keepDays: keepDays, logf: logf, enabled: true,
-		excluded: map[string]bool{}}
+		excluded: map[string]bool{}, written: map[string]int64{}}
 	s.startDayLocked(time.Now().In(loc).Format(dayLayout))
 	return s
 }
@@ -179,7 +190,189 @@ func (s *DayStore) ObserveMinute(f learnrec.Frame) {
 func (s *DayStore) Save() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.writeLocked()
+	err := s.writeLocked()
+	s.pruneLocked()
+	return err
+}
+
+// Add uebernimmt Schaltvorgaenge und Regelaktionen. Zaehler je Herkunft und
+// die Protokolle landen im Tag des Ereignisses. Ausgenommene Geraete fehlen.
+func (s *DayStore) Add(events []SwitchEvent, actions []RuleAction) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.enabled {
+		return
+	}
+	for _, ev := range events {
+		if s.excluded[ev.Device] {
+			continue
+		}
+		q := s.quarterLocked(ev.At)
+		dd := s.deviceDayLocked(ev.Device)
+		switch ev.Origin {
+		case OriginHand:
+			bump(&dd.Hand[q])
+		case OriginRule:
+			bump(&dd.Rule[q])
+		case OriginExternal:
+			bump(&dd.Ext[q])
+		}
+		s.file.Events = append(s.file.Events, EventRec{
+			At: ev.At.Unix(), Device: ev.Device, Entity: ev.Entity, On: ev.On,
+			Origin: string(ev.Origin), Rule: ev.RuleID,
+			House: math.Round(ev.House), Surplus: math.Round(ev.Surplus),
+		})
+		s.dirty = true
+	}
+	for _, a := range actions {
+		if s.excluded[a.Device] {
+			continue
+		}
+		s.quarterLocked(a.At)
+		rec := ActionRec{
+			At: a.At.Unix(), Rule: a.RuleID, Device: a.Device, Entity: a.Entity,
+			Want: a.WantOn, There: a.AlreadyThere, OK: a.Effective,
+			Reaction: math.Round(a.Reaction.Seconds()*10) / 10,
+		}
+		s.file.Actions = append(s.file.Actions, rec)
+		s.dirty = true
+	}
+}
+
+// Usage liefert den Speicherbedarf. WrittenPerDay ist der Mittel der letzten
+// sieben Tage aus den beim Schreiben gezaehlten Bytes.
+func (s *DayStore) Usage() Usage {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u := Usage{Devices: len(s.file.Devices)}
+	days, err := s.listDaysLocked()
+	if err != nil {
+		s.logf("autolearn: list %s: %v", s.dir, err)
+	}
+	for _, day := range days {
+		if fi, err := os.Stat(s.path(day)); err == nil {
+			u.Bytes += fi.Size()
+		}
+	}
+	oldest := s.day
+	if len(days) > 0 && (oldest == "" || days[0] < oldest) {
+		oldest = days[0]
+	}
+	if oldest != "" {
+		if t, err := time.ParseInLocation(dayLayout, oldest, s.loc); err == nil {
+			u.Since = t.Unix()
+		}
+	}
+	today := time.Now().In(s.loc)
+	var sum int64
+	for i := 0; i < 7; i++ {
+		sum += s.written[today.AddDate(0, 0, -i).Format(dayLayout)]
+	}
+	u.WrittenPerDay = sum / 7
+	return u
+}
+
+// Reset loescht alle Tagesdateien und setzt den laufenden Tag leer.
+func (s *DayStore) Reset() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	days, err := s.listDaysLocked()
+	if err != nil {
+		return fmt.Errorf("autolearn: reset: %w", err)
+	}
+	for _, day := range days {
+		if err := os.Remove(s.path(day)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("autolearn: reset %s: %w", day, err)
+		}
+	}
+	s.written = map[string]int64{}
+	s.startDayLocked(s.day)
+	return nil
+}
+
+// quarterLocked liefert die Viertelstunde von at und wechselt bei Bedarf den
+// laufenden Tag.
+func (s *DayStore) quarterLocked(at time.Time) int {
+	t := at.In(s.loc)
+	if day := t.Format(dayLayout); day != s.day {
+		s.finishDayLocked()
+		s.startDayLocked(day)
+	}
+	return (t.Hour()*60 + t.Minute()) / 15
+}
+
+// deviceDayLocked liefert den Tageseintrag eines Geraets und legt ihn bei Bedarf an.
+func (s *DayStore) deviceDayLocked(id string) *DeviceDay {
+	dd := s.file.Devices[id]
+	if dd == nil {
+		dd = &DeviceDay{}
+		s.file.Devices[id] = dd
+	}
+	return dd
+}
+
+// pruneLocked loescht Tagesdateien vor dem Aufbewahrungsfenster und alte
+// Schreibzaehler.
+func (s *DayStore) pruneLocked() {
+	today := time.Now().In(s.loc)
+	cutoff := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, s.loc).
+		AddDate(0, 0, -s.keep())
+	days, err := s.listDaysLocked()
+	if err != nil {
+		s.logf("autolearn: list %s: %v", s.dir, err)
+	}
+	for _, day := range days {
+		t, err := time.ParseInLocation(dayLayout, day, s.loc)
+		if err != nil || !t.Before(cutoff) {
+			continue
+		}
+		if err := os.Remove(s.path(day)); err != nil && !os.IsNotExist(err) {
+			s.logf("autolearn: remove %s: %v", s.path(day), err)
+		}
+	}
+	keepFrom := today.AddDate(0, 0, -6).Format(dayLayout)
+	for day := range s.written {
+		if day < keepFrom {
+			delete(s.written, day)
+		}
+	}
+}
+
+// keep liefert die Aufbewahrung in Tagen, Standard 56.
+func (s *DayStore) keep() int {
+	if s.keepDays != nil {
+		if n := s.keepDays(); n > 0 {
+			return n
+		}
+	}
+	return 56
+}
+
+// listDaysLocked liefert die Tage mit Tagesdatei, aufsteigend sortiert.
+func (s *DayStore) listDaysLocked() ([]string, error) {
+	if s.dir == "" {
+		return nil, nil
+	}
+	entries, err := os.ReadDir(s.dir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var days []string
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".json.gz") {
+			continue
+		}
+		day := strings.TrimSuffix(name, ".json.gz")
+		if _, err := time.Parse(dayLayout, day); err != nil {
+			continue
+		}
+		days = append(days, day)
+	}
+	return days, nil
 }
 
 // Days liefert die Tagesdateien von from bis to (lokale Tage, beide eingeschlossen),
@@ -408,6 +601,10 @@ func (s *DayStore) writeFile(day string, f DayFile) error {
 		_ = os.Remove(tmpName)
 		return fmt.Errorf("autolearn: save %s: %w", day, err)
 	}
+	if s.written == nil {
+		s.written = map[string]int64{}
+	}
+	s.written[day] += int64(buf.Len())
 	return nil
 }
 

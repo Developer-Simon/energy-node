@@ -34,6 +34,9 @@ func frameWith(at time.Time, devs ...learnrec.DeviceMinute) learnrec.Frame {
 
 func noLog(string, ...any) {}
 
+// keepAll haelt die festen Testdaten aus dem Jahr 2026 ueber die Aufbewahrung hinaus.
+func keepAll() int { return 100000 }
+
 func mustDays(t *testing.T, s *DayStore, from, to time.Time) []DayFile {
 	t.Helper()
 	days, err := s.Days(from, to)
@@ -45,7 +48,7 @@ func mustDays(t *testing.T, s *DayStore, from, to time.Time) []DayFile {
 
 func TestDayStoreQuarterAggregation(t *testing.T) {
 	loc := berlinLoc(t)
-	s := OpenDayStore(t.TempDir(), loc, nil, noLog)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
 	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
 	for i := 0; i < 15; i++ {
 		s.ObserveMinute(frameWith(base.Add(time.Duration(i)*time.Minute), lampMinute(true, 120)))
@@ -78,7 +81,7 @@ func TestDayStoreQuarterAggregation(t *testing.T) {
 
 func TestDayStoreAvgIgnoresSwitchOnlyMinutes(t *testing.T) {
 	loc := berlinLoc(t)
-	s := OpenDayStore(t.TempDir(), loc, nil, noLog)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
 	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
 	for i := 0; i < 5; i++ {
 		s.ObserveMinute(frameWith(base.Add(time.Duration(i)*time.Minute), lampMinute(true, 100)))
@@ -102,13 +105,13 @@ func TestDayStoreRestartKeepsToday(t *testing.T) {
 	dir := t.TempDir()
 	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
 
-	first := OpenDayStore(dir, loc, nil, noLog)
+	first := OpenDayStore(dir, loc, keepAll, noLog)
 	first.ObserveMinute(frameWith(base, lampMinute(true, 120)))
 	if err := first.Save(); err != nil {
 		t.Fatal(err)
 	}
 
-	second := OpenDayStore(dir, loc, nil, noLog)
+	second := OpenDayStore(dir, loc, keepAll, noLog)
 	second.ObserveMinute(frameWith(base.Add(time.Minute), lampMinute(true, 120)))
 	days := mustDays(t, second, base, base)
 	if len(days) != 1 {
@@ -121,7 +124,7 @@ func TestDayStoreRestartKeepsToday(t *testing.T) {
 
 func TestDayStoreDSTDays(t *testing.T) {
 	loc := berlinLoc(t)
-	s := OpenDayStore(t.TempDir(), loc, nil, noLog)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
 	march := time.Date(2026, 3, 29, 0, 0, 0, 0, loc)
 	october := time.Date(2026, 10, 25, 0, 0, 0, 0, loc)
 	for _, start := range []time.Time{march, october} {
@@ -159,7 +162,7 @@ func TestDayStoreDSTDays(t *testing.T) {
 
 func TestDayStoreExcluded(t *testing.T) {
 	loc := berlinLoc(t)
-	s := OpenDayStore(t.TempDir(), loc, nil, noLog)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
 	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
 	s.ObserveMinute(frameWith(base, lampMinute(true, 50), learnrec.DeviceMinute{ID: "fan", Reachable: true}))
 
@@ -183,7 +186,7 @@ func TestDayStoreExcluded(t *testing.T) {
 func TestDayStoreMidnight(t *testing.T) {
 	loc := berlinLoc(t)
 	dir := t.TempDir()
-	s := OpenDayStore(dir, loc, nil, noLog)
+	s := OpenDayStore(dir, loc, keepAll, noLog)
 	s.ObserveMinute(frameWith(time.Date(2026, 11, 19, 23, 59, 0, 0, loc), lampMinute(false, 10)))
 	s.ObserveMinute(frameWith(time.Date(2026, 11, 20, 0, 0, 0, 0, loc), lampMinute(false, 10)))
 	if err := s.Save(); err != nil {
@@ -210,7 +213,7 @@ func TestDayStoreBrokenFile(t *testing.T) {
 	logf := func(format string, args ...any) {
 		logs = append(logs, format)
 	}
-	s := OpenDayStore(dir, loc, nil, logf)
+	s := OpenDayStore(dir, loc, keepAll, logf)
 	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
 	s.ObserveMinute(frameWith(base, lampMinute(true, 80)))
 	if len(logs) != 1 {
@@ -222,5 +225,110 @@ func TestDayStoreBrokenFile(t *testing.T) {
 	days := mustDays(t, s, base, base)
 	if len(days) != 1 || days[0].Devices["lamp"].Seen[40] != 1 {
 		t.Errorf("fresh start expected seen 1, got %+v", days)
+	}
+}
+
+func TestDayStoreEventsByOrigin(t *testing.T) {
+	loc := berlinLoc(t)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	events := []SwitchEvent{
+		{At: base, Device: "lamp", Entity: "lamp/switch", On: true, Origin: OriginHand, House: 312.4},
+		{At: base.Add(time.Minute), Device: "lamp", Entity: "lamp/switch", On: false, Origin: OriginHand},
+		{At: base.Add(2 * time.Minute), Device: "lamp", Entity: "lamp/switch", On: true, Origin: OriginRule, RuleID: "r1"},
+	}
+	actions := []RuleAction{{At: base.Add(2 * time.Minute), RuleID: "r1", Device: "lamp",
+		Entity: "lamp/switch", WantOn: boolPtr(true), Effective: true, Reaction: 2100 * time.Millisecond}}
+	s.Add(events, actions)
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 {
+		t.Fatalf("days = %d, want 1", len(days))
+	}
+	d := days[0].Devices["lamp"]
+	if d.Hand[40] != 2 || d.Rule[40] != 1 || d.Ext[40] != 0 {
+		t.Errorf("hand/rule/ext = %d/%d/%d, want 2/1/0", d.Hand[40], d.Rule[40], d.Ext[40])
+	}
+	if len(days[0].Events) != 3 {
+		t.Fatalf("events = %d, want 3", len(days[0].Events))
+	}
+	if ev := days[0].Events[2]; ev.Origin != "rule" || ev.Rule != "r1" {
+		t.Errorf("rule event = %+v", ev)
+	}
+	if days[0].Events[0].House != 312 {
+		t.Errorf("house = %v, want 312", days[0].Events[0].House)
+	}
+	if len(days[0].Actions) != 1 {
+		t.Fatalf("actions = %d, want 1", len(days[0].Actions))
+	}
+	a := days[0].Actions[0]
+	if a.Want == nil || !*a.Want || !a.OK || a.Reaction != 2.1 || a.Rule != "r1" {
+		t.Errorf("action = %+v", a)
+	}
+}
+
+func TestDayStoreRetention(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	s := OpenDayStore(dir, loc, func() int { return 56 }, noLog)
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, loc)
+	s.ObserveMinute(frameWith(today.AddDate(0, 0, -60), lampMinute(false, 10)))
+	s.ObserveMinute(frameWith(today.AddDate(0, 0, -50), lampMinute(false, 10)))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, today.AddDate(0, 0, -60).Format(dayLayout)+".json.gz")); !os.IsNotExist(err) {
+		t.Errorf("60-day file must be removed, stat err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, today.AddDate(0, 0, -50).Format(dayLayout)+".json.gz")); err != nil {
+		t.Errorf("50-day file must stay: %v", err)
+	}
+}
+
+func TestDayStoreReset(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	s := OpenDayStore(dir, loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(frameWith(base, lampMinute(true, 50)))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+		t.Errorf("files after reset = %d, want 0", len(entries))
+	}
+	if u := s.Usage(); u.Bytes != 0 || u.Devices != 0 {
+		t.Errorf("usage after reset = %+v", u)
+	}
+	s.ObserveMinute(frameWith(base, lampMinute(true, 50)))
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 || days[0].Devices["lamp"].Seen[40] != 1 {
+		t.Errorf("collecting after reset: %+v", days)
+	}
+}
+
+func TestDayStoreUsage(t *testing.T) {
+	loc := berlinLoc(t)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 10, 0, 0, 0, loc)
+	s.ObserveMinute(frameWith(today, lampMinute(true, 120)))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	u := s.Usage()
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	if u.Bytes <= 0 || u.Devices != 1 || u.Since != midnight.Unix() {
+		t.Errorf("usage = %+v, since want %d", u, midnight.Unix())
+	}
+	if u.WrittenPerDay <= 0 {
+		t.Errorf("written per day = %d, want > 0", u.WrittenPerDay)
 	}
 }
