@@ -1241,6 +1241,7 @@ func main() {
 		ChainSuggest:          chainSuggest,
 		AutomationFindings:    automationChecker,
 		AutomationSuggestions: suggestions,
+		LearnedValues:         learnedStore,
 		CommandObserver:       origin.observeCommand,
 		StorageFallback:       storageFallback,
 		HistorySampler:        historySampler,
