@@ -96,6 +96,7 @@ var catalog = []Entry{
 	// Code sie nur mit ihrem Namen nennt.
 	{RootData, "autolearn/checks.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/ignored.json", ClassRuntime, AreaHistory},
+	{RootData, "autolearn/suggestions.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/reaction.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/*", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/days/*", ClassRuntime, AreaHistory},
