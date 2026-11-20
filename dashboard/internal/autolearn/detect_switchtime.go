@@ -1,0 +1,356 @@
+package autolearn
+
+import (
+	"context"
+	"fmt"
+	"math"
+	"sort"
+	"time"
+)
+
+// SwitchTimeDetector suggests a time rule for a device that is switched by
+// hand or externally at about the same clock time on regular days. It follows
+// spec 15.5 "Schaltzeiten" with the clock reference only.
+var SwitchTimeDetector = Detector{
+	Name:      "switch_time",
+	Group:     "habit",
+	Light:     false,
+	PerDevice: true,
+	Run:       switchTimeRun,
+}
+
+const (
+	// switchTimeMinShare is the share of the largest density a peak needs.
+	// The spec gives no number, the value is an assumption.
+	switchTimeMinShare = 0.2
+	// switchTimeWindow is the number of spreads around a centre whose events
+	// belong to a peak.
+	switchTimeWindow = 3.0
+	// switchTimeMinSpread keeps the window from collapsing to zero.
+	switchTimeMinSpread = 1.0
+	// switchTimeMinNEff is the minimum effective number of counted days.
+	switchTimeMinNEff = 10.0
+	// switchTimeLimit is the lower bound for high confidence.
+	switchTimeLimit = 0.6
+	// switchTimeHighSpread is the spread in minutes for high confidence.
+	switchTimeHighSpread = 20.0
+	// switchTimeEstLower and switchTimeEstSpread are the bounds for an estimate.
+	switchTimeEstLower  = 0.45
+	switchTimeEstSpread = 40.0
+	// switchTimeRoundMin rounds the proposed time, switchTimeIDMin the time in the ID.
+	switchTimeRoundMin = 5.0
+	switchTimeIDMin    = 30.0
+)
+
+// swRef is one day of the device that the detector reads.
+type swRef struct {
+	date   string
+	t      time.Time
+	group  int
+	dd     *DeviceDay
+	weight float64
+	// events holds the minutes of the day of the hand and external events,
+	// index 0 for off and 1 for on.
+	events [2][]float64
+}
+
+// switchTimeRun finds the peaks of the switching times of one device. Each
+// day type group and direction is run on its own.
+func switchTimeRun(ctx context.Context, in *Input, device string) []Candidate {
+	refs := switchTimeRefs(in, device)
+	var out []Candidate
+	for g := range in.Base.Groups {
+		for _, on := range []bool{false, true} {
+			if ctx.Err() != nil {
+				return nil
+			}
+			out = append(out, switchTimeGroup(in, device, g, on, refs)...)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Finding.ID < out[j].Finding.ID })
+	return out
+}
+
+// switchTimeRefs collects the days of the device that are not absent and have
+// a day type, sorted by date.
+func switchTimeRefs(in *Input, device string) []swRef {
+	loc := in.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	var refs []swRef
+	for i := range in.Days {
+		f := &in.Days[i]
+		g, ok := in.Base.DayType[f.Day]
+		if !ok || in.Base.Away[f.Day] {
+			continue
+		}
+		t, err := time.ParseInLocation(dayLayout, f.Day, loc)
+		if err != nil {
+			continue
+		}
+		age := math.Max(0, in.Now.Sub(t).Hours()/24)
+		r := swRef{date: f.Day, t: t, group: g, dd: f.Devices[device], weight: DayWeight(age)}
+		for _, ev := range f.Events {
+			if ev.Device != device || (ev.Origin != string(OriginHand) && ev.Origin != string(OriginExternal)) {
+				continue
+			}
+			at := time.Unix(ev.At, 0).In(loc)
+			dir := 0
+			if ev.On {
+				dir = 1
+			}
+			r.events[dir] = append(r.events[dir], float64(at.Hour()*60+at.Minute())+float64(at.Second())/60)
+		}
+		refs = append(refs, r)
+	}
+	sort.SliceStable(refs, func(a, b int) bool { return refs[a].date < refs[b].date })
+	return refs
+}
+
+// switchTimeGroup finds the candidates of one group and direction. Each peak
+// of the circular density gives at most one candidate, and peaks that end up
+// with the same ID are merged.
+func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []Candidate {
+	dir := 0
+	if on {
+		dir = 1
+	}
+	var group []int
+	var minutes, weights []float64
+	for i := range refs {
+		if refs[i].group != g {
+			continue
+		}
+		group = append(group, i)
+		for _, m := range refs[i].events[dir] {
+			minutes = append(minutes, m)
+			weights = append(weights, refs[i].weight)
+		}
+	}
+	if len(minutes) < 2 {
+		return nil
+	}
+	dens := CircKDE(minutes, weights)
+	var out []Candidate
+	ids := map[string]bool{}
+	for _, peak := range dens.Peaks(switchTimeMinShare) {
+		c, ok := switchTimeCandidate(in, device, g, on, refs, group, minutes, peak)
+		if !ok || ids[c.Finding.ID] {
+			continue
+		}
+		ids[c.Finding.ID] = true
+		out = append(out, c)
+	}
+	return out
+}
+
+// switchTimeCandidate builds the candidate of one peak, or reports false when
+// the peak fails the gates.
+func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef, group []int, minutes []float64, peak float64) (Candidate, bool) {
+	dir := 0
+	dirName := "off"
+	if on {
+		dir = 1
+		dirName = "on"
+	}
+	center, spread, n := switchTimeCluster(minutes, peak)
+	if n < 2 {
+		return Candidate{}, false
+	}
+	window := switchTimeWindow * spread
+	c := wrapMinutes(center)
+	q := int(c / 15)
+	prev := (q + dayQuarters - 1) % dayQuarters
+
+	// Counted days: the quarter of the centre was seen, and the device was not
+	// already in the target state in the quarter before.
+	var counted, hit []int
+	for _, i := range group {
+		r := &refs[i]
+		if r.dd == nil || r.dd.Seen[q] == 0 {
+			continue
+		}
+		if (on && r.dd.OnMin[prev] == 15) || (!on && r.dd.OnMin[prev] == 0) {
+			continue
+		}
+		counted = append(counted, i)
+		if switchTimeNear(r.events[dir], center, window) {
+			hit = append(hit, i)
+		}
+	}
+	days := len(counted)
+	if days == 0 {
+		return Candidate{}, false
+	}
+	weights := make([]float64, days)
+	for k, i := range counted {
+		weights[k] = refs[i].weight
+	}
+	neff := NEff(weights)
+	if neff < switchTimeMinNEff {
+		return Candidate{}, false
+	}
+	hits := len(hit)
+	lower := WilsonLower(hits, days)
+	var conf string
+	switch {
+	case lower >= switchTimeLimit && spread <= switchTimeHighSpread:
+		conf = "high"
+	case lower >= switchTimeEstLower && spread <= switchTimeEstSpread:
+		conf = "estimate"
+	default:
+		return Candidate{}, false
+	}
+	rate := float64(hits) / float64(days)
+
+	propMin := math.Mod(math.Round(c/switchTimeRoundMin)*switchTimeRoundMin, minutesPerDay)
+	idMin := math.Mod(math.Round(c/switchTimeIDMin)*switchTimeIDMin, minutesPerDay)
+	clock := switchTimeClock(propMin)
+	id := fmt.Sprintf("switch_time:%s:%s:%d:%s", device, dirName, g, switchTimeCompact(idMin))
+
+	weekdays := make([]int, 0, len(in.Base.Groups[g]))
+	for _, d := range in.Base.Groups[g] {
+		weekdays = append(weekdays, int(d))
+	}
+	ist := make([]int64, 0, len(minutes))
+	for _, m := range minutes {
+		ist = append(ist, int64(math.Round(m)))
+	}
+	benefit := switchTimeBenefit(refs, counted, hits)
+	season := switchTimeSeason(refs, counted, hit)
+	agree := switchTimeHalvesAgree(refs, counted, dir, center, window, spread)
+
+	finding := Finding{
+		ID:         id,
+		Kind:       "switch_time",
+		Group:      "habit",
+		Severity:   "info",
+		Confidence: conf,
+		Summary: Text{Code: "switch_time." + dirName, Params: map[string]any{
+			"hits": hits, "days": days, "time": clock, "device": device}},
+		Evidence: Evidence{Shape: "day", From: 0, To: minutesPerDay, Ist: ist, Soll: []int64{int64(propMin)}},
+		Facts: []Fact{
+			{Code: "spread_min", Value: spread},
+			{Code: "hit_rate", Value: rate},
+		},
+		Apply: []Fix{{Code: "time_point", Template: "time_point", Prefill: map[string]any{
+			"device": device, "on": on, "time": clock, "days": weekdays}}},
+		Device:  device,
+		Season:  season,
+		Benefit: &benefit,
+	}
+	cand := Candidate{
+		Finding:     finding,
+		Detector:    "switch_time",
+		NEff:        neff,
+		MinNEff:     switchTimeMinNEff,
+		Lower:       lower,
+		Limit:       switchTimeLimit,
+		HalvesAgree: agree,
+		Benefit:     benefit,
+		Values:      map[string]float64{"hit_rate": rate},
+		Spread:      map[string]float64{"time": spread},
+	}
+	return cand, true
+}
+
+// switchTimeCluster takes the events within three kernel widths of the peak and
+// computes their circular median and spread. It is a single pass on purpose: a
+// second pass with a robust spread collapses a bimodal peak (23:55 and 00:05)
+// onto one of its halves. n is the number of events, below two there is no
+// cluster.
+func switchTimeCluster(minutes []float64, peak float64) (center, spread float64, n int) {
+	var members []float64
+	for _, m := range minutes {
+		if math.Abs(circDelta(m, peak)) <= switchTimeWindow*circSigmaMin {
+			members = append(members, m)
+		}
+	}
+	n = len(members)
+	if n < 2 {
+		return peak, circSigmaMin, n
+	}
+	center = CircMedian(members)
+	spread = math.Max(CircSpread(members, center), switchTimeMinSpread)
+	return center, spread, n
+}
+
+// switchTimeNear reports whether one of the minutes lies within the window of centre.
+func switchTimeNear(minutes []float64, center, window float64) bool {
+	for _, m := range minutes {
+		if math.Abs(circDelta(m, center)) <= window {
+			return true
+		}
+	}
+	return false
+}
+
+// switchTimeBenefit is the number of hits per week over the span of the counted days.
+func switchTimeBenefit(refs []swRef, counted []int, hits int) Benefit {
+	first := refs[counted[0]].t
+	last := refs[counted[len(counted)-1]].t
+	weeks := math.Max((last.Sub(first).Hours()/24+1)/7, 1)
+	return Benefit{Unit: "actions_week", Value: float64(hits) / weeks}
+}
+
+// switchTimeSeason returns the range of weeks when the hits lie only in part of
+// the counted weeks, otherwise nil. The weeks are ISO weeks, the range does not
+// wrap around the year end.
+func switchTimeSeason(refs []swRef, counted, hit []int) *Season {
+	all := map[int]bool{}
+	for _, i := range counted {
+		y, w := refs[i].t.ISOWeek()
+		all[y*100+w] = true
+	}
+	hitWeeks := map[int]bool{}
+	for _, i := range hit {
+		y, w := refs[i].t.ISOWeek()
+		hitWeeks[y*100+w] = true
+	}
+	if len(hitWeeks) == 0 || len(hitWeeks) == len(all) {
+		return nil
+	}
+	from, to := math.MaxInt, math.MinInt
+	for k := range hitWeeks {
+		from = min(from, k)
+		to = max(to, k)
+	}
+	return &Season{FromWeek: from % 100, ToWeek: to % 100}
+}
+
+// switchTimeHalvesAgree compares the centre of the first and the second half of
+// the counted days. Each half needs two events in the window, and the centres
+// must lie within one spread of each other.
+func switchTimeHalvesAgree(refs []swRef, counted []int, dir int, center, window, spread float64) bool {
+	mid := len(counted) / 2
+	parts := [][]int{counted[:mid], counted[mid:]}
+	var centers []float64
+	for _, part := range parts {
+		var members []float64
+		for _, i := range part {
+			for _, m := range refs[i].events[dir] {
+				if math.Abs(circDelta(m, center)) <= window {
+					members = append(members, m)
+				}
+			}
+		}
+		if len(members) < 2 {
+			return false
+		}
+		centers = append(centers, CircMedian(members))
+	}
+	return math.Abs(circDelta(centers[0], centers[1])) <= spread
+}
+
+// switchTimeClock formats minutes of the day as HH:MM.
+func switchTimeClock(m float64) string {
+	v := int(m)
+	return fmt.Sprintf("%02d:%02d", v/60, v%60)
+}
+
+// switchTimeCompact formats minutes of the day as HHMM, for IDs.
+func switchTimeCompact(m float64) string {
+	v := int(m)
+	return fmt.Sprintf("%02d%02d", v/60, v%60)
+}
