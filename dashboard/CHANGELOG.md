@@ -269,6 +269,7 @@
 
 - **dashboard:** bump the cache-bust marks for the suggestion band (00daac8)
 - **dashboard:** refresh the cache-bust history for the current version (4513bde)
+- **onboarding:** add tour targets to the suggestion band (add6a58)
 - **webui:** bump the cache marks of the changed modal assets (73bc11f)
 - **dashboard:** bump the cache-bust marks for the learning page (426edb3)
 - **dashboard:** bump the cache-bust marks for the rule check (4c75b79)
