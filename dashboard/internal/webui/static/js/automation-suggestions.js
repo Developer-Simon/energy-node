@@ -66,12 +66,27 @@
 
   const base = () => window.__DASHBOARD_BASE_PATH__ || '';
 
+  // Zahl eines Belegs mit Einheit. Minuten und Sekunden ganz, Sekunden ab 120 als Minuten
+  // mit hoechstens einer Nachkommastelle, alle anderen Zahlen hoechstens eine Nachkommastelle.
+  function numberOf(code, v, t) {
+    if (code === 'spread_min') return t(CAT + 'value.minutes', { value: Math.round(v) });
+    if (code === 'window_s' || code === 'limit_s') {
+      const seconds = Math.round(v);
+      if (seconds >= 120) return t(CAT + 'value.minutes', { value: Math.round((seconds / 60) * 10) / 10 });
+      return t(CAT + 'value.seconds', { value: seconds });
+    }
+    if (code === 'min_runtime') return t(CAT + 'value.seconds', { value: Math.round(v) });
+    if (code === 'per_hour_max') return t(CAT + 'value.per_hour', { value: Math.round(v) });
+    return String(Math.round(v * 10) / 10);
+  }
+
   // Wert eines Belegs: Ursache und Ja/Nein aus dem Katalog, Anteile als ganze Prozent.
   function valueOf(f, t) {
     const v = f.value;
     if (f.code === 'cause') return t(CAT + 'fact.cause.' + v, {});
     if (typeof v === 'boolean') return t(v ? 'common.yes' : 'common.no', {});
     if (PERCENT_FACTS.indexOf(f.code) >= 0) return t(CAT + 'value.percent', { value: Math.round(Number(v) * 100) });
+    if (typeof v === 'number' && isFinite(v)) return numberOf(f.code, v, t);
     return String(v == null ? '' : v);
   }
 
@@ -86,6 +101,8 @@
       open: '',
       // Tagesgrafik: false zeigt den Ausschnitt, true den ganzen Tag. Wechselt mit jeder Karte.
       fullDay: false,
+      // Erklaerung der Grafik (Ist und Soll) als Tooltip, per Tipp oder Klick. Schliesst mit jeder Karte.
+      tipOpen: false,
       canEdit: false,
       csrf: '',
       dropped: null,
@@ -117,10 +134,13 @@
         }
       },
 
-      toggle(id) { this.open = this.open === id ? '' : id; this.fullDay = false; },
+      toggle(id) { this.open = this.open === id ? '' : id; this.fullDay = false; this.tipOpen = false; },
+      toggleTip() { this.tipOpen = !this.tipOpen; },
+      // Escape und Klick neben den Tooltip
+      closeTip() { this.tipOpen = false; },
       expandAll() {
         this.all = !this.all;
-        if (!this.all && this.open && !this.visible.some((s) => s.id === this.open)) this.open = '';
+        if (!this.all && this.open && !this.visible.some((s) => s.id === this.open)) { this.open = ''; this.tipOpen = false; }
       },
 
       titleOf(s, t) { return api.title(s, t); },
@@ -168,7 +188,7 @@
         try { ok = await this.send(s, action); } catch (error) { ok = false; }
         if (!ok || index < 0) return;
         this.items = this.items.filter((x) => x.id !== s.id);
-        if (this.open === s.id) this.open = '';
+        if (this.open === s.id) { this.open = ''; this.tipOpen = false; }
         this.dropped = { item: s, index };
         this.armHint();
         window.dispatchEvent(new window.CustomEvent(CHANGED));

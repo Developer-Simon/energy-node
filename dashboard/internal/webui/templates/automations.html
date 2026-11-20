@@ -112,11 +112,19 @@
                   <span class="auto-learn-season" x-text="seasonOf(current, $t)"></span>
                 </div>
                 <h4 class="auto-learn-card-title" x-text="titleOf(current, $t)"></h4>
-                <div class="auto-learn-card-evidence" x-html="evidenceOf(current, $t)"></div>
+                <div class="auto-learn-evidence">
+                  <div class="auto-learn-card-evidence" x-html="evidenceOf(current, $t)"></div>
+                  <span class="auto-learn-tip-wrap" x-show="legendOf(current, $t)" x-on:click.outside="closeTip()" x-on:keydown.escape="closeTip()">
+                    <button type="button" class="auto-learn-tip-btn" aria-label="{{t "automations.learn.legend.label"}}" aria-describedby="auto-learn-tip"
+                            x-bind:aria-expanded="tipOpen ? 'true' : 'false'" x-on:click="toggleTip()">
+                      <svg class="automation-icon automation-icon-sm" aria-hidden="true"><use href="#ico-info"></use></svg>
+                    </button>
+                    <span role="tooltip" id="auto-learn-tip" class="auto-learn-tip" x-bind:class="{ 'is-open': tipOpen }" x-text="legendOf(current, $t)"></span>
+                  </span>
+                </div>
                 <div class="auto-learn-zoom" x-show="zoomableOf(current)">
                   <button type="button" class="auto-learn-zoom-btn" x-bind:aria-pressed="fullDay ? 'true' : 'false'" x-on:click="fullDay = !fullDay" x-text="zoomLabelOf($t)"></button>
                 </div>
-                <p class="auto-learn-card-legend" x-show="legendOf(current, $t)" x-text="legendOf(current, $t)"></p>
                 <dl class="auto-learn-facts">
                   <template x-for="f in factsOf(current, $t)" x-bind:key="f.label">
                     <div><dt x-text="f.label"></dt><dd x-text="f.value"></dd></div>

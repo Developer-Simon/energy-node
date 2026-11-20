@@ -1010,7 +1010,34 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-learn-card-device { font-size: .82rem; color: var(--text-muted); flex: 1 1 8rem; min-width: 0; }
 .auto-learn-season { font-size: .74rem; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 999px; padding: .1rem .55rem; white-space: nowrap; }
 .auto-learn-card-title { margin: .45rem 0 0; font-size: 1.02rem; line-height: 1.25; letter-spacing: -.005em; color: var(--text-strong); }
-.auto-learn-card-legend { margin: .35rem 0 0; font-size: .78rem; color: var(--text-faint); line-height: 1.4; }
+/* Erklaerung von Ist und Soll: Info-Knopf oben rechts an der Grafik, der Tooltip schwebt darunter.
+   Nur opacity und transform animieren. Hover oeffnet mit 150 ms Verzoegerung, Tipp und Fokus sofort. */
+.auto-learn-evidence { position: relative; }
+.auto-learn-tip-wrap { box-sizing: border-box; position: absolute; top: .15rem; right: .15rem; z-index: 3; }
+.auto-learn-tip-btn { box-sizing: border-box; display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; padding: 0; border: 0; border-radius: 999px;
+  background: transparent; color: var(--text-faint); cursor: pointer; transition: transform 120ms var(--ease-out); }
+.auto-learn-tip-btn:active { transform: scale(.97); }
+.auto-learn-tip-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .auto-learn-tip-btn:hover { color: var(--text-muted); } }
+.auto-learn-tip { box-sizing: border-box; display: block; position: absolute; top: calc(100% + .3rem); right: 0; width: max-content;
+  max-width: min(18rem, calc(100vw - 3rem)); padding: .5rem .65rem; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--panel);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .16); color: var(--text-muted); font-size: .75rem; line-height: 1.4; text-align: left; white-space: normal;
+  opacity: 0; transform: scale(.96) translateY(2px); transform-origin: top right; visibility: hidden; pointer-events: none;
+  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out), visibility 0s linear 150ms; }
+.auto-learn-tip::before { content: ""; position: absolute; left: 0; right: 0; top: -.4rem; height: .4rem; }
+.auto-learn-tip-btn:focus-visible + .auto-learn-tip,
+.auto-learn-tip.is-open { opacity: 1; transform: none; visibility: visible; pointer-events: auto; transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out), visibility 0s; }
+@media (hover: hover) and (pointer: fine) {
+  .auto-learn-tip-wrap:hover > .auto-learn-tip { opacity: 1; transform: none; visibility: visible; pointer-events: auto;
+    transition: opacity 150ms var(--ease-out) 150ms, transform 150ms var(--ease-out) 150ms, visibility 0s 150ms; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auto-learn-tip-btn { transition: none; }
+  .auto-learn-tip-btn:active { transform: none; }
+  .auto-learn-tip { transform: none; transition: opacity 150ms ease, visibility 0s linear 150ms; }
+  .auto-learn-tip-btn:focus-visible + .auto-learn-tip,
+  .auto-learn-tip.is-open { transform: none; transition: opacity 150ms ease, visibility 0s; }
+}
 .auto-learn-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem 1rem; margin: .7rem 0 .2rem; font-size: .88rem; }
 .auto-learn-facts > div { display: flex; justify-content: space-between; gap: .5rem; min-width: 0; }
 .auto-learn-facts dt { color: var(--text-muted); }

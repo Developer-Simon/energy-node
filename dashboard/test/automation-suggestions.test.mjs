@@ -407,3 +407,69 @@ test('the more button hides when everything fits and the band is collapsed', asy
   assert.equal(band.moreShown, false);
   close();
 });
+
+// Catalog-backed translation: looks the text up and fills the {placeholders}, so formatted values can be checked.
+function catalogT(lang = 'de') {
+  return (key, params = {}) => String(catalogs[lang][key] ?? key)
+    .replace(/\{(\w+)\}/g, (_, name) => (name in params ? String(params[name]) : ''));
+}
+
+test('the legend texts exist for day, events and scale and are empty for the other shapes', () => {
+  const { api } = load();
+  const t = catalogT('de');
+  assert.equal(api.legend(suggestion('switch_time.on', {}, 'day'), t), catalogs.de['automations.learn.legend.day']);
+  assert.equal(api.legend(suggestion('switch_time.on', {}, 'events'), t), catalogs.de['automations.learn.legend.events']);
+  assert.equal(api.legend(suggestion('switch_time.on', {}, 'scale'), t), catalogs.de['automations.learn.legend.scale']);
+  assert.equal(api.legend(suggestion('switch_time.on', {}, 'curve'), t), '');
+  assert.equal(api.legend({ summary: { code: 'x' }, evidence: {} }, t), '');
+});
+
+test('toggle closes the tooltip, and closeTip closes it for Escape and for a click outside', async () => {
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [finding('a:1')], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  band.tipOpen = true;
+  band.toggle('a:1');
+  assert.equal(band.tipOpen, false, 'a new card starts with the tooltip closed');
+  band.toggle('a:1');
+  band.tipOpen = true;
+  band.closeTip();
+  assert.equal(band.tipOpen, false);
+  close();
+});
+
+// Fact values as the card shows them, for one language.
+function factText(code, value, lang = 'de') {
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [], learning: { since: 1, devices: 1, days: 1 } }));
+  const s = { ...finding('f:1'), facts: [{ code, value }] };
+  const [fact] = band.factsOf(s, catalogT(lang));
+  close();
+  return fact.value;
+}
+
+test('spread in minutes is rounded to whole minutes with the unit', () => {
+  assert.equal(factText('spread_min', 7.8333), '8 min');
+});
+
+test('seconds stay seconds below two minutes and switch to minutes from 120 s', () => {
+  assert.equal(factText('window_s', 150), '2.5 min');
+  assert.equal(factText('window_s', 90), '90 s');
+  assert.equal(factText('limit_s', 120), '2 min');
+  assert.equal(factText('limit_s', 59.6), '60 s');
+});
+
+test('minimum runtime is in seconds and per hour counts are whole numbers', () => {
+  assert.equal(factText('min_runtime', 45), '45 s');
+  assert.equal(factText('per_hour_max', 3), '3 pro Stunde');
+  assert.equal(factText('per_hour_max', 3, 'en'), '3 per hour');
+});
+
+test('hit rate and direction share stay percent, season months stay as they are', () => {
+  assert.equal(factText('hit_rate', 0.8), '80 %');
+  assert.equal(factText('direction_share', 0.375), '38 %');
+  assert.equal(factText('season_months', [1, 2]), '1,2');
+});
+
+test('any other numeric fact is rounded to at most one decimal', () => {
+  assert.equal(factText('unknown_code', 3.14159), '3.1');
+  assert.equal(factText('unknown_code', 4), '4');
+});
