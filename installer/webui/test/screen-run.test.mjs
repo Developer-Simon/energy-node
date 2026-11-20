@@ -166,3 +166,17 @@ test('der Zusatz eines Markers erscheint in der Fenstersprache, das gespeicherte
   assert.equal(screen.logEntries.at(-1).text, '##STEP 35 skip nicht ausgewählt');
   assert.match(window.RunModel.logText(screen.model), /##STEP 35 skip nicht ausgewaehlt/);
 });
+
+test('ein Lauf mit gewaehlten Schritten zeigt nur deren Gruppen', async () => {
+  const { screen, source } = await mount({ shell: { shared: { run: { runId: 'run-5', mode: 'apply-selection', only: '', resumed: false, steps: ['60', '81'] } } } });
+  source.emit('run-started', 1, { run_id: 'run-5', mode: 'apply-selection', only: '', at: T0 });
+  assert.deepEqual(plain(screen.groups.map((group) => group.key)), ['step-60', 'step-81']);
+  assert.equal(screen.progressText, 'Schritt 1 von 2: Dashboard und MQTT-Brücke');
+});
+
+test('ein fortgesetzter Lauf mit Modus apply-selection kehrt in die Vorlage Neustart zurueck', async () => {
+  const { source, shell } = await mount({ shell: { entry: 'install', shared: { run: { runId: 'run-7', mode: '', only: '', resumed: true } } } });
+  source.emit('run-started', 1, { run_id: 'run-7', mode: 'apply-selection', only: '', at: T0 });
+  assert.equal(shell.shared.run.mode, 'apply-selection');
+  assert.equal(shell.entry, 'redeploy');
+});

@@ -890,6 +890,8 @@
   "preview.selection.changed": "Auswahl geändert",
   "preview.selection.unchanged": "Auswahl unverändert",
   "preview.whatsnew.text": "Seit deiner installierten Version",
+  "result.apply.failed_hint": "Die neue Auswahl steht schon auf dem Node. Erneut versuchen fährt einen normalen Lauf mit demselben Paket.",
+  "result.apply.summary": "Auswahl angewendet · {restarted} · {duration} gebraucht",
   "result.cancelled.card": "Nichts ist verloren",
   "result.cancelled.heading": "Lauf abgebrochen",
   "result.cancelled.summary": "Abgebrochen nach {duration}",

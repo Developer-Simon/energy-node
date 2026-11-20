@@ -890,6 +890,8 @@
   "preview.selection.changed": "selection changed",
   "preview.selection.unchanged": "selection unchanged",
   "preview.whatsnew.text": "Since your installed version",
+  "result.apply.failed_hint": "The new selection is already on the node. Try again runs a normal update with the same package.",
+  "result.apply.summary": "Selection applied · {restarted} · took {duration}",
   "result.cancelled.card": "Nothing is lost",
   "result.cancelled.heading": "Run cancelled",
   "result.cancelled.summary": "Cancelled after {duration}",

@@ -257,3 +257,31 @@ test('im Installer oeffnet Dashboard oeffnen die erste Adresse und Diagnose blei
   screen.openDashboard();
   assert.deepEqual(plain(opened), ['https://energy-node.local']);
 });
+
+test('eine angewendete Auswahl nennt die Zusammenfassung und die Nacharbeit wie ein Update', async () => {
+  const { screen, calls } = await mount({
+    shell: { entry: 'redeploy' },
+    shared: { plan: { bundle_version: 'v1.4.2', steps: [], components: { bootstrap: { from: 'v1.4.1', to: 'v1.4.2' } } } },
+    outcome: { mode: 'apply-selection', finishedAt: T0 + 41000, steps: { 60: { state: 'ok' }, 81: { state: 'ok' } } },
+  });
+  assert.match(screen.summary, /^Auswahl angewendet · /);
+  assert.equal(screen.summary, 'Auswahl angewendet · 2 Dienste neu gestartet · 0:41 gebraucht');
+  assert.deepEqual(plain(screen.todos.map((item) => item.key)), []);
+  assert.deepEqual(plain(calls.filter((call) => call.key === 'GET /api/diagnose')), []);
+});
+
+test('eine fehlgeschlagene Auswahl zeigt den Hinweis und Erneut starten geht zur Vorschau', async () => {
+  const { screen, shell } = await mount({ outcome: { ok: false, code: 'UFW_MISSING', stepId: '30', mode: 'apply-selection' } });
+  assert.equal(screen.failedHint, catalog['result.apply.failed_hint']);
+  assert.equal(screen.failedHint, 'Die neue Auswahl steht schon auf dem Node. Erneut versuchen fährt einen normalen Lauf mit demselben Paket.');
+  screen.retry();
+  assert.equal(shell.screen, 'preview');
+  assert.equal(shell.dir, 'back');
+});
+
+test('ohne Fehlschlag oder bei anderem Modus gibt es keinen Auswahl-Hinweis', async () => {
+  const ok = await mount({ outcome: { mode: 'apply-selection' } });
+  assert.equal(ok.screen.failedHint, '');
+  const redeploy = await mount({ outcome: { ok: false, code: 'UFW_MISSING', stepId: '30', mode: 'redeploy' } });
+  assert.equal(redeploy.screen.failedHint, '');
+});
