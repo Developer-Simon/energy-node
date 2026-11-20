@@ -2726,3 +2726,69 @@ func TestDeviceDetailCarriesCardRefs(t *testing.T) {
 		}
 	}
 }
+
+type commandObservation struct {
+	at       time.Time
+	uniqueID string
+	payload  string
+}
+
+func TestEntityCommandObserverSeesOnlySuccessfulCommands(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "shelly"},
+		Entity: registry.EntityInfo{UniqueID: "shelly_relay", Component: "switch", StateTopic: "state/shelly/relay", CommandTopic: "shelly/relay/0/set", PayloadOn: "ON", PayloadOff: "OFF"},
+	})
+	publisher := &recordingCommandPublisher{}
+	var observed []commandObservation
+	router := NewRouterWithDependencies(reg, nil, nil, nil, nil, publisher, nil, nil, RouterDependencies{
+		CommandObserver: func(at time.Time, uniqueID, payload string) {
+			observed = append(observed, commandObservation{at: at, uniqueID: uniqueID, payload: payload})
+		},
+	})
+
+	success := httptest.NewRecorder()
+	router.ServeHTTP(success, httptest.NewRequest(http.MethodPost, "/api/v1/entities/shelly_relay/command", strings.NewReader(`{"payload":"ON"}`)))
+	if success.Code != http.StatusOK {
+		t.Fatalf("success status %d: %s", success.Code, success.Body.String())
+	}
+	if len(observed) != 1 {
+		t.Fatalf("observer calls after success = %d, want 1", len(observed))
+	}
+	if observed[0].uniqueID != "shelly_relay" || observed[0].payload != "ON" || observed[0].at.IsZero() {
+		t.Fatalf("observation = %#v, want shelly_relay, ON and a timestamp", observed[0])
+	}
+
+	// The entity is still pending, so a second command is rejected with a
+	// conflict and must not reach the observer.
+	conflict := httptest.NewRecorder()
+	router.ServeHTTP(conflict, httptest.NewRequest(http.MethodPost, "/api/v1/entities/shelly_relay/command", strings.NewReader(`{"payload":"OFF"}`)))
+	if conflict.Code != http.StatusConflict {
+		t.Fatalf("conflict status %d, want %d", conflict.Code, http.StatusConflict)
+	}
+	if len(observed) != 1 {
+		t.Fatalf("observer calls after conflict = %d, want still 1", len(observed))
+	}
+}
+
+func TestEntityCommandObserverSkippedWhenPublishFails(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "shelly"},
+		Entity: registry.EntityInfo{UniqueID: "shelly_relay", Component: "switch", StateTopic: "state/shelly/relay", CommandTopic: "shelly/relay/0/set", PayloadOn: "ON", PayloadOff: "OFF"},
+	})
+	publisher := &recordingCommandPublisher{err: errors.New("broker unavailable")}
+	calls := 0
+	router := NewRouterWithDependencies(reg, nil, nil, nil, nil, publisher, nil, nil, RouterDependencies{
+		CommandObserver: func(time.Time, string, string) { calls++ },
+	})
+
+	failure := httptest.NewRecorder()
+	router.ServeHTTP(failure, httptest.NewRequest(http.MethodPost, "/api/v1/entities/shelly_relay/command", nil))
+	if failure.Code != http.StatusBadGateway {
+		t.Fatalf("publish failure status %d, want %d", failure.Code, http.StatusBadGateway)
+	}
+	if calls != 0 {
+		t.Fatalf("observer calls after failed publish = %d, want 0", calls)
+	}
+}
