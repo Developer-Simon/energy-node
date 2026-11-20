@@ -366,3 +366,22 @@ func TestParseDocRejectsAThresholdThatIsNeitherNumberNorReference(t *testing.T) 
 		t.Fatal("ParseDoc accepted a text threshold")
 	}
 }
+
+// An object without a non empty learned text is not a reference. A numeric
+// field rejects it, and start ignores it without storing anything.
+func TestParseDocDoesNotTakeAnObjectWithoutLearnedKeyAsReference(t *testing.T) {
+	_, err := ParseDoc([]byte(`{"rules":[{"id":"r","name":"R","enabled":true,` +
+		`"conditions":[{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":{"min":1}}],"actions":[]}]}`))
+	if err == nil {
+		t.Fatal("ParseDoc accepted a threshold object without learned")
+	}
+
+	doc, err := ParseDoc([]byte(`{"rules":[{"id":"r","name":"R","enabled":true,` +
+		`"conditions":[{"type":"time_window","start":{"min":1},"end":"08:00"}],"actions":[]}]}`))
+	if err != nil {
+		t.Fatalf("ParseDoc: %v", err)
+	}
+	if c := doc.Rules[0].Conditions[0]; c.Learned != nil {
+		t.Errorf("Learned = %+v, want none", c.Learned)
+	}
+}

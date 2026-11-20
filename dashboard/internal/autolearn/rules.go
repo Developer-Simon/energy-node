@@ -249,14 +249,17 @@ func number(raw json.RawMessage, name string, learned map[string]LearnedRef) (*f
 
 // learnedRef records raw under name when it is a learned reference and reports
 // whether it was one.
+// An object is a reference only with a non empty text under learned, as the
+// service's is_ref reads it. Any other object is not stored, so the numeric
+// fields reject it and start and end ignore it.
 func learnedRef(raw json.RawMessage, name string, learned map[string]LearnedRef) (bool, error) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 || trimmed[0] != '{' {
 		return false, nil
 	}
 	var ref wireLearnedRef
-	if err := json.Unmarshal(trimmed, &ref); err != nil {
-		return false, fmt.Errorf("%s: %w", name, err)
+	if err := json.Unmarshal(trimmed, &ref); err != nil || ref.Learned == "" {
+		return false, nil
 	}
 	learned[name] = LearnedRef{Key: ref.Learned, Min: ref.Min, Max: ref.Max, Fallback: ref.Fallback,
 		Offset: ref.Offset, MaxAgeS: ref.MaxAgeS}

@@ -283,6 +283,8 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
             errors.append(f"{prefix}: value must be a number")
         result.setdefault("hold_seconds", 0)
     _learned_field(result, "hold_seconds", prefix, errors)
+    if "hold_seconds" in result and not is_ref(result["hold_seconds"]) and not _number(result["hold_seconds"]):
+        errors.append(f"{prefix}: hold_seconds must be a number or a learned value")
     return result
 
 
@@ -387,7 +389,8 @@ def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]
                 floor = cond["hold_seconds"].get("min")
                 too_short = _number(floor) and floor < min_interval
             else:
-                too_short = "hold_seconds" in cond and cond["hold_seconds"] < min_interval
+                too_short = "hold_seconds" in cond and _number(cond["hold_seconds"]) \
+                    and cond["hold_seconds"] < min_interval
             if too_short:
                 errors.append(f"{prefix}.condition[{i}]: hold_seconds must be >= {min_interval:g} for a rule with a publish action")
         if result["repeat_seconds"] > 0 and result["repeat_seconds"] < min_interval:

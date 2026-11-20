@@ -2266,3 +2266,27 @@ def test_learned_hold_seconds_on_time_window_waits_the_learned_time():
     assert held_at(start) is False
     assert held_at(start + 119) is False
     assert held_at(start + 120) is True
+
+
+@pytest.mark.parametrize("hold", ["60", {"min": 60}, [60], True])
+def test_hold_seconds_that_is_neither_number_nor_reference_is_an_error(hold):
+    cond = {"type": "balance_threshold", "field": "grid_export", "comparison": "above",
+            "threshold": 5, "hold_seconds": hold}
+    errors = []
+    automation._validate_condition(cond, 0, errors)
+    assert errors == ["condition[0]: hold_seconds must be a number or a learned value"]
+
+
+@pytest.mark.parametrize("hold", ["60", {"min": 60}, [60]])
+def test_malformed_hold_seconds_on_a_publish_rule_is_reported_not_raised(hold):
+    rule = {
+        "id": "r1", "enabled": True, "cooldown_seconds": 60,
+        "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above",
+                        "threshold": 5, "hold_seconds": hold}],
+        "actions": [{"type": "publish", "topic": "outstation/x/set",
+                     "payload_source": "constant", "payload": "1"}],
+    }
+    errors = []
+    automation._validate_rule(rule, 0, errors, set(), 30)
+    assert "condition[0]: hold_seconds must be a number or a learned value" in errors[0]
+    assert len(errors) == 1
