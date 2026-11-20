@@ -30,8 +30,8 @@ from energy_node_common.slave import Slave
 import ha_template
 import regulator
 import sun
-from learned import (LEARNABLE, cond_learned_keys, field_kind, is_ref, learned_topic, resolve_condition,
-                     state_value, validate_ref)
+from learned import (LEARNABLE, LEARNED_KEY_RE, cond_learned_keys, field_kind, is_ref, learned_topic,
+                     resolve_condition, state_value, validate_ref)
 
 LOG = logging.getLogger("automation_mqtt")
 
@@ -241,6 +241,8 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
         for key in ("learned", "equals", "fallback"):
             if not isinstance(result.get(key), str) or not result[key]:
                 errors.append(f"{prefix}: {key} must be a non-empty text")
+        if isinstance(result.get("learned"), str) and LEARNED_KEY_RE.fullmatch(result["learned"]) is None:
+            errors.append(f"{prefix}: learned must be a key like site/house_state")
         if "max_age_s" in result and not _is_positive_number(result["max_age_s"]):
             errors.append(f"{prefix}: max_age_s must be a number above 0")
         result.setdefault("hold_seconds", 0)

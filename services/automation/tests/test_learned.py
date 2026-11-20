@@ -124,3 +124,37 @@ def test_cond_learned_keys_collects_state_and_field_refs():
     }
     assert learned.cond_learned_keys(cond) == {"site/house_state", "device/pump_1/usual_on"}
     assert learned.cond_learned_keys({"type": "chain_value", "field": "x"}) == set()
+
+
+def test_resolve_ref_survives_deeply_nested_payload():
+    ref = {"learned": "device/pump_1/usual_runtime_s", "min": 0, "max": 100, "fallback": 50}
+    payload = "[" * 100000 + "]" * 100000
+    assert learned.resolve_ref(ref, "number", payload, 1794000060) == (50, "fallback")
+
+
+def test_resolve_ref_survives_integer_too_large_for_float():
+    ref = {"learned": "device/pump_1/usual_runtime_s", "min": 0, "max": 100, "fallback": 50}
+    payload = '{"value":' + "9" * 400 + ',"at":1794000000}'
+    assert learned.resolve_ref(ref, "number", payload, 1794000060) == (50, "fallback")
+
+
+def test_state_value_survives_pathological_payloads():
+    cond = {"type": "learned_state", "learned": "site/house_state", "equals": "quiet", "fallback": "active"}
+    topic = learned.learned_topic("site/house_state")
+    for payload in ("[" * 100000 + "]" * 100000, '{"value":"quiet","n":1,"at":' + "9" * 400 + "}"):
+        assert learned.state_value(cond, {topic: payload}, 1794000060) == ("active", "fallback")
+
+
+@pytest.mark.parametrize("value", ['5', '""'])
+def test_state_value_fresh_payload_with_non_text_or_empty_value_is_fallback(value):
+    cond = {"type": "learned_state", "learned": "site/house_state", "equals": "quiet", "fallback": "active"}
+    payload = '{"value":' + value + ',"n":3,"at":1794000000}'
+    topic = learned.learned_topic("site/house_state")
+    assert learned.state_value(cond, {topic: payload}, 1794000060) == ("active", "fallback")
+
+
+def test_hold_seconds_may_be_learned_on_time_window_and_sun_window():
+    hold = {"learned": "site/hold_s", "min": 60, "max": 600, "fallback": 300}
+    assert learned.cond_learned_keys({"type": "time_window", "hold_seconds": hold}) == {"site/hold_s"}
+    assert learned.cond_learned_keys({"type": "sun_window", "hold_seconds": hold}) == {"site/hold_s"}
+    assert learned.cond_learned_keys({"type": "chain_finding", "hold_seconds": hold}) == set()

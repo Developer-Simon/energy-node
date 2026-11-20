@@ -25,7 +25,8 @@ LEARNABLE = {
     "balance_threshold": ("threshold", "hold_seconds"),
     "topic_value": ("value", "hold_seconds"),
     "entity_value": ("value", "hold_seconds"),
-    "time_window": ("start", "end"),
+    "time_window": ("start", "end", "hold_seconds"),
+    "sun_window": ("hold_seconds",),
     "learned_state": ("hold_seconds",),
 }
 
@@ -49,7 +50,13 @@ def learned_topic(key: str) -> str:
 
 
 def _is_number(value) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        # Ganzzahlen mit mehr als rund 308 Stellen passen nicht in ein float.
+        return False
 
 
 def _clock_minutes(value) -> Optional[int]:
@@ -124,7 +131,8 @@ def _fresh_value(payload: Optional[str], kind: str, now_ts: float, max_age_s: fl
         return None
     try:
         data = json.loads(payload)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, RecursionError, OverflowError):
+        # Verschachteltes JSON kann den Parser an die Rekursionsgrenze bringen.
         return None
     if not isinstance(data, dict):
         return None

@@ -2237,3 +2237,32 @@ def test_required_topics_includes_the_learned_topics_of_rules():
     topics = service.required_topics(doc)
     assert LEARNED_GRID_LIMIT in topics
     assert LEARNED_HOUSE in topics
+
+
+def test_validation_accepts_learned_hold_seconds_on_windows_and_rejects_bad_learned_state_key():
+    hold = {"learned": "site/hold_s", "min": 60, "max": 600, "fallback": 300}
+    for cond in ({"type": "time_window", "start": "08:00", "end": "09:00", "weekdays": [], "hold_seconds": hold},
+                 {"type": "sun_window", "from": "sunrise", "to": "sunset", "hold_seconds": hold}):
+        errors = []
+        automation._validate_condition(cond, 0, errors)
+        assert errors == [], cond["type"]
+
+    errors = []
+    automation._validate_condition({"type": "learned_state", "learned": "../x", "equals": "quiet",
+                                    "fallback": "active"}, 0, errors)
+    assert errors
+
+
+def test_learned_hold_seconds_on_time_window_waits_the_learned_time():
+    hold = {"learned": "site/hold_s", "min": 60, "max": 600, "fallback": 300}
+    cond = {"type": "time_window", "start": "08:00", "end": "09:00", "weekdays": [], "hold_seconds": hold}
+    topics = {LEARNED_HOLD: _learned_payload(120, at=_timestamp_at(8, 0, weekday=0))}
+    runtimes = [automation.ConditionRuntime()]
+
+    def held_at(now_ts):
+        return _met([cond], topic_values=topics, now_ts=now_ts, runtimes=runtimes).all_held
+
+    start = _timestamp_at(8, 0, weekday=0)
+    assert held_at(start) is False
+    assert held_at(start + 119) is False
+    assert held_at(start + 120) is True
