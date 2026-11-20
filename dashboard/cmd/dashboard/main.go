@@ -510,6 +510,7 @@ func main() {
 	} {
 		automationEngine.Register(det)
 	}
+	registerLearnDetectors(automationEngine)
 	engineGroups := func() map[string]bool {
 		value, err := settingsStore.LoadSettings()
 		if err != nil {

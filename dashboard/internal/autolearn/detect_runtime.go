@@ -58,24 +58,17 @@ func runtimeRun(ctx context.Context, in *Input, device string) []Candidate {
 	if loc == nil {
 		loc = time.Local
 	}
-	var runs []Run
-	for _, r := range runsIn(in.Days, loc) {
-		if r.Device == device && r.End.After(r.Start) {
-			runs = append(runs, r)
-		}
-	}
+	runs := runtimeRunsOf(in, device)
 	if len(runs) < runtimeMinOrdinary+runtimeMinForgotten {
 		return nil
 	}
 
-	logs := make([]float64, len(runs))
 	first, last := runs[0].Start, runs[0].End
-	for i, r := range runs {
-		logs[i] = math.Log(runtimeMinutes(r))
+	for _, r := range runs {
 		first = minTime(first, r.Start)
 		last = maxTime(last, r.End)
 	}
-	member, stats := runtimeClusters(logs)
+	member, stats := runtimeSplit(runs)
 
 	tallies := make([]runtimeTally, len(stats))
 	entities := make([][]string, len(stats))
@@ -85,7 +78,7 @@ func runtimeRun(ctx context.Context, in *Input, device string) []Candidate {
 		st := stats[g]
 		t := &tallies[g]
 		entities[g] = append(entities[g], r.Entity)
-		if r.EndOrigin == OriginRule || dur <= math.Exp(st.m+runtimeForgetSigma*st.s) {
+		if runtimeOrdinary(r, st) {
 			t.ordinary++
 			continue
 		}
@@ -111,6 +104,36 @@ func runtimeRun(ctx context.Context, in *Input, device string) []Candidate {
 		return nil
 	}
 	return []Candidate{runtimeCandidate(device, dominantEntity(entities[best]), stats[best], tallies[best], weeks)}
+}
+
+// runtimeRunsOf returns the finished runs of one device.
+func runtimeRunsOf(in *Input, device string) []Run {
+	loc := in.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	var runs []Run
+	for _, r := range runsIn(in.Days, loc) {
+		if r.Device == device && r.End.After(r.Start) {
+			runs = append(runs, r)
+		}
+	}
+	return runs
+}
+
+// runtimeSplit clusters the log durations of the runs, see runtimeClusters.
+func runtimeSplit(runs []Run) (member []int, stats []runtimeStat) {
+	logs := make([]float64, len(runs))
+	for i, r := range runs {
+		logs[i] = math.Log(runtimeMinutes(r))
+	}
+	return runtimeClusters(logs)
+}
+
+// runtimeOrdinary reports whether a run is not forgotten: it ended by a rule, or
+// it lasted no longer than the forget limit of its cluster.
+func runtimeOrdinary(r Run, st runtimeStat) bool {
+	return r.EndOrigin == OriginRule || runtimeMinutes(r) <= math.Exp(st.m+runtimeForgetSigma*st.s)
 }
 
 // runtimeMinutes is the length of a run in minutes.
@@ -246,4 +269,61 @@ func maxTime(a, b time.Time) time.Time {
 		return b
 	}
 	return a
+}
+
+// LearnRuntimeDetector learns the usual runtime of a device. It is the cluster
+// with the most ordinary runs, from runtimeMinOrdinary runs on.
+var LearnRuntimeDetector = Detector{
+	Name:      "learn_runtime",
+	Group:     "habit",
+	Light:     false,
+	PerDevice: true,
+	Run:       learnRuntimeRun,
+}
+
+// runtimeLearnRoundSec is the step in seconds of the learned usual runtime.
+const runtimeLearnRoundSec = 60.0
+
+// learnRuntimeRun returns usual_runtime_s, the median of the cluster with the
+// most ordinary runs, rounded to 60 seconds.
+func learnRuntimeRun(ctx context.Context, in *Input, device string) []Candidate {
+	if ctx.Err() != nil {
+		return nil
+	}
+	runs := runtimeRunsOf(in, device)
+	if len(runs) < runtimeMinOrdinary {
+		return nil
+	}
+	member, stats := runtimeSplit(runs)
+	ordinary := make([]int, len(stats))
+	for i, r := range runs {
+		g := member[i]
+		if runtimeOrdinary(r, stats[g]) {
+			ordinary[g]++
+		}
+	}
+	best := 0
+	for g := range ordinary {
+		if ordinary[g] > ordinary[best] {
+			best = g
+		}
+	}
+	if ordinary[best] < runtimeMinOrdinary {
+		return nil
+	}
+	// The log durations are in minutes, the value is in seconds.
+	sec := math.Round(math.Exp(stats[best].m)*60/runtimeLearnRoundSec) * runtimeLearnRoundSec
+	return []Candidate{{
+		Detector: "learn_runtime",
+		NEff:     float64(ordinary[best]),
+		MinNEff:  runtimeMinOrdinary,
+		Value: &Value{
+			Key:    "device/" + device + "/usual_runtime_s",
+			Device: device,
+			Kind:   ValueDuration,
+			Group:  "habit",
+			Num:    sec,
+			N:      ordinary[best],
+		},
+	}}
 }

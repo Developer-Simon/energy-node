@@ -269,9 +269,33 @@ func (e *Engine) record(now time.Time, limits learnrec.Limits, work []pending, d
 	}
 }
 
-// Candidates returns the candidates of the last run of every detector, in the
-// order of the detector names.
+// Candidates returns the findings of the last run of every detector, in the
+// order of the detector names. Learned values are left out, see Values.
 func (e *Engine) Candidates() []Candidate {
+	var out []Candidate
+	for _, c := range e.lastInOrder() {
+		if c.Value == nil {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// Values returns the learned values of the last run of every detector, in the
+// order of the detector names.
+func (e *Engine) Values() []Value {
+	var out []Value
+	for _, c := range e.lastInOrder() {
+		if c.Value != nil {
+			out = append(out, *c.Value)
+		}
+	}
+	return out
+}
+
+// lastInOrder returns the candidates of the last run of every detector, in the
+// order of the detector names.
+func (e *Engine) lastInOrder() []Candidate {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	names := make([]string, 0, len(e.last))
