@@ -4048,7 +4048,7 @@
   "settings.learning.exclude.title": "Exclude devices",
   "settings.learning.keep_all": "Keep all",
   "settings.learning.note": "Learning features compute all the time. On weak hardware you can switch them off here.",
-  "settings.learning.pill_new": "new, on",
+  "settings.learning.pill_new": "newly on",
   "settings.learning.record.days": "Keep profiles",
   "settings.learning.record.note": "Chains and automations share one recording. Each value is written only once.",
   "settings.learning.record.reset": "Delete learned data",
