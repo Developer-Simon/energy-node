@@ -288,7 +288,7 @@
        Der x-effect vergleicht gegen $el.open, weil showModal() auf einem
        offenen Dialog InvalidStateError wirft und Escape den Dialog nativ
        schliesst, bevor der cancel-Handler open = false setzt. -->
-  <dialog class="app-modal" x-data aria-labelledby="app-modal-title"
+  <dialog class="app-modal app-modal-alert" x-data aria-labelledby="app-modal-title"
           x-effect="if ($store.modal.open !== $el.open) $store.modal.open ? $el.showModal() : $el.close()"
           x-on:cancel="$store.modal.resolve(false)"
           x-on:click="if ($event.target === $el) $store.modal.resolve(false)"

@@ -1256,7 +1256,7 @@ div.devicemap-view-menu-row { cursor: default; }
 
 /* Device picker (device-picker.js): a modal sheet with search, sections per
    manufacturer and a check mark per row. */
-.app-modal.device-picker { width: min(30rem, calc(100vw - 2rem)); padding: 0; border-left-width: 1px; border-radius: var(--radius-lg); overflow: hidden; }
+.app-modal.device-picker { width: min(30rem, calc(100vw - 2rem)); padding: 0; }
 /* Flex statt fester Grid-Zeilen: die Filterzeile ist optional, eine feste
    Zeilenliste liess sie auf 0 schrumpfen und die Liste lag ueber den Chips. */
 .device-picker-form { display: flex; flex-direction: column; max-height: min(40rem, calc(100vh - 4rem)); }
@@ -1313,6 +1313,7 @@ div.devicemap-view-menu-row { cursor: default; }
 .devicemap-dialog-hint { margin: 0; font-size: .84rem; line-height: 1.45; color: var(--text-muted); }
 .devicemap-dialog .devicemap-panel-field { gap: 6px; }
 .devicemap-dialog .devicemap-panel-field input { padding: .6rem .7rem; }
+.devicemap-dialog .devicemap-panel-field input, .devicemap-dialog .devicemap-panel-field select { border-radius: var(--radius-sm); }
 .devicemap-dialog .app-modal-actions { margin-top: .6rem; }
 @media (max-width: 480px) {
   .devicemap-dialog .app-modal-actions > button { flex: 1 1 0; }

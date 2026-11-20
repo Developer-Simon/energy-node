@@ -96,6 +96,9 @@
   --layout-ease: cubic-bezier(.32, .72, 0, 1);
   /* Bewegung AUF dem Schirm (Umbruch, Zielbreitenwechsel) - nicht Ein/Austritt. */
   --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+  --modal-edge: rgba(255, 255, 255, .14);
+  --modal-shadow: 0 1.75rem 3.5rem -.75rem rgba(0, 0, 0, .55), 0 .3rem .9rem rgba(0, 0, 0, .3);
+  --modal-scrim: rgba(0, 0, 0, .5);
 }
 
 :root[data-theme="stromblau"] {
@@ -231,6 +234,9 @@
   --series-4: #8c4fc4;
   --series-5: #4a8f2f;
   --series-6: #8a5f0f;
+  --modal-edge: rgba(255, 255, 255, .9);
+  --modal-shadow: 0 1.75rem 3.5rem -.75rem rgba(16, 24, 32, .28), 0 .3rem .9rem rgba(16, 24, 32, .12);
+  --modal-scrim: rgba(20, 26, 34, .32);
 }
 
 body { font-family: system-ui, sans-serif; padding: 2rem 1.5rem; background: var(--bg); color: var(--text); }
@@ -1185,42 +1191,6 @@ table.energy-board-table tr.is-stale td { color: var(--text-faint); }
 .update-bar-button.is-primary { border-color: var(--accent-line); background: var(--accent-bg); color: var(--accent); }
 .update-bar-button.is-ok { border-color: color-mix(in srgb, var(--ok) 50%, transparent); background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
 .update-bar-link { color: var(--accent); font-size: .82rem; text-decoration: none; white-space: nowrap; }
-/* Sheet wie der Geraete-Picker (manager.css .device-picker): Kopf, scrollende
-   Kachelliste und Knopfleiste als eigene Stufen ohne Innenabstand des Dialogs. */
-.app-modal.update-bar-modal { width: min(40rem, calc(100vw - 2rem)); padding: 0; border-left-width: 1px; border-radius: var(--radius-lg); overflow: hidden; }
-/* Neuerungen-Dialog: fliegt von unten ein (ease-out, das Oeffnen ist langsamer als das
-   Schliessen, der Weg ist derselbe). Der Scrim blendet mit einem weichen Blur ein.
-   Bewegungsarm: nur Ueberblenden. */
-.update-bar-modal::backdrop { background: rgba(0, 0, 0, .72); }
-@media (prefers-reduced-motion: no-preference) {
-  .app-modal.update-bar-modal { opacity: 0; transform: translateY(2.5rem) scale(.96); transition: opacity .16s ease, transform .2s var(--ease-out), overlay .2s allow-discrete, display .2s allow-discrete; }
-  .app-modal.update-bar-modal[open] { opacity: 1; transform: none; transition: opacity .24s var(--ease-out), transform .36s var(--ease-out), overlay .36s allow-discrete, display .36s allow-discrete; }
-  @starting-style { .app-modal.update-bar-modal[open] { opacity: 0; transform: translateY(2.5rem) scale(.96); } }
-  .update-bar-modal::backdrop { background: rgba(0, 0, 0, 0); backdrop-filter: blur(0); transition: background .2s ease, backdrop-filter .2s ease, overlay .2s allow-discrete, display .2s allow-discrete; }
-  .update-bar-modal[open]::backdrop { background: rgba(0, 0, 0, .55); backdrop-filter: blur(8px); transition-duration: .3s; }
-  @starting-style { .update-bar-modal[open]::backdrop { background: rgba(0, 0, 0, 0); backdrop-filter: blur(0); } }
-}
-@media (prefers-reduced-motion: reduce) {
-  .app-modal.update-bar-modal { opacity: 0; transition: opacity .2s ease, overlay .2s allow-discrete, display .2s allow-discrete; }
-  .app-modal.update-bar-modal[open] { opacity: 1; }
-  @starting-style { .app-modal.update-bar-modal[open] { opacity: 0; } }
-}
-/* Inhalt des Dialogs: scrollt, die Knopfleiste darunter bleibt stehen. */
-.app-modal.update-bar-modal[open] { display: flex; flex-direction: column; max-height: calc(100vh - 2rem); }
-.whatsnew-head { flex: 0 0 auto; display: grid; gap: .2rem; padding: 1.1rem 1.25rem .75rem; }
-.whatsnew-head .app-modal-title { margin: 0; }
-.whatsnew-head .setting-note { margin: .1rem 0 0; }
-.update-bar-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; gap: .6rem; align-content: start; padding: .25rem 1.25rem 1rem; overscroll-behavior: contain; }
-.update-bar-modal-body > p { margin: 0; }
-.whatsnew-empty { color: var(--text-muted); font-size: .88rem; }
-.update-bar-modal .app-modal-actions { flex: 0 0 auto; padding: .75rem 1.25rem 1rem; border-top: 1px solid var(--border-soft); }
-/* Eine Kachel je Komponente, angelehnt an die Geraetekarte (.compact-card). */
-.whatsnew-tile { display: grid; gap: .55rem; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--panel-alt); }
-.whatsnew-tile-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .6rem; }
-.whatsnew-tile-icon { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 9px; background: var(--accent-bg); color: var(--accent); }
-.whatsnew-tile-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.whatsnew-tile-title { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: .92rem; color: var(--text-strong); }
-.whatsnew-tile .release-entries { border-top: 1px solid var(--border-soft); padding-top: .45rem; }
 /* Neuerungen: Versionsmarken und Eintraege, auch von der Versionsseite genutzt. */
 .version-tag { color: var(--text-strong); font-variant-numeric: tabular-nums; font-weight: 600; font-size: .9rem; }
 .version-chip {
@@ -1423,21 +1393,59 @@ dialog.device-detail::backdrop { background: rgba(0, 0, 0, .72); }
 dialog#device-modal { padding: 0; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
 dialog#device-modal[open] { display: flex; flex-direction: column; height: calc(100vh - 2rem); height: min(56rem, calc(100dvh - 2rem)); }
 dialog#device-modal .device-modal-scrollarea { flex: 1 1 auto; min-height: 0; overflow: auto; }
-.app-modal { width: min(32rem, calc(100vw - 2rem)); box-sizing: border-box; margin: auto; padding: 1.25rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--panel); color: var(--text); }
-.app-modal.app-modal-danger { border-left-color: var(--bad); }
-.app-modal::backdrop { background: rgba(0, 0, 0, .72); }
-.app-modal-title { margin: 0 0 .5rem; font-size: 1.05rem; }
+/* Basis aller Dialoge (app-modal): Glasmaterial mit Lichtkante oben und
+   Schatten. Ohne Zusatz ein Sheet, mit .app-modal-alert ein kompakter Hinweis. */
+.app-modal { width: min(32rem, calc(100vw - 2rem)); box-sizing: border-box; margin: auto; padding: 1.25rem; color: var(--text);
+  border: 1px solid var(--border-soft); border-top-color: var(--modal-edge); border-radius: var(--radius-lg);
+  background: var(--panel); background: color-mix(in srgb, var(--panel) 84%, transparent);
+  backdrop-filter: blur(24px) saturate(160%); -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: var(--modal-shadow); overflow: hidden; }
+.app-modal::backdrop { background: var(--modal-scrim); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.app-modal.app-modal-alert { width: min(21rem, calc(100vw - 2rem)); padding: 1.4rem 1.25rem 1.1rem; text-align: center; }
+.app-modal-title { margin: 0 0 .5rem; font-size: 1.1rem; font-weight: 650; letter-spacing: -.01em; color: var(--text-strong); }
 .app-modal-body { margin: 0 0 1rem; color: var(--text-subtle); }
 .app-modal-actions { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
-.app-modal-danger-button { background: var(--bad-bg); border: 1px solid var(--bad); color: var(--bad); border-radius: 3px; padding: .55rem .9rem; cursor: pointer; }
+.app-modal .app-modal-actions > button { border-radius: var(--radius-sm); }
+.app-modal-alert .app-modal-title { margin-bottom: .5rem; }
+.app-modal-alert .app-modal-body { font-size: .92rem; line-height: 1.5; margin-bottom: 1.25rem; }
+.app-modal-alert .app-modal-actions { display: grid; grid-template-columns: 1fr 1fr; }
+.app-modal-danger-button { background: var(--bad-bg); border: 1px solid var(--bad); color: var(--bad); border-radius: var(--radius-sm); padding: .55rem .9rem; cursor: pointer; }
 .app-modal-danger-button:hover:not(:disabled) { border-color: var(--bad); color: var(--bad); }
 /* Ein- und Ausblenden nur, wenn der Nutzer Bewegung nicht abbestellt hat.
    overlay/display brauchen allow-discrete, weil der Top-Layer sonst
    sofort umschaltet und die Opacity-Transition verschluckt. */
 @media (prefers-reduced-motion: no-preference) {
-  .app-modal { opacity: 0; transition: opacity .18s ease, overlay .18s allow-discrete, display .18s allow-discrete; }
+  .app-modal .app-modal-actions > button { transition: background .15s ease, border-color .15s ease, color .15s ease, transform .16s var(--ease-out); }
+  .app-modal .app-modal-actions > button:active:not(:disabled) { transform: scale(.97); transition-duration: .15s, .15s, .15s, .1s; }
+  .app-modal::backdrop { background: rgba(0, 0, 0, 0); backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0);
+    transition: background .2s ease, backdrop-filter .2s ease, overlay .2s allow-discrete, display .2s allow-discrete; }
+  .app-modal[open]::backdrop { background: var(--modal-scrim); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition-duration: .3s; }
+  @starting-style { .app-modal[open]::backdrop { background: rgba(0, 0, 0, 0); backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); } }
+  /* Sheet: steigt von unten auf, schliesst auf demselben Weg schneller */
+  .app-modal { opacity: 0; transform: translateY(3rem) scale(.98);
+    transition: opacity .16s ease, transform .22s var(--ease-out), overlay .22s allow-discrete, display .22s allow-discrete; }
+  .app-modal[open] { opacity: 1; transform: none;
+    transition: opacity .24s var(--ease-out), transform .4s var(--layout-ease), overlay .4s allow-discrete, display .4s allow-discrete; }
+  @starting-style { .app-modal[open] { opacity: 0; transform: translateY(3rem) scale(.98); } }
+  /* Hinweis: waechst leicht auf */
+  .app-modal.app-modal-alert { transform: scale(.94);
+    transition: opacity .14s ease, transform .16s var(--ease-out), overlay .16s allow-discrete, display .16s allow-discrete; }
+  .app-modal.app-modal-alert[open] { transform: none;
+    transition: opacity .18s var(--ease-out), transform .24s var(--ease-out), overlay .24s allow-discrete, display .24s allow-discrete; }
+  @starting-style { .app-modal.app-modal-alert[open] { opacity: 0; transform: scale(.94); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-modal { opacity: 0; transition: opacity .2s ease, overlay .2s allow-discrete, display .2s allow-discrete; }
   .app-modal[open] { opacity: 1; }
   @starting-style { .app-modal[open] { opacity: 0; } }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .app-modal { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .app-modal[open]::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0, 0, 0, .6); }
+}
+@media (prefers-contrast: more) {
+  .app-modal { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-color: var(--text-muted); }
+  .app-modal[open]::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(0, 0, 0, .6); }
 }
 .device-detail-header { display: flex; gap: 1rem; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
 .device-detail-header h3 { margin: 0; color: var(--accent); }
