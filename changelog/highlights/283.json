@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Automationen schlagen Regeln aus erlernten Gewohnheiten vor und prüfen die Zuverlässigkeit"
+  },
+  "en": {
+    "*": "Suggest rules from learned habits and check rule reliability"
+  }
+}
