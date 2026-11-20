@@ -271,3 +271,56 @@ func TestHouseStateNeedsSevenComparisonDays(t *testing.T) {
 		t.Errorf("HouseState ok with 5 comparison days, want false")
 	}
 }
+
+func TestHouseStateQuietReachableWithZeroHandSpread(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	// On the comparison days a rule switches the heater on at 19:10 and off at
+	// 21:00. Rule events are no hand changes, so the hand count of the window of
+	// 19:00 to 22:00 is zero on every comparison day and its spread is zero too.
+	// Today has no such run and is quiet.
+	rules := []synthRule{
+		{RuleID: "r1", Device: "heater", On: true, Minute: 1150, Hit: 1},
+		{RuleID: "r2", Device: "heater", On: false, Minute: 1260, Hit: 1},
+	}
+	days := synthDays(start, 13, synthOpts{Seed: 11, Devices: []string{"heater"}, Rules: rules})
+	days = append(days, synthDays(start.AddDate(0, 0, 13), 1, synthOpts{Seed: 11, Devices: []string{"heater"}})...)
+	in := houseInput(t, days, time.Date(2026, 1, 18, 22, 0, 0, 0, loc))
+	state, _, ok := HouseState(in)
+	if !ok || state != "quiet" {
+		t.Errorf("HouseState = %q (ok %v), want quiet with zero hand spread", state, ok)
+	}
+}
+
+func TestHouseStateSkipsDaysWithoutType(t *testing.T) {
+	loc := berlinLoc(t)
+	days := houseDays(t, 13, nil)
+	in := houseInput(t, days, time.Date(2026, 1, 18, 22, 0, 0, 0, loc))
+	for _, f := range days[:3] {
+		delete(in.Base.DayType, f.Day)
+	}
+	_, n, ok := HouseState(in)
+	if !ok || n != 10 {
+		t.Errorf("comparison days = %d (ok %v), want 10 without the three untyped days", n, ok)
+	}
+}
+
+func TestLearnDayBoundsSkipsDaysWithoutType(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	days := synthDays(start, 14, synthOpts{
+		Seed:    11,
+		Devices: []string{"light"},
+		Habits: []synthHabit{
+			{Device: "light", On: true, Minute: 390, Hit: 1},
+			{Device: "light", On: false, Minute: 1380, Hit: 1},
+		},
+	})
+	in := &Input{Now: start.AddDate(0, 0, 14), Loc: loc, Days: days, Base: BuildBase(days, loc)}
+	delete(in.Base.DayType, days[0].Day)
+	vals := learnedValues(LearnDayBoundsDetector.Run(context.Background(), in, ""))
+	v, ok := learnedValueFor(vals, "site/day_start")
+	if !ok || v.N != 13 {
+		t.Errorf("day_start = %+v (ok %v), want N 13 without the untyped day", v, ok)
+	}
+}

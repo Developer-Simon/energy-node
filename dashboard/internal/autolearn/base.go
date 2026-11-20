@@ -463,7 +463,7 @@ const houseMinDays = 7
 // HouseState tells whether the house was quiet over the last three hours. It
 // measures the three quantities of baseAway over that window and compares them
 // with the same window on the days of the day type of today. The state is
-// quiet when all three lie more than baseQuietSigma spreads below the median
+// quiet when all three lie at least baseQuietSigma spreads below the median
 // and no hand changed a device in the window, otherwise active. ok is false
 // without today's data or with fewer than houseMinDays comparison days.
 func HouseState(in *Input) (state string, n int, ok bool) {
@@ -489,7 +489,10 @@ func HouseState(in *Input) (state string, n int, ok bool) {
 	var es, hs, us []float64
 	for i := range in.Days {
 		f := &in.Days[i]
-		if f.Day == day.Format(dayLayout) || in.Base.DayType[f.Day] != g {
+		if f.Day == day.Format(dayLayout) {
+			continue
+		}
+		if dg, ok := in.Base.DayType[f.Day]; !ok || dg != g {
 			continue
 		}
 		t, err := time.ParseInLocation(dayLayout, f.Day, loc)
@@ -508,7 +511,7 @@ func HouseState(in *Input) (state string, n int, ok bool) {
 		return "", len(es), false
 	}
 	below := func(v float64, xs []float64) bool {
-		return v < Median(xs)-baseQuietSigma*MADScale(xs)
+		return v <= Median(xs)-baseQuietSigma*MADScale(xs)
 	}
 	quiet := cur.h == 0 && below(cur.e, es) && below(cur.h, hs) && below(cur.u, us)
 	if quiet {

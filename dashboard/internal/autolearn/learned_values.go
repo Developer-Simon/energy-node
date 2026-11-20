@@ -67,7 +67,7 @@ func learnDayBoundsRun(ctx context.Context, in *Input, _ string) []Candidate {
 	today := in.Now.In(loc).Format(dayLayout)
 	n := 0
 	for _, f := range in.Days {
-		if f.Day != today && in.Base.DayType[f.Day] == g {
+		if dg, ok := in.Base.DayType[f.Day]; f.Day != today && ok && dg == g {
 			n++
 		}
 	}
