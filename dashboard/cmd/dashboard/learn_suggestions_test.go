@@ -85,3 +85,36 @@ func TestSuggestionBookDismissHidesAndKeepsKnown(t *testing.T) {
 		t.Fatalf("undone suggestion not visible: %+v", got)
 	}
 }
+
+func TestSuggestionUndoWorksAfterRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "suggestions.json")
+	state := autolearn.LoadSuggestionState(path, nil)
+	book := &suggestionBook{state: state}
+	gateSuggestions(book, fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, noRules, true, func(string) bool { return true }, time.Now())
+	if err := book.Dismiss("switchtime:a", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := book.Later("switchtime:b", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	// After a restart the list is empty until the next engine round.
+	restarted := &suggestionBook{state: autolearn.LoadSuggestionState(path, nil)}
+	for _, id := range []string{"switchtime:a", "switchtime:b"} {
+		if !restarted.Known(id) {
+			t.Fatalf("%s unknown after restart, undo would answer 404", id)
+		}
+	}
+	if restarted.Known("switchtime:never") {
+		t.Fatal("unknown ID reported as known")
+	}
+	if err := restarted.Undo("switchtime:a"); err != nil {
+		t.Fatal(err)
+	}
+	if restarted.state.Hidden("switchtime:a") {
+		t.Fatal("undo after restart did not bring the suggestion back")
+	}
+}

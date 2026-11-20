@@ -126,6 +126,18 @@ func (s *SuggestionState) Visible(all []Finding, now time.Time, exists func(devi
 	return out
 }
 
+// Hidden reports whether the state holds a dismissal or a postponement for the
+// finding. It needs no finding list, so it also works after a restart.
+func (s *SuggestionState) Hidden(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.dismissed[id] {
+		return true
+	}
+	_, ok := s.later[id]
+	return ok
+}
+
 // Shown returns a copy of what the suggestion band showed last time.
 func (s *SuggestionState) Shown() map[string]Shown {
 	s.mu.Lock()

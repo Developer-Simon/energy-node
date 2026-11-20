@@ -3,6 +3,7 @@ package autolearn
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -271,5 +272,18 @@ func TestSwitchTimeRuleEventsGiveNoCandidate(t *testing.T) {
 	}
 	if got := SwitchTimeDetector.Run(context.Background(), switchTimeInput(t, days), "lamp"); len(got) != 0 {
 		t.Errorf("rule events gave %d candidates, want 0", len(got))
+	}
+}
+
+func TestQuietSpreadNeverBelowFiveOrNaN(t *testing.T) {
+	cases := map[string]struct{ in, want float64 }{
+		"nan":   {math.NaN(), 5},
+		"small": {2, 5},
+		"large": {8, 8},
+	}
+	for name, c := range cases {
+		if got := quietSpread(c.in); got != c.want {
+			t.Errorf("%s: quietSpread(%v) = %v, want %v", name, c.in, got, c.want)
+		}
 	}
 }

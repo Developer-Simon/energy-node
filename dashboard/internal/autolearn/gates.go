@@ -214,7 +214,8 @@ var benefitMinimum = map[string]float64{
 // unit or a benefit below its minimum.
 func benefitKWh(b Benefit) (float64, bool) {
 	min, known := benefitMinimum[b.Unit]
-	if !known || b.Value < min {
+	// NaN fails the comparison, so it is dropped with the unknown units.
+	if !known || !(b.Value >= min) {
 		return 0, false
 	}
 	switch b.Unit {

@@ -268,9 +268,18 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 		Benefit:     benefit,
 		Values:      map[string]float64{"hit_rate": rate, "time": propMin},
 		// The quiet check never holds the shown time within less than 5 minutes.
-		Spread: map[string]float64{"time": math.Max(spread, 5)},
+		Spread: map[string]float64{"time": quietSpread(spread)},
 	}
 	return cand, true
+}
+
+// quietSpread is the spread of a shown time: never below 5 minutes, and 5 for
+// a NaN spread, which math.Max would pass on.
+func quietSpread(spread float64) float64 {
+	if math.IsNaN(spread) || spread < 5 {
+		return 5
+	}
+	return spread
 }
 
 // switchTimeCluster takes the events within three kernel widths of the peak and

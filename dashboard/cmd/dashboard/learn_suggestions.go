@@ -29,9 +29,13 @@ func (b *suggestionBook) Visible(now time.Time, exists func(device string) bool)
 	return b.state.Visible(all, now, exists)
 }
 
-// Known reports whether id is in the list of the last round. Dismissed
-// suggestions stay in it, so they can be undone.
+// Known reports whether id is in the list of the last round, or whether the
+// state holds it as dismissed or postponed. The second keeps undo working after
+// a restart, before the next round.
 func (b *suggestionBook) Known(id string) bool {
+	if b.state.Hidden(id) {
+		return true
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for _, f := range b.all {

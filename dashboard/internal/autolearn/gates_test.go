@@ -3,6 +3,7 @@ package autolearn
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"testing"
 )
 
@@ -246,5 +247,17 @@ func TestGateShowsStabilisedTime(t *testing.T) {
 	}
 	if got := out[0].Apply[0].Prefill["time"]; got != "22:50" {
 		t.Errorf("beyond spread: prefill time = %v, want 22:50", got)
+	}
+}
+
+func TestBenefitKWhDropsNaN(t *testing.T) {
+	if _, ok := benefitKWh(Benefit{Unit: "kwh_week", Value: math.NaN()}); ok {
+		t.Error("NaN kWh benefit passed the minimum")
+	}
+	if _, ok := benefitKWh(Benefit{Unit: "switches_day", Value: math.NaN()}); ok {
+		t.Error("NaN switches benefit passed the minimum")
+	}
+	if _, ok := benefitKWh(Benefit{Unit: "kwh_week", Value: 0.5}); !ok {
+		t.Error("benefit at the minimum was dropped")
 	}
 }
