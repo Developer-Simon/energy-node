@@ -75,8 +75,8 @@ func TestSwitchTimeOffAt2230IsHigh(t *testing.T) {
 	if c.Values["time"] != 1350 || c.Spread["time"] < 5 {
 		t.Errorf("Values[time] = %v, Spread[time] = %v, want 1350 and at least 5", c.Values["time"], c.Spread["time"])
 	}
-	if c.Finding.Device != "lamp" || len(c.Finding.Apply) != 1 || c.Finding.Apply[0].Template != "time_point" {
-		t.Errorf("apply = %+v, want one time_point fix for lamp", c.Finding.Apply)
+	if c.Finding.Device != "lamp" || len(c.Finding.Apply) != 2 || c.Finding.Apply[0].Template != "time_point" {
+		t.Errorf("apply = %+v, want a time_point fix and a learned one for lamp", c.Finding.Apply)
 	}
 	if c.Finding.Benefit == nil || c.Finding.Benefit.Unit != "actions_week" || c.Finding.Benefit.Value <= 0 {
 		t.Errorf("benefit = %+v, want actions_week above zero", c.Finding.Benefit)
@@ -385,5 +385,39 @@ func TestSwitchTimePrefillCarriesSwitchEntity(t *testing.T) {
 	p := got[0].Finding.Apply[0].Prefill
 	if p["device"] != "lamp" || p["entity"] != "switch.lamp" {
 		t.Errorf("prefill device and entity = %v and %v, want lamp and switch.lamp", p["device"], p["entity"])
+	}
+}
+
+func TestSwitchTimeCandidateOffersLearnedSecondApply(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	days := synthDays(start, 14, synthOpts{
+		Seed:    11,
+		Devices: []string{"lamp"},
+		Habits: []synthHabit{
+			{Device: "lamp", On: true, Minute: 1140, Spread: 0, Hit: 1},
+			{Device: "lamp", On: false, Minute: 1350, Spread: 8, Hit: 12.0 / 14.0},
+		},
+	})
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeInput(t, days), "lamp"), "lamp", "off")
+	if len(got) != 1 {
+		t.Fatalf("off candidates = %d, want 1", len(got))
+	}
+	apply := got[0].Finding.Apply
+	if len(apply) != 2 {
+		t.Fatalf("apply = %+v, want two entries", apply)
+	}
+	if apply[0].Code != "time_point" || apply[0].Prefill["learned"] != nil {
+		t.Errorf("first apply = %+v, want a fixed time_point", apply[0])
+	}
+	second := apply[1]
+	if second.Code != "time_point_learned" || second.Template != "time_point" {
+		t.Errorf("second apply = %+v, want time_point_learned on template time_point", second)
+	}
+	if second.Prefill["learned"] != "device/lamp/usual_off" {
+		t.Errorf("learned = %v, want device/lamp/usual_off", second.Prefill["learned"])
+	}
+	if second.Prefill["device"] != "lamp" || second.Prefill["time"] != "22:30" || second.Prefill["on"] != false {
+		t.Errorf("second prefill = %+v, want the prefill of the first entry", second.Prefill)
 	}
 }

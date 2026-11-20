@@ -269,7 +269,7 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 			{Code: "spread_min", Value: spread},
 			{Code: "hit_rate", Value: rate},
 		},
-		Apply:   []Fix{{Code: "time_point", Template: "time_point", Prefill: switchTimePrefill(device, entities, on, clock, weekdays)}},
+		Apply:   switchTimeApply(device, entities, on, clock, weekdays),
 		Device:  device,
 		Season:  season,
 		Benefit: &benefit,
@@ -288,6 +288,30 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 		Spread: map[string]float64{"time": quietSpread(spread)},
 	}
 	return switchTimePeak{Candidate: cand, Days: days, Minute: propMin}, true
+}
+
+// switchTimeApply offers the fixed time first and the time that follows the
+// learned usual switch time of the device second.
+func switchTimeApply(device string, entities []string, on bool, clock string, weekdays []int) []Fix {
+	prefill := switchTimePrefill(device, entities, on, clock, weekdays)
+	learned := make(map[string]any, len(prefill)+1)
+	for k, v := range prefill {
+		learned[k] = v
+	}
+	learned["learned"] = learnSwitchKey(device, on)
+	return []Fix{
+		{Code: "time_point", Template: "time_point", Prefill: prefill},
+		{Code: "time_point_learned", Template: "time_point", Prefill: learned},
+	}
+}
+
+// learnSwitchKey is the key of the learned usual switch time of a device in one
+// direction.
+func learnSwitchKey(device string, on bool) string {
+	if on {
+		return "device/" + device + "/usual_on"
+	}
+	return "device/" + device + "/usual_off"
 }
 
 // switchTimePrefill is the prefill of the time_point fix. The entity is the
@@ -452,10 +476,6 @@ func learnSwitchTimeRun(ctx context.Context, in *Input, device string) []Candida
 // learnSwitchCandidate is the learned value of one direction, the peak carries
 // the counted days and the rounded clock time.
 func learnSwitchCandidate(device string, on bool, p switchTimePeak) Candidate {
-	name := "usual_off"
-	if on {
-		name = "usual_on"
-	}
 	return Candidate{
 		Detector: "learn_switch_time",
 		NEff:     p.NEff,
@@ -463,7 +483,7 @@ func learnSwitchCandidate(device string, on bool, p switchTimePeak) Candidate {
 		Lower:    p.Lower,
 		Limit:    p.Limit,
 		Value: &Value{
-			Key:    "device/" + device + "/" + name,
+			Key:    learnSwitchKey(device, on),
 			Device: device,
 			Kind:   ValueTime,
 			Group:  "habit",

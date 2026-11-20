@@ -507,6 +507,7 @@ func main() {
 	for _, det := range []autolearn.Detector{
 		autolearn.SwitchTimeDetector, autolearn.RuntimeDetector, autolearn.CouplingDetector,
 		autolearn.FlappingDetector, autolearn.NoEffectDetector, autolearn.OverriddenDetector, autolearn.OfflineDetector,
+		autolearn.AwayStandbyDetector,
 	} {
 		automationEngine.Register(det)
 	}

@@ -29,6 +29,8 @@ const (
 	runtimeSuggestSigma = 2.0
 	// runtimeRoundMin rounds the suggested switch-off up to whole steps of minutes.
 	runtimeRoundMin = 5.0
+	// runtimeOffsetStepSec rounds the offset of the learned switch-off in seconds.
+	runtimeOffsetStepSec = 300.0
 	// runtimeMinOrdinary and runtimeMinForgotten are the counts for a sure finding.
 	runtimeMinOrdinary  = 8
 	runtimeMinForgotten = 2
@@ -226,6 +228,12 @@ func runtimeCandidate(device, entity string, st runtimeStat, t runtimeTally, wee
 	suggest := math.Ceil(math.Exp(st.m+runtimeSuggestSigma*st.s)/runtimeRoundMin) * runtimeRoundMin
 	longest := t.longest
 	benefit := Benefit{Unit: "kwh_week", Value: extraKWh / weeks}
+	minutes := int(suggest)
+	// The offset is the suggested switch-off minus the usual runtime, in
+	// seconds and rounded to runtimeOffsetStepSec. The learned runtime plus
+	// the offset gives the suggested switch-off again.
+	offset := int(math.Round((suggest-usual)*60/runtimeOffsetStepSec) * runtimeOffsetStepSec)
+	entityPrefill := func(prefill map[string]any) map[string]any { return withEntity(prefill, "entity", entity) }
 	finding := Finding{
 		ID:         "runtime:" + device,
 		Kind:       "runtime",
@@ -240,8 +248,13 @@ func runtimeCandidate(device, entity string, st runtimeStat, t runtimeTally, wee
 		}},
 		Evidence: Evidence{Shape: "scale", Unit: "min", IstValue: &longest, SollValue: &suggest},
 		Facts:    []Fact{{Code: "overnight", Value: t.overnight}},
-		Apply: []Fix{{Code: "runtime_off", Template: "runtime_off",
-			Prefill: withEntity(map[string]any{"device": device, "minutes": int(suggest)}, "entity", entity)}},
+		Apply: []Fix{
+			{Code: "runtime_off", Template: "runtime_off",
+				Prefill: entityPrefill(map[string]any{"device": device, "minutes": minutes})},
+			{Code: "runtime_off_learned", Template: "runtime_off",
+				Prefill: entityPrefill(map[string]any{"device": device, "minutes": minutes,
+					"learned": "device/" + device + "/usual_runtime_s", "offset_s": offset})},
+		},
 		Device:  device,
 		Benefit: &benefit,
 	}

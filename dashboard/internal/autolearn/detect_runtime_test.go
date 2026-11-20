@@ -138,3 +138,37 @@ func TestRuntimeOvernightFactCountsRunsThroughNightRest(t *testing.T) {
 		t.Errorf("facts = %+v, want overnight 2", cands[0].Finding.Facts)
 	}
 }
+
+func TestRuntimeCandidateOffersLearnedSecondApply(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	days := runDays(t, start, 14, "heater", 1200, runtimeRuns(runtimeNormal40, []float64{360, 360}, ""))
+	cands := runtimeCands(t, days, nil)
+	if len(cands) != 1 {
+		t.Fatalf("candidates = %d, want 1", len(cands))
+	}
+	apply := cands[0].Finding.Apply
+	if len(apply) != 2 {
+		t.Fatalf("apply = %+v, want two entries", apply)
+	}
+	second := apply[1]
+	if second.Code != "runtime_off_learned" || second.Template != "runtime_off" {
+		t.Fatalf("second apply = %+v, want runtime_off_learned on template runtime_off", second)
+	}
+	if second.Prefill["learned"] != "device/heater/usual_runtime_s" || second.Prefill["device"] != "heater" {
+		t.Errorf("second prefill = %+v", second.Prefill)
+	}
+	if second.Prefill["minutes"] != apply[0].Prefill["minutes"] {
+		t.Errorf("minutes = %v, want the minutes of the first entry %v", second.Prefill["minutes"], apply[0].Prefill["minutes"])
+	}
+	// The offset is the suggested switch-off minus the usual runtime of about 40
+	// minutes, in seconds, rounded to 5 minutes.
+	offset, ok := second.Prefill["offset_s"].(int)
+	if !ok || offset%300 != 0 {
+		t.Fatalf("offset_s = %v, want a whole multiple of 300 seconds", second.Prefill["offset_s"])
+	}
+	usual := float64(second.Prefill["minutes"].(int))*60 - float64(offset)
+	if usual < 35*60 || usual > 45*60 {
+		t.Errorf("usual = %v seconds from minutes and offset, want about 40 minutes", usual)
+	}
+}
