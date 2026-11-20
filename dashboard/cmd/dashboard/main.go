@@ -490,6 +490,13 @@ func main() {
 		func() ([]byte, error) { return configManager.Read("automation_rules") },
 		func() map[string]autolearn.DeviceInfo { return learnDevices(reg.Snapshot(), energyResolver) },
 		learnLimits, time.Local)
+	// Erkenner: Gewohnheiten (habit) und Zuverlaessigkeit (reliability).
+	for _, det := range []autolearn.Detector{
+		autolearn.SwitchTimeDetector, autolearn.RuntimeDetector, autolearn.CouplingDetector,
+		autolearn.FlappingDetector, autolearn.NoEffectDetector, autolearn.OverriddenDetector, autolearn.OfflineDetector,
+	} {
+		automationEngine.Register(det)
+	}
 	engineGroups := func() map[string]bool {
 		on := true
 		if value, err := settingsStore.LoadSettings(); err == nil {
@@ -497,6 +504,11 @@ func main() {
 		}
 		return map[string]bool{"habit": on, "reliability": on}
 	}
+	// Die Regelpruefung zeigt die Zuverlaessigkeitsbefunde der Engine, solange
+	// deren Gruppe an ist.
+	automationChecker.SetEngineSource(automationEngine.Candidates, func() bool {
+		return engineGroups()["reliability"]
+	})
 	// Herabstufung: nur bei automatischer Stufe rueckt die gemerkte Stufe eine
 	// nach unten. Eine feste Stufe der Einstellungen bleibt unberuehrt.
 	engineDowngrade := func() {
