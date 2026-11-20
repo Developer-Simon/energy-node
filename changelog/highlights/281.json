@@ -1,0 +1,28 @@
+{
+  "de": {
+    "*": "Neue Optik für Dialoge und das Übernehmen von Messketten-Vorschlägen"
+  },
+  "en": {
+    "*": "Give app-modal a glass base and a new chain suggestion modal"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_energy",
+          "panel": "energy-panel",
+          "target": "energy-chains",
+          "text": {
+            "de": "Alle Dialoge haben jetzt dieselbe Glasoptik. Wer einen Messketten-Vorschlag übernimmt, sieht in einem neuen Dialog oben den Beleg und darunter die Punkte als senkrechte Liste, im Energie-Tab und auf der Device Map.",
+            "en": "All dialogs now share one glass look. Accepting a suggested measurement chain opens a new dialog with the evidence on top and the points in a vertical list, in the Energy tab and on the device map."
+          },
+          "title": {
+            "de": "Neue Dialoge",
+            "en": "New dialogs"
+          }
+        }
+      ]
+    }
+  }
+}

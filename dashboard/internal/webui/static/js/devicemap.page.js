@@ -111,7 +111,7 @@
       savedHidden: new Set(), // entity ids the role table hides, see DeviceMapModel.panelRows
       savedGroups: {},
       savedCategories: {},
-      savedChains: {},
+      chains: {},
       // Chain suggestions of the server, the dialog of an accepted one and its saving flag.
       chainSuggestions: [],
       chainSuggest: null,
@@ -206,7 +206,7 @@
           this.savedHidden = new Set((roles && roles.hidden) || []);
           this.savedGroups = (roles && roles.groups) || {};
           this.savedCategories = (roles && roles.categories) || {};
-          this.savedChains = (roles && roles.chains) || {};
+          this.chains = (roles && roles.chains) || {};
           // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung, dann
           // laesst requireEnergyMutation den Schreibzugriff durch.
           this.csrfToken = (session && session.csrf_token) || '';
@@ -775,7 +775,7 @@
         const target = this.chainPointsOf(edge.target);
         const sourceIds = new Set(source.map(item => item.id));
         const targetIds = new Set(target.map(item => item.id));
-        const chains = this.savedChains || {};
+        const chains = this.chains || {};
         const between = Object.keys(chains).sort().map(id => chains[id])
           .find(chain => chain.points.some(id => sourceIds.has(id)) && chain.points.some(id => targetIds.has(id)));
         // Preselected: a point of the chain between the devices, else a point that
@@ -814,7 +814,7 @@
         const edge = this.popover && this.popover.edge;
         const form = edge && edge.chainForm;
         if (!form || !this.canEditEnergy) return;
-        const change = window.EnergyChains.edgeChange({chains: this.savedChains, upstream: form.sourceEntity, downstream: form.targetEntity, label: edge.childName});
+        const change = window.EnergyChains.edgeChange({chains: this.chains, upstream: form.sourceEntity, downstream: form.targetEntity, label: edge.childName});
         if (change.action === 'conflict') {
           this.$store.toasts.push(t('energy.chains.map_conflict'));
           return;
@@ -880,8 +880,21 @@
         return device ? (device.name || device.id) : id;
       },
 
+      // Icon of the device that owns the chain point, empty when it has none.
+      chainSuggestIcon(entityId) {
+        const device = this.devices.find(item => (item.entities || []).some(entity => entity.unique_id === entityId));
+        if (!device) return '';
+        return this.iconMarkup[device.icon_name] || this.iconMarkup[device.suggested_icon] || '';
+      },
+
+      // The map knows no live value per chain point, so the modal shows only
+      // the name and the icon.
+      chainPointValue() {
+        return '';
+      },
+
       chainSuggestionText(suggestion) {
-        return window.EnergyChainSuggest.suggestionText(suggestion, id => this.chainSuggestName(id), this.savedChains);
+        return window.EnergyChainSuggest.suggestionText(suggestion, id => this.chainSuggestName(id), this.chains);
       },
 
       // A tap on a suggestion edge opens its card: the text and the evidence, and
@@ -936,7 +949,7 @@
       // dialog open so the order can be changed.
       async saveChainSuggestOnce(dialog) {
         const label = (dialog.label || '').trim() || t('energy.chains.default_name');
-        const change = window.EnergyChainSuggest.changeFor({...dialog, label}, this.savedChains);
+        const change = window.EnergyChainSuggest.changeFor({...dialog, label}, this.chains);
         if (change.action === 'conflict') {
           this.$store.toasts.push(t('energy.chains.map_conflict'), 'critical');
           this.chainSuggestCancel();
@@ -1873,7 +1886,7 @@
         this.savedHidden = new Set(roles.hidden || []);
         this.savedGroups = roles.groups || {};
         this.savedCategories = roles.categories || {};
-        this.savedChains = roles.chains || {};
+        this.chains = roles.chains || {};
         this.energy = energy;
         this.energyUnavailable = energy === null;
         const model = window.DeviceMapModel;

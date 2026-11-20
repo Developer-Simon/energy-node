@@ -357,6 +357,7 @@
               else label = shortName ? `${device.name} / ${shortName}` : device.name;
               return {
                 id: entity.unique_id,
+                deviceId: device.id,
                 label,
                 unit: entity.unit_of_measurement,
                 assignment: savedAssignments[entity.unique_id] || resolved[entity.unique_id] || {},
@@ -959,6 +960,15 @@
     chainSuggestName(id) {
       const device = this.devicesList.find(item => item.id === id);
       return device ? device.name : this.chainLabelOf(id);
+    },
+
+    // Icon of the device that owns the chain point, empty without a device
+    // or without an icon name (no catalogue fallback for the modal).
+    chainSuggestIcon(entityId) {
+      const row = this.entities.find(entity => entity.id === entityId);
+      const device = row && this.devicesList.find(item => item.id === row.deviceId);
+      if (!device || !device.icon) return '';
+      return this.iconMarkupOf(device.icon);
     },
 
     chainSuggestionText(suggestion) {

@@ -1,4 +1,9 @@
 version,date,asset,v,note
+v0.11.21-pre.24,2026-11-20,css/base.css,53,
+v0.11.21-pre.24,2026-11-20,css/manager.css,52,
+v0.11.21-pre.24,2026-11-20,js/devicemap.page.js,33,
+v0.11.21-pre.24,2026-11-20,js/energy-chain-suggest.js,2,
+v0.11.21-pre.24,2026-11-20,js/energy.page.js,17,
 v0.11.21-pre.23,2026-11-20,css/base.css,52,
 v0.11.21-pre.23,2026-11-20,css/learning-settings.css,1,
 v0.11.21-pre.23,2026-11-20,js/dashboard.js,53,

@@ -10,6 +10,7 @@
 - **network:** open the dashboard when a phone joins the emergency hotspot (#264) (5620a3d)
 - **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267) (e1e256b)
 - **onboarding:** start empty and offer an example to try out (#274) (35490ab)
+- **installer:** The configure screen of the installer shows its services and tuning as modules (#280) (f85e2a6)
 - **installer:** allow a step to require several steps (47b7493)
 - **bootstrap:** add the example data and its apply helper (e96afa4)
 - **bootstrap:** add step 89 for the optional example (d598545)
