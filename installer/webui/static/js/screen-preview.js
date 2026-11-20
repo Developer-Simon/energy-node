@@ -269,15 +269,21 @@
         if (!this.plan || !this.manifest) {
           return [];
         }
-        return this.canApplySelection
+        return this.applyOffered
           ? PreviewModel.applyRestart(this.plan, this.manifest, this.selection, this.shell)
           : PreviewModel.restart(this.plan, this.manifest, this.shell, this.restartAll);
       },
 
       // "Auswahl anwenden" ersetzt "Aktualisieren", sobald der Plan Schritte
       // dafuer nennt (apply_steps): die Auswahl weicht von der installierten ab.
+      // applyOffered bleibt auch waehrend des Laufs an, damit der Knopf und die
+      // Neustartliste nicht zurueckspringen. canApplySelection ist nur der Schutz.
+      get applyOffered() {
+        return !!(this.plan && this.plan.apply_steps && this.plan.apply_steps.length);
+      },
+
       get canApplySelection() {
-        return !!(this.plan && this.plan.apply_steps && this.plan.apply_steps.length) && !this.busy;
+        return this.applyOffered && !this.busy;
       },
 
       get keepNames() {

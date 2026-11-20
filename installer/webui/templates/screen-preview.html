@@ -122,10 +122,10 @@
     <button type="button" class="ghost" :disabled="busy" @click="cancel()" x-text="t('action.cancel')"></button>
     <span class="foot-spacer"></span>
     <span class="foot-hint" x-text="t('configure.hint.mutates')"></span>
-    <template x-if="canApplySelection">
+    <template x-if="applyOffered">
       <button type="button" class="primary" :disabled="busy" @click="applySelection()" x-text="t('action.apply_services')"></button>
     </template>
-    <template x-if="!canApplySelection">
+    <template x-if="!applyOffered">
       <button type="button" class="primary" :disabled="!canStart" @click="start()" x-text="t('action.update')"></button>
     </template>
   </footer>

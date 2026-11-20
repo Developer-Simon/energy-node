@@ -201,6 +201,17 @@ test('Auswahl anwenden: Neustarts mit Grund, und der Lauf kennt die Schritte', a
   assert.deepEqual(plain(shell.shared.run.steps), ['65', '81']);
 });
 
+test('waehrend des Laufs bleibt Auswahl anwenden angeboten, mit denselben Neustarten', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/plan': PLAN_APPLY } });
+  screen.busy = true;
+  assert.equal(screen.applyOffered, true);
+  assert.equal(screen.canApplySelection, false);
+  assert.deepEqual(plain(screen.restart), [
+    { unit: 'energy-node-dashboard.service', reason: 'übernimmt die Auswahl' },
+    { unit: 'apsystems-ez1.service', reason: 'wird gestartet' },
+  ]);
+});
+
 test('ein abgewaehlter Dienst mit apply_steps wird gestoppt', async () => {
   const { screen, shell } = await mount({ responses: { 'GET /api/plan': PLAN_APPLY } });
   shell.shared.selection = { source: 'node', steps: Object.assign({}, SELECTION_NODE.steps, { 81: false }) };
