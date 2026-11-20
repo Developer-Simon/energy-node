@@ -149,3 +149,31 @@ func TestBaseDayStartAndNightRest(t *testing.T) {
 		t.Errorf("night rest = %.1f, want 1320 +- 15", got)
 	}
 }
+
+func TestBaseQuietDaysWithoutManualSwitching(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	// Alles schaltet eine Regel: die Handgriffe sind an jedem Tag 0, die
+	// Streuung der Handgriffe also auch.
+	rules := []synthRule{
+		{RuleID: "r1", Device: "light.kitchen", On: true, Minute: 390, Hit: 1},
+		{RuleID: "r2", Device: "light.kitchen", On: false, Minute: 1320, Hit: 1},
+		{RuleID: "r3", Device: "plug.coffee", On: true, Minute: 405, Hit: 1},
+		{RuleID: "r4", Device: "plug.coffee", On: false, Minute: 420, Hit: 1},
+		{RuleID: "r5", Device: "plug.tv", On: true, Minute: 1080, Hit: 1},
+		{RuleID: "r6", Device: "plug.tv", On: false, Minute: 1140, Hit: 1},
+	}
+	devices := []string{"light.kitchen", "plug.coffee", "plug.tv"}
+	days := synthDays(start, 56, synthOpts{Seed: 11, Devices: devices, Rules: rules})
+	quiet := synthDays(start.AddDate(0, 0, 56), 4, synthOpts{Seed: 9, Devices: devices})
+	days = append(days, quiet...)
+	base := BuildBase(days, loc)
+	for _, d := range quiet {
+		if !base.Away[d.Day] {
+			t.Errorf("%s not away, want away (no hand actions in this household)", d.Day)
+		}
+	}
+	if len(base.Away) != len(quiet) {
+		t.Errorf("away days = %v, want exactly the %d quiet days", base.Away, len(quiet))
+	}
+}

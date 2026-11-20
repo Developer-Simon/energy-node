@@ -397,13 +397,15 @@ func baseAway(recs []baseRec, base *Base) {
 			lim[g][k] = baseSpan{med: Median(vals[k]), sigma: MADScale(vals[k])}
 		}
 	}
+	// Gleich dem Abstand zählt mit, sonst fiele eine Gruppe ohne Streuung und
+	// ohne Handgriffe (Median 0) nie als still aus.
 	quiet := func(i int) bool {
 		m := met[i]
 		l := lim[recs[i].group]
 		return m.h == 0 &&
-			m.e < l[0].med-baseQuietSigma*l[0].sigma &&
-			m.h < l[1].med-baseQuietSigma*l[1].sigma &&
-			m.u < l[2].med-baseQuietSigma*l[2].sigma
+			m.e <= l[0].med-baseQuietSigma*l[0].sigma &&
+			m.h <= l[1].med-baseQuietSigma*l[1].sigma &&
+			m.u <= l[2].med-baseQuietSigma*l[2].sigma
 	}
 	var run []int
 	flush := func() {
@@ -504,7 +506,7 @@ func baseDayBounds(r *baseRec) (start, end float64, ok bool) {
 	}
 	if hf >= 0 {
 		start = math.Min(start, float64(hf)*baseQuarterMin)
-		end = math.Max(end, float64(hl)*baseQuarterMin)
+		end = math.Max(end, float64(hl+1)*baseQuarterMin)
 	}
 	if math.IsInf(start, 1) {
 		return 0, 0, false
