@@ -168,7 +168,7 @@
       </label>
       <p class="learn-row-note" x-show="!chainLearningDisabled" x-text="sinceLabel('chain_learning')"></p>
     </div>
-    <div class="setting-card" x-data="{ fine: false }">
+    <div class="setting-card" data-tour="learning-auto" x-data="{ fine: false }">
       <h3 class="setting-card-title">{{t "settings.learning.auto.title"}}</h3>
       <p class="setting-note">{{t "settings.learning.auto.note"}}</p>
       <label class="switch-row" for="learning-patterns">
@@ -205,7 +205,7 @@
         <span><b>{{t "settings.learning.auto.check_title"}}</b> {{t "settings.learning.auto.check_body"}}</span>
       </div>
     </div>
-    <div class="setting-card">
+    <div class="setting-card" data-tour="learning-record">
       <h3 class="setting-card-title">{{t "settings.learning.record.title"}}</h3>
       <p class="setting-note">{{t "settings.learning.record.note"}}</p>
       <div class="setting-row">
