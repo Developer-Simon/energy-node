@@ -75,7 +75,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 			t.Fatalf("page does not contain %q", marker)
 		}
 	}
-	if strings.Index(body, ">Einstellungen</button>") < strings.Index(body, ">Diagnose</button>") {
+	if strings.Index(body, `id="tab-settings"`) < strings.Index(body, `id="tab-diagnostics"`) {
 		t.Fatal("Einstellungen tab is not last in the navigation")
 	}
 	if strings.Index(body, "/static/js/dashboard.js") > strings.Index(body, "/static/js-deps/alpine.min.js") {
