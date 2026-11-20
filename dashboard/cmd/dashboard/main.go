@@ -437,6 +437,17 @@ func main() {
 	learnHub.AddSaver("chainwatch", chainMonitor)
 	learnHub.AddSaver("chainsuggest", chainSuggest)
 	learnHub.AddSaver("autolearn", automationObserver)
+	// Herkunft der Schaltvorgaenge: Regel, Hand oder Aussen. Die Reaktionszeiten
+	// liegen in autolearn/reaction.json und werden vom Hub mitgesichert.
+	reactionsPath := filepath.Join(autolearnDir, "reaction.json")
+	reactions := autolearn.LoadReactions(reactionsPath, log.Printf)
+	reactions.SetPersistence(reactionsPath, log.Printf)
+	originTracker := autolearn.NewTracker(reactions)
+	learnHub.AddMinute("origin", originTracker)
+	learnHub.AddSaver("reactions", reactions)
+	origin := newOriginLearner(originTracker, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
+	origin.rebuild()
+	go origin.run(ctx)
 	energyCategories := func() map[string]energy.Category { return energyResolver.Model().Categories }
 	energySync := energystats.NewSync(energyStatsStore, time.Now)
 	energySync.SetCategories(energyCategories)
@@ -578,6 +589,7 @@ func main() {
 	client.SetVerboseLogging(strings.EqualFold(cfg.Dashboard.LogLevel, "debug"))
 	client.SetStateObserver(func(changes []registry.StateChange) {
 		runtimeStore.ObserveChanges(changes)
+		origin.observeStates(time.Now(), changes)
 	})
 	client.SetDiscoveryObserver(func(discovery registry.Discovery) {
 		if runtimeStore.Restore(reg, discovery.Device.ID, discovery.Entity.UniqueID) {
@@ -1093,6 +1105,7 @@ func main() {
 		ChainMonitor:       chainMonitor,
 		ChainSuggest:       chainSuggest,
 		AutomationFindings: automationChecker,
+		CommandObserver:    origin.observeCommand,
 		StorageFallback:    storageFallback,
 		HistorySampler:     historySampler,
 		InstalledServices: map[string]bool{
