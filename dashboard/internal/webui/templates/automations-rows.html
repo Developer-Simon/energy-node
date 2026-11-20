@@ -8,6 +8,25 @@
                       <svg class="automation-icon" x-show="conditionStateOf(rowsReport(index)) === 'met'"><use href="#ico-check"></use></svg>
                       <span x-text="$t(condStateKey(rowsReport(index)))"></span>
                     </span>
+                    <template x-for="chip in describeCondition(condition, rowsReport(index)).learned" x-bind:key="chip.field">
+                      <span class="auto-learn">
+                        <span class="auto-learn-chip" x-bind:title="chip.label">
+                          <span x-text="chip.name"></span>
+                          <span class="auto-learn-value" x-text="chip.text"></span>
+                        </span>
+                        <span class="auto-learn-scale" role="img" x-show="chip.scale" x-bind:aria-label="chip.scale && chip.scale.label">
+                          <span class="auto-learn-track" aria-hidden="true">
+                            <template x-for="(seg, n) in (chip.scale ? chip.scale.segments : [])" x-bind:key="n">
+                              <span class="auto-learn-seg" x-bind:style="{ left: (seg.from * 100) + '%', width: ((seg.to - seg.from) * 100) + '%' }"></span>
+                            </template>
+                            <span class="auto-learn-marker" x-show="chip.scale && chip.scale.marker !== null"
+                                  x-bind:style="{ left: ((chip.scale && chip.scale.marker !== null ? chip.scale.marker : 0) * 100) + '%' }"></span>
+                          </span>
+                          <span class="auto-learn-bounds" aria-hidden="true"><span x-text="chip.scale ? chip.scale.min : ''"></span><span x-text="chip.scale ? chip.scale.max : ''"></span></span>
+                        </span>
+                        <span class="auto-learn-origin" x-show="chip.origin" x-text="chip.origin"></span>
+                      </span>
+                    </template>
                   </li>
                 </template>
 {{end}}

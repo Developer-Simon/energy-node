@@ -401,6 +401,17 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
 .auto-learn-bound { display: flex; align-items: center; gap: .4rem; min-width: 0; }
 .auto-learn-bound .auto-input { flex: 1 1 auto; min-width: 0; }
 .auto-learn-current, .auto-learn-help { font-size: .8rem; color: var(--text-muted); }
+/* Lernwert auf der Regelkarte: Chip, Skala mit Marke und Grenzen, Herkunftszeile unter der Bedingung. */
+.auto-learn { flex: 0 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .7rem; padding-left: .8rem; border-left: 2px solid var(--accent-line); }
+.auto-learn-chip { display: inline-flex; align-items: baseline; gap: .35rem; max-width: 100%; padding: 2px 9px; border: 1px solid var(--accent-line); border-radius: 999px; background: var(--accent-bg); font-size: .78rem; color: var(--text-strong); }
+.auto-learn-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.auto-learn-scale { flex: 1 1 160px; min-width: 0; max-width: 360px; display: grid; gap: 3px; }
+.auto-learn-track { position: relative; height: 6px; border-radius: 999px; background: var(--sunken); }
+.auto-learn-seg { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--accent-line); }
+.auto-learn-marker { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--accent); }
+.auto-learn-bounds { display: flex; justify-content: space-between; font-size: .72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.auto-learn-origin { flex: 1 1 100%; font-size: .8rem; color: var(--text-muted); }
+@media (prefers-reduced-motion: no-preference) { .auto-learn-marker { transition: left 400ms var(--ease-out); } }
 .auto-edit-foot { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding-top: .8rem; border-top: 1px solid var(--border-soft); }
 
 /* --- Karten der Bedingungen und weiche Felder (Entwurf Teil 2): Kopf mit Ton-Kachel,
