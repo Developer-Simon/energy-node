@@ -1,7 +1,6 @@
 package chainwatch
 
 import (
-	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -475,76 +474,64 @@ func fileMtime(t *testing.T, path string) time.Time {
 	return info.ModTime()
 }
 
-func TestMonitorSavesHourlyWhenDirty(t *testing.T) {
+func TestMonitorSaveWritesWhenDirty(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "learned.json")
 	r := newRig()
-	r.m.SetPersistence(path, func(string, ...any) {})
+	r.m.SetPersistence(path)
 
 	learnOne(r, t0.Add(10*time.Minute))
-	r.observe(t0.Add(59*time.Minute), energy.ChainState{})
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatalf("saved before the first hour: %v", err)
+		t.Fatalf("Observe wrote the file: %v", err)
 	}
-
-	r.observe(t0.Add(time.Hour), energy.ChainState{})
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("not saved after one hour: %v", err)
+	if err := r.m.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
 	}
-	loaded := Load(path, nil)
-	if n := classN(loaded, "a", "b", 300); n != 1 {
+	if n := classN(Load(path, nil), "a", "b", 300); n != 1 {
 		t.Fatalf("saved N = %d, want 1", n)
 	}
 
-	// Without a change the next hour writes nothing: a sentinel mtime stays.
+	// Without a change the next Save writes nothing: a sentinel mtime stays.
 	sentinel := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	if err := os.Chtimes(path, sentinel, sentinel); err != nil {
 		t.Fatal(err)
 	}
-	r.observe(t0.Add(2*time.Hour+time.Minute), energy.ChainState{})
+	if err := r.m.Save(); err != nil {
+		t.Fatalf("second Save: %v", err)
+	}
 	if got := fileMtime(t, path); !got.Equal(sentinel) {
 		t.Fatalf("unchanged table was rewritten, mtime %v", got)
 	}
 }
 
-func TestMonitorCloseSaves(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "learned.json")
+func TestMonitorSaveWithoutPersistenceWritesNothing(t *testing.T) {
 	r := newRig()
-	r.m.SetPersistence(path, func(string, ...any) {})
 	learnOne(r, t0.Add(time.Minute))
-
-	r.m.Close()
-	if n := classN(Load(path, nil), "a", "b", 300); n != 1 {
-		t.Fatalf("Close did not save the learned sample")
+	if err := r.m.Save(); err != nil {
+		t.Fatalf("Save without persistence: %v", err)
 	}
 }
 
-func TestMonitorSaveErrorIsLoggedAndRetried(t *testing.T) {
+func TestMonitorSaveReturnsError(t *testing.T) {
 	// A directory at the file path makes the rename fail.
 	path := filepath.Join(t.TempDir(), "learned.json")
 	if err := os.Mkdir(path, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	var logs []string
 	r := newRig()
-	r.m.SetPersistence(path, func(format string, args ...any) {
-		logs = append(logs, fmt.Sprintf(format, args...))
-	})
+	r.m.SetPersistence(path)
 	learnOne(r, t0.Add(time.Minute))
 
-	r.observe(t0.Add(time.Hour), energy.ChainState{})
-	if len(logs) != 1 {
-		t.Fatalf("logged %d times after the failed save, want 1: %v", len(logs), logs)
+	if err := r.m.Save(); err == nil {
+		t.Fatal("Save over a directory returned nil")
 	}
 
-	// Fix the path. The retry comes saveRetry later, not before.
+	// Fix the path. The next Save writes the table, the hub retries it.
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
-	r.observe(t0.Add(time.Hour+saveRetry/2), energy.ChainState{})
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatalf("retried before saveRetry: %v", err)
+	if err := r.m.Save(); err != nil {
+		t.Fatalf("Save after fixing the path: %v", err)
 	}
-	r.observe(t0.Add(time.Hour+saveRetry), energy.ChainState{})
 	if n := classN(Load(path, nil), "a", "b", 300); n != 1 {
 		t.Fatalf("retry did not save the learned sample")
 	}

@@ -43,6 +43,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/example"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/netmgr"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
@@ -359,7 +360,7 @@ func main() {
 	// Die Diagnose laeuft in der Energieschleife unten.
 	chainLearnedPath := filepath.Join(dataDir, "energystats", "chains", "learned.json")
 	chainMonitor := chainwatch.NewMonitor(chainwatch.Load(chainLearnedPath, log.Printf), holdsFromEnv(os.Getenv), time.Now)
-	chainMonitor.SetPersistence(chainLearnedPath, log.Printf)
+	chainMonitor.SetPersistence(chainLearnedPath)
 	energyResolver.SetChainInsight(chainMonitor)
 	// Verlustenergie je Kette, integriert aus dem Verlust des Kettentopics.
 	lossTotals := energystats.NewLossTotals(filepath.Join(dataDir, "energystats", "chains", "loss_totals.json"), log.Printf)
@@ -372,7 +373,7 @@ func main() {
 	// 10-s-Schleife unten, ignorierte Hinweise liegen in autolearn/ignored.json.
 	autolearnDir := filepath.Join(dataDir, "autolearn")
 	automationObserver := autolearn.LoadObserver(filepath.Join(autolearnDir, "checks.json"), time.Local, log.Printf)
-	automationObserver.SetPersistence(filepath.Join(autolearnDir, "checks.json"), log.Printf)
+	automationObserver.SetPersistence(filepath.Join(autolearnDir, "checks.json"))
 	automationChecker := autolearn.NewChecker(
 		automationObserver,
 		autolearn.EnergyStatsSeason(energyStatsStore),
@@ -420,6 +421,22 @@ func main() {
 	if value, err := settingsStore.LoadEnergy(); err == nil {
 		chainMonitor.Prune(value.Chains)
 	}
+	// Der Lernhub verteilt jede Beobachtung der Energieschleife an die Lerner
+	// und sichert sie stuendlich sowie beim Beenden. lossTotals laeuft nicht
+	// ueber den Hub, es ist Statistik und kein Lernstand.
+	learnLimits := func() learnrec.Limits {
+		cores := runtime.NumCPU()
+		return learnrec.LimitsFor(learnrec.ResolveLevel("auto", cores), cores)
+	}
+	learnHub := learnrec.NewHub(time.Local, learnLimits, log.Printf)
+	learnHub.AddMinute("chainsuggest", chainSuggest)
+	learnHub.AddTick("chainwatch", learnrec.TickFunc(chainMonitor.Observe))
+	learnHub.AddTick("autolearn", learnrec.TickFunc(func(at time.Time, snap energy.Snapshot) {
+		automationChecker.ObserveTick(at, automationState(), balanceRuleValues(snap.Balance), automationEntityValue)
+	}))
+	learnHub.AddSaver("chainwatch", chainMonitor)
+	learnHub.AddSaver("chainsuggest", chainSuggest)
+	learnHub.AddSaver("autolearn", automationObserver)
 	energyCategories := func() map[string]energy.Category { return energyResolver.Model().Categories }
 	energySync := energystats.NewSync(energyStatsStore, time.Now)
 	energySync.SetCategories(energyCategories)
@@ -1138,10 +1155,8 @@ func main() {
 			select {
 			case <-ctx.Done():
 				energyRecorder.Close()
-				chainMonitor.Close()
+				learnHub.Close()
 				lossTotals.Close()
-				chainSuggest.Close()
-				automationObserver.Close()
 				return
 			case <-ticker.C:
 				start := time.Now()
@@ -1160,14 +1175,11 @@ func main() {
 					}
 					chainMonitor.SetLearning(learningOn)
 					chainSuggest.SetEnabled(suggestionsOn)
-					chainMonitor.Observe(now, snapshot)
+					learnHub.Observe(now, reg.Snapshot(), snapshot, balanceRuleValues(snapshot.Balance))
 					// Wie das Pruning oben: ohne lesbare energy.json fehlen
 					// Ketten im Snapshot, und Observe wuerde ihre Summen loeschen.
 					if _, err := settingsStore.LoadEnergy(); err == nil {
 						lossTotals.Observe(now, snapshot.Chains)
-					}
-					if suggestionsOn {
-						chainSuggest.Observe(now, reg.Snapshot())
 					}
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
@@ -1193,7 +1205,6 @@ func main() {
 					perfTiming.Since(performance.PartBackground, start)
 					continue
 				}
-				automationChecker.ObserveTick(time.Now(), automationState(), balanceRuleValues(snapshot.Balance), automationEntityValue)
 				if err := client.PublishRetained(energydiscovery.StateTopic, string(payload)); err != nil {
 					log.Printf("energy-node-dashboard: energy balance publish skipped: %v", err)
 				}

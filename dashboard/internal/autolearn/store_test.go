@@ -16,7 +16,9 @@ func TestStoreRoundTripKeepsSnapshot(t *testing.T) {
 	o.ObserveValues(testBase, map[string]float64{"k": 3.5})
 	o.ObserveValues(testBase.Add(time.Hour), map[string]float64{"k": -1.25})
 	want := o.Snapshot()
-	o.Close()
+	if err := o.Save(); err != nil {
+		t.Fatal(err)
+	}
 
 	again := LoadObserver(path, time.UTC, t.Logf)
 	if got := again.Snapshot(); !reflect.DeepEqual(got, want) {
@@ -46,18 +48,20 @@ func TestStoreBrokenFileStartsEmptyAndLogsOnce(t *testing.T) {
 	}
 }
 
-func TestStoreSavesDueAfterHour(t *testing.T) {
+func TestObserverSaveWritesWhenDirty(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "observer.json")
 	o := LoadObserver(path, time.UTC, t.Logf)
 	o.ObserveTriggers(testBase, map[string]int{"r1": 0})
 	o.ObserveTriggers(testBase.Add(time.Minute), map[string]int{"r1": 1})
-	// The first observation only arms the save timer, so nothing is written yet.
+	// Observing never writes, only Save does.
 	if fileExists(path) {
-		t.Fatal("file written before the save interval")
+		t.Fatal("file written by an observation")
 	}
-	o.ObserveTriggers(testBase.Add(time.Hour+time.Minute), map[string]int{"r1": 1})
+	if err := o.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
 	if !fileExists(path) {
-		t.Fatal("file not written after the save interval")
+		t.Fatal("file not written by Save")
 	}
 }
 
