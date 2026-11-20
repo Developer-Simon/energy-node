@@ -38,6 +38,9 @@ type DayFile struct {
 	Site    SiteDay               `json:"site"`
 	Events  []EventRec            `json:"events"`
 	Actions []ActionRec           `json:"actions"`
+	// Fake markiert die Demo-Profile. Die Konsole der Demo entfernt nur solche
+	// Dateien. Echte Tage tragen das Feld nicht.
+	Fake bool `json:"fake,omitempty"`
 }
 
 // DeviceDay sind die Viertelstunden eines Geraets. Zaehler saettigen bei 15.

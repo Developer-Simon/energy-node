@@ -392,6 +392,28 @@
     }
   },
   {
+    "topic": "homeassistant/switch/waermepumpe/mode/config",
+    "payload": {
+      "name": "Mode",
+      "unique_id": "waermepumpe_mode",
+      "state_topic": "waermepumpe/mode",
+      "command_topic": "waermepumpe/mode/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "waermepumpe/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "waermepumpe"
+        ],
+        "name": "Heat Pump"
+      }
+    }
+  },
+  {
     "topic": "zaehler/netz/online",
     "payload": "true"
   },

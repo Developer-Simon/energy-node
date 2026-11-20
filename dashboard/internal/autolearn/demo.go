@@ -9,37 +9,51 @@ import (
 	"time"
 )
 
-// Die Demo-Daten erzeugen vier Gewohnheiten, je eine für die vier Erkenner der
-// Gewohnheiten und der Überstimmung. Die Geräte sind die Fake-Geräte der Demo.
+// Die Demo-Daten erzeugen vier Gewohnheiten für die Geräte, die die Demo
+// wirklich registriert (Discovery der Demo-Broker-Fixture). Device-IDs sind
+// device.identifiers, Entitäten heißen wie ihre unique_id.
 const (
 	demoSeedDays = 21
 	demoSeed     = 20261120
 
-	demoPump   = "demo_pump"
-	demoHeater = "demo_heater"
-	demoWasher = "demo_washer"
-	demoBoiler = "demo_boiler"
-	// demoRuleID ist die Regel „Akku leer, WP aus“ der Demo. Die Wärmepumpe
-	// (demo_pump) schaltet sie aus, werktags schaltet der Nutzer sie wieder ein.
+	// demoPlugBalkon ist die Steckdose des Balkons. An ihr sieht man die Schaltzeit.
+	demoPlugBalkon = "plug_balkon"
+	// demoPlugDry ist die Steckdose des Entfeuchters, die vergessen läuft.
+	demoPlugDry = "plug_entfeuchter"
+	// demoRelais ist das Kellerrelais, das die Balkonsteckdose mitschaltet.
+	demoRelais = "relais_keller"
+	// demoHeatPump ist die Wärmepumpe, deren Modus die Demo-Regel schaltet.
+	demoHeatPump = "waermepumpe"
+	// demoRuleID ist die Regel „Akku leer, WP aus“ der Demo. Sie schaltet die
+	// Wärmepumpe aus, werktags schaltet der Nutzer sie nach einer Minute wieder ein.
 	demoRuleID = "regel_akku_leer_wp_aus"
 
-	// demoPumpOffMin ist die Abschaltzeit der Wärmepumpe, 22:30 in Minuten.
-	demoPumpOffMin = 1350
-	// demoRunMinutes ist die übliche Laufzeit der Heizung in Minuten.
+	// demoPlugOffMin ist die Abschaltzeit der Balkonsteckdose, 22:30 in Minuten.
+	demoPlugOffMin = 1350
+	// demoRunMinutes ist die übliche Laufzeit des Entfeuchters in Minuten.
 	demoRunMinutes = 40
-	// demoLongDays sind die Tagesindizes mit vergessener Heizung.
+	// demoLongDay1 und demoLongDay2 sind die Tagesindizes mit vergessenem Entfeuchter.
 	demoLongDay1 = 6
 	demoLongDay2 = 15
-	// demoCouplingLag ist die Verzögerung des Boilers hinter der Waschmaschine.
+	// demoCouplingLag ist die Verzögerung der Balkonsteckdose hinter dem Relais.
 	demoCouplingLag = 40.0 / 60.0
 )
 
-// demoWatts ist die Leistung der Fake-Geräte, wenn sie laufen.
-var demoWatts = map[string]float64{demoPump: 400, demoHeater: 1800, demoWasher: 500, demoBoiler: 2000}
+// demoEntities ist die unique_id der Schalter je Gerät, wie sie die Registry hat.
+var demoEntities = map[string]string{
+	demoPlugBalkon: "plug_balkon_steckdose",
+	demoPlugDry:    "plug_entfeuchter_steckdose",
+	demoRelais:     "relais_keller_switch_1",
+	demoHeatPump:   "waermepumpe_mode",
+}
+
+// demoWatts ist die Leistung der Demo-Geräte, wenn sie laufen.
+var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500}
 
 // SeedDemo schreibt die Tagesdateien der letzten 21 Tage vor now in dir, für die
-// Fake-Geräte der Demo. Das Ergebnis ist fest, derselbe Aufruf schreibt dieselben
-// Bytes. Der Aufrufer prüft, ob dir leer ist.
+// Geräte der Demo. Jede Datei trägt "fake": true, die Konsole der Demo entfernt
+// nur solche. Das Ergebnis ist fest, derselbe Aufruf schreibt dieselben Bytes.
+// Der Aufrufer prüft, ob dir leer ist.
 func SeedDemo(dir string, now time.Time, loc *time.Location) error {
 	if loc == nil {
 		loc = time.Local
@@ -76,17 +90,17 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 	for i := 0; i < demoSeedDays; i++ {
 		day := today.AddDate(0, 0, i-demoSeedDays)
 		b := &demoBuilder{
-			f: DayFile{V: dayFileVersion, Day: day.Format(dayLayout), Devices: map[string]*DeviceDay{},
-				Events: []EventRec{}, Actions: []ActionRec{}},
+			f: DayFile{V: dayFileVersion, Day: day.Format(dayLayout), Fake: true,
+				Devices: map[string]*DeviceDay{}, Events: []EventRec{}, Actions: []ActionRec{}},
 			day:     day,
 			loc:     loc,
 			changes: map[string][]demoChange{},
 		}
-		for _, id := range []string{demoPump, demoHeater, demoWasher, demoBoiler} {
+		for id := range demoEntities {
 			b.f.Devices[id] = &DeviceDay{}
 		}
-		// Ohne Gewohnheit: drei Tage, an denen die Wärmepumpe nicht um 22:30 abschaltet,
-		// die Boiler-Kopplung nicht greift.
+		// Ohne Gewohnheit: drei Tage, an denen die Balkonsteckdose nicht um 22:30
+		// abschaltet und die Kopplung nicht greift.
 		skip := i%7 == 3
 		weekday := day.Weekday() != time.Saturday && day.Weekday() != time.Sunday
 
@@ -94,35 +108,38 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 		// schaltet der Nutzer nach einer Minute wieder ein (überstimmt), am Wochenende
 		// erst nach zweieinhalb Stunden (keine Überstimmung).
 		off := demoMinute(rng, 600, 1020)
-		b.emit(off, demoPump, false, OriginRule, demoRuleID)
-		b.action(off, demoPump, false)
+		b.emit(off, demoHeatPump, false, OriginRule, demoRuleID)
+		b.action(off, demoHeatPump, false)
 		if weekday {
-			b.emit(off+1, demoPump, true, OriginHand, "")
+			b.emit(off+1, demoHeatPump, true, OriginHand, "")
 		} else {
-			b.emit(off+150+30*rng.Float64(), demoPump, true, OriginHand, "")
-		}
-		if !skip {
-			b.emit(demoPumpOffMin+rng.NormFloat64()*8, demoPump, false, OriginHand, "")
+			b.emit(off+150+30*rng.Float64(), demoHeatPump, true, OriginHand, "")
 		}
 
-		// Heizung: ein Lauf von knapp 40 Minuten, an zwei Tagen Stunden, weil niemand
-		// abschaltet.
+		// Entfeuchter: ein Lauf von knapp 40 Minuten, an zwei Tagen Stunden, weil
+		// niemand abschaltet.
 		start := demoMinute(rng, 600, 1020)
-		run := float64(36 + rng.Intn(9))
+		run := float64(demoRunMinutes - 4 + rng.Intn(9))
 		if i == demoLongDay1 || i == demoLongDay2 {
 			run = 300 + 60*rng.Float64()
 		}
-		b.emit(start, demoHeater, true, OriginHand, "")
-		b.emit(start+run, demoHeater, false, OriginHand, "")
+		b.emit(start, demoPlugDry, true, OriginHand, "")
+		b.emit(start+run, demoPlugDry, false, OriginHand, "")
 
-		// Kopplung: Die Waschmaschine läuft zu einer menschlichen Zeit, der Boiler
-		// folgt an den meisten Tagen 40 Sekunden später.
-		wash := demoMinute(rng, 600, 1000)
-		b.emit(wash, demoWasher, true, OriginHand, "")
-		b.emit(wash+90, demoWasher, false, OriginHand, "")
+		// Gewohnheit: die Balkonsteckdose wird an den meisten Tagen um 22:30 von
+		// Hand abgeschaltet, mit etwas Streuung.
 		if !skip {
-			b.emit(wash+demoCouplingLag, demoBoiler, true, OriginHand, "")
-			b.emit(wash+demoCouplingLag+30, demoBoiler, false, OriginHand, "")
+			b.emit(demoPlugOffMin+rng.NormFloat64()*8, demoPlugBalkon, false, OriginHand, "")
+		}
+
+		// Kopplung: Das Relais läuft zu einer menschlichen Zeit, die Balkonsteckdose
+		// folgt an den meisten Tagen 40 Sekunden später und bleibt an, bis sie um
+		// 22:30 abgeschaltet wird. Ohne Abschaltung vorher ist sie um 22:30 an.
+		relay := demoMinute(rng, 600, 1000)
+		b.emit(relay, demoRelais, true, OriginHand, "")
+		b.emit(relay+90, demoRelais, false, OriginHand, "")
+		if !skip {
+			b.emit(relay+demoCouplingLag, demoPlugBalkon, true, OriginHand, "")
 		}
 
 		b.fill(rng)
@@ -155,8 +172,8 @@ func (b *demoBuilder) emit(minute float64, device string, on bool, origin Origin
 	case OriginRule:
 		bump(&dd.Rule[q])
 	}
-	b.f.Events = append(b.f.Events, EventRec{At: at.Unix(), Device: device, Entity: "switch." + device,
-		On: on, Origin: string(origin), Rule: rule, House: 300, Surplus: 0})
+	b.f.Events = append(b.f.Events, EventRec{At: at.Unix(), Device: device, Entity: demoEntities[device],
+		On: on, Origin: string(origin), Rule: rule, House: 300})
 	b.changes[device] = append(b.changes[device], demoChange{minute: at.Hour()*60 + at.Minute(), on: on})
 }
 
@@ -164,7 +181,7 @@ func (b *demoBuilder) emit(minute float64, device string, on bool, origin Origin
 func (b *demoBuilder) action(minute float64, device string, on bool) {
 	want := on
 	b.f.Actions = append(b.f.Actions, ActionRec{At: b.at(minute).Unix(), Rule: demoRuleID, Device: device,
-		Entity: "switch." + device, Want: &want, There: false, OK: true, Reaction: 2.4})
+		Entity: demoEntities[device], Want: &want, There: false, OK: true, Reaction: 2.4})
 }
 
 // fill setzt Erreichbarkeit, Zähler, Leistung und die Last des Hauses aus den
