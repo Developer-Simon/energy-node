@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Geänderte Dienste und Module lassen sich ohne vollständiges Update anwenden"
+  },
+  "en": {
+    "*": "Apply a changed service selection without a full update"
+  }
+}

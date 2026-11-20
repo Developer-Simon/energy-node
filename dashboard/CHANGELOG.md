@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.21-pre.24 (2026-11-06)
+## v0.11.21-pre.25 (2026-11-06)
 
 ### Features
 
@@ -24,11 +24,13 @@
 - **onboarding:** start empty and offer an example to try out (#274) (35490ab)
 - **automations:** flag rules that do not work and offer a fix (#278) (d369133)
 - **settings:** add the learning page and collect device profiles (#279) (48d1947)
+- **webui:** give app-modal a glass base and a new chain suggestion modal (#281) (d32e0d9)
+- **installer:** accept the apply-selection run mode (5dc8abe)
+- **installer:** apply a changed service selection without a full update (#282)
 - **webui:** give every app-modal the glass sheet and alert look (267fe94)
 - **energy:** add the view model of the chain suggestion modal (81a92f8)
 - **energy:** let both chain hosts show the device icon of a point (7cfac07)
 - **energy:** show chain suggestions in the new app-modal sheet (abb8ce8)
-- **webui:** give app-modal a glass base and a new chain suggestion modal (#281)
 - **learnrec:** add levels, minute frame and entity helpers (1d660d2)
 - **learnrec:** add the hub with minute frames and the hourly save cadence (75b36af)
 - **autolearn:** tell rule, manual and external switching apart (80238d1)

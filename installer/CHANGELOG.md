@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4-pre.5 (2026-11-15)
+## v0.3.4-pre.6 (2026-11-15)
 
 ### Features
 
@@ -9,6 +9,10 @@
 - **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
 - **installer:** write a Debian install stick from the media mode (#255) (cb9e1aa)
 - **installer:** The configure screen of the installer shows its services and tuning as modules (#280) (f85e2a6)
+- **installer:** compute the steps an apply-selection run needs (c855116)
+- **installer:** prepare from the package stored on the node (f5b1c87)
+- **installer:** run only the changed services in apply-selection mode (7af7686)
+- **installer:** apply a changed service selection without a full update (#282)
 - **installer:** add the Debian devices to the media device table (7fa1b05)
 - **installer:** verify the signed Debian SHA512SUMS and pick the netinst ISO (5ae1530)
 - **installer:** find the Debian netinst release and verify its signature (b665f59)
