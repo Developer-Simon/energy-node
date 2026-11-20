@@ -1,7 +1,7 @@
 ---
 title: "Settings"
 anchor_moves:
-  general: settings.html#general
+  general: settings.html#learning-features
   appearance: settings-appearance.html#appearance
   history: settings-history.html#history
   mqtt: settings-mqtt.html#mqtt
@@ -14,7 +14,7 @@ anchor_moves:
 
 # Settings
 
-Settings has twelve pages: General, Appearance, History, MQTT, Tailscale,
+Settings has twelve pages: Learning features, Appearance, History, MQTT, Tailscale,
 TinyTuya, Network, Users, Backup, Versions, Checklist and System. Tailscale and TinyTuya only
 appear when the matching service is installed.
 
@@ -23,23 +23,60 @@ with an icon and a short description. On narrow screens a button above the
 content shows the current page. Tapping it opens the full list as a sheet from
 the bottom. Swiping sideways on the button moves to the previous or next page.
 
-## General
+## Learning features
 
-![General settings](../images/dashboard-settings-general.png)
+The learning features turn the behaviour of your devices into suggestions for
+chains and into learned values for rules. They never change a rule or a chain
+on their own. Each feature has its own switch, and the page has four cards.
 
-This tab holds the health threshold in seconds (10 to 3600, default 180).
-It is the age at which a value counts as not updated and the health score of a
-device falls to zero. The tab also holds the sweep interval, the live update
-interval and the storage health check. On a Pi the check reads the SD card's
-wear counters. When the root filesystem is not a readable MMC medium, the page
-says so. Settings are versioned, and **Settings revisions** restores an earlier
-state. The footer lists every bundled JavaScript library with its version,
-license and license link.
+### Chains
+
+**Suggestions** searches the power values for devices that measure the same
+thing and suggests chains. **Learn values** learns the normal loss of each
+measurement chain, see [Efficiency](efficiency.md#learning). When you switch it
+off, the values learned so far stay, and the warnings rely on them alone.
+
+### Automations
+
+**Learn patterns** learns the switching times, the run times, the use per role
+and the energy flows. When you switch it off, the learned values stay at their
+last state, so a rule falls back to its default value after 7 days.
+
+Under **Fine-tuning**, **Exclude devices** opens a picker for the devices that
+the learning leaves out. **Allow all** removes every exclusion. The
+[rule check](automations-rules.md#rule-check) always runs. It only reads the
+trigger history and writes nothing new, so it has no switch.
+
+### Recording
+
+**Keep profiles** sets how many days of daily profiles stay, from 14 to 365
+days. The default is 56 days. Chains and automations share one recording, and
+each value is written only once. The card shows the memory in use and how much
+is written per day.
+
+**Delete learned data** asks for confirmation first. It deletes the day
+profiles, the reaction times, the sums of the chain suggestions and the learned
+loss values of the chains. Dismissed suggestions, ignored hints and the counters
+of the rule check stay.
+
+### New features
+
+When an update switches a learning feature on for the first time, the page
+shows a hint with the new features, and the menu entry and each new feature
+carry the pill **newly on**. On a fresh installation the hint says that the node
+learns from the start. **Keep all** confirms the features and removes the pills.
+Single features can still be switched off on the page.
+
+### Moved settings
+
+The General page is gone. **Save running values** is now on the Storage page,
+and **Stale values** is on the [MQTT](settings-mqtt.md) page.
 
 ## Other pages
 
 | Page | Tabs | What you set there |
 |---|---|---|
+| [Learning features](#learning-features) | Chains, Automations, Recording | learning of chains and automations, how long daily profiles are kept, deleting the learned data |
 | [Appearance](settings-appearance.md) | Appearance | default view, colour scheme, language and number format |
 | [History](settings-history.md) | History | recording and retention in the browser, exchange between devices, recording of the energy statistics |
 | [MQTT](settings-mqtt.md) | MQTT | broker connection, the "Energy Node" device in Home Assistant, the bridge to the main site |

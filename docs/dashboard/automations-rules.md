@@ -146,6 +146,18 @@ automatically, so a rule never points at a different device without you
 noticing. If the entity is no longer in the registry at all, the rule keeps
 running with the saved topic.
 
+## Where a switch came from
+
+The learning features record where each switching command comes from. The
+dashboard tells a rule from a hand switch and from an outside change. A switch
+that follows a rule is recognised by the automation state document, which
+counts the firings of each rule in `fire_count` and records the time of the last
+one in `fired_at`. A command sent through the dashboard is a hand switch, and
+everything else counts as outside. The daily profiles hold these origins in
+15 minute steps and are kept for 56 days by default, see
+[Recording](settings.md#recording). Nothing changes a rule by itself. Learned
+patterns only appear as suggestions.
+
 ## Rule check
 
 The rule check reads all rules and reports findings where a rule cannot work as
