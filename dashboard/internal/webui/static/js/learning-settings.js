@@ -72,6 +72,9 @@
     error: '',
     busy: false,
     csrfToken: '',
+    // edit_setup aus der Sitzung. Nur mit diesem Recht gibt es den Hinweis
+    // "neu aktiv" und die Quittung (der Server prueft es ohnehin).
+    learnCanEdit: true,
     devices: null,
     // Ausgenommene Geraete (IDs) je settings.learning_excluded_devices.
     learning_excluded_devices: [],
@@ -82,6 +85,52 @@
       window.addEventListener('settings-learning-loaded', (event) => {
         this.learning_excluded_devices = Array.isArray(event.detail && event.detail.ids) ? [...event.detail.ids] : [];
       });
+    },
+
+    // Hinweis "neu aktiv" oben auf der Seite: es gibt neue Funktionen, die
+    // Einrichtung ist fertig und der Nutzer darf die Einrichtung aendern.
+    get newHintVisible() {
+      return this.learnCanEdit && Boolean(this.status && this.status.setup_done) && this.newKeys.length > 0;
+    },
+
+    get newHintTitle() {
+      const n = this.newKeys.length;
+      const key = this.status && this.status.fresh ? 'settings.learning.new.fresh_title' : 'settings.learning.new.title';
+      return window.I18n ? window.I18n.tn(key, n, {n: numberText(n, 0)}) : key;
+    },
+
+    // Frisches System und Update haben je einen Einleitungssatz, dahinter steht
+    // derselbe Satz zu Speicher und Abschalten.
+    get newHintBody() {
+      const lead = this.status && this.status.fresh ? t('settings.learning.new.body_fresh') : t('settings.learning.new.body_update');
+      return `${lead} ${t('settings.learning.new.tail')}`;
+    },
+
+    isNew(key) {
+      return this.newKeys.includes(key);
+    },
+
+    // Schaltet eine Zeile ab, gilt sie damit als gesehen. Einschalten quittiert nichts.
+    switchedOff(key, on) {
+      if (!on) this.acknowledge([key]);
+    },
+
+    // Quittiert die Schluessel: sie bleiben in learning_acknowledged stehen und
+    // gelten danach nicht mehr als neu. Die Liste der Quittungen kommt aus dem
+    // Status, damit keine frueher quittierte Funktion verloren geht.
+    async acknowledge(keys) {
+      const acknowledged = [...new Set([...((this.status && this.status.acknowledged) || []), ...keys])];
+      const fetchWithCsrf = (url, options) => requestJSON(url, {
+        ...options,
+        headers: {...((options && options.headers) || {}), 'X-CSRF-Token': this.csrfToken},
+      });
+      try {
+        await saveSettingsFields({learning_acknowledged: acknowledged}, fetchWithCsrf);
+        window.dispatchEvent(new CustomEvent('learning-acknowledged', {detail: {ids: acknowledged}}));
+        await this.load();
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      }
     },
 
     setExcluded(ids) {
@@ -99,6 +148,9 @@
         ]);
         this.status = status;
         this.csrfToken = (session && session.csrf_token) || '';
+        this.learnCanEdit = session ? session.edit_setup === true : true;
+        // Der Punkt am Reiter Einstellungen in der Seitenleiste folgt dem Hinweis.
+        window.dispatchEvent(new CustomEvent('learning-new-changed', {detail: {open: this.newHintVisible}}));
       } catch (error) {
         this.error = error.message;
       } finally {

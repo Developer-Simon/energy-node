@@ -350,6 +350,11 @@
       window.addEventListener('learning-excluded-changed', (event) => {
         this.learningExcludedDevices = Array.isArray(event.detail && event.detail.ids) ? [...event.detail.ids] : [];
       });
+      // Quittungen der Seite Lernfunktionen (Hinweis "neu aktiv") gehen direkt
+      // an den Server. save() schickt die Liste hier nicht veraltet zurueck.
+      window.addEventListener('learning-acknowledged', (event) => {
+        this.learningAcknowledged = Array.isArray(event.detail && event.detail.ids) ? [...event.detail.ids] : [];
+      });
     },
 
     followUpdateCheckSetting() {

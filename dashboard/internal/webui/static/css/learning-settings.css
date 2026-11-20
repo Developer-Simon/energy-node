@@ -38,6 +38,24 @@
 .learn-usage { box-sizing: border-box; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between;
   margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--border-soft); font-size: .8rem; color: var(--text-faint); }
 
+/* Hinweis "neu aktiv" ueber die ganze Breite: die Karte selbst ohne Rahmen, der Streifen traegt die Farbe */
+.setting-card.learn-new-card { padding: 0; border: 0; background: none; box-shadow: none; }
+.learn-new-strip { box-sizing: border-box; display: flex; flex-wrap: wrap; gap: .6rem .8rem; align-items: flex-start; padding: .8rem .9rem;
+  border-radius: var(--radius-md); background: var(--info-bg); border: 1px solid color-mix(in srgb, var(--info-line) 45%, transparent); }
+.learn-new-icon { flex: none; width: 1.05rem; height: 1.05rem; margin-top: .15rem; color: var(--info-line); }
+.learn-new-text { flex: 1 1 16rem; display: grid; gap: 2px; font-size: .88rem; }
+.learn-new-text b { color: var(--text-strong); }
+.learn-new-text span { color: var(--text-subtle); }
+.learn-keep-all { align-self: center; margin-left: auto; padding: 9px 14px; border: 1px solid var(--border-soft); background: var(--panel-alt);
+  color: var(--text-strong); font: inherit; font-size: .88rem; font-weight: 600; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+.learn-keep-all:disabled { cursor: not-allowed; opacity: .55; }
+.learn-keep-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Marke "neu aktiv" neben dem Namen einer Zeile, Punkt am Eintrag der Seitenliste */
+.learn-pill { display: inline-block; margin: 0 .3rem; padding: .05rem .5rem; border-radius: 999px; font-size: .7rem; font-weight: 600;
+  background: var(--accent-bg); color: var(--accent-line); border: 1px solid var(--accent-line); vertical-align: .1em; }
+.learn-nav-dot { display: inline-block; width: 7px; height: 7px; margin-left: .3rem; border-radius: 50%; background: var(--accent); vertical-align: .15em; }
+
 @media (prefers-reduced-motion: reduce) {
   .learn-chevron { transition: none; }
 }

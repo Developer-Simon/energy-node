@@ -13,6 +13,7 @@ import { attachStores, fakeModalStore, fakeToastStore } from './helpers/notify-s
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'learning-settings.js'), 'utf8');
+const settingsFieldSource = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'settings-field.js'), 'utf8');
 
 // The catalog keys of settings.learning.* come with the next part. Until then
 // this stub carries the German wording the tests expect, with the same
@@ -88,12 +89,13 @@ function createPage({ routes = {}, answer = true } = {}) {
   const calls = [];
   dom.window.fetch = async (url, options = {}) => {
     const method = options.method || 'GET';
-    calls.push({ url, method, headers: options.headers || {} });
+    calls.push({ url, method, headers: options.headers || {}, body: options.body });
     const handler = routes[`${method} ${url}`] || routes[url];
     if (!handler) throw new Error(`unexpected fetch ${method} ${url}`);
     return { ok: true, status: 200, json: async () => handler };
   };
   load(dom);
+  dom.window.eval(settingsFieldSource);
   const page = factories.learningPage();
   const toasts = fakeToastStore();
   const modal = fakeModalStore({ answer });
@@ -153,4 +155,91 @@ test('reset() sends nothing when the confirmation is declined', async () => {
   assert.equal(await page.reset(), false);
   assert.equal(modal.calls.length, 1);
   assert.equal(calls.length, 0);
+});
+
+// Hinweis "neu aktiv": Status mit allen drei Funktionen neu, Einrichtung fertig.
+const hintStatus = {
+  fresh: false,
+  setup_done: true,
+  new: ['chain_suggestions', 'auto_patterns'],
+  acknowledged: ['chain_learning'],
+  features: {
+    chain_suggestions: { on: true, since: 0, devices: 0 },
+    chain_learning: { on: true, since: 0, devices: 0 },
+    auto_patterns: { on: true, since: 0, devices: 0 },
+  },
+  usage: { bytes: 412000, written_per_day: 96000, since: 0, devices: 0 },
+};
+const hintRoutes = (status = hintStatus, session = { csrf_token: 'tok', edit_setup: true }) => ({
+  '/api/v1/learning/status': status,
+  '/api/v1/auth/session': session,
+  '/api/v1/settings': { learning_acknowledged: ['chain_learning'], chain_suggestions_disabled: false },
+  'PUT /api/v1/settings': { ok: true },
+});
+const putBody = calls => JSON.parse(calls.find(call => call.method === 'PUT').body);
+
+test('"Alle behalten" sends all new keys plus the already acknowledged ones', async () => {
+  const { page, calls } = createPage({ routes: hintRoutes() });
+  await page.load();
+  calls.length = 0;
+  await page.acknowledge(page.newKeys);
+  const put = calls.find(call => call.method === 'PUT');
+  assert.equal(put.headers['X-CSRF-Token'], 'tok');
+  assert.deepEqual(putBody(calls).learning_acknowledged, ['chain_learning', 'chain_suggestions', 'auto_patterns']);
+});
+
+test('switching a row off acknowledges only that key', async () => {
+  const { page, calls } = createPage({ routes: hintRoutes() });
+  await page.load();
+  calls.length = 0;
+  page.switchedOff('auto_patterns', false);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(putBody(calls).learning_acknowledged, ['chain_learning', 'auto_patterns']);
+});
+
+test('switching a row on does not acknowledge anything', async () => {
+  const { page, calls } = createPage({ routes: hintRoutes() });
+  await page.load();
+  calls.length = 0;
+  page.switchedOff('auto_patterns', true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.filter(call => call.method === 'PUT').length, 0);
+});
+
+test('the hint shows only with setup done, edit_setup and features that are new', async () => {
+  const done = createPage({ routes: hintRoutes() });
+  await done.page.load();
+  assert.equal(done.page.newHintVisible, true);
+
+  const notSetUp = createPage({ routes: hintRoutes({ ...hintStatus, setup_done: false }) });
+  await notSetUp.page.load();
+  assert.equal(notSetUp.page.newHintVisible, false);
+
+  const noEdit = createPage({ routes: hintRoutes(hintStatus, { csrf_token: 'tok', edit_setup: false }) });
+  await noEdit.page.load();
+  assert.equal(noEdit.page.newHintVisible, false);
+
+  const empty = createPage({ routes: hintRoutes({ ...hintStatus, new: [] }) });
+  await empty.page.load();
+  assert.equal(empty.page.newHintVisible, false);
+});
+
+test('fresh picks the fresh text, an update the update text', async () => {
+  const update = createPage({ routes: hintRoutes({ ...hintStatus, new: ['auto_patterns'] }) });
+  await update.page.load();
+  assert.equal(update.page.newHintTitle, 'Eine Lernfunktion ist neu aktiv');
+  assert.ok(update.page.newHintBody.startsWith('Sie sind mit dem letzten Update dazugekommen. '), update.page.newHintBody);
+
+  const fresh = createPage({ routes: hintRoutes({ ...hintStatus, fresh: true, new: ['auto_patterns', 'chain_suggestions'] }) });
+  await fresh.page.load();
+  assert.equal(fresh.page.newHintTitle, 'Lernfunktionen sind aktiv');
+  assert.ok(fresh.page.newHintBody.startsWith('Die Node lernt von Anfang an aus deinen Geräten. '), fresh.page.newHintBody);
+});
+
+test('the pill marks only the new features that are still on', async () => {
+  const { page } = createPage({ routes: hintRoutes() });
+  await page.load();
+  assert.equal(page.isNew('chain_suggestions'), true);
+  assert.equal(page.isNew('chain_learning'), false);
+  assert.equal(page.isNew('auto_patterns'), true);
 });
