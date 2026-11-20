@@ -116,3 +116,23 @@ func TestPoolFourWorkersAreFasterThanOne(t *testing.T) {
 		t.Fatalf("four workers took %v, one worker %v: no clear speed-up", four, one)
 	}
 }
+
+func TestPoolUnfinishedKeepsInputOrderWithWorkers(t *testing.T) {
+	// Several workers report the cut-off tasks in whatever order they wake
+	// up, so repeat the run and require the input order every time.
+	for run := 0; run < 20; run++ {
+		tasks := []Task{blockTask("t0"), blockTask("t1"), blockTask("t2"), blockTask("t3")}
+		done, unfinished, _ := RunPool(context.Background(), 2, 20*time.Millisecond, tasks)
+		if len(done) != 0 {
+			t.Fatalf("run %d: done = %d, want 0", run, len(done))
+		}
+		if len(unfinished) != 4 {
+			t.Fatalf("run %d: unfinished = %d, want 4", run, len(unfinished))
+		}
+		for i, u := range unfinished {
+			if want := tasks[i].Detector; u.Detector != want {
+				t.Fatalf("run %d: unfinished[%d] = %s, want %s", run, i, u.Detector, want)
+			}
+		}
+	}
+}

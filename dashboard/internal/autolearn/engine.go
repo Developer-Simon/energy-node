@@ -15,6 +15,11 @@ const (
 	// daily detectors run, once per day.
 	engineDailyHour   = 3
 	engineDailyMinute = 30
+	// engineCatchUpAfter is the delay after the start before a catch-up daily
+	// round runs. engineDailyMaxAge is the age of the last daily round from
+	// which on a catch-up is due.
+	engineCatchUpAfter = 5 * time.Minute
+	engineDailyMaxAge  = 24 * time.Hour
 	// engineStreak is the number of overruns in a row that asks for a downgrade.
 	engineStreak = 3
 	// engineWindow is the window for the overrun count and the compute share.
@@ -68,7 +73,9 @@ type Engine struct {
 	mu        sync.Mutex
 	detectors []Detector
 	queue     []pending
+	startAt   time.Time
 	lastLight time.Time
+	lastDaily time.Time
 	dailyDay  string
 	last      map[string][]Candidate
 	streak    map[string]int
@@ -123,11 +130,24 @@ func (e *Engine) Tick(now time.Time, groups map[string]bool) {
 
 	e.mu.Lock()
 	e.now = now
+	if e.startAt.IsZero() {
+		e.startAt = now
+		// A start after the 03:30 slot leaves today's slot to the catch-up.
+		if !local.Before(dailyAt) {
+			e.dailyDay = dayKey
+		}
+	}
 	detectors := append([]Detector(nil), e.detectors...)
 	queue := e.queue
 	e.queue = nil
 	lightDue := e.lastLight.IsZero() || now.Sub(e.lastLight) >= limits.LightEvery
 	dailyDue := !local.Before(dailyAt) && e.dailyDay != dayKey
+	// Catch-up: a daily round runs once, five minutes after the start, when the
+	// last one is more than a day old or there was none.
+	if !dailyDue && now.Sub(e.startAt) >= engineCatchUpAfter &&
+		(e.lastDaily.IsZero() || now.Sub(e.lastDaily) > engineDailyMaxAge) {
+		dailyDue = true
+	}
 	// A round only counts when one of its detectors is in an enabled group.
 	// Otherwise the timer stays, and the round runs at once when the group is
 	// switched on.
@@ -142,6 +162,13 @@ func (e *Engine) Tick(now time.Time, groups map[string]bool) {
 	}
 	if dailyDue {
 		e.dailyDay = dayKey
+		e.lastDaily = now
+	}
+	// Unfinished work only goes into a round that is due. Otherwise it waits
+	// for the next due round.
+	if !lightDue && !dailyDue {
+		e.queue = queue
+		queue = nil
 	}
 	e.mu.Unlock()
 

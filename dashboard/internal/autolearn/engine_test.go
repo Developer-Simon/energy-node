@@ -2,6 +2,7 @@ package autolearn
 
 import (
 	"context"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -181,6 +182,8 @@ func TestEngineDisabledGroupDoesNotAdvanceTimers(t *testing.T) {
 		return nil
 	}})
 
+	// The engine starts before the slot, so 03:30 is a slot and not a missed one.
+	e.Tick(at(t, "2026-11-20", "03:00"), map[string]bool{})
 	// Both groups off: the 03:30 and the light round must not count.
 	e.Tick(at(t, "2026-11-20", "03:30"), map[string]bool{})
 	if daily.Load() != 0 || light.Load() != 0 {
@@ -209,5 +212,116 @@ func TestEngineLightTimerOnlyCountsWhenItsGroupIsOn(t *testing.T) {
 	e.Tick(at(t, "2026-11-20", "10:01"), map[string]bool{"reliability": true})
 	if got := runs.Load(); got != 1 {
 		t.Fatalf("first enabled round after a disabled one = %d runs, want 1", got)
+	}
+}
+
+func TestEngineUnfinishedWaitsForDueRound(t *testing.T) {
+	limits := learnrec.LimitsFor(learnrec.LevelBalanced, 4)
+	limits.Workers = 1
+	limits.Budget = 20 * time.Millisecond
+	limits.LightEvery = 15 * time.Minute
+	e := newTestEngine(t, limits)
+	var runs atomic.Int32
+	e.Register(Detector{Name: "slow", Group: "habit", Light: true, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+		runs.Add(1)
+		<-ctx.Done()
+		return nil
+	}})
+
+	e.Tick(at(t, "2026-11-20", "10:00"), habitOnly) // due, runs and overruns
+	if got := runs.Load(); got != 1 {
+		t.Fatalf("first round runs = %d, want 1", got)
+	}
+	e.Tick(at(t, "2026-11-20", "10:05"), habitOnly) // not due: the carried task must wait
+	e.Tick(at(t, "2026-11-20", "10:10"), habitOnly)
+	if got := runs.Load(); got != 1 {
+		t.Fatalf("non-due ticks ran the carried task: runs = %d, want 1", got)
+	}
+	e.Tick(at(t, "2026-11-20", "10:15"), habitOnly) // due: the carried task runs again
+	if got := runs.Load(); got != 2 {
+		t.Fatalf("due round runs = %d, want 2", got)
+	}
+}
+
+func TestEngineCatchUpFiveMinutesAfterStart(t *testing.T) {
+	e := newTestEngine(t, learnrec.LimitsFor(learnrec.LevelBalanced, 4))
+	var runs atomic.Int32
+	e.Register(Detector{Name: "daily", Group: "habit", Light: false, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+		runs.Add(1)
+		return nil
+	}})
+
+	e.Tick(at(t, "2026-11-20", "10:00"), habitOnly)
+	e.Tick(at(t, "2026-11-20", "10:04"), habitOnly)
+	if got := runs.Load(); got != 0 {
+		t.Fatalf("runs before the catch-up delay = %d, want 0", got)
+	}
+	e.Tick(at(t, "2026-11-20", "10:05"), habitOnly)
+	if got := runs.Load(); got != 1 {
+		t.Fatalf("catch-up runs = %d, want 1", got)
+	}
+	e.Tick(at(t, "2026-11-20", "11:00"), habitOnly)
+	if got := runs.Load(); got != 1 {
+		t.Fatalf("second tick the same day ran again: runs = %d", got)
+	}
+	e.Tick(at(t, "2026-11-21", "03:30"), habitOnly)
+	if got := runs.Load(); got != 2 {
+		t.Fatalf("next 03:30 slot runs = %d, want 2", got)
+	}
+}
+
+func TestEngineCatchUpAgeRule(t *testing.T) {
+	cases := []struct {
+		name     string
+		lastRun  string
+		wantRuns int32
+	}{
+		{"last run 25 hours ago", "2026-11-19 09:00", 1},
+		{"last run 22 hours ago", "2026-11-19 12:00", 0},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			e := newTestEngine(t, learnrec.LimitsFor(learnrec.LevelBalanced, 4))
+			var runs atomic.Int32
+			e.Register(Detector{Name: "daily", Group: "habit", Light: false, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+				runs.Add(1)
+				return nil
+			}})
+			e.lastDaily = at(t, strings.Fields(c.lastRun)[0], strings.Fields(c.lastRun)[1])
+			e.Tick(at(t, "2026-11-20", "10:00"), habitOnly)
+			e.Tick(at(t, "2026-11-20", "10:05"), habitOnly)
+			if got := runs.Load(); got != c.wantRuns {
+				t.Fatalf("runs = %d, want %d", got, c.wantRuns)
+			}
+		})
+	}
+}
+
+func TestEngineShareLimitPerLevel(t *testing.T) {
+	eco := learnrec.LimitsFor(learnrec.LevelEco, 1)
+	balanced := learnrec.LimitsFor(learnrec.LevelBalanced, 4)
+	if shareLimit(eco) != 0.05 || shareLimit(balanced) != 0.10 {
+		t.Fatalf("share limits = %v, %v, want 0.05 and 0.10", shareLimit(eco), shareLimit(balanced))
+	}
+
+	now := at(t, "2026-11-20", "10:00")
+	// 6 % of one core over 24 hours: over the eco limit, under the others.
+	six := map[string]time.Duration{"x": 5184 * time.Second}
+	e := newTestEngine(t, eco)
+	e.record(now, eco, nil, nil, nil, six)
+	if !e.Downgrade() {
+		t.Fatal("eco: 6 % share did not ask for a downgrade")
+	}
+	e = newTestEngine(t, balanced)
+	e.record(now, balanced, nil, nil, nil, six)
+	if e.Downgrade() {
+		t.Fatal("balanced: 6 % share asked for a downgrade, want none")
+	}
+	// 12 % is over the limit of the other levels.
+	twelve := map[string]time.Duration{"x": 10368 * time.Second}
+	e = newTestEngine(t, balanced)
+	e.record(now, balanced, nil, nil, nil, twelve)
+	if !e.Downgrade() {
+		t.Fatal("balanced: 12 % share did not ask for a downgrade")
 	}
 }

@@ -2,6 +2,7 @@ package autolearn
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 )
@@ -32,21 +33,17 @@ func RunPool(ctx context.Context, workers int, budget time.Duration, tasks []Tas
 		next  int
 		wg    sync.WaitGroup
 		total = map[string]time.Duration{}
+		left  []indexedTask
 	)
-	take := func() (Task, bool) {
+	take := func() (int, Task, bool) {
 		mu.Lock()
 		defer mu.Unlock()
 		if next >= len(tasks) {
-			return Task{}, false
+			return 0, Task{}, false
 		}
-		t := tasks[next]
+		i := next
 		next++
-		return t, true
-	}
-	giveUp := func(t Task) {
-		mu.Lock()
-		unfinished = append(unfinished, t)
-		mu.Unlock()
+		return i, tasks[i], true
 	}
 
 	for w := 0; w < workers; w++ {
@@ -54,12 +51,14 @@ func RunPool(ctx context.Context, workers int, budget time.Duration, tasks []Tas
 		go func() {
 			defer wg.Done()
 			for {
-				t, ok := take()
+				i, t, ok := take()
 				if !ok {
 					return
 				}
 				if ctx.Err() != nil {
-					giveUp(t)
+					mu.Lock()
+					left = append(left, indexedTask{i, t})
+					mu.Unlock()
 					continue
 				}
 				start := time.Now()
@@ -81,12 +80,23 @@ func RunPool(ctx context.Context, workers int, budget time.Duration, tasks []Tas
 				if finished {
 					done = append(done, out...)
 				} else {
-					unfinished = append(unfinished, t)
+					left = append(left, indexedTask{i, t})
 				}
 				mu.Unlock()
 			}
 		}()
 	}
 	wg.Wait()
+	// Workers report in completion order, so restore the order of the input.
+	sort.Slice(left, func(a, b int) bool { return left[a].i < left[b].i })
+	for _, it := range left {
+		unfinished = append(unfinished, it.t)
+	}
 	return done, unfinished, total
+}
+
+// indexedTask keeps the input position of a task that did not finish.
+type indexedTask struct {
+	i int
+	t Task
 }
