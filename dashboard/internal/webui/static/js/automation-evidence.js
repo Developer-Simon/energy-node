@@ -30,11 +30,11 @@
     return '<div class="auto-learn-lane' + (soll ? ' is-soll' : '') + '"><span class="auto-learn-lane-label">' + esc(label) + '</span>' + body + '</div>';
   }
 
-  function spans(list, from, to) {
+  function spans(list, from, to, cls) {
     return (list || []).map((s) => {
       const x = pos(s[0], from, to);
       const w = pos(s[1], from, to) - x;
-      return '<rect class="auto-learn-soll" x="' + x + '" y="1.5" width="' + w + '" height="7" rx="0.8"/>';
+      return '<rect class="' + (cls || 'auto-learn-soll') + '" x="' + x + '" y="1.5" width="' + w + '" height="7" rx="0.8"/>';
     }).join('');
   }
 
@@ -60,6 +60,19 @@
     return lane(t('automations.learn.lane.ist'), laneSvg(marks(ev.ist, toX, 'auto-learn-mark-event'))) // i18n-ignore
       + lane(t('automations.learn.lane.soll'), laneSvg(spans(ev.soll_spans, from, to)), true)
       + axis(ticks);
+  }
+
+  // Tag von 0 bis 24 h, Zeiten in Minuten ab Mitternacht. Marken am Rand bleiben auf der Achse.
+  function dayShape(ev, t) {
+    const from = Number.isFinite(ev.from) ? ev.from : 0;
+    const to = Number.isFinite(ev.to) ? ev.to : 1440;
+    const toX = (v) => pos(v, from, to);
+    const ist = spans(ev.ist_spans, from, to, 'auto-learn-ist') + marks(ev.ist, toX, 'auto-learn-mark-event'); // i18n-ignore
+    const soll = spans(ev.soll_spans, from, to) + marks(ev.soll, toX, 'auto-learn-mark-soll');
+    const hours = [0, 0.25, 0.5, 0.75, 1].map((f) => String(Math.round((from + (to - from) * f) / 60)));
+    return lane(t('automations.learn.lane.ist'), laneSvg(ist)) // i18n-ignore
+      + lane(t('automations.learn.lane.soll'), laneSvg(soll), true)
+      + axis(hours);
   }
 
   function scaleShape(ev, t) {
@@ -93,7 +106,7 @@
       + '<div class="auto-learn-lane is-soll"><span class="auto-learn-lane-label">' + esc(t('automations.learn.lane.soll')) + '</span><div class="auto-learn-chips">' + sollBody + '</div></div>';
   }
 
-  const SHAPES = { events: eventsShape, scale: scaleShape, links: linksShape };
+  const SHAPES = { day: dayShape, events: eventsShape, scale: scaleShape, links: linksShape };
 
   // render(evidence, t) -> HTML. t(key, params) liefert die Spurmarken.
   function render(evidence, t) {

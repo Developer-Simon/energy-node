@@ -138,6 +138,7 @@ test('rendered graphics contain no text element inside SVG', () => {
     { shape: 'events', from: 1700000000, to: 1700014400, ist: [1700001000], soll_spans: [[1700001000, 1700002000]] },
     { shape: 'scale', seen: [0, 200], ist_value: 100, soll_value: 150, max: 300 },
     { shape: 'links', target: 'a.b', ist_names: ['R'], soll_names: ['S'] },
+    { shape: 'day', from: 0, to: 1440, ist: [1435, 0], ist_spans: [[420, 1350]], soll: [0], soll_spans: [[0, 60]] },
   ];
   shapes.forEach((ev) => {
     const host = mount(document, api.render(ev, t));
@@ -145,9 +146,69 @@ test('rendered graphics contain no text element inside SVG', () => {
   });
 });
 
+test('day shape puts marks at 1435 and 0 minutes on the two edges of the 0 to 24 h axis', () => {
+  const { api, document } = load();
+  const html = api.render({
+    shape: 'day',
+    from: 0,
+    to: 1440,
+    ist: [1435, 0],
+    soll: [0, 1435],
+    ist_spans: [],
+    soll_spans: [],
+  }, t);
+  const host = mount(document, html);
+  const ist = Array.from(host.querySelectorAll('line.auto-learn-mark-event')).map((m) => Number(m.getAttribute('x1')));
+  const soll = Array.from(host.querySelectorAll('line.auto-learn-mark-soll')).map((m) => Number(m.getAttribute('x1')));
+  assert.deepEqual(ist.map((x) => x.toFixed(3)), ['99.653', '0.000']);
+  assert.deepEqual(soll.map((x) => x.toFixed(3)), ['0.000', '99.653']);
+  assert.ok(ist.concat(soll).every((x) => x >= 0 && x <= 100));
+  const labels = Array.from(host.querySelectorAll('.auto-learn-axis > div > span')).map((s) => s.textContent);
+  assert.deepEqual(labels, ['0', '6', '12', '18', '24']);
+});
+
+test('day shape draws Ist bands from ist_spans and Soll bands from soll_spans', () => {
+  const { api, document } = load();
+  const html = api.render({
+    shape: 'day',
+    from: 0,
+    to: 1440,
+    ist: [],
+    ist_spans: [[420, 1350]],
+    soll: [],
+    soll_spans: [[0, 1440]],
+  }, t);
+  const host = mount(document, html);
+  const istRect = host.querySelector('rect.auto-learn-ist');
+  assert.ok(istRect, 'ist band exists');
+  assert.equal(Number(istRect.getAttribute('x')).toFixed(3), ((420 / 1440) * 100).toFixed(3));
+  assert.equal(Number(istRect.getAttribute('width')).toFixed(3), ((930 / 1440) * 100).toFixed(3));
+  const sollRect = host.querySelector('rect.auto-learn-soll');
+  assert.equal(Number(sollRect.getAttribute('x')), 0);
+  assert.equal(Number(sollRect.getAttribute('width')), 100);
+});
+
+test('day shape clamps marks and bands that lie outside the axis', () => {
+  const { api, document } = load();
+  const html = api.render({
+    shape: 'day',
+    from: 0,
+    to: 1440,
+    ist: [-30, 1500],
+    ist_spans: [[1300, 1600]],
+    soll: [],
+    soll_spans: [],
+  }, t);
+  const host = mount(document, html);
+  const xs = Array.from(host.querySelectorAll('line.auto-learn-mark-event')).map((m) => Number(m.getAttribute('x1')));
+  assert.deepEqual(xs, [0, 100]);
+  const rect = host.querySelector('rect.auto-learn-ist');
+  assert.ok(Number(rect.getAttribute('x')) + Number(rect.getAttribute('width')) <= 100.0001);
+});
+
 test('unknown shape or missing evidence renders an empty string', () => {
   const { api } = load();
-  assert.equal(api.render({ shape: 'day' }, t), '');
+  assert.equal(api.render({ shape: 'curve' }, t), '');
   assert.equal(api.render({ shape: 'unknown' }, t), '');
   assert.equal(api.render(null, t), '');
   assert.equal(api.render(undefined, t), '');
