@@ -265,6 +265,9 @@ type RouterDependencies struct {
 	Backup *BackupDeps
 	// Storage liefert die Routen unter /api/v1/storage/. Nil heisst: die Routen fehlen.
 	Storage *StorageDeps
+	// Learning liefert GET /api/v1/learning/status und POST /api/v1/learning/reset.
+	// Nil heisst: 501, wie bei den Energie-Statistiken.
+	Learning *LearningDeps
 	// Performance liefert GET /api/v1/performance. Nil heisst: 501, wie bei den Energie-Statistiken.
 	Performance *PerformanceDeps
 	// EventStreams nimmt den Hub des /api/v1/events-Stroms auf, damit die
@@ -391,6 +394,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/automations/findings", handleAutomationFindings(dependencies.AutomationFindings))
 	g.HandleFunc("/api/v1/automations/findings/ignore", handleAutomationFindingIgnore(dependencies.Auth, dependencies.AutomationFindings))
 	g.HandleFunc("/api/v1/automations/findings/preview", handleAutomationFindingsPreview(dependencies.Auth, dependencies.AutomationFindings))
+	g.HandleFunc("/api/v1/learning/status", handleLearningStatus(dependencies.Learning))
+	g.HandleFunc("/api/v1/learning/reset", handleLearningReset(dependencies.Auth, dependencies.Learning))
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	g.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))

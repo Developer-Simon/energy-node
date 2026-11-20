@@ -596,3 +596,18 @@ func TestResetLearnedDropsValuesAndFindingsAndPersists(t *testing.T) {
 		t.Fatalf("saved table has %d pairs, want 0", n)
 	}
 }
+
+func TestMonitorLearnedSpan(t *testing.T) {
+	r := newRig()
+	if since, n := r.m.LearnedSpan(); since != 0 || n != 0 {
+		t.Fatalf("empty LearnedSpan = %d, %d, want 0, 0", since, n)
+	}
+	r.feed(t0, 0, 15*time.Minute, unitChain(0.3, 300))
+	since, n := r.m.LearnedSpan()
+	if n != 2 {
+		t.Fatalf("entities = %d, want 2", n)
+	}
+	if since < t0.Unix() || since > t0.Add(15*time.Minute).Unix() {
+		t.Fatalf("since = %d, want between the start and the end of the feed", since)
+	}
+}

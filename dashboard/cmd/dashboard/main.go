@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -191,6 +192,16 @@ func main() {
 	devicesDir := cfg.Paths.DevicesDir
 	configManager := config.NewManager(devicesDir)
 	dataDir := cfg.Paths.DataDir
+	// Stand der Lernfunktionen: erster Start und ob schon etwas gelernt wurde.
+	// Die Pruefung kommt vor chainwatch.Load und chainsuggest.Load, denn beide
+	// legen ihre Dateien erst beim Speichern an.
+	hadLearning := false
+	for _, name := range []string{"learned.json", "suggest.json"} {
+		if _, err := os.Stat(filepath.Join(dataDir, "energystats", "chains", name)); err == nil {
+			hadLearning = true
+		}
+	}
+	learnState := learnrec.LoadState(filepath.Join(dataDir, "learnrec", "state.json"), time.Now(), hadLearning, log.Printf)
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
 	backupSources := buildSources(cfg, *configPath)
 	runBackupApply(backupSources, systemExecutor.StartServices)
@@ -1100,8 +1111,19 @@ func main() {
 		DataDir:              dataDir,
 		AutomationHistoryDir: cfg.RuntimePath(devicesDir, ""),
 		Onboarding:           onboardingStore,
-		TourTargets:          dashwebui.TourTargets,
-		Backup:               backupDeps,
+		Learning: &httpapi.LearningDeps{
+			Settings:         settingsStore.LoadSettings,
+			State:            func() learnrec.State { return learnState },
+			Usage:            dayStore.Usage,
+			ChainSuggestInfo: chainSuggest.LearnedSpan,
+			ChainLearnInfo:   chainMonitor.LearnedSpan,
+			SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
+			Reset: func() error {
+				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned())
+			},
+		},
+		TourTargets: dashwebui.TourTargets,
+		Backup:      backupDeps,
 		Storage: &httpapi.StorageDeps{
 			DataDir:   dataDir,
 			Service:   storageService,

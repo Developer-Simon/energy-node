@@ -266,6 +266,48 @@ the last seven days:
 | 500 | `energy_stats_failed` | Reading the measurement chain store failed |
 | 501 | `energy_stats_unavailable` | The node runs without a data directory |
 
+## Learning
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/learning/status` | view automations | State of the learning features: first start, level, usage, and which features are new |
+| POST | `/api/v1/learning/reset` | edit setup + CSRF | Deletes everything the learning features have learned, answers `{"ok":true}` |
+
+**`GET /api/v1/learning/status`** returns the state of the three learning
+features `chain_suggestions`, `chain_learning` and `auto_patterns`. Each one has
+`on` (switched on in the settings), `since` (unix time of the oldest stored data,
+0 when there is none) and `devices` (entities or devices with stored data).
+`usage` shows the storage of the day profiles: `bytes`, `written_per_day`
+(mean of the last seven days), `since` and `devices`. `fresh` is true when the
+node had nothing learned at its first start. `setup_done` tells whether the
+onboarding is complete. `level` is the resolved level (`eco`, `balanced` or
+`full`), `level_setting` the setting as saved (`auto` when empty).
+`acknowledged` lists the features the user has confirmed, `new` the features
+that are switched on and not yet confirmed. Example:
+
+```json
+{"fresh":false,"setup_done":true,"level":"eco","level_setting":"auto",
+ "features":{"chain_suggestions":{"on":true,"since":1794000000,"devices":9},
+             "chain_learning":{"on":true,"since":1794000000,"devices":4},
+             "auto_patterns":{"on":true,"since":1794000000,"devices":14}},
+ "usage":{"bytes":412000,"written_per_day":96000,"since":1794000000,"devices":14},
+ "acknowledged":["chain_learning"],"new":["chain_suggestions","auto_patterns"]}
+```
+
+**`POST /api/v1/learning/reset`** drops the day profiles, the learned loss values
+of the measurement chains and the reaction times. Dismissed chain suggestions
+stay dismissed. The settings are not changed. The reset needs `edit_setup` and a
+CSRF token, and is a POST only.
+
+| Status | Code | When |
+|---|---|---|
+| 403 | `view_forbidden` | The account lacks `view_automations` (`/learning/status`) |
+| 403 | `learning_forbidden` | `/learning/reset`: the account lacks `edit_setup` |
+| 403 | `csrf_failed` | `/learning/reset`: the CSRF token is missing or wrong |
+| 500 | `learning_reset_failed` | Deleting the learned data failed |
+| 500 | `settings_invalid` | `/learning/status`: the settings cannot be read |
+| 501 | `learning_unavailable` | The node runs without the learning services |
+
 ## History
 
 | Method | Path | Gate | Purpose |

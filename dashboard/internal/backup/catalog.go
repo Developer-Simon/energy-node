@@ -99,6 +99,8 @@ var catalog = []Entry{
 	{RootData, "autolearn/reaction.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/*", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/days/*", ClassRuntime, AreaHistory},
+	// Lernstand ueber Neustarte: erster Start und ob schon etwas gelernt wurde.
+	{RootData, "learnrec/state.json", ClassRuntime, AreaHistory},
 
 	{RootData, "energydiscovery/*", ClassDisposable, ""},
 	{RootData, "runtime.json", ClassDisposable, ""},

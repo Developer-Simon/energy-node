@@ -158,3 +158,19 @@ func TestCollectorResetLearnedKeepsDismissed(t *testing.T) {
 		t.Errorf("reloaded dismissed = %v, want c-d", reloaded.dismissed)
 	}
 }
+
+func TestCollectorLearnedSpan(t *testing.T) {
+	c := NewCollector(baseThresholds(), time.UTC)
+	if since, n := c.LearnedSpan(); since != 0 || n != 0 {
+		t.Fatalf("empty LearnedSpan = %d, %d, want 0, 0", since, n)
+	}
+	feed(c, storeT0, 60, func(m int) map[string]float64 {
+		return map[string]float64{"a": ramp(m), "b": ramp(m)*0.9 + wobble(m)}
+	})
+	flush(c, storeT0.Add(60*time.Minute))
+	since, n := c.LearnedSpan()
+	wantDay := time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC).Unix()
+	if since != wantDay || n != 2 {
+		t.Fatalf("LearnedSpan = %d, %d, want %d, 2", since, n, wantDay)
+	}
+}

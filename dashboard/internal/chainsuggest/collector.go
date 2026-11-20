@@ -138,6 +138,29 @@ func (c *Collector) ResetLearned() error {
 	return nil
 }
 
+// LearnedSpan gives the start of the oldest stored day sum as unix time and the
+// number of entities in the stored sums. Both are 0 when no sum is stored.
+func (c *Collector) LearnedSpan() (since int64, entities int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if len(c.sums) == 0 {
+		return 0, 0
+	}
+	seen := map[string]bool{}
+	oldest := 0
+	first := true
+	for key := range c.sums {
+		seen[key.a] = true
+		seen[key.b] = true
+		if first || key.day < oldest {
+			oldest = key.day
+			first = false
+		}
+	}
+	return int64(oldest) * 86400, len(seen)
+}
+
 // ObserveMinute nimmt den abgeschlossenen Minutenrahmen des Hubs entgegen und
 // addiert die aktiven Paare dieser Minute zu den Tagessummen.
 func (c *Collector) ObserveMinute(f learnrec.Frame) {

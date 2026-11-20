@@ -221,6 +221,14 @@ func (m *Monitor) ResetLearned() error {
 	return nil
 }
 
+// LearnedSpan gives the earliest first sighting of a learned pair as unix time
+// and the number of entities in the table. Both are 0 when nothing is learned.
+func (m *Monitor) LearnedSpan() (since int64, entities int) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.table.Span()
+}
+
 // Prune drops the learned pairs that are no longer adjacent in any chain, and
 // the trackers of chains that are gone or whose points changed.
 func (m *Monitor) Prune(chains map[string]energy.Chain) {
