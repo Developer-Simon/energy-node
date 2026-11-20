@@ -21,11 +21,6 @@
       <span class="nav-menu-chevron" aria-hidden="true"></span>
     </button>
     <div class="settings-side-list" data-tour="settings-nav" role="tablist" aria-orientation="vertical" aria-label="{{t "settings.nav.label"}}" x-ref="subnav">
-      <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-general" x-bind:class="{ active: activeSettingsPage === 'general' }" x-bind:aria-selected="activeSettingsPage === 'general'" x-on:click="activeSettingsPage = 'general'">
-        <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-gear"></use></svg>
-        <span class="settings-nav-title">{{t "settings.nav.general"}}</span>
-        <span class="settings-nav-desc">{{t "settings.nav.general_desc"}}</span>
-      </button>
       <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-display" x-bind:class="{ active: activeSettingsPage === 'display' }" x-bind:aria-selected="activeSettingsPage === 'display'" x-on:click="activeSettingsPage = 'display'">
         <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-layers"></use></svg>
         <span class="settings-nav-title">{{t "settings.nav.display"}}</span>
@@ -35,6 +30,11 @@
         <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-history"></use></svg>
         <span class="settings-nav-title">{{t "settings.nav.history"}}</span>
         <span class="settings-nav-desc">{{t "settings.nav.history_desc"}}</span>
+      </button>
+      <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-general" x-bind:class="{ active: activeSettingsPage === 'general' }" x-bind:aria-selected="activeSettingsPage === 'general'" x-on:click="activeSettingsPage = 'general'">
+        <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-learning"></use></svg>
+        <span class="settings-nav-title">{{t "settings.nav.learning"}}</span>
+        <span class="settings-nav-desc">{{t "settings.nav.learning_desc"}}</span>
       </button>
       {{if index .Can "network"}}
       <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-network" x-bind:class="{ active: activeSettingsPage === 'network' }" x-bind:aria-selected="activeSettingsPage === 'network'" x-on:click="activeSettingsPage = 'network'">
@@ -124,42 +124,16 @@
     </div>
   </template>
   <div class="settings-content">
-  <div class="settings-panel-body" x-data="settingsPanel()" x-init="$nextTick(() => initChoices()); followUpdateCheckSetting(); load()">
-  <section id="settings-general" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'general'">
-    <div class="setting-card">
-      <h3 class="setting-card-title">{{t "settings.operation.title"}}</h3>
-      <p class="setting-note">{{t "settings.operation.note"}}</p>
-      <div class="setting-row">
-        <span class="setting-row-label-group">
-          <span class="setting-row-label" id="lbl-health-threshold">{{t "settings.health_threshold.label"}} <span class="setting-row-unit">{{t "settings.unit.seconds"}}</span></span>
-          <span class="field-help field-help-align-start">
-            <button class="field-help-trigger" type="button" aria-label="{{t "settings.health_threshold.help"}}"><svg><use href="#ico-help"></use></svg></button>
-            <span class="field-help-text" role="tooltip">{{t "settings.health_threshold.help_text"}}</span>
-          </span>
-        </span>
-        <span class="stepper" role="group" aria-labelledby="lbl-health-threshold">
-          <button type="button" class="stepper-btn" aria-label="{{t "settings.health_threshold.decrease"}}" x-on:click="stepField('healthScoreThreshold', -1)" x-on:pointerdown="startRepeat('healthScoreThreshold', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()" x-bind:disabled="!canEditSetup">&minus;</button>
-          <input class="stepper-input" type="number" min="10" max="3600" step="1" x-model.number="healthScoreThreshold" aria-labelledby="lbl-health-threshold" x-bind:disabled="!canEditSetup">
-          <button type="button" class="stepper-btn" aria-label="{{t "settings.health_threshold.increase"}}" x-on:click="stepField('healthScoreThreshold', 1)" x-on:pointerdown="startRepeat('healthScoreThreshold', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()" x-bind:disabled="!canEditSetup">+</button>
-        </span>
-      </div>
-      <div class="setting-row">
-        <span class="setting-row-label" id="lbl-sweep-interval">{{t "settings.sweep_interval.label"}} <span class="setting-row-unit">{{t "settings.unit.seconds"}}</span></span>
-        <span class="stepper" role="group" aria-labelledby="lbl-sweep-interval">
-          <button type="button" class="stepper-btn" aria-label="{{t "settings.sweep_interval.decrease"}}" x-on:click="stepField('sweepIntervalSeconds', -1)" x-on:pointerdown="startRepeat('sweepIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()" x-bind:disabled="!canEditSetup">&minus;</button>
-          <input class="stepper-input" type="number" min="30" max="3600" step="30" x-model.number="sweepIntervalSeconds" aria-labelledby="lbl-sweep-interval" x-bind:disabled="!canEditSetup">
-          <button type="button" class="stepper-btn" aria-label="{{t "settings.sweep_interval.increase"}}" x-on:click="stepField('sweepIntervalSeconds', 1)" x-on:pointerdown="startRepeat('sweepIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()" x-bind:disabled="!canEditSetup">+</button>
-        </span>
-      </div>
-    </div>
+  <div class="settings-panel-body" x-data="settingsPanel()" x-init="$nextTick(() => initChoices()); followUpdateCheckSetting(); followLearningExcluded(); load()">
+  <section id="settings-general" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'general'" x-data="learningPage()" x-init="load()">
     <div class="setting-card" data-tour="settings-learning">
-      <h3 class="setting-card-title">{{t "settings.learning.title"}}</h3>
-      <p class="setting-note">{{t "settings.learning.note"}}</p>
+      <h3 class="setting-card-title">{{t "settings.learning.chains.title"}}</h3>
+      <p class="setting-note">{{t "settings.learning.chains.note"}}</p>
       <label class="switch-row" for="learning-chain-suggestions">
-        <span class="version-help-anchor">{{t "settings.learning.chain_suggestions.label"}}
+        <span class="version-help-anchor">{{t "settings.learning.chains.suggestions"}}
           <span class="field-help version-help">
-            <button class="field-help-trigger" type="button" aria-label="{{t "settings.learning.chain_suggestions.help"}}"><svg><use href="#ico-help"></use></svg></button>
-            <span class="field-help-text" role="tooltip">{{t "settings.learning.chain_suggestions.help_text"}}</span>
+            <button class="field-help-trigger" type="button" aria-label="{{t "settings.learning.chains.suggestions_help"}}"><svg><use href="#ico-help"></use></svg></button>
+            <span class="field-help-text" role="tooltip">{{t "settings.learning.chains.suggestions_help"}}</span>
           </span>
         </span>
         <span class="settings-toggle">
@@ -167,11 +141,12 @@
           <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
         </span>
       </label>
+      <p class="learn-row-note" x-show="!chainSuggestionsDisabled" x-text="sinceLabel('chain_suggestions')"></p>
       <label class="switch-row" for="learning-chain-learning">
-        <span class="version-help-anchor">{{t "settings.learning.chain_learning.label"}}
+        <span class="version-help-anchor">{{t "settings.learning.chains.learning"}}
           <span class="field-help version-help">
-            <button class="field-help-trigger" type="button" aria-label="{{t "settings.learning.chain_learning.help"}}"><svg><use href="#ico-help"></use></svg></button>
-            <span class="field-help-text" role="tooltip">{{t "settings.learning.chain_learning.help_text"}}</span>
+            <button class="field-help-trigger" type="button" aria-label="{{t "settings.learning.chains.learning_help"}}"><svg><use href="#ico-help"></use></svg></button>
+            <span class="field-help-text" role="tooltip">{{t "settings.learning.chains.learning_help"}}</span>
           </span>
         </span>
         <span class="settings-toggle">
@@ -179,19 +154,60 @@
           <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
         </span>
       </label>
-      <label class="switch-row" for="learning-automation-suggestions" title="{{t "settings.learning.automation_suggestions.planned"}}">
-        <span class="version-help-anchor">{{t "settings.learning.automation_suggestions.label"}}
+      <p class="learn-row-note" x-show="!chainLearningDisabled" x-text="sinceLabel('chain_learning')"></p>
+    </div>
+    <div class="setting-card" x-data="{ fine: false }">
+      <h3 class="setting-card-title">{{t "settings.learning.auto.title"}}</h3>
+      <p class="setting-note">{{t "settings.learning.auto.note"}}</p>
+      <label class="switch-row" for="learning-patterns">
+        <span class="version-help-anchor">{{t "settings.learning.auto.patterns"}}
           <span class="field-help version-help">
-            <button class="field-help-trigger" type="button" aria-label="{{t "settings.learning.automation_suggestions.help"}}"><svg><use href="#ico-help"></use></svg></button>
-            <span class="field-help-text" role="tooltip">{{t "settings.learning.automation_suggestions.planned"}}</span>
+            <button class="field-help-trigger" type="button" aria-label="{{t "settings.learning.auto.patterns_help"}}"><svg><use href="#ico-help"></use></svg></button>
+            <span class="field-help-text" role="tooltip">{{t "settings.learning.auto.patterns_help"}}</span>
           </span>
         </span>
         <span class="settings-toggle">
-          <input id="learning-automation-suggestions" type="checkbox" role="switch" disabled aria-checked="false">
+          <input id="learning-patterns" type="checkbox" role="switch" x-bind:checked="!automationPatternsDisabled" x-on:change="automationPatternsDisabled = !$event.target.checked" x-bind:aria-checked="(!automationPatternsDisabled).toString()" x-bind:disabled="!canEditSetup">
           <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
         </span>
       </label>
+      <p class="learn-row-note" x-show="!automationPatternsDisabled" x-text="sinceLabel('auto_patterns')"></p>
+      <p class="learn-row-note" x-show="automationPatternsDisabled">{{t "settings.learning.auto.patterns_off_note"}}</p>
+
+      <button type="button" class="learn-fine-toggle" x-show="!automationPatternsDisabled" x-on:click="fine = !fine" x-bind:aria-expanded="fine ? 'true' : 'false'" aria-controls="learning-fine">
+        <svg class="learn-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+        <span>{{t "settings.learning.auto.fine"}}</span>
+      </button>
+      <div class="learn-fine" id="learning-fine" x-show="fine && !automationPatternsDisabled">
+        <button type="button" class="learn-pick-row" x-bind:disabled="!canEditSetup" x-on:click="chooseExcluded()">
+          <span class="learn-pick-text"><span>{{t "settings.learning.auto.excluded"}}</span><small x-text="excludedLabel()"></small></span>
+          <svg class="learn-pick-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+        </button>
+        <button type="button" class="learn-link" x-show="learning_excluded_devices.length > 0" x-bind:disabled="!canEditSetup" x-on:click="clearExcluded()">{{t "settings.learning.exclude.clear"}}</button>
+      </div>
+
+      <div class="learn-check-row">
+        <svg class="learn-check-icon" aria-hidden="true"><use href="#ico-check"></use></svg>
+        <span><b>{{t "settings.learning.auto.check_title"}}</b> {{t "settings.learning.auto.check_body"}}</span>
+      </div>
     </div>
+    <div class="setting-card">
+      <h3 class="setting-card-title">{{t "settings.learning.record.title"}}</h3>
+      <p class="setting-note">{{t "settings.learning.record.note"}}</p>
+      <div class="setting-row">
+        <span class="setting-row-label" id="lbl-learning-profile-days">{{t "settings.learning.record.days"}} <span class="setting-row-unit">{{t "settings.unit.days"}}</span></span>
+        <span class="stepper" role="group" aria-labelledby="lbl-learning-profile-days">
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.learning.record.days_decrease"}}" x-on:click="stepField('learningProfileDays', -1)" x-on:pointerdown="startRepeat('learningProfileDays', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()" x-bind:disabled="!canEditSetup">&minus;</button>
+          <input class="stepper-input" type="number" min="14" max="365" step="7" x-model.number="learningProfileDays" aria-labelledby="lbl-learning-profile-days" x-bind:disabled="!canEditSetup">
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.learning.record.days_increase"}}" x-on:click="stepField('learningProfileDays', 1)" x-on:pointerdown="startRepeat('learningProfileDays', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()" x-bind:disabled="!canEditSetup">+</button>
+        </span>
+      </div>
+      <div class="learn-usage">
+        <span x-text="usage"></span>
+        <button type="button" class="system-action-danger" x-bind:disabled="busy || !canEditSetup" x-on:click="reset()">{{t "settings.learning.record.reset"}}</button>
+      </div>
+    </div>
+    {{template "device-picker"}}
   </section>
   <section id="settings-display" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'display'" x-effect="syncChoicesEnabled(canEditSettings)">
     <div class="setting-card">

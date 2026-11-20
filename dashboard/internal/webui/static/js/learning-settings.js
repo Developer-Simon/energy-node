@@ -76,6 +76,19 @@
     // Ausgenommene Geraete (IDs) je settings.learning_excluded_devices.
     learning_excluded_devices: [],
 
+    // Die Auswahl gehoert der Seite (settings.page.js, speichert sie). Diese
+    // Seite bekommt den Stand beim Laden und meldet jede Aenderung zurueck.
+    init() {
+      window.addEventListener('settings-learning-loaded', (event) => {
+        this.learning_excluded_devices = Array.isArray(event.detail && event.detail.ids) ? [...event.detail.ids] : [];
+      });
+    },
+
+    setExcluded(ids) {
+      this.learning_excluded_devices = [...ids];
+      window.dispatchEvent(new CustomEvent('learning-excluded-changed', {detail: {ids: [...ids]}}));
+    },
+
     async load() {
       this.loading = true;
       this.error = '';
@@ -143,12 +156,12 @@
         selected: [...this.learning_excluded_devices],
         confirmLabel: t('settings.learning.exclude.confirm'),
       });
-      if (ids) this.learning_excluded_devices = ids;
+      if (ids) this.setExcluded(ids);
     },
 
     // Hebt die Ausnahmen auf. Der Picker selbst kann nicht auf leer bestaetigen.
     clearExcluded() {
-      this.learning_excluded_devices = [];
+      this.setExcluded([]);
     },
 
     async reset() {
