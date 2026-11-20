@@ -3431,7 +3431,7 @@ const CHAIN_DEVICES = () => [
 ];
 const okJSON = value => async () => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(value)) });
 
-function chainPanel({ canEdit = true, savedChains = {}, fetchImpl, edgeProps } = {}) {
+function chainPanel({ canEdit = true, chains = {}, fetchImpl, edgeProps } = {}) {
   const { component, window, stores } = createDevicemapPanel({ fetchImpl: fetchImpl || (async () => { throw new Error('fetch should not be called'); }) });
   component.devices = CHAIN_DEVICES();
   // Both devices carry a power role, so an unlisted edge between them is an energy edge.
@@ -3441,7 +3441,7 @@ function chainPanel({ canEdit = true, savedChains = {}, fetchImpl, edgeProps } =
   ] };
   component.deviceMap = { version: 2, nodes: [], edges: [], ...(edgeProps ? { edge_props: edgeProps } : {}) };
   component.savedDeviceMap = JSON.parse(JSON.stringify(component.deviceMap));
-  component.savedChains = savedChains;
+  component.chains = chains;
   component.canEditEnergy = canEdit;
   component.csrfToken = 'tok';
   component.selectedEdge = { source: 'plug', target: 'ac' };
@@ -3449,7 +3449,7 @@ function chainPanel({ canEdit = true, savedChains = {}, fetchImpl, edgeProps } =
 }
 
 test('the chain form lists the power points of both devices and preselects the one in a chain', () => {
-  const { component } = chainPanel({ savedChains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } } });
+  const { component } = chainPanel({ chains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } } });
   component.openWiringPopover({ x: 10, y: 10 });
   const form = component.popover.edge.chainForm;
   assert.deepEqual(form.source.map(item => item.id), ['plug_p']);
@@ -3505,13 +3505,13 @@ test('saveEdgeChain creates a chain with POST when both points are free', async 
   assert.equal(sent[0].headers['X-CSRF-Token'], 'tok');
   assert.deepEqual(sent[0].body, { label: 'Speicher AC', points: ['plug_p', 'ac_p'], counting: 'plug_p' });
   assert.deepEqual(changes, ['devicemap']);
-  assert.deepEqual(Object.keys(component.savedChains), ['speicher_ac']);
+  assert.deepEqual(Object.keys(component.chains), ['speicher_ac']);
 });
 
 test('saveEdgeChain puts the free end next to a point of an existing chain with PUT', async () => {
   const sent = [];
   const { component, window } = chainPanel({
-    savedChains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'wr_p'], counting: 'plug_p', direction: '' } },
+    chains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'wr_p'], counting: 'plug_p', direction: '' } },
     fetchImpl: async (url, options) => {
       if (options && options.method) { sent.push({ url: String(url), method: options.method, body: JSON.parse(options.body) }); return okJSON({ assignments: {}, role_needed: [], chains: {} })(); }
       return okJSON({ assignments: {}, groups: {}, categories: {}, chains: {} })();
@@ -3531,7 +3531,7 @@ test('saveEdgeChain puts the free end next to a point of an existing chain with 
 test('saveEdgeChain between two chains shows the map conflict toast and sends nothing', async () => {
   let requests = 0;
   const { component, stores, window } = chainPanel({
-    savedChains: {
+    chains: {
       balkon: { label: 'Balkonspeicher', points: ['plug_p', 'wr_p'], counting: 'plug_p', direction: '' },
       anderer: { label: 'Anderer', points: ['ac_p', 'dd_p'], counting: 'ac_p', direction: '' },
     },
@@ -3547,7 +3547,7 @@ test('saveEdgeChain between two chains shows the map conflict toast and sends no
 
 test('saveEdgeChain without edit rights sends nothing', async () => {
   let requests = 0;
-  const { component } = chainPanel({ canEdit: false, savedChains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } },
+  const { component } = chainPanel({ canEdit: false, chains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } },
     fetchImpl: async () => { requests += 1; return okJSON({})(); } });
   component.openWiringPopover({ x: 10, y: 10 });
   assert.equal(component.popover.edge.chainForm.chainLabel, 'Balkonspeicher', 'the name stays readable');
@@ -3566,7 +3566,7 @@ test('a refused chain save toasts the error and announces nothing', async () => 
 });
 
 test('an edge between neighbouring chain points says so on its card', () => {
-  const { component, window } = chainPanel({ savedChains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } } });
+  const { component, window } = chainPanel({ chains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } } });
   component.openWiringPopover({ x: 10, y: 10 });
   const { link } = component.popover.edge.chainForm;
   assert.equal(link.id, 'balkon');
@@ -3593,7 +3593,7 @@ test('the first load takes the saved chains, so the map knows them without a rel
     '/api/v1/energy/roles': { assignments: {}, groups: {}, categories: {}, chains },
   })) });
   await component.load();
-  assert.deepEqual(Object.keys(component.savedChains), ['balkon']);
+  assert.deepEqual(Object.keys(component.chains), ['balkon']);
 });
 
 // A drift finding between netz and bat, found on the balkon chain.
@@ -3826,7 +3826,7 @@ test('a conflicting suggestion shows the map conflict toast and sends nothing', 
   } });
   suggestFixture(component);
   component.canEditEnergy = true;
-  component.savedChains = {
+  component.chains = {
     x: { label: 'X', points: ['plug_p', 'other'], counting: 'plug_p', direction: '' },
     y: { label: 'Y', points: ['ac_p', 'third'], counting: 'ac_p', direction: '' },
   };
