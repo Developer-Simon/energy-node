@@ -119,6 +119,7 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/storage/remove":           {group: groupOpen},
 	"/api/v1/storage/replace":          {group: groupOpen},
 	"/api/v1/performance/apply":        {group: groupOpen},
+	"/api/v1/learning/reset":           {group: groupOpen},
 	"/api/v1/performance/rollback":     {group: groupOpen},
 
 	// anyView
@@ -168,6 +169,7 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/automations/findings":         {group: groupPage, view: auth.RoleViewAutomations},
 	"/api/v1/automations/findings/ignore":  {group: groupPage, view: auth.RoleViewAutomations},
 	"/api/v1/automations/findings/preview": {group: groupPage, view: auth.RoleViewAutomations},
+	"/api/v1/learning/status":              {group: groupPage, view: auth.RoleViewAutomations},
 	"/api/v1/energy/":                      {group: groupPage, view: auth.RoleViewEnergy},
 	"/api/v1/energy/stats/chains":          {group: groupPage, view: auth.RoleViewStats},
 	"/api/v1/energy/efficiency":            {group: groupPage, view: auth.RoleViewEfficiency},

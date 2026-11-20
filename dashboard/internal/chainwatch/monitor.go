@@ -1,7 +1,7 @@
 package chainwatch
 
 import (
-	"log"
+	"fmt"
 	"slices"
 	"sort"
 	"sync"
@@ -46,72 +46,29 @@ type Monitor struct {
 	tracks   map[trackKey]*trackEntry
 	windows  map[windowKey]*frozenWindow
 	labels   map[string]string
-	persist  *persistence
+	// path ist die Datei der Messkettenwerte, leer ohne Speichern.
+	path string
 }
 
 var _ energy.ChainInsight = (*Monitor)(nil)
 
-// saveEvery is the interval of the saves while the table is dirty, saveRetry
-// the wait after a failed save.
-const (
-	saveEvery = time.Hour
-	saveRetry = 5 * time.Minute
-)
-
-// persistence is where and when the table is saved. next is the time of the
-// next check: a dirty table is saved then, a clean one only moves next on.
-type persistence struct {
-	path string
-	logf func(string, ...any)
-	next time.Time
-}
-
-// SetPersistence saves the table to path once an hour while it is dirty, and
-// on Close. A failed save is logged through logf and retried after saveRetry.
-// The first check comes one hour after the call.
-func (m *Monitor) SetPersistence(path string, logf func(string, ...any)) {
-	if logf == nil {
-		logf = log.Printf
-	}
+// SetPersistence sets the file the table is saved to. Save writes it when the
+// table is dirty. Without a call nothing is written.
+func (m *Monitor) SetPersistence(path string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.persist = &persistence{path: path, logf: logf, next: m.now().Add(saveEvery)}
+	m.path = path
 }
 
-// Close saves the table when it is dirty. The monitor keeps working afterwards.
-func (m *Monitor) Close() {
+// Save writes the table when it is dirty. The learning hub calls it hourly
+// and on shutdown. A failed save is returned and retried by the hub.
+func (m *Monitor) Save() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.persist == nil || !m.table.Dirty() {
-		return
+	if m.path == "" || !m.table.Dirty() {
+		return nil
 	}
-	m.saveLocked(m.now())
-}
-
-// saveDueLocked saves at the due check. The checks come every saveEvery, a
-// clean table only moves the check on.
-func (m *Monitor) saveDueLocked(at time.Time) {
-	p := m.persist
-	if p == nil || at.Before(p.next) {
-		return
-	}
-	if !m.table.Dirty() {
-		p.next = at.Add(saveEvery)
-		return
-	}
-	m.saveLocked(at)
-}
-
-// saveLocked writes the table and sets the next check: saveEvery after a
-// success, saveRetry after a failure, which is logged.
-func (m *Monitor) saveLocked(at time.Time) {
-	p := m.persist
-	if err := m.table.Save(p.path); err != nil {
-		p.logf("chainwatch: save %s: %v, retry in %s", p.path, err, saveRetry)
-		p.next = at.Add(saveRetry)
-		return
-	}
-	p.next = at.Add(saveEvery)
+	return m.table.Save(m.path)
 }
 
 // NewMonitor returns a monitor that learns into table. now gives the time for
@@ -215,7 +172,6 @@ func (m *Monitor) Observe(at time.Time, snapshot energy.Snapshot) {
 			delete(m.labels, id)
 		}
 	}
-	m.saveDueLocked(at)
 }
 
 // SetLearning switches learning on or off. Off keeps the table as it is: no
@@ -246,6 +202,31 @@ func (m *Monitor) Relearn(a, b string) {
 			delete(m.tracks, key)
 		}
 	}
+}
+
+// ResetLearned drops every learned loss value and every finding built on them,
+// then writes the empty table when a path is set. A failed write is returned.
+func (m *Monitor) ResetLearned() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.table.ResetAll()
+	m.tracks = map[trackKey]*trackEntry{}
+	if m.path == "" {
+		return nil
+	}
+	if err := m.table.Save(m.path); err != nil {
+		return fmt.Errorf("chainwatch: reset %s: %w", m.path, err)
+	}
+	return nil
+}
+
+// LearnedSpan gives the earliest first sighting of a learned pair as unix time
+// and the number of entities in the table. Both are 0 when nothing is learned.
+func (m *Monitor) LearnedSpan() (since int64, entities int) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.table.Span()
 }
 
 // Prune drops the learned pairs that are no longer adjacent in any chain, and

@@ -4,15 +4,14 @@
 package chainsuggest
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
-	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
-	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 )
 
 // Thresholds bündelt die Schwellen fuer Sammeln und Vorschlaege.
@@ -73,26 +72,19 @@ type sums struct {
 	sa, sb, saa, sbb, sab, sad float64
 }
 
-type minuteSample struct {
-	sum float64
-	n   int
-}
-
 type participant struct {
 	device string
 	w      float64
 }
 
-// Collector sammelt Minutenmittel. Alle Methoden sind nebenlaeufig nutzbar.
+// Collector sammelt Minutenmittel aus den Minutenrahmen des Hubs. Alle Methoden
+// sind nebenlaeufig nutzbar.
 type Collector struct {
 	mu  sync.Mutex
 	th  Thresholds
 	loc *time.Location
 
-	// minute ist der Beginn der laufenden Minute, zero solange nichts gesammelt wurde.
-	minute time.Time
-	buf    map[string]*minuteSample
-	// devices sind die Teilnehmer der letzten Beobachtung: Entitaet -> Geraete-ID.
+	// devices sind die Teilnehmer des letzten Rahmens: Entitaet -> Geraete-ID.
 	devices map[string]string
 	// owner ordnet jeder Entitaet das Geraet zu, das sie zuletzt hatte. Anders als
 	// devices wird es nie geleert, damit Suggestions auch nach einem leeren Abschluss
@@ -111,8 +103,6 @@ type Collector struct {
 	disabled bool
 	// dirty ist gesetzt, solange sich seit dem letzten Speichern etwas geaendert hat.
 	dirty bool
-	// next ist der Zeitpunkt der naechsten Speicherung, wenn dirty.
-	next time.Time
 }
 
 // NewCollector legt einen leeren Sammler an. loc bestimmt die lokalen Tage.
@@ -123,7 +113,6 @@ func NewCollector(th Thresholds, loc *time.Location) *Collector {
 	return &Collector{
 		th:        th,
 		loc:       loc,
-		buf:       map[string]*minuteSample{},
 		devices:   map[string]string{},
 		owner:     map[string]string{},
 		sums:      map[pairDay]*sums{},
@@ -132,10 +121,50 @@ func NewCollector(th Thresholds, loc *time.Location) *Collector {
 	}
 }
 
-// Observe nimmt einen Snapshot der Geraete zur Zeit at entgegen. Ein Wechsel
-// der Minute schliesst die vorige Minute ab.
-func (c *Collector) Observe(at time.Time, devices []registry.DeviceView) {
-	if at.Before(clockReady) {
+// ResetLearned drops the stored day sums of every pair. Dismissed pairs and the
+// device mapping stay. With a path set the result is written at once.
+func (c *Collector) ResetLearned() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.sums = map[pairDay]*sums{}
+	c.dirty = true
+	if c.path == "" {
+		return nil
+	}
+	if err := c.saveLocked(); err != nil {
+		return fmt.Errorf("chainsuggest: reset %s: %w", c.path, err)
+	}
+	return nil
+}
+
+// LearnedSpan gives the start of the oldest stored day sum as unix time and the
+// number of entities in the stored sums. Both are 0 when no sum is stored.
+func (c *Collector) LearnedSpan() (since int64, entities int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if len(c.sums) == 0 {
+		return 0, 0
+	}
+	seen := map[string]bool{}
+	oldest := 0
+	first := true
+	for key := range c.sums {
+		seen[key.a] = true
+		seen[key.b] = true
+		if first || key.day < oldest {
+			oldest = key.day
+			first = false
+		}
+	}
+	return int64(oldest) * 86400, len(seen)
+}
+
+// ObserveMinute nimmt den abgeschlossenen Minutenrahmen des Hubs entgegen und
+// addiert die aktiven Paare dieser Minute zu den Tagessummen.
+func (c *Collector) ObserveMinute(f learnrec.Frame) {
+	if f.Minute.Before(clockReady) {
 		return
 	}
 
@@ -144,56 +173,25 @@ func (c *Collector) Observe(at time.Time, devices []registry.DeviceView) {
 	if c.disabled {
 		return
 	}
-
-	local := at.In(c.loc)
-	y, mo, d := local.Date()
-	minute := time.Date(y, mo, d, local.Hour(), local.Minute(), 0, 0, c.loc)
-	if !c.minute.IsZero() && !minute.Equal(c.minute) {
-		c.closeMinuteLocked()
-	}
-	c.minute = minute
-
-	participants := c.participants(devices)
-	c.devices = make(map[string]string, len(participants))
-	for id, p := range participants {
-		c.devices[id] = p.device
-		if c.owner[id] != p.device {
-			c.owner[id] = p.device
-			c.dirty = true
-		}
-		s := c.buf[id]
-		if s == nil {
-			s = &minuteSample{}
-			c.buf[id] = s
-		}
-		s.sum += p.w
-		s.n++
-	}
-	c.saveDueLocked(at)
+	c.addMinuteLocked(f)
 }
 
-// participants waehlt die Entitaeten aus, die in diese Beobachtung eingehen.
-// Geraet energy_node, veraltete oder nicht verfuegbare Werte, fehlende Werte
-// und Nicht-Leistungs-Einheiten fallen weg. Ueber MaxEntities gewinnen die
+// participants waehlt die Entitaeten des Rahmens aus. Der Hub hat Geraet
+// energy_node, veraltete und fehlende Werte schon ausgelassen. NaN und Inf
+// fallen hier trotzdem weg. Taucht eine Entitaet auf zwei Geraeten auf, gilt
+// das erste in der Reihenfolge des Rahmens. Ueber MaxEntities gewinnen die
 // ersten nach ID.
-func (c *Collector) participants(devices []registry.DeviceView) map[string]participant {
+func (c *Collector) participants(f learnrec.Frame) map[string]participant {
 	found := map[string]participant{}
-	for _, dev := range devices {
-		if dev.ID == energydiscovery.DeviceIdentifier {
-			continue
-		}
-		for _, e := range dev.Entities {
-			if e.Stale || (e.HasAvailability && !e.Available) || !e.HasValue {
+	for _, dev := range f.Devices {
+		for id, w := range dev.Power {
+			if math.IsNaN(w) || math.IsInf(w, 0) {
 				continue
 			}
-			w, ok := energy.PowerW(e.Value, e.UnitOfMeasurement)
-			if !ok || math.IsNaN(w) || math.IsInf(w, 0) {
+			if _, seen := found[id]; seen {
 				continue
 			}
-			if _, seen := found[e.UniqueID]; seen {
-				continue
-			}
-			found[e.UniqueID] = participant{device: dev.ID, w: math.Abs(w)}
+			found[id] = participant{device: dev.ID, w: w}
 		}
 	}
 
@@ -212,21 +210,22 @@ func (c *Collector) participants(devices []registry.DeviceView) map[string]parti
 	return kept
 }
 
-// closeMinuteLocked rechnet die Minutenmittel aus und addiert die aktiven
-// Paare zu den Tagessummen. Die Minute muss schon in c.minute stehen.
-func (c *Collector) closeMinuteLocked() {
-	means := make(map[string]float64, len(c.buf))
-	ids := make([]string, 0, len(c.buf))
-	for id, s := range c.buf {
-		if s.n == 0 {
-			continue
+// addMinuteLocked addiert die aktiven Paare des Rahmens zu den Tagessummen.
+// Teilnehmer werden dabei als devices und owner vermerkt.
+func (c *Collector) addMinuteLocked(f learnrec.Frame) {
+	parts := c.participants(f)
+	c.devices = make(map[string]string, len(parts))
+	ids := make([]string, 0, len(parts))
+	for id, p := range parts {
+		c.devices[id] = p.device
+		if c.owner[id] != p.device {
+			c.owner[id] = p.device
+			c.dirty = true
 		}
-		means[id] = s.sum / float64(s.n)
 		ids = append(ids, id)
 	}
-	c.buf = map[string]*minuteSample{}
 
-	day := dayIndex(c.minute)
+	day := dayIndex(f.Minute.In(c.loc))
 	if day != c.lastDay {
 		c.lastDay = day
 		c.pruneLocked(day)
@@ -239,7 +238,7 @@ func (c *Collector) closeMinuteLocked() {
 	for i := range ids {
 		for j := i + 1; j < len(ids); j++ {
 			a, b := ids[i], ids[j]
-			ma, mb := means[a], means[b]
+			ma, mb := parts[a].w, parts[b].w
 			if ma < c.th.ActiveW && mb < c.th.ActiveW {
 				continue
 			}
@@ -278,15 +277,12 @@ func dayIndex(t time.Time) int {
 	return int(time.Date(y, m, d, 0, 0, 0, 0, time.UTC).Unix() / 86400)
 }
 
-// SetEnabled switches collecting on or off. Off drops the open minute buffer
-// and makes Observe a no-op. Stored sums and dismissed pairs stay.
+// SetEnabled switches collecting on or off. Off makes ObserveMinute a no-op.
+// Stored sums and dismissed pairs stay.
 func (c *Collector) SetEnabled(on bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.disabled = !on
-	if !on {
-		c.buf = map[string]*minuteSample{}
-	}
 }
 
 // Enabled reports the switch, true for a new collector.

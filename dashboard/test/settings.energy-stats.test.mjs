@@ -20,6 +20,7 @@ function panel() {
   dom.window.Alpine = {data: (name, fn) => { factories[name] = fn; }};
   installI18n(dom.window);
   vm.runInContext(read('history-rollup.js'), context);
+  vm.runInContext(read('settings-field.js'), context);
   vm.runInContext(read('settings.page.js'), context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
   const component = factories.settingsPanel();

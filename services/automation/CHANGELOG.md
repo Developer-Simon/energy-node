@@ -6,8 +6,8 @@
 
 - **automation:** react to measurement chains in automations (#226) (0066f15)
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
+- **automations:** flag rules that do not work and offer a fix (#278) (d369133)
 - **automation:** report trigger_count per rule in the state document (c238d9d)
-- **automations:** flag rules that do not work and offer a fix (#278)
 
 ## v0.7.2 (2026-10-27)
 

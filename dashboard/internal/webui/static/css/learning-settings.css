@@ -1,0 +1,72 @@
+/* Seite "Lernfunktionen" in den Einstellungen. Nur Tokens aus base.css (die
+   Hell- und Dunkelwerte kommen von dort), Klassen mit learn- Praefix, weil
+   manager.css auch auf anderen Seiten laedt. Die Karten, Schalter und Stepper
+   liefert settings-controls.css. */
+
+.learn-row-note { margin: -.15rem 0 .35rem; font-size: .8rem; color: var(--text-muted); }
+
+/* Feineinstellung: der Pfeil zeigt nach rechts und klappt beim Oeffnen nach unten */
+.learn-fine-toggle { display: inline-flex; align-items: center; gap: .35rem; margin: 0 0 .4rem -.2rem; padding: .25rem .35rem; border: 0; background: transparent;
+  color: var(--text-subtle); font: inherit; font-size: .84rem; cursor: pointer; border-radius: 6px; }
+.learn-chevron { width: .8rem; height: .8rem; transition: transform 200ms var(--ease-out); }
+.learn-fine-toggle[aria-expanded="true"] .learn-chevron { transform: rotate(90deg); }
+.learn-fine-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.learn-fine { margin: 0 0 .6rem .9rem; padding-left: .8rem; border-left: 2px solid var(--border-soft); }
+
+/* Auswahlzeile mit Picker: eine abgesetzte Flaeche mit Aktionstext und Pfeil, damit sie als anklickbar erkennbar ist.
+   Druck zeigt sofort (pointerdown), Hover nur mit Maus, nur transform und Farben animieren. */
+.learn-pick-row { box-sizing: border-box; display: flex; align-items: center; gap: .6rem; width: 100%; margin: .35rem 0; padding: .6rem .8rem;
+  border: 1px solid var(--border-soft); border-radius: 10px; background: var(--panel-alt); color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out), transform 120ms var(--ease-out); }
+.learn-pick-row:disabled { cursor: not-allowed; opacity: .55; }
+.learn-pick-text { flex: 1; display: grid; gap: 1px; min-width: 0; }
+.learn-pick-text > span { font-size: .9rem; color: var(--text-strong); }
+.learn-pick-text small { font-size: .78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.learn-pick-text small.is-set { color: var(--accent-line); font-weight: 600; }
+.learn-pick-action { flex: none; font-size: .82rem; font-weight: 600; color: var(--accent-line); }
+.learn-pick-chevron { flex: none; width: .85rem; height: .85rem; color: var(--accent-line); transition: transform 150ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .learn-pick-row:not(:disabled):hover { border-color: var(--accent-line); background: color-mix(in srgb, var(--accent-line) 8%, var(--panel-alt)); }
+  .learn-pick-row:not(:disabled):hover .learn-pick-chevron { transform: translateX(2px); }
+}
+.learn-pick-row:not(:disabled):active { transform: scale(.985); background: color-mix(in srgb, var(--accent-line) 14%, var(--panel-alt)); }
+.learn-pick-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.learn-link { display: inline-block; margin: .1rem 0 .3rem .2rem; padding: .25rem .35rem; border: 0; background: transparent;
+  color: var(--accent-line); font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; border-radius: 6px; }
+.learn-link:disabled { cursor: not-allowed; opacity: .55; }
+.learn-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.learn-check-row { box-sizing: border-box; display: flex; gap: .55rem; align-items: flex-start; margin: .7rem 0 0; padding-top: .6rem;
+  border-top: 1px solid var(--border-soft); font-size: .86rem; color: var(--text-subtle); }
+.learn-check-icon { flex: none; width: 1rem; height: 1rem; margin-top: .15rem; color: var(--ok); }
+.learn-check-row b { color: var(--text-strong); }
+
+.learn-usage { box-sizing: border-box; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between;
+  margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--border-soft); font-size: .8rem; color: var(--text-faint); }
+
+/* Hinweis "neu aktiv" ueber die ganze Breite: die Karte selbst ohne Rahmen, der Streifen traegt die Farbe */
+.setting-card.learn-new-card { padding: 0; border: 0; background: none; box-shadow: none; }
+.learn-new-strip { box-sizing: border-box; display: flex; flex-wrap: wrap; gap: .6rem .8rem; align-items: flex-start; padding: .8rem .9rem;
+  border-radius: var(--radius-md); background: var(--info-bg); border: 1px solid color-mix(in srgb, var(--info-line) 45%, transparent); }
+.learn-new-icon { flex: none; width: 1.05rem; height: 1.05rem; margin-top: .15rem; color: var(--info-line); }
+.learn-new-text { flex: 1 1 16rem; display: grid; gap: 2px; font-size: .88rem; }
+.learn-new-text b { color: var(--text-strong); }
+.learn-new-text span { color: var(--text-subtle); }
+.learn-keep-all { align-self: center; margin-left: auto; padding: 9px 14px; border: 1px solid var(--border-soft); background: var(--panel-alt);
+  color: var(--text-strong); font: inherit; font-size: .88rem; font-weight: 600; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+.learn-keep-all:disabled { cursor: not-allowed; opacity: .55; }
+.learn-keep-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Marke "neu aktiv" neben dem Namen einer Zeile, Punkt am Eintrag der Seitenliste */
+.learn-pill { display: inline-block; margin: 0 .3rem; padding: .05rem .5rem; border-radius: 999px; font-size: .7rem; font-weight: 600;
+  background: var(--accent-bg); color: var(--accent-line); border: 1px solid var(--accent-line); vertical-align: .1em; }
+.learn-nav-dot { display: inline-block; width: 7px; height: 7px; margin-left: .3rem; border-radius: 50%; background: var(--accent); vertical-align: .15em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .learn-chevron { transition: none; }
+  .learn-pick-row { transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out); }
+  .learn-pick-row:not(:disabled):active { transform: none; }
+  .learn-pick-chevron { transition: none; }
+  .learn-pick-row:not(:disabled):hover .learn-pick-chevron { transform: none; }
+}

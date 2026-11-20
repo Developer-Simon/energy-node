@@ -96,7 +96,11 @@ var catalog = []Entry{
 	// Code sie nur mit ihrem Namen nennt.
 	{RootData, "autolearn/checks.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/ignored.json", ClassRuntime, AreaHistory},
+	{RootData, "autolearn/reaction.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/*", ClassRuntime, AreaHistory},
+	{RootData, "autolearn/days/*", ClassRuntime, AreaHistory},
+	// Lernstand ueber Neustarte: erster Start und ob schon etwas gelernt wurde.
+	{RootData, "learnrec/state.json", ClassRuntime, AreaHistory},
 
 	{RootData, "energydiscovery/*", ClassDisposable, ""},
 	{RootData, "runtime.json", ClassDisposable, ""},

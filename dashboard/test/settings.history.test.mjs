@@ -25,6 +25,7 @@ function load() {
   // settings.page.js registriert seine Komponenten ueber alpine:init.
   installI18n(dom.window);
   vm.runInContext(rollupSource, context);
+  vm.runInContext(read('settings-field.js'), context);
   vm.runInContext(settingsSource, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
   return {dom, factories};

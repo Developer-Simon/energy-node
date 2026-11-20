@@ -756,6 +756,20 @@
         <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">{{t "storage_health.sd_estimation_notice"}}</p>
         <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
       </section>
+
+      <section class="setting-card" aria-labelledby="sweep-field-title" x-data="settingsField('sweepIntervalSeconds', 30, 3600, 30)">
+        <h3 class="setting-card-title" id="sweep-field-title">{{t "settings.sweep.title"}}</h3>
+        <p class="setting-note">{{t "settings.sweep.note"}}</p>
+        <div class="setting-row">
+          <span class="setting-row-label" id="sweep-field-label">{{t "settings.sweep.label"}} <span class="setting-row-unit">{{t "settings.unit.seconds"}}</span></span>
+          <span class="stepper" role="group" aria-labelledby="sweep-field-label">
+            <button type="button" class="stepper-btn" aria-label="{{t "settings.sweep.decrease"}}" x-on:click="step(-1)">&minus;</button>
+            <input class="stepper-input" type="number" min="30" max="3600" step="30" x-model.number="value" aria-labelledby="sweep-field-label">
+            <button type="button" class="stepper-btn" aria-label="{{t "settings.sweep.increase"}}" x-on:click="step(1)">+</button>
+          </span>
+        </div>
+        <p class="setting-note" x-text="writesText()"></p>
+      </section>
     </section>
 
     <!-- Ablauf Laufwerk einrichten: Mitte am Rechner, Blatt von unten am Handy -->

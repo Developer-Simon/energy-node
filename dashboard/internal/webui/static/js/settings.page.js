@@ -10,6 +10,7 @@
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = new Error(apiError(body));
+      error.status = response.status;
       error.toolOutput = body.tool_output || '';
       throw error;
     }
@@ -42,6 +43,7 @@
     historyMinuteWindowDays: {min: 1, max: 365, step: 1},
     historyRetentionHours: {min: 1, max: 8760, step: 1},
     historyBudgetMb: {min: 16, max: 8192, step: 16},
+    learningProfileDays: {min: 14, max: 365, step: 7},
   };
 
   const settingsPanel = () => ({
@@ -80,6 +82,14 @@
     historyExchangeDisabled: false,
     chainSuggestionsDisabled: false,
     chainLearningDisabled: false,
+    // Lernfunktionen der Automationen (Seite "Lernfunktionen"). Quittierungen
+    // und Lernstufe gehoeren nicht zu dieser Seite, sie werden nur
+    // durchgereicht, damit das Speichern sie nicht verwirft.
+    automationPatternsDisabled: false,
+    learningExcludedDevices: [],
+    learningProfileDays: 56,
+    learningAcknowledged: [],
+    learningLevel: '',
     energyStatsRecording: 'always',
     energyStats: null,
     energyStatsError: '',
@@ -206,6 +216,12 @@
         this.historyExchangeDisabled = Boolean(value.history_exchange_disabled);
         this.chainSuggestionsDisabled = Boolean(value.chain_suggestions_disabled);
         this.chainLearningDisabled = Boolean(value.chain_learning_disabled);
+        this.automationPatternsDisabled = Boolean(value.automation_patterns_disabled);
+        this.learningExcludedDevices = Array.isArray(value.learning_excluded_devices) ? [...value.learning_excluded_devices] : [];
+        this.learningProfileDays = Number(value.learning_profile_days) || 56;
+        this.learningAcknowledged = Array.isArray(value.learning_acknowledged) ? [...value.learning_acknowledged] : [];
+        this.learningLevel = typeof value.learning_level === 'string' ? value.learning_level : '';
+        window.dispatchEvent(new CustomEvent('settings-learning-loaded', {detail: {ids: [...this.learningExcludedDevices]}}));
         this.energyStatsRecording = ['always', 'pause_with_companion', 'off'].includes(value.energy_stats_recording) ? value.energy_stats_recording : 'always';
         this.historyViews = Array.isArray(value.history_views) ? [...value.history_views] : [];
         this.updateCheckDisabled = Boolean(value.update_check_disabled);
@@ -328,6 +344,19 @@
     // The automatic update check and the changelog history are switched on
     // the versions page, which saves them on its own. Follow those values so
     // save() here does not write stale ones back.
+    // Der Picker der Seite Lernfunktionen meldet seine Auswahl hier an, damit
+    // save() die ausgenommenen Geraete mitschickt.
+    followLearningExcluded() {
+      window.addEventListener('learning-excluded-changed', (event) => {
+        this.learningExcludedDevices = Array.isArray(event.detail && event.detail.ids) ? [...event.detail.ids] : [];
+      });
+      // Quittungen der Seite Lernfunktionen (Hinweis "neu aktiv") gehen direkt
+      // an den Server. save() schickt die Liste hier nicht veraltet zurueck.
+      window.addEventListener('learning-acknowledged', (event) => {
+        this.learningAcknowledged = Array.isArray(event.detail && event.detail.ids) ? [...event.detail.ids] : [];
+      });
+    },
+
     followUpdateCheckSetting() {
       document.addEventListener('update-check-setting-changed', (event) => {
         this.updateCheckDisabled = Boolean(event.detail && event.detail.disabled);
@@ -612,13 +641,12 @@
       return this.healthScoreThreshold >= 10 && this.healthScoreThreshold <= 3600 && this.sweepIntervalSeconds >= 1 &&
         this.liveUpdateIntervalSeconds >= 1 && this.liveUpdateIntervalSeconds <= 60 &&
         this.historySampleIntervalSeconds >= 5 && this.historySampleIntervalSeconds <= 3600 &&
-        this.historyRetentionHours >= 1 && this.historyBudgetMb >= 16;
+        this.historyRetentionHours >= 1 && this.historyBudgetMb >= 16 &&
+        this.learningProfileDays >= 14 && this.learningProfileDays <= 365;
     },
 
     payload() {
       return {
-        health_score_threshold: Number(this.healthScoreThreshold),
-        sweep_interval_seconds: Number(this.sweepIntervalSeconds),
         show_runtime_status: Boolean(this.showRuntimeStatus),
         device_view_mode: this.deviceViewMode,
         theme: this.theme,
@@ -639,6 +667,11 @@
         history_exchange_disabled: Boolean(this.historyExchangeDisabled),
         chain_suggestions_disabled: Boolean(this.chainSuggestionsDisabled),
         chain_learning_disabled: Boolean(this.chainLearningDisabled),
+        automation_patterns_disabled: Boolean(this.automationPatternsDisabled),
+        learning_excluded_devices: [...this.learningExcludedDevices],
+        learning_profile_days: Number(this.learningProfileDays),
+        learning_acknowledged: [...this.learningAcknowledged],
+        learning_level: this.learningLevel,
         history_views: [...this.historyViews],
         energy_stats_recording: this.energyStatsRecording,
         update_check_disabled: Boolean(this.updateCheckDisabled),
@@ -698,11 +731,9 @@
       }
       this.saving = true;
       try {
-        await requestJSON('/api/v1/settings', {
-          method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(this.payload()),
-        });
+        // Health-Schwelle und Sweep-Intervall speichern Storage und MQTT selbst.
+        // saveSettingsFields liest das Dokument neu und laesst sie unveraendert.
+        await saveSettingsFields(this.payload(), requestJSON);
         document.dispatchEvent(new CustomEvent('runtime-status-setting-changed', {detail: {enabled: this.showRuntimeStatus}}));
         document.dispatchEvent(new CustomEvent('device-view-mode-changed', {detail: {mode: this.deviceViewMode}}));
         document.documentElement.setAttribute('data-theme', this.theme);
@@ -756,7 +787,7 @@
   const SHEET_DRAG_PX = 60;
 
   const settingsPage = () => ({
-    activeSettingsPage: 'general',
+    activeSettingsPage: 'display',
     // Pro nachladbarer Unterseite die Ladezusage, damit ein laufendes oder
     // fertiges Laden wiederverwendet und ein Fehler erneut versucht wird.
     _subpageLoads: {},

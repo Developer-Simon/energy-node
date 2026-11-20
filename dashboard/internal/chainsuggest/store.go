@@ -15,13 +15,6 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 )
 
-// suggestSaveEvery ist der Abstand der Speicherungen, solange etwas offen ist,
-// suggestSaveRetry die Wartezeit nach einem fehlgeschlagenen Speichern.
-const (
-	suggestSaveEvery = time.Hour
-	suggestSaveRetry = 5 * time.Minute
-)
-
 const suggestFileVersion = 1
 
 // suggestFile ist das Format von energystats/chains/suggest.json.
@@ -125,15 +118,24 @@ func (c *Collector) SetPersistence(path string, logf func(string, ...any)) {
 	}
 }
 
-// Close speichert, wenn etwas offen ist. Der Sammler bleibt danach nutzbar.
-func (c *Collector) Close() {
+// Save schreibt die Datei, wenn sich seit dem letzten Speichern etwas geaendert
+// hat. Ohne Persistenz passiert nichts. Der Hub ruft Save hoechstens stuendlich auf.
+func (c *Collector) Save() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !c.dirty || c.path == "" {
-		return
+	if c.path == "" || !c.dirty {
+		return nil
 	}
 	if err := c.saveLocked(); err != nil {
-		c.logf("chainsuggest: save %s: %v", c.path, err)
+		return fmt.Errorf("chainsuggest: save %s: %w", c.path, err)
+	}
+	return nil
+}
+
+// Close speichert, wenn etwas offen ist. Der Sammler bleibt danach nutzbar.
+func (c *Collector) Close() {
+	if err := c.Save(); err != nil {
+		c.logf("%v", err)
 	}
 }
 
@@ -175,28 +177,6 @@ func ThresholdsFromEnv(getenv func(string) string) Thresholds {
 		return FastThresholds
 	}
 	return DefaultThresholds
-}
-
-// saveDueLocked speichert, wenn etwas offen ist und die Frist abgelaufen war.
-// Der erste Aufruf setzt die Frist auf eine Stunde spaeter.
-func (c *Collector) saveDueLocked(at time.Time) {
-	if c.path == "" {
-		return
-	}
-	if c.next.IsZero() {
-		c.next = at.Add(suggestSaveEvery)
-	}
-	if at.Before(c.next) {
-		return
-	}
-	c.next = at.Add(suggestSaveEvery)
-	if !c.dirty {
-		return
-	}
-	if err := c.saveLocked(); err != nil {
-		c.logf("chainsuggest: save %s: %v, retry in %s", c.path, err, suggestSaveRetry)
-		c.next = at.Add(suggestSaveRetry)
-	}
 }
 
 // saveLocked rundet die Summen auf drei Stellen, damit Speicher und Datei

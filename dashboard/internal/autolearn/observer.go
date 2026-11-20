@@ -1,7 +1,6 @@
 package autolearn
 
 import (
-	"log"
 	"math"
 	"sort"
 	"sync"
@@ -32,11 +31,8 @@ type Observer struct {
 
 	// path ist die Datei fuer die Beobachtungen, leer ohne Speichern.
 	path string
-	logf func(string, ...any)
 	// dirty ist gesetzt, solange sich seit dem letzten Speichern etwas geaendert hat.
 	dirty bool
-	// next ist der Zeitpunkt der naechsten Speicherung, wenn dirty.
-	next time.Time
 }
 
 // ObserverState ist eine Kopie der Beobachtungen fuer die Pruefungen.
@@ -71,7 +67,6 @@ func NewObserver(loc *time.Location) *Observer {
 		rules:  map[string]*RuleStats{},
 		values: map[string][]DayRange{},
 		last:   map[string]int{},
-		logf:   log.Printf,
 	}
 }
 
@@ -120,7 +115,6 @@ func (o *Observer) ObserveTriggers(at time.Time, counts map[string]int) {
 			}
 		}
 	}
-	o.saveDueLocked(at)
 }
 
 // ObserveValues nimmt die Werte je Schluessel zur Zeit at entgegen und haelt
@@ -166,7 +160,6 @@ func (o *Observer) ObserveValues(at time.Time, values map[string]float64) {
 		}
 		o.values[key] = kept
 	}
-	o.saveDueLocked(at)
 }
 
 // Snapshot liefert eine Kopie der Beobachtungen. Aenderungen an ihr wirken

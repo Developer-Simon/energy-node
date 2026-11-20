@@ -155,6 +155,38 @@ func (t *Table) Reset(pair energystats.ChainPair) {
 	t.resetLocked(pair)
 }
 
+// Span gives the earliest first sighting of a pair as unix time and the number
+// of distinct entities in the table. Both are 0 when the table is empty.
+func (t *Table) Span() (since int64, entities int) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	seen := map[string]bool{}
+	var first time.Time
+	for pair, entry := range t.pairs {
+		seen[pair.Source] = true
+		seen[pair.Target] = true
+		if !entry.FirstSeen.IsZero() && (first.IsZero() || entry.FirstSeen.Before(first)) {
+			first = entry.FirstSeen
+		}
+	}
+	if len(seen) == 0 {
+		return 0, 0
+	}
+	if !first.IsZero() {
+		since = first.Unix()
+	}
+	return since, len(seen)
+}
+
+// ResetAll drops the learned data of every pair.
+func (t *Table) ResetAll() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.pairs = map[energystats.ChainPair]*pairEntry{}
+	t.dirty = true
+}
+
 func (t *Table) resetLocked(pair energystats.ChainPair) {
 	reverse := energystats.ChainPair{Source: pair.Target, Target: pair.Source}
 	for _, p := range []energystats.ChainPair{pair, reverse} {

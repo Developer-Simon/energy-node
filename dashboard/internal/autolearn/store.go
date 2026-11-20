@@ -12,13 +12,6 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 )
 
-// observerSaveEvery ist der Abstand der Speicherungen, solange etwas offen ist,
-// observerSaveRetry die Wartezeit nach einem fehlgeschlagenen Speichern.
-const (
-	observerSaveEvery = time.Hour
-	observerSaveRetry = 5 * time.Minute
-)
-
 const observerFileVersion = 1
 
 // observerFile ist das Format der Beobachtungsdatei.
@@ -44,7 +37,7 @@ func LoadObserver(path string, loc *time.Location, logf func(string, ...any)) *O
 		logf = log.Printf
 	}
 	o := NewObserver(loc)
-	o.SetPersistence(path, logf)
+	o.SetPersistence(path)
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return o
@@ -55,7 +48,7 @@ func LoadObserver(path string, loc *time.Location, logf func(string, ...any)) *O
 	if err != nil {
 		logf("autolearn: %s unreadable, starting empty: %v", path, err)
 		fresh := NewObserver(loc)
-		fresh.SetPersistence(path, logf)
+		fresh.SetPersistence(path)
 		return fresh
 	}
 	return o
@@ -113,48 +106,23 @@ func (o *Observer) restore(data []byte) error {
 }
 
 // SetPersistence legt fest, wohin gespeichert wird. Ohne Aufruf wird nichts
-// geschrieben. logf nimmt Speicherfehler auf, nil nimmt log.Printf.
-func (o *Observer) SetPersistence(path string, logf func(string, ...any)) {
+// geschrieben.
+func (o *Observer) SetPersistence(path string) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.path = path
-	if logf != nil {
-		o.logf = logf
-	}
 }
 
-// Close speichert, wenn etwas offen ist. Der Beobachter bleibt danach nutzbar.
-func (o *Observer) Close() {
+// Save schreibt die Datei, wenn sich seit dem letzten Speichern etwas geaendert
+// hat. Ohne SetPersistence passiert nichts. Der Lernhub ruft Save stuendlich auf
+// und beim Beenden, ein Fehler kommt zurueck und wird dort erneut versucht.
+func (o *Observer) Save() error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	if !o.dirty || o.path == "" {
-		return
+	if o.path == "" || !o.dirty {
+		return nil
 	}
-	if err := o.saveLocked(); err != nil {
-		o.logf("autolearn: save %s: %v", o.path, err)
-	}
-}
-
-// saveDueLocked speichert, wenn etwas offen ist und die Frist abgelaufen war.
-// Der erste Aufruf setzt die Frist auf eine Stunde spaeter.
-func (o *Observer) saveDueLocked(at time.Time) {
-	if o.path == "" {
-		return
-	}
-	if o.next.IsZero() {
-		o.next = at.Add(observerSaveEvery)
-	}
-	if at.Before(o.next) {
-		return
-	}
-	o.next = at.Add(observerSaveEvery)
-	if !o.dirty {
-		return
-	}
-	if err := o.saveLocked(); err != nil {
-		o.logf("autolearn: save %s: %v, retry in %s", o.path, err, observerSaveRetry)
-		o.next = at.Add(observerSaveRetry)
-	}
+	return o.saveLocked()
 }
 
 // saveLocked schreibt die Datei atomar.

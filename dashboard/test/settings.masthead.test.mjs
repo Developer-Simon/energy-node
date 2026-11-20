@@ -16,6 +16,10 @@ const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'settings.page.js'),
   'utf8',
 );
+const fieldSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'settings-field.js'),
+  'utf8',
+);
 
 const jsonResponse = (body, ok = true) => ({ ok, status: ok ? 200 : 400, json: async () => body });
 
@@ -48,6 +52,7 @@ function load() {
     if (target.includes('/api/v1/settings')) return jsonResponse(settingsResponse);
     return jsonResponse({});
   };
+  vm.runInContext(fieldSource, dom.getInternalVMContext());
   vm.runInContext(scriptSource, dom.getInternalVMContext());
   const component = factories.settingsPanel();
   attachStores(component);

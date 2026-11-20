@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -43,6 +44,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/example"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/netmgr"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
@@ -190,6 +192,16 @@ func main() {
 	devicesDir := cfg.Paths.DevicesDir
 	configManager := config.NewManager(devicesDir)
 	dataDir := cfg.Paths.DataDir
+	// Stand der Lernfunktionen: erster Start und ob schon etwas gelernt wurde.
+	// Die Pruefung kommt vor chainwatch.Load und chainsuggest.Load, denn beide
+	// legen ihre Dateien erst beim Speichern an.
+	hadLearning := false
+	for _, name := range []string{"learned.json", "suggest.json"} {
+		if _, err := os.Stat(filepath.Join(dataDir, "energystats", "chains", name)); err == nil {
+			hadLearning = true
+		}
+	}
+	learnState := learnrec.LoadState(filepath.Join(dataDir, "learnrec", "state.json"), time.Now(), hadLearning, log.Printf)
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
 	backupSources := buildSources(cfg, *configPath)
 	runBackupApply(backupSources, systemExecutor.StartServices)
@@ -359,7 +371,7 @@ func main() {
 	// Die Diagnose laeuft in der Energieschleife unten.
 	chainLearnedPath := filepath.Join(dataDir, "energystats", "chains", "learned.json")
 	chainMonitor := chainwatch.NewMonitor(chainwatch.Load(chainLearnedPath, log.Printf), holdsFromEnv(os.Getenv), time.Now)
-	chainMonitor.SetPersistence(chainLearnedPath, log.Printf)
+	chainMonitor.SetPersistence(chainLearnedPath)
 	energyResolver.SetChainInsight(chainMonitor)
 	// Verlustenergie je Kette, integriert aus dem Verlust des Kettentopics.
 	lossTotals := energystats.NewLossTotals(filepath.Join(dataDir, "energystats", "chains", "loss_totals.json"), log.Printf)
@@ -372,7 +384,7 @@ func main() {
 	// 10-s-Schleife unten, ignorierte Hinweise liegen in autolearn/ignored.json.
 	autolearnDir := filepath.Join(dataDir, "autolearn")
 	automationObserver := autolearn.LoadObserver(filepath.Join(autolearnDir, "checks.json"), time.Local, log.Printf)
-	automationObserver.SetPersistence(filepath.Join(autolearnDir, "checks.json"), log.Printf)
+	automationObserver.SetPersistence(filepath.Join(autolearnDir, "checks.json"))
 	automationChecker := autolearn.NewChecker(
 		automationObserver,
 		autolearn.EnergyStatsSeason(energyStatsStore),
@@ -420,6 +432,49 @@ func main() {
 	if value, err := settingsStore.LoadEnergy(); err == nil {
 		chainMonitor.Prune(value.Chains)
 	}
+	// Der Lernhub verteilt jede Beobachtung der Energieschleife an die Lerner
+	// und sichert sie stuendlich sowie beim Beenden. lossTotals laeuft nicht
+	// ueber den Hub, es ist Statistik und kein Lernstand.
+	// Die Lernstufe kommt bei jedem Aufruf aus den Einstellungen. Ohne lesbare
+	// Einstellungen gilt auto, leer heisst ebenfalls auto (ResolveLevel).
+	learnLimits := func() learnrec.Limits {
+		cores := runtime.NumCPU()
+		level := settings.LearningLevelAuto
+		if value, err := settingsStore.LoadSettings(); err == nil {
+			level = value.LearningLevel
+		}
+		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores), cores)
+	}
+	learnHub := learnrec.NewHub(time.Local, learnLimits, log.Printf)
+	learnHub.AddMinute("chainsuggest", chainSuggest)
+	learnHub.AddTick("chainwatch", learnrec.TickFunc(chainMonitor.Observe))
+	learnHub.AddTick("autolearn", learnrec.TickFunc(func(at time.Time, snap energy.Snapshot) {
+		automationChecker.ObserveTick(at, automationState(), balanceRuleValues(snap.Balance), automationEntityValue)
+	}))
+	learnHub.AddSaver("chainwatch", chainMonitor)
+	learnHub.AddSaver("chainsuggest", chainSuggest)
+	learnHub.AddSaver("autolearn", automationObserver)
+	// Herkunft der Schaltvorgaenge: Regel, Hand oder Aussen. Die Reaktionszeiten
+	// liegen in autolearn/reaction.json und werden vom Hub mitgesichert.
+	reactionsPath := filepath.Join(autolearnDir, "reaction.json")
+	reactions := autolearn.LoadReactions(reactionsPath, log.Printf)
+	reactions.SetPersistence(reactionsPath, log.Printf)
+	originTracker := autolearn.NewTracker(reactions)
+	learnHub.AddMinute("origin", originTracker)
+	learnHub.AddSaver("reactions", reactions)
+	// Tagesdateien: je Minute der Rahmen, je Minute die Ereignisse des Trackers.
+	// Die Aufbewahrung kommt aus den Einstellungen, 0 heisst 56 Tage.
+	dayStore := autolearn.OpenDayStore(filepath.Join(autolearnDir, "days"), time.Local, func() int {
+		if value, err := settingsStore.LoadSettings(); err == nil && value.LearningProfileDays > 0 {
+			return value.LearningProfileDays
+		}
+		return settings.LearningProfileDaysDefault
+	}, log.Printf)
+	learnHub.AddMinute("daystore", dayStore)
+	learnHub.AddSaver("daystore", dayStore)
+	origin := newOriginLearner(originTracker, dayStore, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
+	origin.rebuild()
+	go origin.run(ctx)
 	energyCategories := func() map[string]energy.Category { return energyResolver.Model().Categories }
 	energySync := energystats.NewSync(energyStatsStore, time.Now)
 	energySync.SetCategories(energyCategories)
@@ -561,6 +616,7 @@ func main() {
 	client.SetVerboseLogging(strings.EqualFold(cfg.Dashboard.LogLevel, "debug"))
 	client.SetStateObserver(func(changes []registry.StateChange) {
 		runtimeStore.ObserveChanges(changes)
+		origin.observeStates(time.Now(), changes)
 	})
 	client.SetDiscoveryObserver(func(discovery registry.Discovery) {
 		if runtimeStore.Restore(reg, discovery.Device.ID, discovery.Entity.UniqueID) {
@@ -1055,8 +1111,19 @@ func main() {
 		DataDir:              dataDir,
 		AutomationHistoryDir: cfg.RuntimePath(devicesDir, ""),
 		Onboarding:           onboardingStore,
-		TourTargets:          dashwebui.TourTargets,
-		Backup:               backupDeps,
+		Learning: &httpapi.LearningDeps{
+			Settings:         settingsStore.LoadSettings,
+			State:            func() learnrec.State { return learnState },
+			Usage:            dayStore.Usage,
+			ChainSuggestInfo: chainSuggest.LearnedSpan,
+			ChainLearnInfo:   chainMonitor.LearnedSpan,
+			SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
+			Reset: func() error {
+				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned())
+			},
+		},
+		TourTargets: dashwebui.TourTargets,
+		Backup:      backupDeps,
 		Storage: &httpapi.StorageDeps{
 			DataDir:   dataDir,
 			Service:   storageService,
@@ -1076,6 +1143,7 @@ func main() {
 		ChainMonitor:       chainMonitor,
 		ChainSuggest:       chainSuggest,
 		AutomationFindings: automationChecker,
+		CommandObserver:    origin.observeCommand,
 		StorageFallback:    storageFallback,
 		HistorySampler:     historySampler,
 		InstalledServices: map[string]bool{
@@ -1138,10 +1206,8 @@ func main() {
 			select {
 			case <-ctx.Done():
 				energyRecorder.Close()
-				chainMonitor.Close()
+				learnHub.Close()
 				lossTotals.Close()
-				chainSuggest.Close()
-				automationObserver.Close()
 				return
 			case <-ticker.C:
 				start := time.Now()
@@ -1153,21 +1219,23 @@ func main() {
 				if energyRecorder.Status().ClockReady {
 					// Die Schalter aus den Einstellungen gelten ohne Neustart. Ohne
 					// lesbare Einstellungen bleibt alles an.
-					learningOn, suggestionsOn := true, true
+					learningOn, suggestionsOn, patternsOn := true, true, true
+					var excludedDevices []string
 					if value, err := settingsStore.LoadSettings(); err == nil {
 						learningOn = !value.ChainLearningDisabled
 						suggestionsOn = !value.ChainSuggestionsDisabled
+						patternsOn = !value.AutomationPatternsDisabled
+						excludedDevices = value.LearningExcludedDevices
 					}
 					chainMonitor.SetLearning(learningOn)
 					chainSuggest.SetEnabled(suggestionsOn)
-					chainMonitor.Observe(now, snapshot)
+					dayStore.SetEnabled(patternsOn)
+					dayStore.SetExcluded(excludedDevices)
+					learnHub.Observe(now, reg.Snapshot(), snapshot, balanceRuleValues(snapshot.Balance))
 					// Wie das Pruning oben: ohne lesbare energy.json fehlen
 					// Ketten im Snapshot, und Observe wuerde ihre Summen loeschen.
 					if _, err := settingsStore.LoadEnergy(); err == nil {
 						lossTotals.Observe(now, snapshot.Chains)
-					}
-					if suggestionsOn {
-						chainSuggest.Observe(now, reg.Snapshot())
 					}
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
@@ -1193,7 +1261,6 @@ func main() {
 					perfTiming.Since(performance.PartBackground, start)
 					continue
 				}
-				automationChecker.ObserveTick(time.Now(), automationState(), balanceRuleValues(snapshot.Balance), automationEntityValue)
 				if err := client.PublishRetained(energydiscovery.StateTopic, string(payload)); err != nil {
 					log.Printf("energy-node-dashboard: energy balance publish skipped: %v", err)
 				}

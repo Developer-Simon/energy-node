@@ -71,19 +71,26 @@ func TestCollectorLoadBrokenFile(t *testing.T) {
 	}
 }
 
-func TestCollectorSavesHourly(t *testing.T) {
+func TestCollectorSaveWritesWhenDirty(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "chains", "suggest.json")
 	c := NewCollector(baseThresholds(), time.UTC)
 	c.SetPersistence(path, noLog)
-	for m := 0; m < 60; m++ {
-		c.Observe(storeT0.Add(time.Duration(m)*time.Minute), devicesFor(map[string]float64{"a": 100, "b": 90}))
+	feed(c, storeT0, 2, func(int) map[string]float64 { return map[string]float64{"a": 100, "b": 90} })
+
+	if err := c.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("file missing after Save with changes: %v", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Save(); err != nil {
+		t.Fatalf("second Save: %v", err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatalf("file written before one hour: %v", err)
-	}
-	c.Observe(storeT0.Add(60*time.Minute), devicesFor(map[string]float64{"a": 100, "b": 90}))
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("file missing after one hour: %v", err)
+		t.Fatalf("second Save without changes wrote the file: %v", err)
 	}
 }
 
@@ -114,5 +121,56 @@ func TestDismissRejectsBadIDs(t *testing.T) {
 		if err := c.Dismiss(pair[0], pair[1]); err == nil {
 			t.Errorf("Dismiss(%q, %q) accepted", pair[0], pair[1])
 		}
+	}
+}
+
+func TestCollectorResetLearnedKeepsDismissed(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "chains", "suggest.json")
+	th := baseThresholds()
+	c := NewCollector(th, time.UTC)
+	c.SetPersistence(path, noLog)
+	feed(c, storeT0, 60, func(m int) map[string]float64 {
+		return map[string]float64{"a": ramp(m), "b": ramp(m)*0.9 + wobble(m)}
+	})
+	flush(c, storeT0.Add(60*time.Minute))
+	if err := c.Dismiss("c", "d"); err != nil {
+		t.Fatalf("Dismiss: %v", err)
+	}
+	if len(c.sums) == 0 {
+		t.Fatal("no sums before ResetLearned")
+	}
+
+	if err := c.ResetLearned(); err != nil {
+		t.Fatalf("ResetLearned: %v", err)
+	}
+	if len(c.sums) != 0 {
+		t.Fatalf("sums after ResetLearned = %d, want 0", len(c.sums))
+	}
+	if got := c.Suggestions(energy.Model{}, noEdge); len(got) != 0 {
+		t.Fatalf("suggestions after ResetLearned = %d, want 0", len(got))
+	}
+
+	reloaded := Load(path, th, time.UTC, noLog)
+	if len(reloaded.sums) != 0 {
+		t.Errorf("reloaded sums = %d, want 0", len(reloaded.sums))
+	}
+	if !reloaded.dismissed[pairKey{a: "c", b: "d"}] {
+		t.Errorf("reloaded dismissed = %v, want c-d", reloaded.dismissed)
+	}
+}
+
+func TestCollectorLearnedSpan(t *testing.T) {
+	c := NewCollector(baseThresholds(), time.UTC)
+	if since, n := c.LearnedSpan(); since != 0 || n != 0 {
+		t.Fatalf("empty LearnedSpan = %d, %d, want 0, 0", since, n)
+	}
+	feed(c, storeT0, 60, func(m int) map[string]float64 {
+		return map[string]float64{"a": ramp(m), "b": ramp(m)*0.9 + wobble(m)}
+	})
+	flush(c, storeT0.Add(60*time.Minute))
+	since, n := c.LearnedSpan()
+	wantDay := time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC).Unix()
+	if since != wantDay || n != 2 {
+		t.Fatalf("LearnedSpan = %d, %d, want %d, 2", since, n, wantDay)
 	}
 }

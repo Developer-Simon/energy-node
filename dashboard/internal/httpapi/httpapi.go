@@ -265,11 +265,18 @@ type RouterDependencies struct {
 	Backup *BackupDeps
 	// Storage liefert die Routen unter /api/v1/storage/. Nil heisst: die Routen fehlen.
 	Storage *StorageDeps
+	// Learning liefert GET /api/v1/learning/status und POST /api/v1/learning/reset.
+	// Nil heisst: 501, wie bei den Energie-Statistiken.
+	Learning *LearningDeps
 	// Performance liefert GET /api/v1/performance. Nil heisst: 501, wie bei den Energie-Statistiken.
 	Performance *PerformanceDeps
 	// EventStreams nimmt den Hub des /api/v1/events-Stroms auf, damit die
 	// Leistungsmessung die Zahl der Verbindungen zaehlt. Nil heisst: keiner.
 	EventStreams *EventStreams
+	// CommandObserver erhaelt jeden erfolgreich veroeffentlichten Schaltbefehl
+	// (Zeitpunkt, Unique-ID, Payload). Nil heisst: kein Beobachter. Abgelehnte
+	// Befehle erreichen ihn nicht.
+	CommandObserver func(at time.Time, uniqueID, payload string)
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -358,7 +365,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	// /api/v1/discovery ist ohne Schraegstrich registriert, hat also keinen
 	// Unterrouter, mit dem diese Route kollidieren koennte.
 	g.HandleFunc("/api/v1/discovery/summary", handleDiscoverySummary(reg))
-	g.HandleFunc("/api/v1/entities/", handleEntityCommand(reg, publisher, commands))
+	g.HandleFunc("/api/v1/entities/", handleEntityCommand(reg, publisher, commands, dependencies.CommandObserver))
 	g.HandleFunc("/api/v1/topics", handleTopics(reg))
 	g.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
 	g.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
@@ -387,6 +394,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/automations/findings", handleAutomationFindings(dependencies.AutomationFindings))
 	g.HandleFunc("/api/v1/automations/findings/ignore", handleAutomationFindingIgnore(dependencies.Auth, dependencies.AutomationFindings))
 	g.HandleFunc("/api/v1/automations/findings/preview", handleAutomationFindingsPreview(dependencies.Auth, dependencies.AutomationFindings))
+	g.HandleFunc("/api/v1/learning/status", handleLearningStatus(dependencies.Learning))
+	g.HandleFunc("/api/v1/learning/reset", handleLearningReset(dependencies.Auth, dependencies.Learning))
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	g.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
@@ -923,7 +932,7 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session, trusted bool,
 // (see registry.Registry.ExpirePendingCommands and P1.3 in the ideenliste).
 const entityCommandPendingTimeout = 10 * time.Second
 
-func handleEntityCommand(reg *registry.Registry, publisher CommandPublisher, history *commandHistory) http.HandlerFunc {
+func handleEntityCommand(reg *registry.Registry, publisher CommandPublisher, history *commandHistory, observe func(at time.Time, uniqueID, payload string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			methodNotAllowed(w)
@@ -1016,6 +1025,9 @@ func handleEntityCommand(reg *registry.Registry, publisher CommandPublisher, his
 			return
 		}
 		history.add(deviceID, action)
+		if observe != nil {
+			observe(now, uniqueID, payload)
+		}
 		writeJSON(w, map[string]any{
 			"entity_id":        uniqueID,
 			"payload":          payload,

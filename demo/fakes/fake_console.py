@@ -24,12 +24,15 @@ Unbekannte Tabs oder Pfade antworten mit 404 und JSON.
                             [--installer-state DIR --installer-fixture DIR]
                             [--system-state FILE --system-events FILE --journal-epoch FILE]
                             [--storage-dir DIR] [--performance-state FILE]
-                            [--automation-rules FILE] [--highlights-repo DIR]
+                            [--automation-rules FILE] [--data-dir DIR]
+                            [--highlights-repo DIR]
 
 PORT       Standard aus DASHBOARD_SMOKE_CONSOLE_PORT, sonst 18102.
 --storage-dir  Speicherordner der Demo (Reiter Speicher, plugged.json, mount/).
 --performance-state  Zustandsdatei des Szenarios der Leistungsseite (Reiter Leistung).
---automation-rules  Regeldatei der Demo, in die der Reiter Regelprüfung Beispielregeln einfügt.
+--automation-rules  Regeldatei der Demo, in die der Reiter Auto-Lernfunktionen Beispielregeln einfügt.
+--data-dir  Datenordner des Dashboards. Der Reiter Auto-Lernfunktionen legt dort Tagesprofile
+             unter autolearn/days an und setzt die Quittung in settings.json zurück.
 --dashboard  Basis-URL des Dashboards (wird in Reitern verwendet).
 --companion  Basis-URL des Companions, z. B. https://127.0.0.1:8081.
 --broker-control  Steuer-URL des Fake-Brokers (Reiter MQTT).
@@ -238,9 +241,11 @@ def build_tabs(args: argparse.Namespace, log: Log) -> list[Tab]:
     if args.performance_state:
         from console_performance import PerformanceTab
         tabs.append(PerformanceTab(log, Path(args.performance_state)))
-    if args.automation_rules:
-        from console_rulecheck import RuleCheckTab
-        tabs.append(RuleCheckTab(log, Path(args.automation_rules), args.broker_control))
+    if args.automation_rules or args.data_dir:
+        from console_autolearn import AutolearnTab
+        tabs.append(AutolearnTab(log, Path(args.automation_rules) if args.automation_rules else None,
+                                 args.broker_control,
+                                 Path(args.data_dir) if args.data_dir else None))
     if args.highlights_repo:
         from console_highlights import HighlightsTab
         installer = Path(args.installer_state) if args.installer_state else None
@@ -264,6 +269,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--storage-dir", default="")
     parser.add_argument("--performance-state", default="")
     parser.add_argument("--automation-rules", default="")
+    parser.add_argument("--data-dir", default="")
     parser.add_argument("--highlights-repo", default="")
     args = parser.parse_args(argv)
 

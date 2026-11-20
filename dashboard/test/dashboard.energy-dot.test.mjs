@@ -105,7 +105,8 @@ test('ohne Energie-Reiter gibt es keine Anfrage und kein Intervall', async () =>
   window.dispatchEvent(new window.CustomEvent('energy-roles-changed'));
   window.dispatchEvent(new window.CustomEvent('energy-chain-suggestions-changed'));
   await settle();
-  assert.deepEqual(requests, []);
+  // Der Einstellungen-Reiter fragt den Lernstatus ab; hier zaehlt nur dieser Endpunkt.
+  assert.deepEqual(requests.filter(url => url.includes('/energy/')), []);
   assert.deepEqual(intervals.filter(ms => ms === 5 * 60 * 1000), []);
   assert.equal(component.energySuggestionsOpen, false);
 });

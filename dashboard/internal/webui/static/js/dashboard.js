@@ -126,6 +126,10 @@
     energySuggestionsOpen: false,
     // Punkt am Reiter Automationen, solange Regel-Befunde offen sind.
     automationFindingsOpen: false,
+    // Punkt am Reiter Einstellungen, solange neu aktive Lernfunktionen auf eine
+    // Quittung warten. learningCanEdit kommt aus der Sitzung (null = noch nicht gefragt).
+    learningNewOpen: false,
+    learningCanEdit: null,
     // Tabs, die nicht in die Zeile passen, fuer die Liste "Weitere":
     // {key, label, el, active}.
     overflowNav: [],
@@ -275,6 +279,30 @@
         return;
       }
       this.automationFindingsOpen = Array.isArray(body && body.findings) && body.findings.length > 0;
+    },
+
+    // Punkt am Reiter Einstellungen, solange neu aktive Lernfunktionen offen sind.
+    // Nur mit edit_setup und fertiger Einrichtung. Fehlt view_automations, lehnt
+    // der Status ab: das ist kein Fehler des Punkts, er bleibt, wie er ist.
+    async refreshLearningNew() {
+      if (!this.hasTab('settings-panel')) return;
+      try {
+        if (this.learningCanEdit === null) {
+          // Ohne Konten oder ohne Rollenliste gilt wie auf der Einstellungsseite: erlaubt.
+          const session = await requestJSON('/api/v1/auth/session').catch(() => null);
+          this.learningCanEdit = !session || !Array.isArray(session.roles) || session.roles.includes('edit_setup');
+        }
+        if (!this.learningCanEdit) {
+          this.learningNewOpen = false;
+          return;
+        }
+        const status = await requestJSON('/api/v1/learning/status');
+        const features = status.features || {};
+        const fresh = Array.isArray(status.new) ? status.new : [];
+        this.learningNewOpen = Boolean(status.setup_done) && fresh.some(key => Boolean(features[key] && features[key].on));
+      } catch (error) {
+        return;
+      }
     },
 
     async setActivePanel(panel) {
@@ -489,6 +517,11 @@
         window.setInterval(() => this.refreshAutomationFindings(), 5 * 60 * 1000);
       }
       window.addEventListener('automation-findings-changed', () => this.refreshAutomationFindings());
+
+      // Der Punkt am Einstellungen-Reiter folgt den Lernfunktionen: beim Start und
+      // nachdem die Seite Lernfunktionen neue Funktionen quittiert hat.
+      this.refreshLearningNew();
+      window.addEventListener('learning-acknowledged', () => this.refreshLearningNew());
 
       const requestedPanel = new URLSearchParams(window.location.search).get('panel');
       const panelMap = {devices: 'devices-panel', history: 'history-panel', diagnostics: 'diagnostics-panel', config: 'config-panel', energy: 'energy-panel', devicemap: 'devicemap-panel', settings: 'settings-panel', automations: 'automations-panel', efficiency: 'efficiency-panel'};
