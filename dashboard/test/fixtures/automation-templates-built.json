@@ -13,6 +13,7 @@
         "latitude": 52.5,
         "longitude": 13.4,
         "publish_allowed_prefixes": [
+          "werkstatt/lamp/switch",
           "werkstatt/pv1/limit",
           "werkstatt/wb/limit",
           "werkstatt/wb/switch"
@@ -154,6 +155,165 @@
               "retain": false,
               "payload_source": "constant",
               "payload": "OFF",
+              "entity_id": "wb_switch"
+            }
+          ]
+        },
+        {
+          "id": "time_point",
+          "name": "Schalter zu einer Uhrzeit",
+          "enabled": true,
+          "cooldown_seconds": 600,
+          "conditions": [
+            {
+              "type": "time_window",
+              "start": "07:00",
+              "end": "07:05",
+              "weekdays": []
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/wb/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "ON",
+              "entity_id": "wb_switch"
+            }
+          ]
+        },
+        {
+          "id": "time_point_2",
+          "name": "Schalter zu einer Uhrzeit",
+          "enabled": true,
+          "cooldown_seconds": 600,
+          "conditions": [
+            {
+              "type": "time_window",
+              "start": "23:58",
+              "end": "00:03",
+              "weekdays": [
+                0,
+                5
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/wb/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "OFF",
+              "entity_id": "wb_switch"
+            }
+          ]
+        },
+        {
+          "id": "runtime_off",
+          "name": "Laufzeit begrenzen",
+          "enabled": true,
+          "cooldown_seconds": 60,
+          "conditions": [
+            {
+              "type": "entity_value",
+              "topic": "werkstatt/lamp/state",
+              "entity_id": "lamp_switch",
+              "value_template": "",
+              "comparison": "equals",
+              "text": "ON",
+              "hold_seconds": 3600
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/lamp/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "OFF",
+              "entity_id": "lamp_switch"
+            }
+          ]
+        },
+        {
+          "id": "runtime_off_2",
+          "name": "Laufzeit begrenzen",
+          "enabled": true,
+          "cooldown_seconds": 60,
+          "conditions": [
+            {
+              "type": "entity_value",
+              "topic": "werkstatt/lamp/state",
+              "entity_id": "lamp_switch",
+              "value_template": "",
+              "comparison": "equals",
+              "text": "ON",
+              "hold_seconds": 7200
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/lamp/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "OFF",
+              "entity_id": "lamp_switch"
+            }
+          ]
+        },
+        {
+          "id": "follow_switch",
+          "name": "Schalter folgt einem anderen",
+          "enabled": true,
+          "cooldown_seconds": 60,
+          "conditions": [
+            {
+              "type": "entity_value",
+              "topic": "werkstatt/lamp/state",
+              "entity_id": "lamp_switch",
+              "value_template": "",
+              "comparison": "equals",
+              "text": "ON",
+              "hold_seconds": 30
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/wb/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "ON",
+              "entity_id": "wb_switch"
+            }
+          ]
+        },
+        {
+          "id": "follow_switch_2",
+          "name": "Schalter folgt einem anderen",
+          "enabled": true,
+          "cooldown_seconds": 60,
+          "conditions": [
+            {
+              "type": "entity_value",
+              "topic": "werkstatt/lamp/state",
+              "entity_id": "lamp_switch",
+              "value_template": "",
+              "comparison": "equals",
+              "text": "OFF",
+              "hold_seconds": 30
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/wb/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "ON",
               "entity_id": "wb_switch"
             }
           ]
@@ -635,6 +795,7 @@
         "latitude": 52.5,
         "longitude": 13.4,
         "publish_allowed_prefixes": [
+          "werkstatt/lamp/switch",
           "werkstatt/pv1/limit",
           "werkstatt/wb/limit",
           "werkstatt/wb/switch"
@@ -978,6 +1139,7 @@
         "latitude": 52.5,
         "longitude": 13.4,
         "publish_allowed_prefixes": [
+          "werkstatt/lamp/switch",
           "werkstatt/pv1/limit",
           "werkstatt/wb/limit",
           "werkstatt/wb/switch"
@@ -1141,6 +1303,7 @@
         "latitude": 52.5,
         "longitude": 13.4,
         "publish_allowed_prefixes": [
+          "werkstatt/lamp/switch",
           "werkstatt/pv1/limit",
           "werkstatt/wb/limit",
           "werkstatt/wb/switch"

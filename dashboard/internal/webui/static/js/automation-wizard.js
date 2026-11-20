@@ -314,6 +314,8 @@
         || INPUT_CLASSES.includes(entity.device_class)),
       socAvailable: hasOwn(values, 'battery_soc'),
       hasLocation: isNumber(settings.latitude) && isNumber(settings.longitude),
+      // Kleinster Abstand fuer Befehle (Dienst-Standard 30 s), Untergrenze fuer Haltezeit und Sperre.
+      publishMinInterval: isNumber(settings.publish_min_interval_s) ? settings.publish_min_interval_s : 30,
       regulatedTopics,
       usedIds: [
         ...((document && document.rules) || []).map((rule) => rule.id),
@@ -338,6 +340,13 @@
     if (filter === 'inverter') return ctx.inverters;
     if (filter === 'wallbox') return ctx.wallboxes;
     if (filter === 'switch') return ctx.switches;
+    // Schalter mit Zustandsmeldung: ohne Zustandsthema kann eine Regel den Zustand nicht lesen.
+    if (filter === 'switch_state') {
+      return (ctx.switches || []).map((item) => ({
+        ...item,
+        disabled: item.disabled || (hasText(item.entity.state_topic) ? '' : t('automations.assistant.unavailable.switch_state')),
+      }));
+    }
     if (filter === 'chain') return ctx.chains || [];
     // Der Watchdog braucht Messpunkte auf anderen Geräten als den Plug.
     if (filter === 'chain_watchdog') {

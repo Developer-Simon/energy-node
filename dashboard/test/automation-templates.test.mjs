@@ -70,6 +70,12 @@ const devices = [
     ],
   },
   {
+    id: 'lamp', name: 'Steckdose Werkstatt',
+    entities: [
+      { unique_id: 'lamp_switch', name: 'Schalter', command_topic: 'werkstatt/lamp/switch', state_topic: 'werkstatt/lamp/state', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' },
+    ],
+  },
+  {
     id: 'rod', name: 'Heizstab AC THOR',
     entities: [
       { unique_id: 'rod_power', name: 'Leistung', command_topic: 'werkstatt/rod/power', min_value: 0, max_value: 3000, step: 100, unit_of_measurement: 'W', has_value: true, value: '0' },
@@ -132,6 +138,15 @@ const VARIANTS = {
   ],
   time_switch: [
     { window: { from: '06:00', to: '08:00', days: [0, 1, 2, 3, 4] } },
+  ],
+  time_point: [
+    { action: 'off', time: { from: '23:58', to: '00:03', days: [5, 0] } },
+  ],
+  runtime_off: [
+    { minutes: 120 },
+  ],
+  follow_switch: [
+    { source_on: 'off', target: 'hp_sg', target_on: 'on' },
   ],
   heat_pump: [
     { control: 'setpoint', lift: 3 },
@@ -652,7 +667,7 @@ test('heat_pump contact step lists the own switch first and preselects it', () =
   const contact = template.steps.find((step) => step.id === 'contact');
   const ids = wizard.devicesForStep(contact, ctx, { device: 'hp_setpoint' }).map((item) => item.id);
   assert.equal(ids[0], 'hp_sg');
-  assert.deepEqual([...ids].sort(), ['hp_sg', 'wb_switch'].sort());
+  assert.deepEqual([...ids].sort(), ['hp_sg', 'lamp_switch', 'wb_switch'].sort());
   assert.equal(answersFor(wizard, template, ctx).contact, 'hp_sg');
 });
 
@@ -1605,4 +1620,106 @@ test('chain templates are unavailable without a fitting chain and say why', () =
   assert.equal(wizard.templateAvailability(standby, onlyPlug).available, true);
   const none = plain(contextFor(wizard, { snapshot: { ...snapshot, chains: [] } }));
   assert.equal(wizard.templateAvailability(standby, none).reason, t('automations.assistant.unavailable.chain'));
+});
+
+test('time_point builds a rule with a five minute window and the action on the switch', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'time_point');
+  const ctx = plain(contextFor(wizard));
+  const result = template.build(answersFor(wizard, template, ctx), ctx);
+  const entry = plain(result.entry);
+  assert.equal(result.kind, 'rule');
+  assert.equal(entry.id, 'time_point');
+  assert.equal(entry.enabled, true);
+  assert.deepEqual(entry.conditions, [{ type: 'time_window', start: '07:00', end: '07:05', weekdays: [] }]);
+  assert.equal(entry.actions.length, 1);
+  assert.equal(entry.actions[0].type, 'publish');
+  assert.equal(entry.actions[0].topic, 'werkstatt/wb/switch');
+  assert.equal(entry.actions[0].entity_id, 'wb_switch');
+  assert.equal(entry.actions[0].payload, 'ON');
+  assert.ok(entry.cooldown_seconds >= 30);
+});
+
+test('time_point off wraps the window over midnight and keeps the chosen weekdays', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'time_point');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    action: 'off', time: { from: '23:58', to: '00:03', days: [5, 0] },
+  }), ctx).entry);
+  assert.deepEqual(entry.conditions, [{ type: 'time_window', start: '23:58', end: '00:03', weekdays: [0, 5] }]);
+  assert.equal(entry.actions[0].payload, 'OFF');
+});
+
+test('runtime_off needs a switch that reports its state', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'runtime_off');
+  const withoutLamp = plain(contextFor(wizard, { devices: devices.filter((item) => item.id !== 'lamp') }));
+  assert.equal(plain(wizard.templateAvailability(template, withoutLamp)).available, false);
+  const ctx = plain(contextFor(wizard));
+  assert.equal(plain(wizard.templateAvailability(template, ctx)).available, true);
+});
+
+test('runtime_off holds the switch on for the chosen minutes and then switches it off', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'runtime_off');
+  const ctx = plain(contextFor(wizard));
+  const result = template.build(answersFor(wizard, template, ctx, { device: 'lamp_switch', minutes: 30 }), ctx);
+  const entry = plain(result.entry);
+  assert.equal(result.kind, 'rule');
+  assert.deepEqual(entry.conditions, [{
+    type: 'entity_value', topic: 'werkstatt/lamp/state', entity_id: 'lamp_switch', value_template: '',
+    comparison: 'equals', text: 'ON', hold_seconds: 1800,
+  }]);
+  assert.equal(entry.actions[0].topic, 'werkstatt/lamp/switch');
+  assert.equal(entry.actions[0].payload, 'OFF');
+  assert.ok(entry.cooldown_seconds >= 30);
+});
+
+test('follow_switch takes the state of the source as condition and switches the target', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'follow_switch');
+  const ctx = plain(contextFor(wizard));
+  const result = template.build(answersFor(wizard, template, ctx, {
+    source: 'lamp_switch', source_on: 'on', target: 'wb_switch', target_on: 'off',
+  }), ctx);
+  const entry = plain(result.entry);
+  assert.equal(result.kind, 'rule');
+  assert.deepEqual(entry.conditions, [{
+    type: 'entity_value', topic: 'werkstatt/lamp/state', entity_id: 'lamp_switch', value_template: '',
+    comparison: 'equals', text: 'ON', hold_seconds: 30,
+  }]);
+  assert.equal(entry.actions[0].topic, 'werkstatt/wb/switch');
+  assert.equal(entry.actions[0].entity_id, 'wb_switch');
+  assert.equal(entry.actions[0].payload, 'OFF');
+  assert.ok(entry.cooldown_seconds >= 30);
+});
+
+test('follow_switch on the source off state compares with the off payload', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'follow_switch');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    source: 'lamp_switch', source_on: 'off', target: 'hp_sg', target_on: 'on',
+  }), ctx).entry);
+  assert.equal(entry.conditions[0].text, 'OFF');
+  assert.equal(entry.actions[0].topic, 'werkstatt/hp/sg');
+  assert.equal(entry.actions[0].payload, 'ON');
+});
+
+test('follow_switch and runtime_off follow the configured publish interval', () => {
+  const { wizard, templates } = load();
+  const ctx = plain(contextFor(wizard, {
+    document: { ...document, settings: { ...document.settings, publish_min_interval_s: 90 } },
+  }));
+  assert.equal(ctx.publishMinInterval, 90);
+  const follow = plain(templateById(templates, 'follow_switch').build(answersFor(wizard, templateById(templates, 'follow_switch'), ctx, {
+    source: 'lamp_switch', target: 'wb_switch',
+  }), ctx).entry);
+  assert.equal(follow.conditions[0].hold_seconds, 90);
+  assert.equal(follow.cooldown_seconds, 90);
+  const off = plain(templateById(templates, 'runtime_off').build(answersFor(wizard, templateById(templates, 'runtime_off'), ctx, {
+    device: 'lamp_switch', minutes: 10,
+  }), ctx).entry);
+  assert.equal(off.cooldown_seconds, 90);
 });

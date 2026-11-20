@@ -1732,8 +1732,168 @@
     },
   };
 
+  // ---------------------------------------------------------------- Schalter zu einer Uhrzeit
+
+  // Uhrzeit plus Minuten, ueber Mitternacht hinweg.
+  const clockAfter = (time, minutes) => {
+    const [hours, mins] = time.split(':').map(Number);
+    const total = (hours * 60 + mins + minutes) % (24 * 60);
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+  };
+
+  const timePoint = {
+    id: 'time_point',
+    category: 'time',
+    icon: 'ico-clock',
+    requires: { devices: 'switch' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'switch' },
+      {
+        id: 'action', type: 'tiles', default: 'on',
+        options: [{ id: 'on' }, { id: 'off' }],
+      },
+      { id: 'time', type: 'time', single: true, default: { from: '07:00', to: '07:05', days: ALL_DAYS } },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.switches, answers.device);
+      const entity = requireEntity(entry);
+      const from = answers.time.from;
+      const rule = {
+        id: uniqueId('time_point', ctx.usedIds),
+        name: t('automations.templates.time_point.title'),
+        enabled: true,
+        cooldown_seconds: Math.max(600, ctx.publishMinInterval),
+        conditions: [{
+          type: 'time_window', start: from, end: clockAfter(from, 5), weekdays: weekdaysOf(answers.time.days),
+        }],
+        actions: [Sw(entity, answers.action === 'on')],
+      };
+      return { kind: 'rule', entry: rule };
+    },
+    summary(answers) {
+      return [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.point.when', { time: answers.time.from }),
+          step: 'time',
+        },
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.switch.days', { days: daysText(answers.time.days) }),
+          step: 'time',
+        },
+        {
+          label: phase('then'),
+          text: t(answers.action === 'on'
+            ? 'automations.assistant.summary.switch.start_on'
+            : 'automations.assistant.summary.switch.end_off'),
+          step: 'action',
+        },
+      ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Laufzeit begrenzen
+
+  const runtimeOff = {
+    id: 'runtime_off',
+    category: 'switching',
+    icon: 'ico-switch',
+    requires: { devices: 'switch_state' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'switch_state' },
+      {
+        id: 'minutes', type: 'number', min: 10, max: 600, step: 5, default: 60,
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.switches, answers.device);
+      const entity = requireEntity(entry);
+      const rule = {
+        id: uniqueId('runtime_off', ctx.usedIds),
+        name: t('automations.templates.runtime_off.title'),
+        enabled: true,
+        cooldown_seconds: Math.max(60, ctx.publishMinInterval),
+        conditions: [{
+          type: 'entity_value', topic: entity.state_topic, entity_id: entity.unique_id,
+          value_template: entity.value_template || '', comparison: 'equals', text: entity.payload_on,
+          hold_seconds: answers.minutes * 60,
+        }],
+        actions: [Sw(entity, false)],
+      };
+      return { kind: 'rule', entry: rule };
+    },
+    summary(answers) {
+      return [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.runtime.when', { minutes: num(answers.minutes) }),
+          step: 'minutes',
+        },
+        { label: phase('then'), text: t('automations.assistant.summary.switch.end_off'), step: 'device' },
+      ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Schalter folgt Schalter
+
+  const followSwitch = {
+    id: 'follow_switch',
+    category: 'switching',
+    icon: 'ico-switch',
+    requires: { devices: 'switch_state' },
+    steps: [
+      { id: 'source', type: 'device', filter: 'switch_state' },
+      {
+        id: 'source_on', type: 'tiles', default: 'on',
+        options: [{ id: 'on' }, { id: 'off' }],
+      },
+      { id: 'target', type: 'device', filter: 'switch' },
+      {
+        id: 'target_on', type: 'tiles', default: 'on',
+        options: [{ id: 'on' }, { id: 'off' }],
+      },
+    ],
+    build(answers, ctx) {
+      const source = requireEntity(requireEntry(ctx.switches, answers.source));
+      const target = requireEntity(requireEntry(ctx.switches, answers.target));
+      const rule = {
+        id: uniqueId('follow_switch', ctx.usedIds),
+        name: t('automations.templates.follow_switch.title'),
+        enabled: true,
+        cooldown_seconds: Math.max(60, ctx.publishMinInterval),
+        conditions: [{
+          type: 'entity_value', topic: source.state_topic, entity_id: source.unique_id,
+          value_template: source.value_template || '', comparison: 'equals',
+          text: answers.source_on === 'on' ? source.payload_on : source.payload_off, hold_seconds: ctx.publishMinInterval,
+        }],
+        actions: [Sw(target, answers.target_on === 'on')],
+      };
+      return { kind: 'rule', entry: rule };
+    },
+    summary(answers, ctx) {
+      const source = requireEntry(ctx.switches, answers.source);
+      const target = requireEntry(ctx.switches, answers.target);
+      const sourceOn = answers.source_on === 'on';
+      const targetOn = answers.target_on === 'on';
+      return [
+        {
+          label: phase('when'),
+          text: t(sourceOn ? 'automations.assistant.summary.follow.when_on' : 'automations.assistant.summary.follow.when_off', { name: source.deviceName }),
+          step: 'source_on',
+        },
+        {
+          label: phase('then'),
+          text: t(targetOn ? 'automations.assistant.summary.follow.then_on' : 'automations.assistant.summary.follow.then_off', { name: target.deviceName }),
+          step: 'target_on',
+        },
+      ];
+    },
+  };
+
   window.__automationTemplates = {
-    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod, chainWatchdog, chainStandby],
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod, chainWatchdog, chainStandby, timePoint, runtimeOff, followSwitch],
     chargeFit,
   };
 })();
