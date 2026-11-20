@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -284,6 +285,82 @@ func TestQuietSpreadNeverBelowFiveOrNaN(t *testing.T) {
 	for name, c := range cases {
 		if got := quietSpread(c.in); got != c.want {
 			t.Errorf("%s: quietSpread(%v) = %v, want %v", name, c.in, got, c.want)
+		}
+	}
+}
+
+// switchTimeWeekGroups gives the input two day type groups, Monday to Friday
+// and Saturday with Sunday, and the days their dates belong to.
+func switchTimeWeekGroups(t *testing.T, days []DayFile) *Input {
+	t.Helper()
+	in := switchTimeInput(t, days)
+	in.Base.Groups = [][]time.Weekday{
+		{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday},
+		{time.Saturday, time.Sunday},
+	}
+	for _, f := range days {
+		day, err := time.ParseInLocation(dayLayout, f.Day, in.Loc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		in.Base.DayType[f.Day] = 0
+		if wd := day.Weekday(); wd == time.Saturday || wd == time.Sunday {
+			in.Base.DayType[f.Day] = 1
+		}
+	}
+	return in
+}
+
+// TestSwitchTimePrefillDaysStartAtMonday: the rule document counts weekdays
+// from Monday (0) to Sunday (6), so Monday to Friday gives [0 1 2 3 4] and
+// Saturday with Sunday gives [5 6].
+func TestSwitchTimePrefillDaysStartAtMonday(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc) // Monday
+	weekend := []time.Weekday{time.Saturday, time.Sunday}
+	weekdays := []time.Weekday{time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday}
+	days := synthDays(start, 42, synthOpts{
+		Seed:    18,
+		Devices: []string{"lamp"},
+		Habits: []synthHabit{
+			{Device: "lamp", On: true, Minute: 1140, Spread: 0, Weekdays: weekdays, Hit: 1},
+			{Device: "lamp", On: false, Minute: 1350, Spread: 8, Weekdays: weekdays, Hit: 1},
+			{Device: "lamp", On: true, Minute: 540, Spread: 0, Weekdays: weekend, Hit: 1},
+			{Device: "lamp", On: false, Minute: 600, Spread: 8, Weekdays: weekend, Hit: 1},
+		},
+	})
+	got := SwitchTimeDetector.Run(context.Background(), switchTimeWeekGroups(t, days), "lamp")
+	// Habit centres and the weekdays their prefill must carry.
+	type habit struct {
+		minute int
+		days   []int
+	}
+	habits := []habit{{minute: 1350, days: []int{0, 1, 2, 3, 4}}, {minute: 600, days: []int{5, 6}}}
+	found := make([]bool, len(habits))
+	for _, c := range got {
+		if c.Finding.Summary.Code != "switch_time.off" {
+			continue
+		}
+		clock := c.Finding.Summary.Params["time"].(string)
+		var h, m int
+		fmt.Sscanf(clock, "%d:%d", &h, &m)
+		for k, hb := range habits {
+			if math.Abs(float64(h*60+m-hb.minute)) > 15 {
+				continue
+			}
+			days, ok := c.Finding.Apply[0].Prefill["days"].([]int)
+			if !ok {
+				t.Fatalf("prefill days has type %T", c.Finding.Apply[0].Prefill["days"])
+			}
+			if !reflect.DeepEqual(days, hb.days) {
+				t.Errorf("time %s: prefill days = %v, want %v", clock, days, hb.days)
+			}
+			found[k] = true
+		}
+	}
+	for k, hb := range habits {
+		if !found[k] {
+			t.Errorf("no off candidate near minute %d, got %d candidates", hb.minute, len(got))
 		}
 	}
 }

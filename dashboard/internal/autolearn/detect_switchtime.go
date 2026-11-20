@@ -226,10 +226,12 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 	clock := switchTimeClock(propMin)
 	id := fmt.Sprintf("switch_time:%s:%s:%d:%s", device, dirName, g, switchTimeCompact(idMin))
 
+	// The rule document counts weekdays from Monday (0) to Sunday (6).
 	weekdays := make([]int, 0, len(in.Base.Groups[g]))
 	for _, d := range in.Base.Groups[g] {
-		weekdays = append(weekdays, int(d))
+		weekdays = append(weekdays, mondayIndex(d))
 	}
+	sort.Ints(weekdays)
 	ist := make([]int64, 0, len(minutes))
 	for _, m := range minutes {
 		ist = append(ist, int64(math.Round(m)))
