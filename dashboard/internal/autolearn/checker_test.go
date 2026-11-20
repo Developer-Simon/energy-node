@@ -277,3 +277,102 @@ func TestCheckerPreviewKeepsStoredDocument(t *testing.T) {
 		t.Fatalf("stored document changed by a preview: %+v", got)
 	}
 }
+
+// reliabilityDoc has one enabled rule that is satisfiable and has no static finding.
+const reliabilityDoc = `{"rules":[{"id":"r1","name":"Lampe","enabled":true,"conditions":[{"type":"balance_threshold","field":"grid","comparison":"above","threshold":500}],"actions":[]}]}`
+
+// reliabilityCandidate is a candidate of a reliability detector as the engine hands it over.
+func reliabilityCandidate(kind string, ruleIDs ...string) Candidate {
+	return Candidate{
+		Finding: Finding{
+			ID:         FindingID(kind, ruleIDs...),
+			Kind:       kind,
+			Group:      "check",
+			RuleIDs:    ruleIDs,
+			Severity:   "warn",
+			Confidence: "high",
+			Summary:    Text{Code: "check." + kind, Params: map[string]any{"rule": ruleIDs[0]}},
+			Evidence:   Evidence{Shape: "events"},
+		},
+		Detector: kind,
+		NEff:     10,
+		MinNEff:  3,
+	}
+}
+
+func checkerWithEngine(t *testing.T, doc string, cands []Candidate, on *bool, path string) *Checker {
+	t.Helper()
+	c := NewChecker(NewObserver(time.UTC), nil, staticRead(doc), nil, path, t.Logf)
+	c.SetEngineSource(func() []Candidate { return cands }, func() bool { return *on })
+	return c
+}
+
+func TestCheckerReliabilityFindingCanBeIgnoredLikeStatic(t *testing.T) {
+	on := true
+	path := filepath.Join(t.TempDir(), "ignored.json")
+	c := checkerWithEngine(t, reliabilityDoc, []Candidate{reliabilityCandidate("flapping", "r1")}, &on, path)
+
+	got := c.Findings(testBase)
+	if len(got) != 1 || got[0].ID != "flapping:r1" {
+		t.Fatalf("findings = %+v, want one flapping:r1", got)
+	}
+	if err := c.Ignore("flapping:r1"); err != nil {
+		t.Fatalf("Ignore: %v", err)
+	}
+	if got := c.Findings(testBase); len(got) != 0 {
+		t.Fatalf("ignored reliability finding still listed: %+v", got)
+	}
+	// The ignore survives a restart like a static one.
+	second := checkerWithEngine(t, reliabilityDoc, []Candidate{reliabilityCandidate("flapping", "r1")}, &on, path)
+	if got := second.Findings(testBase); len(got) != 0 {
+		t.Fatalf("ignored reliability finding after restart: %+v", got)
+	}
+}
+
+func TestCheckerReliabilityFindingLeavesWithItsGroup(t *testing.T) {
+	on := true
+	c := checkerWithEngine(t, reliabilityDoc, []Candidate{reliabilityCandidate("no_effect", "r1")}, &on, "")
+
+	if got := c.Findings(testBase); len(got) != 1 {
+		t.Fatalf("findings with group on = %d, want 1", len(got))
+	}
+	on = false
+	if got := c.Findings(testBase); len(got) != 0 {
+		t.Fatalf("findings with group off = %+v, want none", got)
+	}
+	on = true
+	if got := c.Findings(testBase); len(got) != 1 {
+		t.Fatalf("findings after switching the group on again = %d, want 1", len(got))
+	}
+}
+
+func TestCheckerDropsReliabilityFindingOfVanishedRule(t *testing.T) {
+	on := true
+	c := checkerWithEngine(t, emptyRuleDoc, []Candidate{reliabilityCandidate("overridden", "r1")}, &on, "")
+
+	if got := c.Findings(testBase); len(got) != 0 {
+		t.Fatalf("finding of a deleted rule listed: %+v", got)
+	}
+}
+
+func TestCheckerDropsReliabilityCandidateBelowMinNEff(t *testing.T) {
+	on := true
+	weak := reliabilityCandidate("flapping", "r1")
+	weak.NEff = 2
+	c := checkerWithEngine(t, reliabilityDoc, []Candidate{weak}, &on, "")
+
+	if got := c.Findings(testBase); len(got) != 0 {
+		t.Fatalf("candidate below MinNEff listed: %+v", got)
+	}
+}
+
+func TestCheckerIgnoresHabitCandidates(t *testing.T) {
+	on := true
+	habit := reliabilityCandidate("coupling", "r1")
+	habit.Finding.Group = "habit"
+	c := checkerWithEngine(t, reliabilityDoc, []Candidate{habit}, &on, "")
+
+	if got := c.Findings(testBase); len(got) != 0 {
+		t.Fatalf("habit candidate listed in the rule check: %+v", got)
+	}
+}

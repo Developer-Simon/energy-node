@@ -74,6 +74,79 @@
         <button class="auto-undo-button" type="button" x-on:click="undoInsert()">{{t "automations.undo.button"}}</button>
       </div>
 
+      <section class="auto-learn-band" data-tour="auto-learn-band" aria-labelledby="auto-learn-band-title"
+               x-data="autoLearnBand()" x-init="load()" x-effect="canEdit = canEditAutomations; csrf = csrfToken"
+               x-show="shown" x-cloak>
+        <div class="auto-learn-band-head">
+          <h3 id="auto-learn-band-title" class="auto-learn-band-title">{{t "automations.learn.band.title"}}</h3>
+          <span class="auto-learn-band-count" x-show="count > 0" x-text="countLabel($t)"></span>
+        </div>
+
+        <p class="auto-learn-band-empty" x-show="count === 0">
+          <svg class="automation-icon" aria-hidden="true"><use href="#ico-history"></use></svg>
+          <span x-text="learningText($t)"></span>
+        </p>
+
+        <div class="auto-learn-tiles" x-show="count > 0" x-bind:class="{ 'is-all': all }">
+          <template x-for="(s, i) in visible" x-bind:key="s.id">
+            <button class="auto-learn-tile" type="button" x-on:click="toggle(s.id)" x-bind:data-tour="i === 0 ? 'auto-learn-tile' : null"
+                    x-bind:aria-expanded="open === s.id ? 'true' : 'false'" aria-controls="auto-learn-detail">
+              <span class="auto-learn-group" x-bind:class="'is-' + s.group" x-text="groupLabel(s, $t)"></span>
+              <b class="auto-learn-tile-title" x-text="titleOf(s, $t)"></b>
+              <span class="auto-learn-tile-line" x-text="lineOf(s, $t)"></span>
+            </button>
+          </template>
+          <button class="auto-learn-more" type="button" x-show="moreShown" x-on:click="expandAll()"
+                  x-bind:aria-expanded="all ? 'true' : 'false'"
+                  x-text="all ? $t('automations.learn.band.less') : $t('automations.learn.band.more', { count: rest })"></button>
+        </div>
+
+        <div id="auto-learn-detail" class="auto-learn-detail" x-bind:class="{ 'is-open': current }" role="region">
+          <div class="auto-learn-detail-clip">
+            <template x-if="current">
+              <article class="auto-learn-card" data-tour="auto-learn-card">
+                <div class="auto-learn-card-tags">
+                  <span class="auto-learn-group" x-bind:class="'is-' + current.group" x-text="groupLabel(current, $t)"></span>
+                  <span class="auto-learn-card-device" x-text="current.device"></span>
+                  <span class="auto-pill" x-bind:class="confidenceOf(current, $t).tone" x-text="confidenceOf(current, $t).label"></span>
+                  <span class="auto-learn-season" x-text="seasonOf(current, $t)"></span>
+                </div>
+                <h4 class="auto-learn-card-title" x-text="titleOf(current, $t)"></h4>
+                <div class="auto-learn-evidence">
+                  <div class="auto-learn-card-evidence" x-html="evidenceOf(current, $t)"></div>
+                  <span class="auto-learn-tip-wrap" x-show="legendOf(current, $t)" x-on:click.outside="closeTip()" x-on:keydown.escape="closeTip()">
+                    <button type="button" class="auto-learn-tip-btn" aria-label="{{t "automations.learn.legend.label"}}" aria-describedby="auto-learn-tip"
+                            x-bind:aria-expanded="tipOpen ? 'true' : 'false'" x-on:click="toggleTip()">
+                      <svg class="automation-icon automation-icon-sm" aria-hidden="true"><use href="#ico-info"></use></svg>
+                    </button>
+                    <span role="tooltip" id="auto-learn-tip" class="auto-learn-tip" x-bind:class="{ 'is-open': tipOpen }" x-text="legendOf(current, $t)"></span>
+                  </span>
+                </div>
+                <div class="auto-learn-zoom" x-show="zoomableOf(current)">
+                  <button type="button" class="auto-learn-zoom-btn" x-bind:aria-pressed="fullDay ? 'true' : 'false'" x-on:click="fullDay = !fullDay" x-text="zoomLabelOf($t)"></button>
+                </div>
+                <dl class="auto-learn-facts">
+                  <template x-for="f in factsOf(current, $t)" x-bind:key="f.label">
+                    <div><dt x-text="f.label"></dt><dd x-text="f.value"></dd></div>
+                  </template>
+                </dl>
+                <div class="auto-learn-actions">
+                  <button class="auto-btn-text is-primary" type="button" x-show="actionsOf(current).assistant"
+                          x-on:click="openAssistantWith(fixOf(current).template, fixOf(current).prefill)">{{t "automations.learn.button.open_assistant"}}</button>
+                  <button class="auto-btn-text" type="button" x-show="actionsOf(current).later" x-on:click="later(current)">{{t "automations.learn.button.later"}}</button>
+                  <button class="auto-btn-text is-ghost auto-learn-push" type="button" x-show="actionsOf(current).dismiss" x-on:click="dismiss(current)">{{t "automations.learn.button.never"}}</button>
+                </div>
+              </article>
+            </template>
+          </div>
+        </div>
+
+        <p class="auto-learn-hint" role="status" x-bind:class="{ 'is-on': dropped }">
+          <span x-text="dropped ? $t('automations.learn.hint.dismissed') : ''"></span>
+          <button class="auto-learn-hint-undo" type="button" x-on:click="undo()">{{t "automations.learn.button.undo"}}</button>
+        </p>
+      </section>
+
       <p class="sub" x-cloak x-show="view === 'scenarios' && document.scenarios.length === 0">{{t "automations.list.no_scenarios"}}</p>
       <ul class="auto-list" x-cloak x-show="view === 'scenarios'">
         <template x-for="scenario in document.scenarios" x-bind:key="scenario.id">

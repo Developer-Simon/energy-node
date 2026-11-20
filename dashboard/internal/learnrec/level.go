@@ -41,21 +41,65 @@ func LimitsFor(l Level, cores int) Limits {
 	}
 }
 
-// AutoLevel waehlt die Stufe ohne Nutzerwahl: eco auf einem Kern, sonst balanced.
-func AutoLevel(cores int) Level {
-	if cores <= 1 {
-		return LevelEco
+// autoSetting ist die Einstellung, die die Stufe aus der Kernzahl ableitet.
+const autoSetting = "auto"
+
+// rank ordnet die Stufen von klein nach gross. Unbekannte Stufen stehen unten.
+func rank(l Level) int {
+	switch l {
+	case LevelEco:
+		return 0
+	case LevelBalanced:
+		return 1
+	case LevelFull:
+		return 2
 	}
-	return LevelBalanced
+	return -1
+}
+
+// AutoLevel waehlt die Stufe ohne Nutzerwahl: eco auf einem Kern, sonst
+// balanced. Eine gemerkte Herabstufung (remembered, aus learnrec/state.json)
+// druckt die Stufe nach unten, nie nach oben.
+func AutoLevel(cores int, remembered Level) Level {
+	natural := LevelBalanced
+	if cores <= 1 {
+		natural = LevelEco
+	}
+	if rank(remembered) >= 0 && rank(remembered) < rank(natural) {
+		return remembered
+	}
+	return natural
 }
 
 // ResolveLevel uebersetzt die Einstellung. "auto" und leer folgen AutoLevel,
-// gueltige Stufen gelten direkt, Unbekanntes wie auto.
-func ResolveLevel(setting string, cores int) Level {
+// gueltige Stufen gelten direkt, Unbekanntes wie auto. remembered wirkt nur
+// bei auto.
+func ResolveLevel(setting string, cores int, remembered Level) Level {
 	switch Level(strings.TrimSpace(setting)) {
 	case LevelEco, LevelBalanced, LevelFull:
 		return Level(strings.TrimSpace(setting))
 	default:
-		return AutoLevel(cores)
+		return AutoLevel(cores, remembered)
 	}
+}
+
+// IsAutoSetting meldet, ob die Einstellung die Stufe automatisch waehlt. Das
+// ist dieselbe Regel wie in ResolveLevel: leer, auto und Unbekanntes.
+func IsAutoSetting(setting string) bool {
+	switch Level(strings.TrimSpace(setting)) {
+	case LevelEco, LevelBalanced, LevelFull:
+		return false
+	}
+	return true
+}
+
+// lowerLevel rueckt eine Stufe um eine nach unten. eco bleibt eco.
+func lowerLevel(l Level) Level {
+	switch l {
+	case LevelFull:
+		return LevelBalanced
+	case LevelBalanced, LevelEco:
+		return LevelEco
+	}
+	return LevelEco
 }

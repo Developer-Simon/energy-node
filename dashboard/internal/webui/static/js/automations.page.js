@@ -162,6 +162,85 @@
   let scaleState = null;
   const bandSigned = (value) => (value > 0 ? '+' : (value < 0 ? '\u2212' : '')) + window.I18n.formatNumber(Math.abs(value));
   const assistantTemplateList = () => (window.__automationTemplates ? window.__automationTemplates.TEMPLATES : []);
+  // Vorbelegung aus dem Backend (Lernvorschlag) in Antworten des
+  // Assistenten. Fehlende Schluessel bleiben beim Standard; ein falsch geformter
+  // Wert ergibt null, der Assistent oeffnet dann ohne Vorbelegung.
+  const isPrefillText = (value) => typeof value === 'string' && value !== '';
+  const isPrefillClock = (value) => typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  const isPrefillDays = (value) => Array.isArray(value) && value.every((day) => Number.isInteger(day) && day >= 0 && day <= 6);
+  const prefillClockAfter = (clock, minutes) => {
+    const [hours, mins] = clock.split(':').map(Number);
+    const total = (hours * 60 + mins + minutes) % (24 * 60);
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+  };
+  const prefillOnOff = (value) => (value ? 'on' : 'off');
+  const PREFILL_MAPPERS = {
+    time_point(prefill) {
+      const out = {};
+      // Der Assistent waehlt den Schalter nach Entitaets-ID, die Vorbelegung
+      // nennt sie als entity. Ohne entity gilt das Geraet.
+      const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
+      }
+      if (prefill.on !== undefined) {
+        if (typeof prefill.on !== 'boolean') return null;
+        out.action = prefillOnOff(prefill.on);
+      }
+      if (prefill.time !== undefined || prefill.days !== undefined) {
+        const time = {};
+        if (prefill.time !== undefined) {
+          if (!isPrefillClock(prefill.time)) return null;
+          time.from = prefill.time;
+          time.to = prefillClockAfter(prefill.time, 5);
+        }
+        if (prefill.days !== undefined) {
+          if (!isPrefillDays(prefill.days)) return null;
+          time.days = [...prefill.days];
+        }
+        out.time = time;
+      }
+      return out;
+    },
+    runtime_off(prefill) {
+      const out = {};
+      const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
+      }
+      if (prefill.minutes !== undefined) {
+        if (!Number.isInteger(prefill.minutes)) return null;
+        out.minutes = prefill.minutes;
+      }
+      return out;
+    },
+    follow_switch(prefill) {
+      const out = {};
+      for (const key of ['source', 'target']) {
+        const value = prefill[`${key}_entity`] !== undefined ? prefill[`${key}_entity`] : prefill[key];
+        if (value === undefined) continue;
+        if (!isPrefillText(value)) return null;
+        out[key] = value;
+      }
+      for (const key of ['source_on', 'target_on']) {
+        if (prefill[key] === undefined) continue;
+        if (typeof prefill[key] !== 'boolean') return null;
+        out[key] = prefillOnOff(prefill[key]);
+      }
+      return out;
+    },
+  };
+  // Reine Funktion: Vorlage und Vorbelegung zu Antworten, oder null bei unbekannter
+  // Vorlage oder falscher Form.
+  function prefillToAnswers(templateId, prefill) {
+    const mapper = Object.prototype.hasOwnProperty.call(PREFILL_MAPPERS, templateId) ? PREFILL_MAPPERS[templateId] : null;
+    if (!mapper || !prefill || typeof prefill !== 'object' || Array.isArray(prefill)) return null;
+    return mapper(prefill);
+  }
+  window.__automationsPrefill = { prefillToAnswers };
   // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
   const ASSIST_DEVICE_ICONS = {
     inverter: 'ico-inverter', wallbox: 'ico-wallbox', switch: 'ico-switch',
@@ -1393,6 +1472,33 @@
       this.refreshEffect(this.assistantStep());
     },
 
+    // Oeffnet den Assistenten auf einer Vorlage mit Vorbelegung (Lernvorschlag). Die
+    // Standardantworten bleiben, die Vorbelegung ueberschreibt sie. Unbekannte oder
+    // falsch geformte Vorbelegung oeffnet die Galerie ohne Vorbelegung. Vorbelegte
+    // Geraete, die es nicht gibt oder die gesperrt sind, werden leer. Danach springt
+    // der Assistent zum ersten unvollstaendigen Schritt, sonst zur Zusammenfassung.
+    async openAssistantWith(templateId, prefill) {
+      await this.openAssistant();
+      const mapped = prefillToAnswers(templateId, prefill);
+      if (!mapped || !assistantTemplateList().some((item) => item.id === templateId) || !this.assistant.context) return;
+      this.startTemplate(templateId);
+      const answers = { ...this.assistant.answers };
+      for (const [key, value] of Object.entries(mapped)) {
+        const merge = value && typeof value === 'object' && !Array.isArray(value) && answers[key] && typeof answers[key] === 'object';
+        answers[key] = merge ? { ...answers[key], ...value } : value;
+      }
+      this.assistant.answers = answers;
+      for (const step of this.assistantSteps()) {
+        if (step.type !== 'device') continue;
+        const usable = this.assistantDevices(step).some((item) => item.id === answers[step.id] && !item.disabled);
+        if (!usable) answers[step.id] = '';
+      }
+      const steps = this.assistantSteps();
+      const open = steps.findIndex((step) => !window.__automationWizard.stepComplete(step, answers[step.id]));
+      this.assistant.index = open < 0 ? steps.length - 1 : open;
+      this.refreshEffect(this.assistantStep());
+    },
+
     // Leere Regel oder leeres Szenario: wie addRule/addScenario, der Dialog schliesst
     // nur, wenn wirklich angelegt wurde.
     startBlank(kind) {
@@ -1982,7 +2088,9 @@
     },
     findingText(finding) {
       const code = (finding.summary && finding.summary.code) || '';
-      const params = (finding.summary && finding.summary.params) || {};
+      const params = { ...((finding.summary && finding.summary.params) || {}) };
+      // Der Dienst liefert den Anteil als Bruchteil, die Texte nennen Prozent.
+      if (typeof params.share === 'number') params.share = Math.round(params.share * 100);
       return {
         title: t(`automations.learn.${code}.title`, params),
         text: t(`automations.learn.${code}.text`, params),

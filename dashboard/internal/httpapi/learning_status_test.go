@@ -172,6 +172,16 @@ func TestLearningStatusLevelDefaultsToAuto(t *testing.T) {
 	}
 }
 
+func TestLearningStatusShowsRememberedDowngrade(t *testing.T) {
+	deps := &LearningDeps{State: func() learnrec.State { return learnrec.State{AutoLevel: learnrec.LevelEco} }}
+	if got := learningStatus(settings.Settings{}, deps, 4); got.Level != "eco" {
+		t.Fatalf("auto after downgrade on 4 cores: level %q, want eco", got.Level)
+	}
+	if got := learningStatus(settings.Settings{LearningLevel: "full"}, deps, 4); got.Level != "full" {
+		t.Fatalf("explicit full after downgrade: level %q, want full", got.Level)
+	}
+}
+
 func TestLearningResetNeedsEditSetup(t *testing.T) {
 	fake := &fakeLearning{learned: true}
 	router, manager := learningTestRouter(t, fake.deps())

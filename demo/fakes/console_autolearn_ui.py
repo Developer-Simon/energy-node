@@ -48,7 +48,7 @@ AUTOLEARN_HTML = """<div id="tab-autolearn">
     <div class="row">
       <span class="v">Vergangene Tage</span>
       <span class="end">
-        <label>Tage <input type="number" min="1" max="56" step="1" value="14" data-days aria-label="Tage"></label>
+        <label>Tage <input type="number" min="1" max="56" step="1" value="21" data-days aria-label="Tage"></label>
         <button type="button" class="btn btn-primary" data-act="day_create">Tagesprofile erzeugen</button>
       </span>
     </div>
@@ -65,7 +65,7 @@ AUTOLEARN_HTML = """<div id="tab-autolearn">
       </span>
     </div>
   </div>
-  <p class="note">Erzeugte Tagesprofile tragen eine Kennzeichnung. Entfernen löscht nur diese Dateien, die echten Tagesprofile bleiben. Der Hinweis erscheint erst nach einem Neustart des Dashboards wieder, es liest die Einstellungen im Speicher.</p>
+  <p class="note">Erzeugte Tagesprofile tragen eine Kennzeichnung. Entfernen löscht nur diese Dateien, die echten Tagesprofile bleiben. Die Profile lassen Vorschläge für Schaltzeit, vergessene Laufzeit, Kopplung und überstimmte Regel erscheinen. Dafür müssen die Schalter Muster lernen sowie Gewohnheiten und Zuverlässigkeit eingeschaltet sein. Die Erkenner laufen einmal am Tag um 03:30 Uhr, oder fünf Minuten nach dem Start, wenn der letzte Lauf mehr als einen Tag zurückliegt. Dann liest das Dashboard die Tagesprofile neu, ein Neustart ist dafür nicht nötig. Der Hinweis „neu aktiv“ erscheint erst nach einem Neustart des Dashboards wieder, es liest die Einstellungen im Speicher.</p>
   <p class="grp-err"></p>
 </div>
 

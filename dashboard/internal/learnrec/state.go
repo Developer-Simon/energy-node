@@ -14,9 +14,28 @@ import (
 
 // State ist der Lernstand ueber Neustarts hinweg. FirstStart ist der Unixzeit
 // des ersten Starts, Fresh gilt, wenn vor diesem Start nichts gelernt wurde.
+//
+// AutoLevel ist die Stufe, auf die eine Herabstufung die automatische Wahl
+// gedrueckt hat. Leer heisst keine Herabstufung. Siehe AutoLevel.
 type State struct {
 	FirstStart int64 `json:"first_start"`
 	Fresh      bool  `json:"fresh"`
+	AutoLevel  Level `json:"auto_level,omitempty"`
+}
+
+// LowerAutoLevel rueckt die automatisch gewaehlte Stufe um eine nach unten
+// (full auf balanced, balanced auf eco) und speichert das in path. Auf eco
+// passiert nichts, dann wird auch nichts geschrieben. Der Rueckgabewert ist
+// der neue Stand, auch wenn das Speichern fehlschlaegt: die Herabstufung gilt
+// dann bis zum Neustart.
+func LowerAutoLevel(path string, st State, cores int) (State, error) {
+	current := ResolveLevel(autoSetting, cores, st.AutoLevel)
+	lowered := lowerLevel(current)
+	if lowered == current {
+		return st, nil
+	}
+	st.AutoLevel = lowered
+	return st, writeState(path, st)
 }
 
 // LoadState liest den Stand aus path. Fehlt die Datei, wird sie mit firstStart

@@ -225,12 +225,59 @@ func TestParseFindingJSONNames(t *testing.T) {
 		t.Fatalf("ops = %d, want 1", len(ops))
 	}
 
-	assertKeys(t, "finding", keys, []string{"id", "kind", "group", "rule_ids", "severity", "confidence", "summary", "facts", "apply", "evidence"})
+	assertKeys(t, "finding", keys, []string{"id", "kind", "group", "rule_ids", "severity", "confidence", "summary", "facts", "apply", "evidence", "device", "season", "benefit"})
 	assertKeys(t, "summary", summary, []string{"code", "params"})
 	assertKeys(t, "fact", facts[0], []string{"code", "value"})
 	assertKeys(t, "fix", apply[0], []string{"code", "rule_id", "ops"})
 	assertKeys(t, "op", ops[0], []string{"path", "value"})
 	assertKeys(t, "evidence", evidence, []string{"shape", "from", "to", "ist", "soll_spans", "soll", "unit", "max", "seen", "ist_value", "soll_value", "season_max", "target", "ist_names", "soll_names", "missing"})
+}
+
+func TestFindingJSONNewFields(t *testing.T) {
+	finding := Finding{
+		ID: "day:habit", Kind: "habit", Group: "learn", RuleIDs: []string{"a"},
+		Device:  "light.kitchen",
+		Season:  &Season{FromWeek: 10, ToWeek: 20},
+		Benefit: &Benefit{Unit: "kwh_week", Value: 1.25},
+		Apply: []Fix{
+			{Code: "fix.new", RuleID: "a", Template: "scenario", Prefill: map[string]any{"device": "x"}},
+			{Code: "fix.plain", RuleID: "a"},
+		},
+		Evidence: Evidence{
+			Shape: "day", To: 1440, Ist: []int64{390}, Soll: []int64{400},
+			SollSpans: [][2]int64{{380, 420}}, IstSpans: [][2]int64{{385, 395}},
+		},
+	}
+	raw, err := json.Marshal(finding)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var keys map[string]json.RawMessage
+	mustDecode(t, raw, &keys)
+	assertKeys(t, "finding", keys, []string{"id", "kind", "group", "rule_ids", "severity", "confidence", "summary", "facts", "apply", "evidence", "device", "season", "benefit"})
+
+	var season, benefit map[string]json.RawMessage
+	mustDecode(t, keys["season"], &season)
+	mustDecode(t, keys["benefit"], &benefit)
+	assertKeys(t, "season", season, []string{"from_week", "to_week"})
+	assertKeys(t, "benefit", benefit, []string{"unit", "value"})
+
+	var evidence map[string]json.RawMessage
+	mustDecode(t, keys["evidence"], &evidence)
+	assertKeys(t, "evidence", evidence, []string{"shape", "to", "ist", "soll", "soll_spans", "ist_spans", "seen"})
+	var shape string
+	mustDecode(t, evidence["shape"], &shape)
+	if shape != "day" {
+		t.Errorf("shape = %q, want day", shape)
+	}
+
+	var apply []map[string]json.RawMessage
+	mustDecode(t, keys["apply"], &apply)
+	if len(apply) != 2 {
+		t.Fatalf("apply = %d, want 2", len(apply))
+	}
+	assertKeys(t, "fix with template", apply[0], []string{"code", "rule_id", "ops", "template", "prefill"})
+	assertKeys(t, "fix without template", apply[1], []string{"code", "rule_id", "ops"})
 }
 
 func mustDecode(t *testing.T, raw json.RawMessage, into any) {

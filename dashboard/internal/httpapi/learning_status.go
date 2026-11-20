@@ -111,15 +111,18 @@ func learningStatus(value settings.Settings, deps *LearningDeps, cores int) lear
 	}
 
 	fresh := false
+	var remembered learnrec.Level
 	if deps.State != nil {
-		fresh = deps.State().Fresh
+		st := deps.State()
+		fresh = st.Fresh
+		remembered = st.AutoLevel
 	}
 	setupDone := deps.SetupDone != nil && deps.SetupDone()
 
 	return learningStatusBody{
 		Fresh:        fresh,
 		SetupDone:    setupDone,
-		Level:        string(learnrec.ResolveLevel(setting, cores)),
+		Level:        string(learnrec.ResolveLevel(setting, cores, remembered)),
 		LevelSetting: setting,
 		Features: learningFeaturesBody{
 			ChainSuggestions: chainSuggest,

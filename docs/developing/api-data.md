@@ -377,6 +377,14 @@ supplies `1m` and `5m` rows from the HA recorder and never requests anything.
 | GET | `/api/v1/automations/findings` | – | Findings of the rule check as `{ "findings": [...] }`, most severe first, at most 20, without the ignored ones. Never `null` |
 | POST | `/api/v1/automations/findings/ignore` | `automations` + CSRF | Hides a finding by its `id`, or shows it again with `undo: true`. Answers `204` |
 | POST | `/api/v1/automations/findings/preview` | `view_automations` + CSRF | Static findings of a rule document that is not saved yet, as `{ "findings": [...] }`. Body: the rule document. Changes nothing. Never `null` |
+| GET | `/api/v1/automations/suggestions` | `view_automations` | Suggestions of the learned habits as `{ "enabled": true, "learning": { "since": 1794000000, "devices": 14, "days": 9 }, "suggestions": [...] }`. `enabled` is `false` while "Muster lernen" is off, then `suggestions` is empty. Devices on the hidden-devices list and devices that do not exist are left out. Never `null` |
+| POST | `/api/v1/automations/suggestions/{id}/dismiss` | `automations` + CSRF | Hides a suggestion for good. Answers `{ "ok": true }`. Unknown `id`: `404` `suggestion_unknown` |
+| POST | `/api/v1/automations/suggestions/{id}/later` | `automations` + CSRF | Hides a suggestion for seven days. Answers `{ "ok": true }` |
+| POST | `/api/v1/automations/suggestions/{id}/undo` | `automations` + CSRF | Shows a dismissed or postponed suggestion again. Answers `{ "ok": true }` |
+
+`learning.since` is the Unix time of the oldest learned day, `learning.days`
+the whole days from there to now. Without `automations` the POST answers `403`
+`suggestion_forbidden`. A failed save answers `500` `suggestion_save_failed`.
 
 `PUT` validates against the schema, creates a revision, writes atomically and
 then sends a reload command over MQTT to the service. If the reload fails, the

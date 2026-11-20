@@ -29,14 +29,35 @@ func TestLimitsForLevels(t *testing.T) {
 }
 
 func TestAutoLevel(t *testing.T) {
-	if got := AutoLevel(1); got != LevelEco {
+	if got := AutoLevel(1, ""); got != LevelEco {
 		t.Errorf("AutoLevel(1) = %s, want eco", got)
 	}
-	if got := AutoLevel(0); got != LevelEco {
+	if got := AutoLevel(0, ""); got != LevelEco {
 		t.Errorf("AutoLevel(0) = %s, want eco", got)
 	}
-	if got := AutoLevel(4); got != LevelBalanced {
+	if got := AutoLevel(4, ""); got != LevelBalanced {
 		t.Errorf("AutoLevel(4) = %s, want balanced", got)
+	}
+}
+
+func TestAutoLevelRemembersDowngrade(t *testing.T) {
+	tests := []struct {
+		name       string
+		cores      int
+		remembered Level
+		want       Level
+	}{
+		{"downgrade from balanced", 4, LevelEco, LevelEco},
+		{"no downgrade stored", 4, "", LevelBalanced},
+		{"stored level above the natural one is ignored", 4, LevelFull, LevelBalanced},
+		{"downgrade on one core stays eco", 1, LevelEco, LevelEco},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := AutoLevel(tt.cores, tt.remembered); got != tt.want {
+				t.Errorf("AutoLevel(%d, %q) = %s, want %s", tt.cores, tt.remembered, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -55,8 +76,30 @@ func TestResolveLevel(t *testing.T) {
 		{"bogus", 4, LevelBalanced},
 	}
 	for _, tt := range tests {
-		if got := ResolveLevel(tt.setting, tt.cores); got != tt.want {
+		if got := ResolveLevel(tt.setting, tt.cores, ""); got != tt.want {
 			t.Errorf("ResolveLevel(%q, %d) = %s, want %s", tt.setting, tt.cores, got, tt.want)
+		}
+	}
+}
+
+func TestResolveLevelExplicitIgnoresRemembered(t *testing.T) {
+	if got := ResolveLevel("full", 4, LevelEco); got != LevelFull {
+		t.Errorf("ResolveLevel(full, remembered eco) = %s, want full", got)
+	}
+	if got := ResolveLevel("auto", 4, LevelEco); got != LevelEco {
+		t.Errorf("ResolveLevel(auto, remembered eco) = %s, want eco", got)
+	}
+}
+
+func TestIsAutoSetting(t *testing.T) {
+	for _, s := range []string{"auto", "", " auto ", "bogus"} {
+		if !IsAutoSetting(s) {
+			t.Errorf("IsAutoSetting(%q) = false, want true", s)
+		}
+	}
+	for _, s := range []string{"eco", "balanced", "full"} {
+		if IsAutoSetting(s) {
+			t.Errorf("IsAutoSetting(%q) = true, want false", s)
 		}
 	}
 }

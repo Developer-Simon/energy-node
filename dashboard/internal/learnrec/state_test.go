@@ -76,3 +76,54 @@ func TestLoadStateCorruptFileIsLoggedAndKept(t *testing.T) {
 		t.Fatalf("corrupt file was overwritten: %s", after)
 	}
 }
+
+func TestLowerAutoLevelStepsDownAndPersists(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	st := LoadState(path, stateT0, true, noStateLog)
+	if got := ResolveLevel("auto", 4, st.AutoLevel); got != LevelBalanced {
+		t.Fatalf("auto level before downgrade = %s, want balanced", got)
+	}
+
+	st, err := LowerAutoLevel(path, st, 4)
+	if err != nil {
+		t.Fatalf("LowerAutoLevel: %v", err)
+	}
+	if st.AutoLevel != LevelEco {
+		t.Fatalf("AutoLevel after downgrade = %q, want eco", st.AutoLevel)
+	}
+
+	reloaded := LoadState(path, stateT0.Add(time.Hour), true, noStateLog)
+	if reloaded.AutoLevel != LevelEco {
+		t.Fatalf("persisted AutoLevel = %q, want eco", reloaded.AutoLevel)
+	}
+	if reloaded.FirstStart != stateT0.Unix() {
+		t.Fatalf("first start changed to %d", reloaded.FirstStart)
+	}
+	if got := ResolveLevel("auto", 4, reloaded.AutoLevel); got != LevelEco {
+		t.Fatalf("auto level after restart = %s, want eco", got)
+	}
+}
+
+func TestLowerAutoLevelEcoStaysAndWritesNothing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	st := LoadState(path, stateT0, true, noStateLog)
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := LowerAutoLevel(path, st, 1)
+	if err != nil {
+		t.Fatalf("LowerAutoLevel on one core: %v", err)
+	}
+	if got != st {
+		t.Fatalf("state changed on eco: %+v, want %+v", got, st)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("state file rewritten on eco:\n before %s\n after  %s", before, after)
+	}
+}

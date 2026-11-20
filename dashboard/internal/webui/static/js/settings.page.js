@@ -86,6 +86,8 @@
     // und Lernstufe gehoeren nicht zu dieser Seite, sie werden nur
     // durchgereicht, damit das Speichern sie nicht verwirft.
     automationPatternsDisabled: false,
+    automationHabitsDisabled: false,
+    automationReliabilityDisabled: false,
     learningExcludedDevices: [],
     learningProfileDays: 56,
     learningAcknowledged: [],
@@ -217,6 +219,8 @@
         this.chainSuggestionsDisabled = Boolean(value.chain_suggestions_disabled);
         this.chainLearningDisabled = Boolean(value.chain_learning_disabled);
         this.automationPatternsDisabled = Boolean(value.automation_patterns_disabled);
+        this.automationHabitsDisabled = Boolean(value.automation_habits_disabled);
+        this.automationReliabilityDisabled = Boolean(value.automation_reliability_disabled);
         this.learningExcludedDevices = Array.isArray(value.learning_excluded_devices) ? [...value.learning_excluded_devices] : [];
         this.learningProfileDays = Number(value.learning_profile_days) || 56;
         this.learningAcknowledged = Array.isArray(value.learning_acknowledged) ? [...value.learning_acknowledged] : [];
@@ -668,6 +672,8 @@
         chain_suggestions_disabled: Boolean(this.chainSuggestionsDisabled),
         chain_learning_disabled: Boolean(this.chainLearningDisabled),
         automation_patterns_disabled: Boolean(this.automationPatternsDisabled),
+        automation_habits_disabled: Boolean(this.automationHabitsDisabled),
+        automation_reliability_disabled: Boolean(this.automationReliabilityDisabled),
         learning_excluded_devices: [...this.learningExcludedDevices],
         learning_profile_days: Number(this.learningProfileDays),
         learning_acknowledged: [...this.learningAcknowledged],

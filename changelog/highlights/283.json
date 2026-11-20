@@ -1,0 +1,59 @@
+{
+  "de": {
+    "*": "Automationen schlagen Regeln aus erlernten Gewohnheiten vor und prüfen die Zuverlässigkeit"
+  },
+  "en": {
+    "*": "Suggest rules from learned habits and check rule reliability"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_automations",
+          "panel": "automations-panel",
+          "target": "auto-learn-band",
+          "text": {
+            "de": "Über den Regeln steht jetzt ein neues Band. Es lernt, wie du deine Geräte benutzt, und schlägt Regeln vor, etwa eine Ausschaltzeit für eine Lampe, die du jeden Abend zur selben Zeit ausmachst.",
+            "en": "Above the rules there is a new band. It learns from how you use your devices and suggests rules, for example a switch-off time for a lamp that you turn off at the same hour every evening."
+          },
+          "title": {
+            "de": "Vorschläge aus deinen Geräten",
+            "en": "Suggestions from your devices"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_automations",
+          "panel": "automations-panel",
+          "target": "auto-learn-tile",
+          "text": {
+            "de": "Jede Kachel nennt das Gerät, was sich ändern würde und wie oft es vorkam. Bis zu drei sind sichtbar, der Rest steckt hinter der Plus-Kachel.",
+            "en": "Each tile names the device, what would change and how often it was seen. Up to three show at once, the rest waits behind the plus tile."
+          },
+          "title": {
+            "de": "Die besten Ideen kommen zuerst",
+            "en": "The best ideas come first"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_automations",
+          "open": [
+            "auto-learn-tile"
+          ],
+          "panel": "automations-panel",
+          "target": "auto-learn-card",
+          "text": {
+            "de": "Eine Karte zeigt als Balken, was beobachtet wurde und was der Vorschlag ändern würde. Im Assistenten öffnest du die Regel schon ausgefüllt, oder du schiebst den Vorschlag auf oder blendest ihn dauerhaft aus. Gespeichert wird erst, wenn du speicherst, das System ändert nie selbst eine Regel.",
+            "en": "A card shows what was observed as bars and what the suggestion would change. Open it in the assistant to get the rule prefilled, postpone it or hide it for good. Nothing is saved until you save, the system never changes a rule by itself."
+          },
+          "title": {
+            "de": "Den Beleg ansehen",
+            "en": "See the evidence"
+          }
+        }
+      ]
+    }
+  }
+}

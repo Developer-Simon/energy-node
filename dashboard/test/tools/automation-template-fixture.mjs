@@ -33,6 +33,12 @@ const DEVICES = [
       { unique_id: 'wb_power', name: 'Ladeleistung Ist', state_topic: 'werkstatt/wb/power', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '1400' },
     ],
   },
+  {
+    id: 'lamp', name: 'Steckdose Werkstatt',
+    entities: [
+      { unique_id: 'lamp_switch', name: 'Schalter', command_topic: 'werkstatt/lamp/switch', state_topic: 'werkstatt/lamp/state', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' },
+    ],
+  },
 ];
 
 // Wallbox ohne Schalter: ihr Ladeschalter fehlt, der Stecker bleibt.
@@ -102,6 +108,12 @@ function variants() {
     ['chain_standby', DEVICES, {}],
     ['chain_standby', DEVICES, { back: 'manual', limit: 5, hours: 4 }],
     ['chain_standby', DEVICES, { back: 'time', limit: 20, at: { from: '23:30', to: '00:30', days: ALL_DAYS } }],
+    ['time_point', DEVICES, {}],
+    ['time_point', DEVICES, { action: 'off', time: { from: '23:58', to: '00:03', days: [5, 0] } }],
+    ['runtime_off', DEVICES, {}],
+    ['runtime_off', DEVICES, { minutes: 120 }],
+    ['follow_switch', DEVICES, {}],
+    ['follow_switch', DEVICES, { source_on: 'off', target: 'wb_switch', target_on: 'on' }],
   ];
 }
 

@@ -32,6 +32,12 @@ type Checker struct {
 	ignoredPath  string
 	logf         func(string, ...any)
 
+	// engineCandidates returns the last candidates of the engine and
+	// reliabilityOn tells whether the reliability group is switched on. Both
+	// are nil until SetEngineSource is called.
+	engineCandidates func() []Candidate
+	reliabilityOn    func() bool
+
 	mu sync.Mutex
 	// doc is the last rule document that parsed. docOK is false when the last
 	// read failed, which keeps the ignored IDs and the observations as they are.
@@ -75,8 +81,18 @@ func (c *Checker) SetThresholds(th Thresholds) {
 	c.thresholds = th
 }
 
-// Findings returns the static and observed findings without the ignored ones,
-// ordered by severity and ID, at most 20. Ignored IDs of rules that no longer
+// SetEngineSource connects the engine. candidates returns the last candidates
+// of the engine, reliabilityOn tells whether the reliability group is on. Only
+// reliability candidates are listed, and only while the group is on.
+func (c *Checker) SetEngineSource(candidates func() []Candidate, reliabilityOn func() bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.engineCandidates = candidates
+	c.reliabilityOn = reliabilityOn
+}
+
+// Findings returns the static, observed and reliability findings without the
+// ignored ones, ordered by severity and ID, at most 20. Ignored IDs of rules that no longer
 // exist are removed from the ignored file here.
 func (c *Checker) Findings(now time.Time) []Finding {
 	c.mu.Lock()
@@ -87,6 +103,7 @@ func (c *Checker) Findings(now time.Time) []Finding {
 	c.refreshLocked(now, true)
 	all := StaticFindings(c.doc, c.entityExists)
 	all = append(all, ObservedFindingsWith(c.doc, c.obs.Snapshot(), c.season, now, c.thresholds)...)
+	all = append(all, c.reliabilityLocked()...)
 	sort.SliceStable(all, func(i, j int) bool {
 		ri, rj := severityRank[all[i].Severity], severityRank[all[j].Severity]
 		if ri != rj {
@@ -249,6 +266,40 @@ func (c *Checker) refreshLocked(now time.Time, force bool) {
 	}
 	c.errMsg = ""
 	c.doc, c.docOK = doc, true
+}
+
+// reliabilityLocked returns the findings of the reliability detectors. Only
+// candidates of the check group count, those with fewer effective cases than
+// their detector needs are left out, and so are those of rules that are gone.
+// Nothing is returned while the group is off or the rule document is unreadable,
+// because the rules cannot be checked then.
+func (c *Checker) reliabilityLocked() []Finding {
+	if c.engineCandidates == nil || c.reliabilityOn == nil || !c.docOK || !c.reliabilityOn() {
+		return nil
+	}
+	current := make(map[string]bool, len(c.doc.Rules))
+	for _, rule := range c.doc.Rules {
+		current[rule.ID] = true
+	}
+	var out []Finding
+	for _, cand := range c.engineCandidates() {
+		f := cand.Finding
+		if f.Group != "check" || cand.NEff < cand.MinNEff || !rulesCurrent(f.RuleIDs, current) {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// rulesCurrent reports whether every rule ID is a current rule.
+func rulesCurrent(ruleIDs []string, current map[string]bool) bool {
+	for _, id := range ruleIDs {
+		if !current[id] {
+			return false
+		}
+	}
+	return true
 }
 
 // dropOrphansLocked removes ignored IDs that are neither in the unfiltered

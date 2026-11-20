@@ -22,6 +22,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -201,7 +202,16 @@ func main() {
 			hadLearning = true
 		}
 	}
-	learnState := learnrec.LoadState(filepath.Join(dataDir, "learnrec", "state.json"), time.Now(), hadLearning, log.Printf)
+	learnStatePath := filepath.Join(dataDir, "learnrec", "state.json")
+	learnState := learnrec.LoadState(learnStatePath, time.Now(), hadLearning, log.Printf)
+	// learnState wird bei einer Herabstufung aus der Engine geaendert, daher
+	// nur ueber learnStateNow lesen.
+	var learnStateMu sync.Mutex
+	learnStateNow := func() learnrec.State {
+		learnStateMu.Lock()
+		defer learnStateMu.Unlock()
+		return learnState
+	}
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
 	backupSources := buildSources(cfg, *configPath)
 	runBackupApply(backupSources, systemExecutor.StartServices)
@@ -443,7 +453,7 @@ func main() {
 		if value, err := settingsStore.LoadSettings(); err == nil {
 			level = value.LearningLevel
 		}
-		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores), cores)
+		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores, learnStateNow().AutoLevel), cores)
 	}
 	learnHub := learnrec.NewHub(time.Local, learnLimits, log.Printf)
 	learnHub.AddMinute("chainsuggest", chainSuggest)
@@ -464,6 +474,20 @@ func main() {
 	learnHub.AddSaver("reactions", reactions)
 	// Tagesdateien: je Minute der Rahmen, je Minute die Ereignisse des Trackers.
 	// Die Aufbewahrung kommt aus den Einstellungen, 0 heisst 56 Tage.
+	// Demo: mit ENERGY_NODE_AUTOLEARN_FAST=1 bekommt ein leeres Tagesverzeichnis
+	// die Demo-Profile. Vorhandene Dateien bleiben unberührt.
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" {
+		demoDir := filepath.Join(autolearnDir, "days")
+		if empty, err := autolearn.DaysDirEmpty(demoDir); err != nil {
+			log.Printf("autolearn: demo profiles skipped: %v", err)
+		} else if empty {
+			if err := autolearn.SeedDemo(demoDir, time.Now(), time.Local); err != nil {
+				log.Printf("autolearn: demo profiles: %v", err)
+			} else {
+				log.Printf("autolearn: demo profiles written to %s", demoDir)
+			}
+		}
+	}
 	dayStore := autolearn.OpenDayStore(filepath.Join(autolearnDir, "days"), time.Local, func() int {
 		if value, err := settingsStore.LoadSettings(); err == nil && value.LearningProfileDays > 0 {
 			return value.LearningProfileDays
@@ -472,6 +496,66 @@ func main() {
 	}, log.Printf)
 	learnHub.AddMinute("daystore", dayStore)
 	learnHub.AddSaver("daystore", dayStore)
+	// Automationen-Engine: die Erkenner laufen in eigener Goroutine, nie im
+	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen und den beiden
+	// Gruppenschaltern darunter. Ohne lesbare Einstellungen bleibt alles an.
+	automationEngine := autolearn.NewEngine(dayStore, reactions,
+		func() ([]byte, error) { return configManager.Read("automation_rules") },
+		func() map[string]autolearn.DeviceInfo { return learnDevices(reg.Snapshot(), energyResolver) },
+		learnLimits, time.Local)
+	// Erkenner: Gewohnheiten (habit) und Zuverlaessigkeit (reliability).
+	for _, det := range []autolearn.Detector{
+		autolearn.SwitchTimeDetector, autolearn.RuntimeDetector, autolearn.CouplingDetector,
+		autolearn.FlappingDetector, autolearn.NoEffectDetector, autolearn.OverriddenDetector, autolearn.OfflineDetector,
+	} {
+		automationEngine.Register(det)
+	}
+	engineGroups := func() map[string]bool {
+		value, err := settingsStore.LoadSettings()
+		if err != nil {
+			value = settings.Default()
+		}
+		return engineGroupsFor(value)
+	}
+	// Die Regelpruefung zeigt die Zuverlaessigkeitsbefunde der Engine, solange
+	// deren Gruppe an ist.
+	automationChecker.SetEngineSource(automationEngine.Candidates, func() bool {
+		return engineGroups()["reliability"]
+	})
+	// Herabstufung: nur bei automatischer Stufe rueckt die gemerkte Stufe eine
+	// nach unten. Eine feste Stufe der Einstellungen bleibt unberuehrt.
+	engineDowngrade := func() {
+		if value, err := settingsStore.LoadSettings(); err == nil && !learnrec.IsAutoSetting(value.LearningLevel) {
+			return
+		}
+		learnStateMu.Lock()
+		defer learnStateMu.Unlock()
+		st, err := learnrec.LowerAutoLevel(learnStatePath, learnState, runtime.NumCPU())
+		learnState = st
+		log.Printf("autolearn: load too high, automatic learning level is now %s", learnrec.ResolveLevel("auto", runtime.NumCPU(), st.AutoLevel))
+		if err != nil {
+			log.Printf("learnrec: save downgrade: %v", err)
+		}
+	}
+	engineLoop := newEngineRunner(automationEngine, engineGroups, engineDowngrade)
+	learnHub.AddMinute("autolearn-engine", engineLoop)
+	// Vorschlaege der Gewohnheiten: nach jeder Runde durch die Gates, gespeichert
+	// stuendlich mit dem Hub. Verworfene und zurueckgestellte bleiben in suggestions.json.
+	suggestionState := autolearn.LoadSuggestionState(filepath.Join(autolearnDir, "suggestions.json"), log.Printf)
+	learnHub.AddSaver("suggestions", suggestionState)
+	suggestions := &suggestionBook{state: suggestionState}
+	suggestionExists := func(device string) bool {
+		if deviceFilterStore.IsIgnored(device) {
+			return false
+		}
+		_, ok := reg.Get(device)
+		return ok
+	}
+	engineLoop.afterRound = func() {
+		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
+	}
+	go engineLoop.Run(ctx)
+
 	origin := newOriginLearner(originTracker, dayStore, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
 	origin.rebuild()
 	go origin.run(ctx)
@@ -1113,13 +1197,13 @@ func main() {
 		Onboarding:           onboardingStore,
 		Learning: &httpapi.LearningDeps{
 			Settings:         settingsStore.LoadSettings,
-			State:            func() learnrec.State { return learnState },
+			State:            learnStateNow,
 			Usage:            dayStore.Usage,
 			ChainSuggestInfo: chainSuggest.LearnedSpan,
 			ChainLearnInfo:   chainMonitor.LearnedSpan,
 			SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
 			Reset: func() error {
-				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned())
+				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset())
 			},
 		},
 		TourTargets: dashwebui.TourTargets,
@@ -1133,19 +1217,20 @@ func main() {
 			DemoSpace: os.Getenv(storageDemoEnv) != "",
 			Usage:     storageUsage,
 		},
-		InstallerStateDir:  installerStateDir,
-		AppConfigPath:      *configPath,
-		BridgeTargetPath:   cfg.Dashboard.MosquittoBridgeTarget,
-		Tailscale:          tailscaleClient,
-		Network:            networkClient,
-		Resolver:           energyResolver,
-		EnergyStats:        energyStats,
-		ChainMonitor:       chainMonitor,
-		ChainSuggest:       chainSuggest,
-		AutomationFindings: automationChecker,
-		CommandObserver:    origin.observeCommand,
-		StorageFallback:    storageFallback,
-		HistorySampler:     historySampler,
+		InstallerStateDir:     installerStateDir,
+		AppConfigPath:         *configPath,
+		BridgeTargetPath:      cfg.Dashboard.MosquittoBridgeTarget,
+		Tailscale:             tailscaleClient,
+		Network:               networkClient,
+		Resolver:              energyResolver,
+		EnergyStats:           energyStats,
+		ChainMonitor:          chainMonitor,
+		ChainSuggest:          chainSuggest,
+		AutomationFindings:    automationChecker,
+		AutomationSuggestions: suggestions,
+		CommandObserver:       origin.observeCommand,
+		StorageFallback:       storageFallback,
+		HistorySampler:        historySampler,
 		InstalledServices: map[string]bool{
 			"automation": cfg.ServiceInstalled("automation"),
 			"tailscale":  cfg.ServiceInstalled("tailscale"),

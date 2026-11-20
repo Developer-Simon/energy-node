@@ -55,7 +55,7 @@ STATIC_STATE = {"rules_enabled": 3, "online": True}
 TRIGGER_DEFAULT = 4
 TRIGGER_MAX = 50
 
-DAYS_DEFAULT = 14
+DAYS_DEFAULT = 21
 DAYS_MIN = 1
 DAYS_MAX = 56
 DAY_FILE_VERSION = 1
@@ -68,8 +68,22 @@ STANDBY_W = 2.0
 ORIGIN_HAND = "hand"
 ORIGIN_RULE = "rule"
 ORIGIN_EXT = "ext"
-RULE_SURPLUS = "regel_ueberschuss_wallbox"
-RULE_NIGHT = "nulleinspeisung"
+# Geraete der Demo mit ihren Schaltern, wie die Registry sie hat (Discovery der Demo-Fixture).
+DEMO_ENTITIES = {
+    "plug_balkon": "plug_balkon_steckdose",
+    "plug_entfeuchter": "plug_entfeuchter_steckdose",
+    "relais_keller": "relais_keller_switch_1",
+    "waermepumpe": "waermepumpe_mode",
+}
+DEMO_WATTS = {"plug_balkon": 60.0, "plug_entfeuchter": 300.0, "relais_keller": 500.0, "waermepumpe": 1500.0}
+DRY_LONG_WATTS = 1200.0
+LONG_DRY_RESIDUES = (6, 15)          # zwei Tage je 21, an denen der Entfeuchter Stunden laeuft
+DEMO_RULE = "regel_akku_leer_wp_aus"  # schaltet die Waermepumpe aus
+RELAY_EVENING_MIN = 19 * 60          # Kellerrelais am Abend, Minuten seit Mitternacht
+RELAY_JITTER_MIN = 4.0
+PLUG_OFF_MIN = 22 * 60 + 30          # Balkonsteckdose um 22:30 von Hand aus
+PLUG_JITTER_MIN = 8.0
+DAY_SECONDS = 86400
 
 
 def _balance(field: str, comparison: str, threshold: float, hysteresis: float = 100,
@@ -225,45 +239,89 @@ def _write_atomic(path: Path, raw: bytes, failure: str) -> None:
         raise ValueError(failure) from None
 
 
-def _run(start: int, length: int, power: float, origin: str, rule: str = "") -> dict:
-    return {"start": start, "end": start + length, "power": power, "origin": origin, "rule": rule}
+def _switch(sec: int, device: str, on: bool, origin: str, rule: str = "") -> dict:
+    return {"sec": sec, "d": device, "on": on, "o": origin, "r": rule}
 
 
-def _schedules(rng: random.Random) -> dict:
-    """Schaltlaeufe je Geraet, Minuten seit Mitternacht. Die Laeufe eines Geraets ueberlappen nicht."""
-    pump = [_run(hour * 60 + rng.randint(0, 40), 10, 350, ORIGIN_EXT)
-            for hour in range(6, 23, 3) if rng.random() < 0.8]
-    return {
-        "demo_heater": [
-            _run(rng.randint(380, 420), 40, rng.uniform(1700, 1900), ORIGIN_HAND),
-            _run(rng.randint(1020, 1080), rng.randint(120, 200), rng.uniform(1700, 1900),
-                 ORIGIN_RULE, RULE_SURPLUS),
-        ],
-        "demo_boiler": [
-            _run(rng.randint(60, 90), 120, 2000, ORIGIN_RULE, RULE_NIGHT),
-            _run(rng.randint(720, 780), 60, 2000, ORIGIN_RULE, RULE_NIGHT),
-        ],
-        "demo_washer": [_run(rng.randint(540, 1000), 110, rng.uniform(450, 650), ORIGIN_HAND)],
-        "demo_pump": pump,
-    }
+def _sec(minute: float) -> int:
+    return int(round(minute * 60))
+
+
+def _schedules(day: date, rng: random.Random) -> tuple:
+    """Schaltvorgaenge des Tages, Sekunden seit Mitternacht, und die Leistung je Geraet.
+
+    Vier Muster, dieselben wie die Gewohnheiten, die der Dashboard-Seed (SeedDemo) schreibt:
+    Balkonsteckdose um 22:30 von Hand aus, an 18 von 21 Tagen, nach einem Lauf
+    des Kellerrelais. Entfeuchter etwa 40 Minuten, an zwei Tagen Stunden. Wärmepumpe
+    von der Regel ausgeschaltet, werktags sofort wieder von Hand ein.
+    """
+    skip = day.toordinal() % 7 == 3          # drei von 21 Tagen ohne Balkongewohnheit
+    long_dry = day.toordinal() % 21 in LONG_DRY_RESIDUES
+    weekday = day.weekday() < 5
+    switches = []
+
+    # Wärmepumpe: die Regel schaltet sie zwischen 10 und 17 Uhr aus.
+    off = _sec(rng.uniform(600, 1020))
+    switches.append(_switch(off, "waermepumpe", False, ORIGIN_RULE, DEMO_RULE))
+    if weekday:
+        switches.append(_switch(off + rng.randint(60, 240), "waermepumpe", True, ORIGIN_HAND))
+    else:
+        switches.append(_switch(off + rng.randint(150, 180) * 60, "waermepumpe", True, ORIGIN_HAND))
+
+    # Entfeuchter: von Hand gestartet, meist 35 bis 45 Minuten.
+    start = _sec(rng.uniform(600, 1020))
+    if long_dry:
+        run = _sec(rng.uniform(300, 360))
+    else:
+        run = rng.randint(35, 45) * 60
+    switches.append(_switch(start, "plug_entfeuchter", True, ORIGIN_HAND))
+    switches.append(_switch(start + run, "plug_entfeuchter", False, ORIGIN_HAND))
+
+    # Kellerrelais von Hand am Abend, die Balkonsteckdose folgt 30 bis 50 Sekunden später.
+    # Das Relais geht 1 bis 2,5 Stunden später wieder aus, zu keiner festen Zeit.
+    relay = _sec(rng.gauss(RELAY_EVENING_MIN, RELAY_JITTER_MIN))
+    switches.append(_switch(relay, "relais_keller", True, ORIGIN_HAND))
+    switches.append(_switch(relay + _sec(rng.uniform(60, 150)), "relais_keller", False, ORIGIN_HAND))
+    if not skip:
+        switches.append(_switch(relay + round(rng.uniform(30, 50)), "plug_balkon", True, ORIGIN_HAND))
+        switches.append(_switch(_sec(rng.gauss(PLUG_OFF_MIN, PLUG_JITTER_MIN)), "plug_balkon", False,
+                                ORIGIN_HAND))
+
+    switches.sort(key=lambda s: s["sec"])
+    watts = dict(DEMO_WATTS)
+    if long_dry:
+        watts["plug_entfeuchter"] = DRY_LONG_WATTS
+    return switches, watts
+
+
+def _on_minutes(switches: list, device: str) -> list:
+    """Minuten mit eingeschaltetem Gerät. Ein Gerät ist am Morgen aus, bis ein Schaltvorgang kommt."""
+    changes = [s for s in switches if s["d"] == device]
+    on = [0] * MINUTES
+    state, index = False, 0
+    for minute in range(MINUTES):
+        while index < len(changes) and changes[index]["sec"] <= minute * 60:
+            state = changes[index]["on"]
+            index += 1
+        on[minute] = 1 if state else 0
+    return on
 
 
 def _day_profile(day: date) -> dict:
     """Tagesprofil im Format Version 1. Der Zufall ist je Tag fest, derselbe Tag ergibt dieselben Werte."""
     rng = random.Random(day.isoformat())
     midnight = int(datetime(day.year, day.month, day.day).timestamp())
-    schedules = _schedules(rng)
+    switches, watts_of = _schedules(day, rng)
     cloud = rng.uniform(0.55, 1.0)
 
     power: dict = {}
     on: dict = {}
-    for device, runs in schedules.items():
+    for device in DEMO_ENTITIES:
+        switched = _on_minutes(switches, device)
         watts = [STANDBY_W] * MINUTES
-        switched = [0] * MINUTES
-        for run in runs:
-            for minute in range(run["start"], min(run["end"], MINUTES)):
-                watts[minute] = run["power"] * rng.uniform(0.97, 1.03)
-                switched[minute] = 1
+        for minute in range(MINUTES):
+            if switched[minute]:
+                watts[minute] = watts_of[device] * rng.uniform(0.97, 1.03)
         power[device] = watts
         on[device] = switched
 
@@ -271,7 +329,7 @@ def _day_profile(day: date) -> dict:
     pv = []
     for minute in range(MINUTES):
         base = 220 + (200 if 420 <= minute < 480 or 1080 <= minute < 1260 else 0) + rng.uniform(0, 60)
-        load.append(base + sum(power[device][minute] for device in schedules))
+        load.append(base + sum(power[device][minute] for device in DEMO_ENTITIES))
         pv.append(3600 * cloud * math.sin(math.pi * (minute - 360) / 840)
                   if 360 <= minute < 1200 else 0.0)
     grid_import = [max(0.0, l - p) for l, p in zip(load, pv)]
@@ -284,7 +342,7 @@ def _day_profile(day: date) -> dict:
     pv_q = quarters(pv)
 
     devices = {}
-    for device in schedules:
+    for device in DEMO_ENTITIES:
         devices[device] = {
             "seen": [15] * QUARTERS,
             "reach": [15] * QUARTERS,
@@ -299,22 +357,20 @@ def _day_profile(day: date) -> dict:
 
     events = []
     actions = []
-    for device, runs in schedules.items():
-        for run in runs:
-            for minute, switched_on in ((run["start"], True), (run["end"], False)):
-                if minute >= MINUTES:
-                    continue
-                q = minute // 15
-                at = midnight + minute * 60
-                entity = f"{device}/switch"
-                events.append({"at": at, "d": device, "e": entity, "on": switched_on,
-                               "o": run["origin"], "r": run["rule"],
-                               "house": round(load_q[q]), "surplus": round(pv_q[q] - load_q[q])})
-                counter = devices[device][run["origin"]]
-                counter[q] = min(15, counter[q] + 1)
-                if run["origin"] == ORIGIN_RULE:
-                    actions.append({"at": at, "r": run["rule"], "d": device, "e": entity,
-                                    "want": switched_on, "there": False, "ok": True, "rt": 1.2})
+    for switch in switches:
+        if switch["sec"] >= DAY_SECONDS:
+            continue
+        q = min(switch["sec"] // 900, QUARTERS - 1)
+        at = midnight + switch["sec"]
+        device = switch["d"]
+        events.append({"at": at, "d": device, "e": DEMO_ENTITIES[device], "on": switch["on"],
+                       "o": switch["o"], "r": switch["r"],
+                       "house": round(load_q[q]), "surplus": round(pv_q[q] - load_q[q])})
+        counter = devices[device][switch["o"]]
+        counter[q] = min(15, counter[q] + 1)
+        if switch["o"] == ORIGIN_RULE:
+            actions.append({"at": at, "r": switch["r"], "d": device, "e": DEMO_ENTITIES[device],
+                            "want": switch["on"], "there": False, "ok": True, "rt": 1.2})
     events.sort(key=lambda event: event["at"])
     actions.sort(key=lambda action: action["at"])
 

@@ -42,10 +42,19 @@ off, the values learned so far stay, and the warnings rely on them alone.
 and the energy flows. When you switch it off, the learned values stay at their
 last state, so a rule falls back to its default value after 7 days.
 
-Under **Fine-tuning**, **Exclude devices** opens a picker for the devices that
-the learning leaves out. **Allow all** removes every exclusion. The
-[rule check](automations-rules.md#rule-check) always runs. It only reads the
-trigger history and writes nothing new, so it has no switch.
+Under **Fine-tuning**, two switches sit above **Exclude devices**. They only
+appear while **Learn patterns** is on, and each works on its own.
+
+- **Habits** turns the [suggestions](automations-rules.md#suggestions) for
+  switching times, run times and devices that follow another device on or off.
+- **Reliability** turns the reliability checks of the
+  [rule check](automations-rules.md#rule-check) on or off: flapping, no effect,
+  overridden and runs while offline.
+
+**Exclude devices** opens a picker for the devices that the learning leaves out.
+**Allow all** removes every exclusion. The trigger and value checks of the
+[rule check](automations-rules.md#rule-check) always run. They only read the
+trigger history and write nothing new, so they have no switch.
 
 ### Recording
 

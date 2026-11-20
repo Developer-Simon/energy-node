@@ -9,7 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from console_autolearn import ACTIONS, AutolearnTab, SCENARIOS
+from datetime import datetime
+
+from console_autolearn import ACTIONS, DEMO_ENTITIES, DEMO_RULE, AutolearnTab, SCENARIOS, _day_profile
 from fake_console import Log
 
 REPO = Path(__file__).resolve().parents[2]
@@ -312,7 +314,7 @@ def test_dead_broker_does_not_raise_and_logs_an_error(rules_path):
     assert any(e["level"] == "error" for e in log.since(0)[1])
 
 
-DEVICES = ("demo_heater", "demo_boiler", "demo_washer", "demo_pump")
+DEVICES = ("plug_balkon", "plug_entfeuchter", "relais_keller", "waermepumpe")
 DEVICE_KEYS = ("seen", "reach", "on_min", "avg_w", "wh", "pn", "hand", "ext", "rule")
 SITE_KEYS = ("seen", "load_total", "grid_import", "grid_export", "pv", "battery_charge", "battery_discharge")
 LEARNING_ACTIONS = ("day_create", "day_remove", "ack_reset")
@@ -382,13 +384,13 @@ def test_day_create_writes_one_valid_file_per_past_day(learning, data_dir):
         assert data["events"], "a day has switching events"
         assert {e["o"] for e in data["events"]} <= {"hand", "ext", "rule"}
         assert all(len(e) == 8 for e in data["events"])
-        assert {a["r"] for a in data["actions"]} <= {"regel_ueberschuss_wallbox", "nulleinspeisung"}
+        assert {a["r"] for a in data["actions"]} <= {DEMO_RULE}
 
 
-def test_day_create_default_is_fourteen_days(learning, data_dir):
+def test_day_create_default_is_twenty_one_days(learning, data_dir):
     learning.act("day_create", {})
 
-    assert len(_days(data_dir)) == 14
+    assert len(_days(data_dir)) == 21
 
 
 def test_day_create_rejects_bad_day_counts(learning, data_dir):
@@ -503,3 +505,128 @@ def test_learning_texts_follow_the_style_rules(learning, data_dir, log):
     for text in _texts(log):
         assert ";" not in text
         assert "–" not in text and "—" not in text
+
+
+# Die Muster der Tagesprofile, geprueft an festen Tagen, damit die Ergebnisse
+# nicht vom heutigen Datum abhaengen. Die Erkenner des Dashboards brauchen 21 Tage.
+PATTERN_LAST_DAY = date(2026, 11, 20)
+
+
+def _pattern_profiles():
+    return [_day_profile(PATTERN_LAST_DAY - timedelta(days=k)) for k in range(1, 22)]
+
+
+def _local_clock(event):
+    return datetime.fromtimestamp(event["at"]).strftime("%H:%M:%S")
+
+
+def _seconds(clock):
+    hours, minutes, seconds = (int(part) for part in clock.split(":"))
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def _device_events(profile, device, on=None):
+    return [e for e in profile["events"]
+            if e["d"] == device and (on is None or e["on"] is on)]
+
+
+def test_profiles_use_the_registered_devices_and_entities():
+    for profile in _pattern_profiles():
+        assert set(profile["devices"]) == set(DEVICES)
+        for event in profile["events"]:
+            assert event["e"] == DEMO_ENTITIES[event["d"]]
+
+
+def test_plug_balkon_is_switched_off_around_2230_on_most_days():
+    days = 0
+    for profile in _pattern_profiles():
+        offs = [_seconds(_local_clock(e)) for e in _device_events(profile, "plug_balkon", on=False)]
+        if any(22 * 3600 + 10 * 60 <= s <= 22 * 3600 + 50 * 60 for s in offs):
+            days += 1
+    assert days >= 16
+
+
+def test_plug_balkon_is_on_before_its_evening_switch_off():
+    for profile in _pattern_profiles():
+        ons = [e for e in _device_events(profile, "plug_balkon", on=True)]
+        offs = [e for e in _device_events(profile, "plug_balkon", on=False)]
+        for off in offs:
+            assert any(on["at"] < off["at"] for on in ons)
+
+
+def test_plug_balkon_follows_the_cellar_relay_after_twenty_to_sixty_seconds():
+    days = 0
+    for profile in _pattern_profiles():
+        relay_on = _device_events(profile, "relais_keller", on=True)
+        assert relay_on, "every day switches the cellar relay on"
+        for event in relay_on:
+            clock = _seconds(_local_clock(event))
+            assert 18 * 3600 + 30 * 60 <= clock <= 19 * 3600 + 30 * 60
+        hits = 0
+        for event in relay_on:
+            follow = [e for e in _device_events(profile, "plug_balkon", on=True)
+                      if 20 <= e["at"] - event["at"] <= 60]
+            hits += 1 if follow else 0
+        if hits:
+            days += 1
+    assert days >= 12
+
+
+def test_heat_pump_rule_switch_off_is_reversed_by_hand_on_weekdays_only():
+    weekday_reversals = weekend_reversals = 0
+    for k in range(1, 22):
+        day = PATTERN_LAST_DAY - timedelta(days=k)
+        profile = _day_profile(day)
+        rule_off = [e for e in _device_events(profile, "waermepumpe", on=False)
+                    if e["o"] == "rule" and e["r"] == DEMO_RULE]
+        assert len(rule_off) == 1, day
+        hand_on = [e for e in _device_events(profile, "waermepumpe", on=True)
+                   if e["o"] == "hand" and e["at"] > rule_off[0]["at"]]
+        gap = hand_on[0]["at"] - rule_off[0]["at"]
+        if day.weekday() < 5:
+            assert gap <= 300, day
+            weekday_reversals += 1
+        else:
+            assert gap >= 3600, day
+            weekend_reversals += 1
+        assert any(a["r"] == DEMO_RULE and a["want"] is False and a["d"] == "waermepumpe"
+                   for a in profile["actions"])
+    assert weekday_reversals == 15
+    assert weekend_reversals == 6
+
+
+def test_dehumidifier_runs_about_forty_minutes_and_twice_for_hours():
+    long_days = 0
+    for profile in _pattern_profiles():
+        on = _device_events(profile, "plug_entfeuchter", on=True)
+        off = _device_events(profile, "plug_entfeuchter", on=False)
+        assert len(on) == len(off) == 1
+        minutes = (off[0]["at"] - on[0]["at"]) / 60
+        if minutes >= 180:
+            long_days += 1
+            assert profile["devices"]["plug_entfeuchter"]["avg_w"][max(range(96), key=lambda q: profile["devices"]["plug_entfeuchter"]["avg_w"][q])] >= 1000
+        else:
+            assert 35 <= minutes <= 45
+    assert long_days == 2
+
+
+def test_counters_match_the_events_per_origin():
+    for profile in _pattern_profiles():
+        for device in DEVICES:
+            dd = profile["devices"][device]
+            for origin in ("hand", "ext", "rule"):
+                events = [e for e in profile["events"] if e["d"] == device and e["o"] == origin]
+                quarters = [min(15, sum(1 for e in events if (e["at"] - _midnight(profile)) // 900 == q))
+                            for q in range(96)]
+                assert dd[origin] == quarters, (profile["day"], device, origin)
+
+
+def _midnight(profile):
+    year, month, day = (int(part) for part in profile["day"].split("-"))
+    return int(datetime(year, month, day).timestamp())
+
+
+def test_twenty_one_days_have_the_pattern_counts():
+    profiles = _pattern_profiles()
+    assert len(profiles) == 21
+    assert sum(1 for p in profiles if _device_events(p, "plug_balkon", on=False)) == 18
