@@ -2030,3 +2030,210 @@ def test_rule_history_survives_write_error(tmp_path):
     history = automation.RuleHistory(str(blocker / "automation_history.json"))
     history.record("r1", {"at": 1.0}, limit=10)  # must not raise
     assert history.as_list("r1") == [{"at": 1.0}]
+
+
+# --- Lernwerte in Bedingungen (Task 2 PR 3) ---------------------------------
+
+LEARNED_GRID_LIMIT = "outstation/energy_node/learned/site/grid_limit"
+LEARNED_DAY_START = "outstation/energy_node/learned/site/day_start"
+LEARNED_HOLD = "outstation/energy_node/learned/site/hold_s"
+LEARNED_HOUSE = "outstation/energy_node/learned/site/house_state"
+
+
+def _learned_payload(value, at):
+    return json.dumps({"value": value, "n": 3, "at": at})
+
+
+def _grid_limit_ref(**overrides):
+    ref = {"learned": "site/grid_limit", "min": 500, "max": 2000, "fallback": 800}
+    ref.update(overrides)
+    return ref
+
+
+def _met(conditions, *, topic_values=None, now_ts=1000, balance=None, runtimes=None):
+    runtimes = runtimes or [automation.ConditionRuntime() for _ in conditions]
+    return automation.evaluate_conditions(conditions, runtimes, balance=balance,
+                                          topic_values=topic_values or {}, now_ts=now_ts, location=None)
+
+
+def _tick_one(conditions, *, topic_values=None, now_ts=1000, balance=None):
+    executor = automation.ActionExecutor(publish_fn=lambda *args: None, publish_allowed_prefixes=[])
+    engine = automation.Engine(executor, started_at=0, event_sink=lambda message: None)
+    doc = automation.RulesDocument(
+        version=1, settings=automation.Settings(settling_seconds=0, balance_max_age_s=30),
+        rules=[{"id": "r1", "name": "R", "enabled": True, "cooldown_seconds": 300, "conditions": conditions,
+                "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]}])
+    return engine.tick(doc, balance=balance, balance_age=1, topic_values=topic_values or {}, now_ts=now_ts)["r1"]
+
+
+def test_learned_threshold_compares_against_the_learned_value():
+    cond = balance_condition(threshold=_grid_limit_ref(), hysteresis=0, hold_seconds=0)
+    topics = {LEARNED_GRID_LIMIT: _learned_payload(1350, at=1000)}
+    report = _tick_one([cond], topic_values=topics, balance={"grid_export": 1400})["conditions"][0]
+    assert report["met"] is True
+    assert report["target"] == 1350
+    assert report["learned"] == {"threshold": "learned"}
+
+
+def test_learned_threshold_without_payload_uses_the_fallback():
+    cond = balance_condition(threshold=_grid_limit_ref(), hysteresis=0, hold_seconds=0)
+    report = _tick_one([cond], balance={"grid_export": 1400})["conditions"][0]
+    assert report["target"] == 800
+    assert report["learned"] == {"threshold": "fallback"}
+
+
+def test_learned_threshold_hysteresis_holds_like_a_fixed_one():
+    def raw_series(threshold):
+        cond = balance_condition(threshold=threshold, hysteresis=100, hold_seconds=0)
+        executor = automation.ActionExecutor(publish_fn=lambda *args: None, publish_allowed_prefixes=[])
+        engine = automation.Engine(executor, started_at=0, event_sink=lambda message: None)
+        doc = automation.RulesDocument(
+            version=1, settings=automation.Settings(settling_seconds=0, balance_max_age_s=30),
+            rules=[{"id": "r1", "name": "R", "enabled": True, "cooldown_seconds": 300, "conditions": [cond],
+                    "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]}])
+        topics = {LEARNED_GRID_LIMIT: _learned_payload(1350, at=1000)}
+        series = []
+        for balance, now in ((1400, 1000), (1300, 1001)):
+            result = engine.tick(doc, balance={"grid_export": balance}, balance_age=1,
+                                 topic_values=topics, now_ts=now)
+            series.append(result["r1"]["conditions"][0]["raw_met"])
+        return series
+
+    assert raw_series(_grid_limit_ref()) == raw_series(1350) == [True, True]
+
+
+def test_learned_time_window_end_follows_the_start_with_an_offset():
+    start = {"learned": "site/day_start", "min": "06:00", "max": "10:00", "fallback": "08:00"}
+    end = dict(start, offset=5)
+    cond = {"type": "time_window", "start": start, "end": end, "weekdays": []}
+    topics = {LEARNED_DAY_START: _learned_payload("08:00", at=1000)}
+
+    def open_at(hour, minute):
+        return _met([cond], topic_values=topics, now_ts=_timestamp_at(hour, minute, weekday=0)).all_raw
+
+    assert open_at(7, 59) is False
+    assert open_at(8, 0) is True
+    assert open_at(8, 4) is True
+    assert open_at(8, 5) is False
+
+
+def test_learned_hold_seconds_waits_the_learned_time():
+    hold = {"learned": "site/hold_s", "min": 60, "max": 600, "fallback": 300}
+    cond = {"type": "balance_threshold", "field": "grid_export", "comparison": "above",
+            "threshold": 800, "hysteresis": 0, "hold_seconds": hold}
+    topics = {LEARNED_HOLD: _learned_payload(120, at=1000)}
+    runtimes = [automation.ConditionRuntime()]
+
+    def held_at(now_ts):
+        return _met([cond], topic_values=topics, now_ts=now_ts, balance={"grid_export": 900},
+                    runtimes=runtimes).all_held
+
+    assert held_at(1000) is False
+    assert held_at(1119) is False
+    assert held_at(1120) is True
+
+
+def test_learned_state_quiet_and_fresh_is_met():
+    cond = {"type": "learned_state", "learned": "site/house_state", "equals": "quiet",
+            "fallback": "active", "max_age_s": 7200, "hold_seconds": 0}
+    topics = {LEARNED_HOUSE: _learned_payload("quiet", at=1000 - 60)}
+    result = _met([cond], topic_values=topics, now_ts=1000)
+    assert result.all_raw is True
+    assert result.reports[0]["value"] == "quiet"
+    assert result.reports[0]["target"] == "quiet"
+    assert result.reports[0]["learned"] == {"learned": "learned"}
+
+
+def test_learned_state_older_than_max_age_falls_back_and_is_not_met():
+    cond = {"type": "learned_state", "learned": "site/house_state", "equals": "quiet",
+            "fallback": "active", "max_age_s": 7200, "hold_seconds": 0}
+    topics = {LEARNED_HOUSE: _learned_payload("quiet", at=1000 - 3 * 3600)}
+    result = _met([cond], topic_values=topics, now_ts=1000)
+    assert result.all_raw is False
+    assert result.reports[0]["value"] == "active"
+    assert result.reports[0]["learned"] == {"learned": "fallback"}
+
+
+def test_validation_accepts_a_learned_threshold_and_rejects_a_learned_value_with_equals():
+    errors = []
+    automation._validate_condition(balance_condition(threshold=_grid_limit_ref()), 0, errors)
+    assert errors == []
+
+    equals_with_ref = {"type": "topic_value", "topic": "x/y", "comparison": "equals", "text": "a",
+                       "value": _grid_limit_ref()}
+    errors = []
+    automation._validate_condition(equals_with_ref, 0, errors)
+    assert errors
+
+    above_with_ref = {"type": "topic_value", "topic": "x/y", "comparison": "above",
+                      "value": _grid_limit_ref()}
+    errors = []
+    automation._validate_condition(above_with_ref, 0, errors)
+    assert errors == []
+
+
+def test_validation_rejects_a_learned_value_on_chain_value():
+    cond = {"type": "chain_value", "chain_id": "wp", "field": "loss_w", "comparison": "above",
+            "value": _grid_limit_ref()}
+    errors = []
+    automation._validate_condition(cond, 0, errors)
+    assert errors
+
+
+def test_validation_requires_equals_fallback_and_a_positive_max_age_for_learned_state():
+    base = {"type": "learned_state", "learned": "site/house_state", "equals": "quiet", "fallback": "active"}
+    errors = []
+    automation._validate_condition(dict(base), 0, errors)
+    assert errors == []
+
+    errors = []
+    automation._validate_condition({**base, "equals": ""}, 0, errors)
+    assert errors
+
+    errors = []
+    automation._validate_condition({**base, "max_age_s": 0}, 0, errors)
+    assert errors
+
+
+def test_validation_checks_the_minimum_interval_of_a_learned_hold_seconds():
+    cond = {"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 800,
+            "hysteresis": 0, "hold_seconds": {"learned": "site/hold_s", "min": 10, "max": 600, "fallback": 300}}
+    errors = []
+    automation._validate_rule(rule(conditions=[cond], actions=[publish_action()]), 0, errors, set(), 30)
+    assert any("hold_seconds" in error for error in errors)
+
+
+def test_state_document_of_a_rule_with_learned_conditions_stays_under_4096_bytes():
+    rules = []
+    topics = {}
+    for index in range(10):
+        rules.append({"id": f"r{index}", "name": "R", "enabled": True, "cooldown_seconds": 300,
+                      "conditions": [
+                          balance_condition(threshold=_grid_limit_ref(), hysteresis=0, hold_seconds=0),
+                          {"type": "learned_state", "learned": "site/house_state", "equals": "quiet",
+                           "fallback": "active", "max_age_s": 7200, "hold_seconds": 0}],
+                      "actions": [notification_action()]})
+    topics[LEARNED_GRID_LIMIT] = _learned_payload(1350, at=1000)
+    topics[LEARNED_HOUSE] = _learned_payload("quiet", at=1000)
+    executor = automation.ActionExecutor(publish_fn=lambda *args: None, publish_allowed_prefixes=[])
+    engine = automation.Engine(executor, started_at=0, event_sink=lambda message: None)
+    doc = automation.RulesDocument(version=1, settings=automation.Settings(settling_seconds=0, balance_max_age_s=30),
+                                   rules=rules)
+    results = engine.tick(doc, balance={"grid_export": 1400}, balance_age=1, topic_values=topics, now_ts=1000)
+    for rule_id, result in results.items():
+        assert len(json.dumps(result).encode("utf-8")) < 4096, rule_id
+
+
+def test_required_topics_includes_the_learned_topics_of_rules():
+    cond = balance_condition(threshold=_grid_limit_ref())
+    doc = automation.RulesDocument(
+        version=1, settings=automation.Settings(),
+        rules=[{"id": "r1", "name": "n", "enabled": True, "cooldown_seconds": 30,
+                "conditions": [cond, {"type": "learned_state", "learned": "site/house_state", "equals": "quiet",
+                                      "fallback": "active"}],
+                "actions": [notification_action()]}])
+    service = automation.AutomationService.__new__(automation.AutomationService)
+    service.test_command_topic = "outstation/automation/test/set"
+    topics = service.required_topics(doc)
+    assert LEARNED_GRID_LIMIT in topics
+    assert LEARNED_HOUSE in topics

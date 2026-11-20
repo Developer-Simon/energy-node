@@ -30,6 +30,8 @@ from energy_node_common.slave import Slave
 import ha_template
 import regulator
 import sun
+from learned import (LEARNABLE, cond_learned_keys, field_kind, is_ref, learned_topic, resolve_condition,
+                     state_value, validate_ref)
 
 LOG = logging.getLogger("automation_mqtt")
 
@@ -123,7 +125,7 @@ _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 _CONDITION_TYPES = {"balance_threshold", "topic_value", "time_window", "entity_value", "sun_window",
-                    "chain_finding", "chain_value"}
+                    "chain_finding", "chain_value", "learned_state"}
 _CHAIN_ID_RE = re.compile(r"^[a-z0-9_]+$")
 _SUN_EVENTS = ("sunrise", "sunset")
 _SUN_OFFSET_MAX_MIN = 240
@@ -158,6 +160,21 @@ class RulesDocument:
     scenarios: list[dict] = field(default_factory=list)
 
 
+def _learned_field(cond: dict, field: str, prefix: str, errors: list[str]) -> bool:
+    """Prueft die Bezugsangabe an einem Feld. True, wenn das Feld eine Bezugsangabe ist,
+    dann ersetzt die Pruefung der Bezugsangabe die Typpruefung des Feldes."""
+    value = cond.get(field)
+    if not is_ref(value):
+        return False
+    if field not in LEARNABLE.get(cond.get("type"), ()):
+        errors.append(f"{prefix}: {field} cannot take a learned value")
+    elif field == "value" and cond.get("comparison") not in ("above", "below"):
+        errors.append(f"{prefix}: value takes a learned value only for above and below")
+    else:
+        validate_ref(value, field_kind(field), f"{prefix}.{field}", errors)
+    return True
+
+
 def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
     prefix = f"condition[{index}]"
     ctype = cond.get("type")
@@ -170,7 +187,8 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
             errors.append(f"{prefix}: field must be one of {sorted(BALANCE_FIELDS)} or custom:<id>")
         if result.get("comparison") not in ("above", "below"):
             errors.append(f"{prefix}: comparison must be 'above' or 'below'")
-        if not isinstance(result.get("threshold"), (int, float)):
+        if not _learned_field(result, "threshold", prefix, errors) \
+                and not isinstance(result.get("threshold"), (int, float)):
             errors.append(f"{prefix}: threshold must be a number")
         result.setdefault("hysteresis", 0)
         result.setdefault("hold_seconds", 0)
@@ -179,7 +197,9 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
             errors.append(f"{prefix}: {err}")
         if result.get("comparison") not in ("above", "below", "equals", "not_equals", "stale"):
             errors.append(f"{prefix}: invalid comparison")
-        if result.get("comparison") in ("above", "below") and not isinstance(result.get("value"), (int, float)):
+        learned_value = _learned_field(result, "value", prefix, errors)
+        if result.get("comparison") in ("above", "below") and not learned_value \
+                and not isinstance(result.get("value"), (int, float)):
             errors.append(f"{prefix}: value must be a number for above/below")
         if result.get("comparison") in ("equals", "not_equals") and "text" not in result and "value" not in result:
             errors.append(f"{prefix}: equals/not_equals needs text or value")
@@ -200,7 +220,9 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
             errors.append(f"{prefix}: value_template is not one of the supported forms")
         if result.get("comparison") not in ("above", "below", "equals", "not_equals", "stale"):
             errors.append(f"{prefix}: invalid comparison")
-        if result.get("comparison") in ("above", "below") and not isinstance(result.get("value"), (int, float)):
+        learned_value = _learned_field(result, "value", prefix, errors)
+        if result.get("comparison") in ("above", "below") and not learned_value \
+                and not isinstance(result.get("value"), (int, float)):
             errors.append(f"{prefix}: value must be a number for above/below")
         if result.get("comparison") in ("equals", "not_equals") and "text" not in result and "value" not in result:
             errors.append(f"{prefix}: equals/not_equals needs text or value")
@@ -209,12 +231,19 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
         result.setdefault("value_template", "")
         result.setdefault("hold_seconds", 0)
     elif ctype == "time_window":
-        if not _TIME_RE.match(str(result.get("start", ""))):
-            errors.append(f"{prefix}: start must be HH:MM")
-        if not _TIME_RE.match(str(result.get("end", ""))):
-            errors.append(f"{prefix}: end must be HH:MM")
+        for field in ("start", "end"):
+            if not _learned_field(result, field, prefix, errors) \
+                    and not _TIME_RE.match(str(result.get(field, ""))):
+                errors.append(f"{prefix}: {field} must be HH:MM")
         _validate_weekdays(result, prefix, errors)
         _validate_month_days(result, prefix, errors)
+    elif ctype == "learned_state":
+        for key in ("learned", "equals", "fallback"):
+            if not isinstance(result.get(key), str) or not result[key]:
+                errors.append(f"{prefix}: {key} must be a non-empty text")
+        if "max_age_s" in result and not _is_positive_number(result["max_age_s"]):
+            errors.append(f"{prefix}: max_age_s must be a number above 0")
+        result.setdefault("hold_seconds", 0)
     elif ctype == "sun_window":
         for key in ("from", "to"):
             if result.get(key) not in _SUN_EVENTS:
@@ -251,6 +280,7 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
         if not _number(result.get("value")):
             errors.append(f"{prefix}: value must be a number")
         result.setdefault("hold_seconds", 0)
+    _learned_field(result, "hold_seconds", prefix, errors)
     return result
 
 
@@ -350,7 +380,13 @@ def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]
         if result["cooldown_seconds"] < min_interval:
             errors.append(f"{prefix}: cooldown_seconds must be >= {min_interval:g} for a rule with a publish action")
         for i, cond in enumerate(result["conditions"]):
-            if "hold_seconds" in cond and cond["hold_seconds"] < min_interval:
+            if is_ref(cond.get("hold_seconds")):
+                # Bezugsangabe: geprueft wird der kleinste Wert, den der Lernwert erreichen kann.
+                floor = cond["hold_seconds"].get("min")
+                too_short = _number(floor) and floor < min_interval
+            else:
+                too_short = "hold_seconds" in cond and cond["hold_seconds"] < min_interval
+            if too_short:
                 errors.append(f"{prefix}.condition[{i}]: hold_seconds must be >= {min_interval:g} for a rule with a publish action")
         if result["repeat_seconds"] > 0 and result["repeat_seconds"] < min_interval:
             errors.append(f"{prefix}: repeat_seconds must be >= {min_interval:g} for a rule with a publish action")
@@ -853,6 +889,10 @@ def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values:
             return False, "field_missing"
         return _compare(value, cond["comparison"], cond["threshold"]), ""
 
+    if ctype == "learned_state":
+        value, _ = state_value(cond, topic_values, now_ts)
+        return value == cond["equals"], ""
+
     if ctype in ("topic_value", "entity_value") and cond.get("comparison") == "stale":
         age = _topic_age(cond, topic_seen_at, started_at, now_ts)
         if age is None:
@@ -935,6 +975,10 @@ def condition_value(cond: dict, *, balance: Optional[dict], topic_values: dict, 
     if ctype == "balance_threshold":
         value = None if balance is None else balance_value(balance, cond["field"])
         return value, cond.get("threshold")
+
+    if ctype == "learned_state":
+        value, _ = state_value(cond, topic_values, now_ts)
+        return value, cond["equals"]
 
     if ctype == "topic_value":
         payload = topic_values.get(cond["topic"])
@@ -1177,7 +1221,11 @@ def evaluate_conditions(conditions: list, runtimes: list, *, balance: Optional[d
     all_raw = True
     all_held = True
     saw_stale = False
-    for index, (cond, cond_rt) in enumerate(zip(conditions, runtimes)):
+    for index, (raw_cond, cond_rt) in enumerate(zip(conditions, runtimes)):
+        # Lernwerte aufloesen: ab hier rechnen Auswertung, Hysterese und Anzeige mit dem Wert.
+        cond, sources = resolve_condition(raw_cond, topic_values, now_ts)
+        if raw_cond["type"] == "learned_state":
+            sources["learned"] = state_value(raw_cond, topic_values, now_ts)[1]
         raw_met, held_met, reason = _evaluate_one(
             cond, cond_rt, balance=balance, topic_values=topic_values, now_ts=now_ts, location=location,
             topic_seen_at=topic_seen_at, started_at=started_at, index=index, consumed=consumed, matched=matched)
@@ -1192,9 +1240,13 @@ def evaluate_conditions(conditions: list, runtimes: list, *, balance: Optional[d
         # met/since/hold_remaining bleiben unveraendert, darauf bauen Spec A und C auf.
         value, target = condition_value(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
                                         location=location, topic_seen_at=topic_seen_at, started_at=started_at)
-        reports.append({"met": held_met, "raw_met": raw_met, "value": value,
-                        "target": target, "since": cond_rt.since,
-                        "hold_remaining": remaining})
+        report = {"met": held_met, "raw_met": raw_met, "value": value,
+                  "target": target, "since": cond_rt.since,
+                  "hold_remaining": remaining}
+        if sources:
+            # Nur bei Lernwerten, damit das Zustandsdokument klein bleibt.
+            report["learned"] = sources
+        reports.append(report)
     return ConditionsResult(all_raw=all_raw, all_held=all_held, saw_stale=saw_stale, reports=reports,
                             matched=matched)
 
@@ -1892,6 +1944,7 @@ class AutomationService:
         for cond in conditions:
             if cond["type"] in ("topic_value", "entity_value"):
                 topics.add(cond["topic"])
+            topics.update(learned_topic(key) for key in cond_learned_keys(cond))
 
     @staticmethod
     def _add_action_topics(topics: set, actions: list) -> None:
