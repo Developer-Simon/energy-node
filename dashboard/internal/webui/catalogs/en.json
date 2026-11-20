@@ -541,6 +541,8 @@
   "automations.learn.switch_time.on.title": "Switch {device} on at {time}",
   "automations.learn.undo.ignored": "Finding hidden",
   "automations.learn.value.percent": "{value} %",
+  "automations.learn.zoom.full": "Whole day",
+  "automations.learn.zoom.window": "Zoomed in",
   "automations.limit.rules": "At most {max} rules",
   "automations.limit.scenarios": "At most {max} scenarios",
   "automations.list.loading": "Loading rules ...",

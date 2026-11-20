@@ -25,7 +25,10 @@ function mount(document, html) {
   return host;
 }
 
-test('events shape draws one mark per event and one soll span', () => {
+const axisLabels = (host) => Array.from(host.querySelectorAll('.auto-learn-axis-label')).map((s) => s.textContent);
+const bars = (host) => Array.from(host.querySelectorAll('path.auto-learn-bar'));
+
+test('events shape draws a histogram bar per occupied bin', () => {
   const { api, document } = load();
   const from = 1700000000;
   const to = from + 14400;
@@ -33,26 +36,48 @@ test('events shape draws one mark per event and one soll span', () => {
     shape: 'events',
     from,
     to,
-    ist: [from + 1000, from + 5000, from + 9000],
+    ist: [from + 1000, from + 1100, from + 9000],
     soll_spans: [[from + 1000, from + 9000]],
   }, t);
   const host = mount(document, html);
-  const marks = host.querySelectorAll('line.auto-learn-mark-event');
-  assert.equal(marks.length, 3);
+  assert.equal(bars(host).length, 2, 'two occupied bins of 600 s');
   assert.equal(host.querySelectorAll('rect.auto-learn-soll').length, 1);
-  assert.equal(Number(marks[0].getAttribute('x1')).toFixed(3), ((1000 / 14400) * 100).toFixed(3));
-  const axisLabels = host.querySelectorAll('.auto-learn-axis span');
-  assert.ok(axisLabels.length >= 3);
+  assert.equal(host.querySelectorAll('line.auto-learn-mark-event').length, 0, 'events are bars now');
+  assert.ok(host.querySelectorAll('.auto-learn-axis-label').length >= 3);
 });
 
-test('events shape writes the axis as HH clock times', () => {
+test('events histogram gives the busiest bin full height and others at least 30 %', () => {
+  const { api, document } = load();
+  const from = 1700000000;
+  const to = from + 14400;
+  const busy = [1000, 1010, 1020, 1030];
+  const html = api.render({ shape: 'events', from, to, ist: busy.map((s) => from + s).concat([from + 9000]), soll_spans: [] }, t);
+  const host = mount(document, html);
+  const heights = bars(host).map((b) => Number(b.getAttribute('data-h')));
+  assert.equal(Math.max(...heights), 1);
+  assert.ok(Math.min(...heights) >= 0.3, 'single event stays visible');
+  assert.equal(heights.length, 2);
+});
+
+test('events shape writes the axis as HH:MM clock times with edge alignment', () => {
   const { api, document } = load();
   const from = 1700000000;
   const html = api.render({ shape: 'events', from, to: from + 14400, ist: [], soll_spans: [] }, t);
   const host = mount(document, html);
-  const labels = Array.from(host.querySelectorAll('.auto-learn-axis > div > span')).map((s) => s.textContent);
+  const labels = axisLabels(host);
   assert.equal(labels.length, 3);
-  labels.forEach((label) => assert.match(label, /^\d{2}$/));
+  labels.forEach((label) => assert.match(label, /^\d{2}:\d{2}$/));
+  assert.ok(host.querySelector('.auto-learn-axis-label.is-start'));
+  assert.ok(host.querySelector('.auto-learn-axis-label.is-end'));
+});
+
+test('events shape with from equal to produces no NaN and no bars', () => {
+  const { api, document } = load();
+  const at = 1700000000;
+  const html = api.render({ shape: 'events', from: at, to: at, ist: [at], soll_spans: [[at, at]] }, t);
+  assert.ok(!html.includes('NaN'));
+  const host = mount(document, html);
+  assert.equal(bars(host).length, 0);
 });
 
 test('scale shape puts the threshold line at ist_value / max in percent', () => {
@@ -71,6 +96,22 @@ test('scale shape puts the threshold line at ist_value / max in percent', () => 
   assert.equal(Number(threshold.getAttribute('x1')).toFixed(4), ((300 / 600) * 100).toFixed(4));
   const soll = host.querySelector('line.auto-learn-mark-soll');
   assert.equal(Number(soll.getAttribute('x1')).toFixed(4), ((500 / 600) * 100).toFixed(4));
+  assert.deepEqual(axisLabels(host), ['0 W', '300 W', '600 W']);
+});
+
+test('scale shape draws an Ist bar for ist_value only and a Soll bar for soll_value', () => {
+  const { api, document } = load();
+  const html = api.render({ shape: 'scale', ist_value: 360, soll_value: 90, unit: 'min' }, t);
+  const host = mount(document, html);
+  const istBar = host.querySelector('rect.auto-learn-ist');
+  assert.ok(istBar, 'Ist bar exists');
+  assert.equal(host.querySelectorAll('.auto-learn-ist').length, 1, 'no seen band without seen');
+  // 1.2 * 360 = 432 rounds up to 480 minutes
+  assert.equal(Number(istBar.getAttribute('x')), 0);
+  assert.equal(Number(istBar.getAttribute('width')).toFixed(3), ((360 / 480) * 100).toFixed(3));
+  const sollBar = host.querySelector('rect.auto-learn-soll');
+  assert.equal(Number(sollBar.getAttribute('width')).toFixed(3), ((90 / 480) * 100).toFixed(3));
+  assert.deepEqual(axisLabels(host), ['0 min', '240 min', '480 min']);
 });
 
 test('scale shape without max falls back to a usable scale', () => {
@@ -136,7 +177,7 @@ test('rendered graphics contain no text element inside SVG', () => {
   const { api, document } = load();
   const shapes = [
     { shape: 'events', from: 1700000000, to: 1700014400, ist: [1700001000], soll_spans: [[1700001000, 1700002000]] },
-    { shape: 'scale', seen: [0, 200], ist_value: 100, soll_value: 150, max: 300 },
+    { shape: 'scale', seen: [0, 200], ist_value: 100, soll_value: 150, max: 300, unit: 'W' },
     { shape: 'links', target: 'a.b', ist_names: ['R'], soll_names: ['S'] },
     { shape: 'day', from: 0, to: 1440, ist: [1435, 0], ist_spans: [[420, 1350]], soll: [0], soll_spans: [[0, 60]] },
   ];
@@ -146,25 +187,26 @@ test('rendered graphics contain no text element inside SVG', () => {
   });
 });
 
-test('day shape puts marks at 1435 and 0 minutes on the two edges of the 0 to 24 h axis', () => {
+test('full day axis puts minute 1435 and minute 0 on the two edges and labels 00:00 to 24:00', () => {
   const { api, document } = load();
   const html = api.render({
     shape: 'day',
-    from: 0,
-    to: 1440,
     ist: [1435, 0],
     soll: [0, 1435],
     ist_spans: [],
     soll_spans: [],
-  }, t);
+  }, t, { full: true });
   const host = mount(document, html);
-  const ist = Array.from(host.querySelectorAll('line.auto-learn-mark-event')).map((m) => Number(m.getAttribute('x1')));
+  const ist = bars(host);
+  assert.equal(ist.length, 2);
+  const first = ist.find((b) => Number(b.getAttribute('data-x')) < 1);
+  const last = ist.find((b) => Number(b.getAttribute('data-x')) > 90);
+  assert.ok(first, 'bar at minute 0 starts on the left edge');
+  assert.ok(last, 'bar at minute 1435 sits on the right edge');
+  assert.ok(Number(last.getAttribute('data-x')) + Number(last.getAttribute('data-w')) <= 100.0001);
   const soll = Array.from(host.querySelectorAll('line.auto-learn-mark-soll')).map((m) => Number(m.getAttribute('x1')));
-  assert.deepEqual(ist.map((x) => x.toFixed(3)), ['99.653', '0.000']);
   assert.deepEqual(soll.map((x) => x.toFixed(3)), ['0.000', '99.653']);
-  assert.ok(ist.concat(soll).every((x) => x >= 0 && x <= 100));
-  const labels = Array.from(host.querySelectorAll('.auto-learn-axis > div > span')).map((s) => s.textContent);
-  assert.deepEqual(labels, ['0', '6', '12', '18', '24']);
+  assert.deepEqual(axisLabels(host), ['00:00', '06:00', '12:00', '18:00', '24:00']);
 });
 
 test('day shape draws Ist bands from ist_spans and Soll bands from soll_spans', () => {
@@ -177,10 +219,11 @@ test('day shape draws Ist bands from ist_spans and Soll bands from soll_spans', 
     ist_spans: [[420, 1350]],
     soll: [],
     soll_spans: [[0, 1440]],
-  }, t);
+  }, t, { full: true });
   const host = mount(document, html);
   const istRect = host.querySelector('rect.auto-learn-ist');
   assert.ok(istRect, 'ist band exists');
+  assert.ok(istRect.classList.contains('auto-learn-soft'), 'ist band is translucent');
   assert.equal(Number(istRect.getAttribute('x')).toFixed(3), ((420 / 1440) * 100).toFixed(3));
   assert.equal(Number(istRect.getAttribute('width')).toFixed(3), ((930 / 1440) * 100).toFixed(3));
   const sollRect = host.querySelector('rect.auto-learn-soll');
@@ -188,22 +231,101 @@ test('day shape draws Ist bands from ist_spans and Soll bands from soll_spans', 
   assert.equal(Number(sollRect.getAttribute('width')), 100);
 });
 
-test('day shape clamps marks and bands that lie outside the axis', () => {
+test('full day clamps Ist bands that lie outside the axis', () => {
   const { api, document } = load();
-  const html = api.render({
-    shape: 'day',
-    from: 0,
-    to: 1440,
-    ist: [-30, 1500],
-    ist_spans: [[1300, 1600]],
-    soll: [],
-    soll_spans: [],
-  }, t);
+  const html = api.render({ shape: 'day', ist: [], ist_spans: [[1300, 1600]], soll: [], soll_spans: [] }, t, { full: true });
   const host = mount(document, html);
-  const xs = Array.from(host.querySelectorAll('line.auto-learn-mark-event')).map((m) => Number(m.getAttribute('x1')));
-  assert.deepEqual(xs, [0, 100]);
   const rect = host.querySelector('rect.auto-learn-ist');
+  assert.ok(Number(rect.getAttribute('x')) >= 0);
   assert.ok(Number(rect.getAttribute('x')) + Number(rect.getAttribute('width')) <= 100.0001);
+});
+
+test('full day wraps minutes outside 0 to 1440 onto the axis', () => {
+  const { api, document } = load();
+  const html = api.render({ shape: 'day', ist: [-30, 1500], soll: [], soll_spans: [], ist_spans: [] }, t, { full: true });
+  const host = mount(document, html);
+  const xs = bars(host).map((b) => Number(b.getAttribute('data-x')));
+  assert.equal(xs.length, 2);
+  assert.ok(Math.abs(xs[0] - (1410 / 1440) * 100) < 0.5, 'minus 30 is 23:30');
+  assert.ok(Math.abs(xs[1] - (60 / 1440) * 100) < 0.5, '1500 is 01:00');
+});
+
+test('day histogram uses 10 minute bins on the full day and draws reference lines behind the bars', () => {
+  const { api, document } = load();
+  const html = api.render({ shape: 'day', ist: [600, 605, 1200], soll: [], soll_spans: [], ist_spans: [] }, t, { full: true });
+  const host = mount(document, html);
+  assert.equal(bars(host).length, 2, '600 and 605 share a bin');
+  const grids = host.querySelectorAll('line.auto-learn-grid');
+  assert.ok(grids.length >= 5, 'major reference lines in both lanes');
+  const svg = host.querySelector('.auto-learn-lane-svg');
+  assert.ok(svg.firstElementChild.classList.contains('auto-learn-grid'), 'grid is drawn first, so behind the bars');
+  assert.ok(host.querySelector('.auto-learn-ticks'), 'axis row carries the minor ticks');
+});
+
+test('day histogram gives a single event at least 30 % height', () => {
+  const { api, document } = load();
+  const html = api.render({ shape: 'day', ist: [100, 100, 100, 100, 700], soll: [], soll_spans: [], ist_spans: [] }, t, { full: true });
+  const heights = bars(mount(document, html)).map((b) => Number(b.getAttribute('data-h')));
+  assert.equal(Math.max(...heights), 1);
+  assert.ok(Math.min(...heights) >= 0.3);
+});
+
+test('windowOf centres a midnight cluster and returns a window around 00:00', () => {
+  const { api } = load();
+  const win = api.windowOf({ shape: 'day', ist: [1435, 5], soll: [1437], ist_spans: [], soll_spans: [] });
+  assert.equal(win.full, false);
+  assert.ok(win.from < 0 || win.to > 1440, `window ${win.from}..${win.to} crosses midnight`);
+  assert.ok(win.to - win.from >= 120);
+  assert.equal(win.from % 30 === 0, true);
+  assert.equal(win.to % 30, 0);
+});
+
+test('midnight cluster draws both events and the Soll mark inside the zoomed window', () => {
+  const { api, document } = load();
+  const html = api.render({ shape: 'day', ist: [1435, 5], soll: [1437], ist_spans: [], soll_spans: [] }, t);
+  const host = mount(document, html);
+  assert.equal(bars(host).length, 2, 'both events drawn');
+  assert.equal(host.querySelectorAll('line.auto-learn-mark-soll').length, 1);
+  const labels = axisLabels(host);
+  assert.ok(labels.length >= 2);
+  labels.forEach((label) => assert.match(label, /^\d{2}:\d{2}$/));
+});
+
+test('windowOf of values spread over the whole day returns the full day', () => {
+  const { api } = load();
+  const win = api.windowOf({ shape: 'day', ist: [0, 360, 720, 1080], soll: [], ist_spans: [], soll_spans: [] });
+  assert.deepEqual({ ...win }, { from: 0, to: 1440, full: true });
+  assert.equal(api.zoomable({ shape: 'day', ist: [0, 360, 720, 1080], soll: [], ist_spans: [], soll_spans: [] }), false);
+});
+
+test('windowOf without any values returns the full day', () => {
+  const { api } = load();
+  assert.deepEqual({ ...api.windowOf({ shape: 'day', ist: [], soll: [] }) }, { from: 0, to: 1440, full: true });
+});
+
+test('windowOf widens to contain every Soll mark and span', () => {
+  const { api } = load();
+  const win = api.windowOf({ shape: 'day', ist: [420, 430, 440], soll: [400], ist_spans: [], soll_spans: [[600, 630]] });
+  assert.equal(win.full, false);
+  assert.ok(win.from <= 400 && win.to >= 630, `window ${win.from}..${win.to}`);
+});
+
+test('zoomable is true for a clustered day and false for scale, events and a full day', () => {
+  const { api } = load();
+  assert.equal(api.zoomable({ shape: 'day', ist: [420, 430, 440], soll: [], ist_spans: [], soll_spans: [] }), true);
+  assert.equal(api.zoomable({ shape: 'scale', ist_value: 300, soll_value: 60 }), false);
+  assert.equal(api.zoomable({ shape: 'events', from: 1700000000, to: 1700014400, ist: [], soll_spans: [] }), false);
+  assert.equal(api.zoomable({ shape: 'day', ist: [0, 720], soll: [], ist_spans: [], soll_spans: [] }), false);
+});
+
+test('zoomed axis labels are HH:MM with minor ticks', () => {
+  const { api, document } = load();
+  const html = api.render({ shape: 'day', ist: [420, 430, 440], soll: [], ist_spans: [], soll_spans: [] }, t);
+  const host = mount(document, html);
+  const labels = axisLabels(host);
+  assert.ok(labels.length >= 3);
+  labels.forEach((label) => assert.match(label, /^\d{2}:\d{2}$/));
+  assert.ok(host.querySelectorAll('.auto-learn-ticks line').length > labels.length, 'minor ticks exist');
 });
 
 test('unknown shape or missing evidence renders an empty string', () => {
@@ -219,30 +341,4 @@ test('prototype keys are not shapes', () => {
   ['constructor', 'toString', 'hasOwnProperty', 'valueOf', '__proto__'].forEach((shape) => {
     assert.equal(api.render({ shape }, t), '', shape);
   });
-});
-
-test('events with from equal to do not produce NaN', () => {
-  const { api, document } = load();
-  const at = 1700000000;
-  const html = api.render({ shape: 'events', from: at, to: at, ist: [at], soll_spans: [[at, at]] }, t);
-  assert.ok(!html.includes('NaN'));
-  const host = mount(document, html);
-  assert.equal(host.querySelector('line.auto-learn-mark-event').getAttribute('x1'), '0');
-});
-
-test('event marks and soll spans are clamped to the lane', () => {
-  const { api, document } = load();
-  const html = api.render({
-    shape: 'events',
-    from: 1000,
-    to: 2000,
-    ist: [500, 1500, 2500],
-    soll_spans: [[500, 2500]],
-  }, t);
-  const host = mount(document, html);
-  const xs = Array.from(host.querySelectorAll('line.auto-learn-mark-event')).map((m) => Number(m.getAttribute('x1')));
-  assert.deepEqual(xs, [0, 50, 100]);
-  const rect = host.querySelector('rect.auto-learn-soll');
-  assert.equal(Number(rect.getAttribute('x')), 0);
-  assert.equal(Number(rect.getAttribute('width')), 100);
 });

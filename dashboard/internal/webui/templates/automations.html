@@ -113,6 +113,9 @@
                 </div>
                 <h4 class="auto-learn-card-title" x-text="titleOf(current, $t)"></h4>
                 <div class="auto-learn-card-evidence" x-html="evidenceOf(current, $t)"></div>
+                <div class="auto-learn-zoom" x-show="zoomableOf(current)">
+                  <button type="button" class="auto-learn-zoom-btn" x-bind:aria-pressed="fullDay ? 'true' : 'false'" x-on:click="fullDay = !fullDay" x-text="zoomLabelOf($t)"></button>
+                </div>
                 <p class="auto-learn-card-legend" x-show="legendOf(current, $t)" x-text="legendOf(current, $t)"></p>
                 <dl class="auto-learn-facts">
                   <template x-for="f in factsOf(current, $t)" x-bind:key="f.label">

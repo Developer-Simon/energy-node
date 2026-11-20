@@ -541,6 +541,8 @@
   "automations.learn.switch_time.on.title": "{device} um {time} Uhr einschalten",
   "automations.learn.undo.ignored": "Befund ausgeblendet",
   "automations.learn.value.percent": "{value} %",
+  "automations.learn.zoom.full": "Ganzer Tag",
+  "automations.learn.zoom.window": "Ausschnitt",
   "automations.limit.rules": "Höchstens {max} Regeln",
   "automations.limit.scenarios": "Höchstens {max} Szenarien",
   "automations.list.loading": "Regeln werden geladen ...",

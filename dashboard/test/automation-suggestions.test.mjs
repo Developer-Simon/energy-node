@@ -192,11 +192,14 @@ test('a day suggestion draws its marks on both edges of the axis through the ban
   s.evidence = { shape: 'day', from: 0, to: 1440, ist: [1435, 0], soll: [0], ist_spans: [], soll_spans: [] };
   assert.equal(api.title(s, t), 'automations.learn.switch_time.off.title');
   const host = document.createElement('div');
-  host.innerHTML = evidence.render(s.evidence, t);
-  const xs = Array.from(host.querySelectorAll('line.auto-learn-mark-event, line.auto-learn-mark-soll')).map((m) => Number(m.getAttribute('x1')));
-  assert.equal(xs.length, 3);
+  host.innerHTML = evidence.render(s.evidence, t, { full: true });
+  const bars = Array.from(host.querySelectorAll('path.auto-learn-bar')).map((b) => Number(b.getAttribute('data-x')));
+  assert.equal(bars.length, 2, 'one bar for minute 0 and one for minute 1435');
+  assert.ok(bars.every((x) => x >= 0 && x <= 100), 'no bar outside the axis');
+  assert.ok(bars.some((x) => x < 1) && bars.some((x) => x > 99), 'bars sit on both edges');
+  const xs = Array.from(host.querySelectorAll('line.auto-learn-mark-soll')).map((m) => Number(m.getAttribute('x1')));
+  assert.equal(xs.length, 1);
   assert.ok(xs.every((x) => x >= 0 && x <= 100), 'no mark outside the axis');
-  assert.ok(xs.some((x) => x.toFixed(3) === '99.653'));
   assert.ok(xs.some((x) => x === 0));
 });
 

@@ -914,21 +914,29 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 
 /* Ist-Soll-Grafik: Spuren als SVG, Beschriftung als HTML */
 .auto-learn-evidence { margin: .7rem 0 .15rem; }
-.auto-learn-is { display: grid; gap: .3rem; }
+.auto-learn-is { display: grid; gap: .3rem; transform-origin: left center; animation: auto-learn-chart-in 180ms var(--ease-out) both; }
 .auto-learn-lane { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: .5rem; align-items: center; }
 .auto-learn-lane-label { font-size: .72rem; font-weight: 600; color: var(--text-muted); }
 .auto-learn-lane.is-soll .auto-learn-lane-label { color: var(--accent-line); }
 .auto-learn-lane-svg { display: block; width: 100%; height: 16px; background: var(--sunken); border-radius: 5px; }
 .auto-learn-lane-svg .auto-learn-ist { fill: var(--flow-rest); }
+.auto-learn-lane-svg .auto-learn-bar { fill: var(--flow-rest); }
 .auto-learn-lane-svg .auto-learn-soft { opacity: .35; }
+/* Hilfslinien liegen hinter den Balken: 1 px, sehr zurueckhaltend */
+.auto-learn-lane-svg .auto-learn-grid { stroke: var(--text-faint); stroke-opacity: .35; stroke-width: 1; }
 .auto-learn-lane-svg .auto-learn-soll { fill: var(--accent); }
 .auto-learn-lane-svg line { stroke-width: 2; }
-.auto-learn-lane-svg .auto-learn-mark-event { stroke: var(--warn-line); }
 .auto-learn-lane-svg .auto-learn-mark-soll { stroke: var(--accent); }
 .auto-learn-lane-svg .auto-learn-mark-wide { stroke-width: 3; }
 .auto-learn-lane-svg .auto-learn-mark-threshold { stroke: var(--text-strong); }
 .auto-learn-axis { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: .5rem; }
-.auto-learn-axis > div { display: flex; justify-content: space-between; font-size: .68rem; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.auto-learn-axis-track { position: relative; height: 1.1rem; min-width: 0; }
+.auto-learn-ticks { position: absolute; top: 0; left: 0; width: 100%; height: 5px; overflow: visible; }
+.auto-learn-ticks line { stroke: var(--text-faint); stroke-width: 1; }
+.auto-learn-ticks .is-minor { stroke-opacity: .6; }
+.auto-learn-axis-label { position: absolute; top: 6px; transform: translateX(-50%); white-space: nowrap; font-size: .68rem; line-height: 1; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.auto-learn-axis-label.is-start { transform: none; }
+.auto-learn-axis-label.is-end { transform: translateX(-100%); }
 .auto-learn-chips { display: flex; flex-wrap: wrap; gap: .3rem; min-width: 0; }
 .auto-learn-chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .76rem; padding: .08rem .5rem; border-radius: 999px;
   background: var(--panel-alt); border: 1px solid var(--border-soft); color: var(--text); }
@@ -938,12 +946,26 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 /* Soll erscheint nach dem Ist: einmal beim Oeffnen, von links */
 .auto-learn-lane.is-soll .auto-learn-lane-svg { animation: auto-learn-trace 280ms var(--ease-out) 120ms both; }
 @keyframes auto-learn-trace { from { clip-path: inset(0 100% 0 0 round 5px); } to { clip-path: inset(0 0 0 0 round 5px); } }
+/* Neue Grafik nach dem Umschalten: blendet ein, ohne Bewegung bei reduzierter Bewegung */
+@keyframes auto-learn-chart-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes auto-learn-chart-fade { from { opacity: 0; } to { opacity: 1; } }
+/* Ausschnitt oder ganzer Tag der Tagesgrafik */
+.auto-learn-zoom { box-sizing: border-box; display: flex; justify-content: flex-end; margin: .1rem 0 0; }
+.auto-learn-zoom-btn { box-sizing: border-box; padding: .2rem .5rem; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font-size: .74rem; line-height: 1.2; cursor: pointer;
+  transition: transform 120ms var(--ease-out), background-color 120ms ease, color 120ms ease; }
+.auto-learn-zoom-btn:active { transform: scale(.97); }
+.auto-learn-zoom-btn[aria-pressed="true"] { color: var(--text-strong); background: var(--panel-alt); }
+.auto-learn-zoom-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .auto-learn-zoom-btn:hover { color: var(--text-strong); background: var(--panel-alt); } }
 
 @media (prefers-reduced-motion: reduce) {
   .auto-learn-mark { transition: none; }
   .auto-learn-mark:active { transform: none; }
   .auto-learn-pop { animation-name: auto-learn-fade; }
   .auto-learn-lane.is-soll .auto-learn-lane-svg { animation: none; }
+  .auto-learn-is { animation-name: auto-learn-chart-fade; }
+  .auto-learn-zoom-btn { transition: none; }
+  .auto-learn-zoom-btn:active { transform: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .auto-learn-pop { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; }

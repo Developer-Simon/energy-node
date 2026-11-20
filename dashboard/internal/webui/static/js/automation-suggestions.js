@@ -84,6 +84,8 @@
       devices: 0,
       all: false,
       open: '',
+      // Tagesgrafik: false zeigt den Ausschnitt, true den ganzen Tag. Wechselt mit jeder Karte.
+      fullDay: false,
       canEdit: false,
       csrf: '',
       dropped: null,
@@ -115,7 +117,7 @@
         }
       },
 
-      toggle(id) { this.open = this.open === id ? '' : id; },
+      toggle(id) { this.open = this.open === id ? '' : id; this.fullDay = false; },
       expandAll() {
         this.all = !this.all;
         if (!this.all && this.open && !this.visible.some((s) => s.id === this.open)) this.open = '';
@@ -125,7 +127,9 @@
       lineOf(s, t) { return api.line(s, t); },
       legendOf(s, t) { return api.legend(s, t); },
       groupLabel(s, t) { return t(CAT + 'group.' + s.group, {}); },
-      evidenceOf(s, t) { return window.AutomationEvidence ? window.AutomationEvidence.render(s.evidence, t) : ''; },
+      evidenceOf(s, t) { return window.AutomationEvidence ? window.AutomationEvidence.render(s.evidence, t, { full: this.fullDay }) : ''; },
+      zoomableOf(s) { return Boolean(window.AutomationEvidence && window.AutomationEvidence.zoomable(s.evidence)); },
+      zoomLabelOf(t) { return t(CAT + (this.fullDay ? 'zoom.window' : 'zoom.full'), {}); },
       countLabel(t) { return this.count === 1 ? t(CAT + 'band.count_one', {}) : t(CAT + 'band.count_many', { count: this.count }); },
       learningText(t) { return t(CAT + 'band.learning', { days: this.days, devices: this.devices }); },
 

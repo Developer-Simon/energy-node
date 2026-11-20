@@ -46,6 +46,9 @@ func TestRuntimeLongRunsAfterUsualRunsSuggestsOff(t *testing.T) {
 	if c.Evidence.Shape != "scale" || c.Evidence.IstValue == nil || *c.Evidence.IstValue != 360 {
 		t.Errorf("evidence = %+v, want longest forgotten run 360", c.Evidence)
 	}
+	if c.Evidence.Unit != "min" {
+		t.Errorf("evidence unit = %q, want min", c.Evidence.Unit)
+	}
 	if c.Evidence.SollValue == nil || *c.Evidence.SollValue <= 45 || *c.Evidence.SollValue > 60 {
 		t.Errorf("suggested switch-off = %v, want within (45, 60]", c.Evidence.SollValue)
 	}

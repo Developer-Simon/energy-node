@@ -215,7 +215,7 @@ func runtimeCandidate(device, entity string, st runtimeStat, t runtimeTally, wee
 			"usual_min": math.Round(usual),
 			"extra_kwh": math.Round(extraKWh*10) / 10,
 		}},
-		Evidence: Evidence{Shape: "scale", IstValue: &longest, SollValue: &suggest},
+		Evidence: Evidence{Shape: "scale", Unit: "min", IstValue: &longest, SollValue: &suggest},
 		Facts:    []Fact{{Code: "overnight", Value: t.overnight}},
 		Apply: []Fix{{Code: "runtime_off", Template: "runtime_off",
 			Prefill: withEntity(map[string]any{"device": device, "minutes": int(suggest)}, "entity", entity)}},
