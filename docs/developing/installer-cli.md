@@ -73,7 +73,7 @@ it on the node:
 | Bundled | The unpacked bundle next to the binary (or `--bundle <dir>`), if there is one |
 | Package file | A `.tar.gz` you pick in the browser. It is uploaded to the local installer, verified and then sent to the node |
 | Build from repository | Linux only. Runs `scripts/build/make_bundle.sh` in a checkout (the path is filled in when the installer runs inside one). Needs `bash`, `git` and `go`. Unsigned |
-| Live from GitHub | Downloads the signed `energy-node-<version>-<arch>.tar.gz` of the newest stable release. The signature must match the embedded release key |
+| Latest package from GitHub | Downloads the signed `energy-node-<version>-<arch>.tar.gz` of the newest stable release. The signature must match the embedded release key |
 
 Downloads and repository builds are cached under `~/.energy-node/cache/`, and
 unpacked files go to `~/.energy-node/work/`. A bundle without a signature is
@@ -97,7 +97,7 @@ bundle directory on the node instead, which takes a few seconds on a Pi 1. The
 node then checks every file hash with `verify_bundle.sh`, signed or not.
 
 The whole bundle directory is only replaced when you ask for it: with
-`--force-full`, with the switch "Transfer whole package again" on the connect
+`--force-full`, with the switch "Transfer entire package again" on the connect
 screen, or when the check after a partial transfer fails and you accept the
 full transfer the installer then suggests.
 

@@ -32,6 +32,17 @@
     }
   }
 
+  // Dasselbe gilt fuer den Hinweis auf das Paket, das schon auf dem Node liegt.
+  var NODE_TIP_KEY = 'energy-node-installer.node-tip';
+
+  function nodeTipDone() {
+    try {
+      return window.localStorage.getItem(NODE_TIP_KEY) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
   // Die Ausgangsversion eines Updates kennt nur der Plan der Vorschau. Lädt
   // das Fenster während des Dashboard-Neustarts neu, ist shared.plan leer,
   // darum merkt sich der Tab die Version für den Ergebnisbildschirm
@@ -73,6 +84,8 @@
       connected: false,
       // tipDismissed: die Sprechblase am Umschalter "Medium" ist erledigt.
       tipDismissed: tipDone(),
+      // nodeTipDismissed: der Hinweis auf das Paket auf dem Node ist erledigt.
+      nodeTipDismissed: nodeTipDone(),
       error: null,
       // progress ist der Uebersetzungsschluessel einer Zeile, waehrend ein
       // Bildschirm ohne sichtbare Rueckmeldung wartet (Verbindungsaufbau,
@@ -213,6 +226,36 @@
           return false;
         }
         return !(b.credentials && b.credentials.host);
+      },
+
+      // showNodeTip: beim Aktualisieren mit gemerktem Zugang. Wer schon einmal
+      // installiert hat, kann das Paket auf dem Node weiterverwenden.
+      get showNodeTip() {
+        var b = this.bootstrap;
+        if (!this.ready || !b || this.nodeTipDismissed || this.connected || this.screen !== 'connect' || this.entry !== 'redeploy') {
+          return false;
+        }
+        if (!b.package || this.shared.handover) {
+          return false;
+        }
+        return !!(b.credentials && b.credentials.host);
+      },
+
+      dismissNodeTip() {
+        this.nodeTipDismissed = true;
+        try {
+          window.localStorage.setItem(NODE_TIP_KEY, '1');
+        } catch (err) {
+          // ohne Speicher erscheint er beim naechsten Start wieder
+        }
+      },
+
+      // useNodePackage: der Knopf im Hinweis waehlt die Quelle "Paket auf dem
+      // Node" vor. Der Verbindungsbildschirm uebernimmt die Wahl.
+      useNodePackage() {
+        var previous = this.shared.packageChoice || {};
+        this.shared.packageChoice = { kind: 'node', repoPath: previous.repoPath || '' };
+        this.dismissNodeTip();
       },
 
       dismissMediaTip() {
@@ -380,6 +423,7 @@
       afterConnect(target) {
         this.connected = true;
         this.dismissMediaTip();
+        this.dismissNodeTip();
         this.shared.target = { host: target.host || '', user: target.user || '' };
         this.go(this.bootstrap && this.bootstrap.package ? 'prepare' : FIRST_SCREEN[this.entry]);
       },

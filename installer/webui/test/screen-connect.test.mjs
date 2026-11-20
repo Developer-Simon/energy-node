@@ -176,9 +176,9 @@ const PACKAGE_BOOTSTRAP = {
   },
 };
 
-test('mit bootstrap.package ist die default Paketart bundled wenn ein Bundle existiert', () => {
+test('mit bootstrap.package ist die default Paketart github, auch wenn ein Bundle existiert', () => {
   const { screen } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP } });
-  assert.equal(screen.packageKind, 'bundled');
+  assert.equal(screen.packageKind, 'github');
 });
 
 test('mit bootstrap.package ist die default Paketart github wenn kein Bundle existiert', () => {
@@ -337,7 +337,7 @@ test('ein spaet eintreffender Bootstrap fuellt das Formular noch vor', () => {
   assert.equal(screen.user, 'pi');
   assert.equal(screen.remember, true);
   assert.equal(screen.canConnect, true);
-  assert.equal(screen.packageKind, 'bundled');
+  assert.equal(screen.packageKind, 'github');
   assert.equal(screen.repoPath, '/src/energy-node');
 });
 
@@ -436,7 +436,7 @@ test('eine gemerkte Wahl, die es nicht mehr gibt, faellt auf die Vorgabe zurueck
   shell.bootstrap = Object.assign({}, PACKAGE_BOOTSTRAP, { package: Object.assign({}, PACKAGE_BOOTSTRAP.package, { repo: { available: false, path: '' } }) });
   const again = window.Screens.screenConnect();
   again.init();
-  assert.equal(again.packageKind, 'bundled');
+  assert.equal(again.packageKind, 'github');
 });
 
 test('Uebergabe aus Medium belegt Schluessel-Anmeldung vor', () => {
@@ -480,5 +480,18 @@ test('eine gemerkte Node-Wahl gilt nur bei redeploy und diagnose, bei install fÃ
   assert.equal(offered.screen.packageKind, 'node');
 
   const install = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP, entry: 'install', shared: { packageChoice: choice } } });
-  assert.equal(install.screen.packageKind, 'bundled');
+  assert.equal(install.screen.packageKind, 'github');
+});
+
+test('der Hinweis auf der Aktualisieren-Seite waehlt das Paket auf dem Node vor', () => {
+  const { screen, shell } = mountScreen('screen-connect.js', 'screenConnect', { catalog: realCatalog('de') });
+  shell.bootstrap = PACKAGE_BOOTSTRAP;
+  shell.entry = 'redeploy';
+  const watchers = [];
+  screen.$watch = (expression, callback) => watchers.push({ expression, callback });
+  screen.init();
+  assert.equal(screen.packageKind, 'github');
+  const choice = { kind: 'node', repoPath: '' };
+  watchers.filter((watcher) => watcher.expression === 'shell.shared.packageChoice').forEach((watcher) => watcher.callback(choice));
+  assert.equal(screen.packageKind, 'node');
 });

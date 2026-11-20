@@ -394,6 +394,9 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 	if opts.nodePackage {
 		fake.Description.Package.Resolved = &hostapi.ResolvedInfo{Kind: "node", Installed: true}
+		// Wer ein Paket auf dem Node hat, hat sich schon einmal verbunden: der
+		// Zugang ist gemerkt, damit der Hinweis auf der Aktualisieren-Seite zu sehen ist.
+		fake.Description.Credentials = &hostapi.SavedCredentials{Host: "energy-node.local", User: "pi", Kind: hostapi.AuthPassword, HasSecret: true}
 	}
 	fake.ConnectResult = hostapi.ConnectResult{Connected: true, Host: "energy-node.local", User: "pi"}
 

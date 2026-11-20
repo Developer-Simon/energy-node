@@ -123,9 +123,9 @@ export async function connectWithPackage(page, packageKind, { trusted = false } 
   // Select the desired package kind
   const packageOptions = page.locator('[role="radiogroup"] .opt');
   if (packageKind === 'github') {
-    await packageOptions.filter({ hasText: 'Live von GitHub' }).click();
+    await packageOptions.filter({ hasText: 'Aktuelles Paket von GitHub' }).click();
   } else if (packageKind === 'file') {
-    await packageOptions.filter({ hasText: 'Paketdatei wählen' }).click();
+    await packageOptions.filter({ hasText: 'Paketdatei auswählen' }).click();
   }
 
   // Fill login and connect
