@@ -82,6 +82,19 @@ touch "$tmp/root/etc/systemd/system/tuya.service"
 out="$(ACTIVE="mosquitto.service" bash "$script")"
 [ "$(get 'd["units"]["tuya.service"]')" = inactive ] || fail "installierter, gestoppter Dienst nicht inactive" "$out"
 rm "$tmp/root/etc/systemd/system/tuya.service"
+
+# --- abgewaehlter Dienst mit Unit-Datei, nicht aktiv: not-installed --------
+touch "$tmp/root/etc/systemd/system/tuya.service"
+printf '{"steps":{"85":false}}\n' > "$EN_STATE_DIR/selection.json"
+out="$(ACTIVE="mosquitto.service" bash "$script")"
+[ "$(get 'd["units"]["tuya.service"]')" = not-installed ] \
+  || fail "abgewaehlter Dienst mit Unit-Datei nicht not-installed" "$out"
+# Gegenprobe: gewaehlt, mit Unit-Datei, nicht aktiv bleibt inactive.
+printf '{"steps":{"85":true}}\n' > "$EN_STATE_DIR/selection.json"
+out="$(ACTIVE="mosquitto.service" bash "$script")"
+[ "$(get 'd["units"]["tuya.service"]')" = inactive ] \
+  || fail "gewaehlter, gestoppter Dienst nicht inactive" "$out"
+rm -f "$EN_STATE_DIR/selection.json" "$tmp/root/etc/systemd/system/tuya.service"
 out="$(ACTIVE="mosquitto.service shelly-rpc.service" LISTENING="1883" \
        TS_STATUS_RC=0 bash "$script")"
 [ "$(get 'd["ports"]["1883"]')" = True ] || fail "1883 nicht als offen erkannt" "$out"

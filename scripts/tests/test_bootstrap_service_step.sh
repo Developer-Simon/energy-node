@@ -105,6 +105,36 @@ grep -q '^##STEP 81 skip nicht ausgewaehlt$' <<<"$out" || fail "nicht abgewaehlt
 [ -s "$SYSTEMCTL_LOG" ] && fail "abgewaehlter Dienst hat systemctl aufgerufen"
 rm -f "$EN_SELECTION"
 
+# --- abgewaehlt nach Installation: Unit wird gestoppt, Stempel weg ---------
+rm -rf "$tmp/state" "$tmp/root"
+printf '{"steps":{"81":true}}\n' > "$EN_SELECTION"
+run >/dev/null
+[ -f "$tmp/state/steps/81" ] || fail "Vorbedingung: kein Stempel nach Installation"
+[ -f "$tmp/root/etc/systemd/system/demo.service" ] || fail "Vorbedingung: keine Unit nach Installation"
+
+: > "$SYSTEMCTL_LOG"
+printf '{"steps":{"81":false}}\n' > "$EN_SELECTION"
+out="$(run)"
+grep -q '^##STEP 81 skip' <<<"$out" || fail "kein skip-Marker" "$out"
+grep -qx 'systemctl disable --now demo.service' "$SYSTEMCTL_LOG" \
+  || fail "abgewaehlte Unit nicht gestoppt" "$(cat "$SYSTEMCTL_LOG")"
+[ ! -e "$tmp/state/steps/81" ] || fail "Stempel nach Abwaehlen noch da"
+
+# --- wieder angewaehlt: laeuft wirklich, aktiviert und startet -------------
+: > "$SYSTEMCTL_LOG"
+printf '{"steps":{"81":true}}\n' > "$EN_SELECTION"
+out="$(run)"
+grep -q '^##STEP 81 ok$' <<<"$out" || fail "Wiederanwaehlen lief nicht" "$out"
+grep -qx 'systemctl enable demo.service' "$SYSTEMCTL_LOG" || fail "nicht wieder aktiviert" "$(cat "$SYSTEMCTL_LOG")"
+
+# --- abgewaehlt ohne Unit-Datei: nur skip, kein systemctl -------------------
+rm -f "$tmp/root/etc/systemd/system/demo.service"
+: > "$SYSTEMCTL_LOG"
+printf '{"steps":{"81":false}}\n' > "$EN_SELECTION"
+run >/dev/null
+[ ! -s "$SYSTEMCTL_LOG" ] || fail "systemctl ohne Unit-Datei" "$(cat "$SYSTEMCTL_LOG")"
+rm -f "$EN_SELECTION"
+
 # --- fehlendes Quellverzeichnis -------------------------------------------
 rm -rf "$tmp/state"
 set +e
