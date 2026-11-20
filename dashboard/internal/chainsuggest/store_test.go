@@ -123,3 +123,38 @@ func TestDismissRejectsBadIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestCollectorResetLearnedKeepsDismissed(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "chains", "suggest.json")
+	th := baseThresholds()
+	c := NewCollector(th, time.UTC)
+	c.SetPersistence(path, noLog)
+	feed(c, storeT0, 60, func(m int) map[string]float64 {
+		return map[string]float64{"a": ramp(m), "b": ramp(m)*0.9 + wobble(m)}
+	})
+	flush(c, storeT0.Add(60*time.Minute))
+	if err := c.Dismiss("c", "d"); err != nil {
+		t.Fatalf("Dismiss: %v", err)
+	}
+	if len(c.sums) == 0 {
+		t.Fatal("no sums before ResetLearned")
+	}
+
+	if err := c.ResetLearned(); err != nil {
+		t.Fatalf("ResetLearned: %v", err)
+	}
+	if len(c.sums) != 0 {
+		t.Fatalf("sums after ResetLearned = %d, want 0", len(c.sums))
+	}
+	if got := c.Suggestions(energy.Model{}, noEdge); len(got) != 0 {
+		t.Fatalf("suggestions after ResetLearned = %d, want 0", len(got))
+	}
+
+	reloaded := Load(path, th, time.UTC, noLog)
+	if len(reloaded.sums) != 0 {
+		t.Errorf("reloaded sums = %d, want 0", len(reloaded.sums))
+	}
+	if !reloaded.dismissed[pairKey{a: "c", b: "d"}] {
+		t.Errorf("reloaded dismissed = %v, want c-d", reloaded.dismissed)
+	}
+}

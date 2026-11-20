@@ -155,6 +155,14 @@ func (t *Table) Reset(pair energystats.ChainPair) {
 	t.resetLocked(pair)
 }
 
+// ResetAll drops the learned data of every pair.
+func (t *Table) ResetAll() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.pairs = map[energystats.ChainPair]*pairEntry{}
+	t.dirty = true
+}
+
 func (t *Table) resetLocked(pair energystats.ChainPair) {
 	reverse := energystats.ChainPair{Source: pair.Target, Target: pair.Source}
 	for _, p := range []energystats.ChainPair{pair, reverse} {

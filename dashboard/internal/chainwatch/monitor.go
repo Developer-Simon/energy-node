@@ -1,6 +1,7 @@
 package chainwatch
 
 import (
+	"fmt"
 	"slices"
 	"sort"
 	"sync"
@@ -201,6 +202,23 @@ func (m *Monitor) Relearn(a, b string) {
 			delete(m.tracks, key)
 		}
 	}
+}
+
+// ResetLearned drops every learned loss value and every finding built on them,
+// then writes the empty table when a path is set. A failed write is returned.
+func (m *Monitor) ResetLearned() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.table.ResetAll()
+	m.tracks = map[trackKey]*trackEntry{}
+	if m.path == "" {
+		return nil
+	}
+	if err := m.table.Save(m.path); err != nil {
+		return fmt.Errorf("chainwatch: reset %s: %w", m.path, err)
+	}
+	return nil
 }
 
 // Prune drops the learned pairs that are no longer adjacent in any chain, and

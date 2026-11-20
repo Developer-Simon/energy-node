@@ -4,6 +4,7 @@
 package chainsuggest
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"sort"
@@ -118,6 +119,23 @@ func NewCollector(th Thresholds, loc *time.Location) *Collector {
 		dismissed: map[pairKey]bool{},
 		logf:      log.Printf,
 	}
+}
+
+// ResetLearned drops the stored day sums of every pair. Dismissed pairs and the
+// device mapping stay. With a path set the result is written at once.
+func (c *Collector) ResetLearned() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.sums = map[pairDay]*sums{}
+	c.dirty = true
+	if c.path == "" {
+		return nil
+	}
+	if err := c.saveLocked(); err != nil {
+		return fmt.Errorf("chainsuggest: reset %s: %w", c.path, err)
+	}
+	return nil
 }
 
 // ObserveMinute nimmt den abgeschlossenen Minutenrahmen des Hubs entgegen und

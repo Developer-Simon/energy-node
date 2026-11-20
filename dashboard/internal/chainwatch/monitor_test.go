@@ -570,3 +570,29 @@ func TestMonitorLearningOffKeepsDetectors(t *testing.T) {
 		t.Fatalf("unit findings with learning off = %d, want 1", len(got))
 	}
 }
+
+func TestResetLearnedDropsValuesAndFindingsAndPersists(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "learned.json")
+	r := newRig()
+	r.m.SetPersistence(path)
+	r.feed(t0, 0, 30*time.Minute, driftChain(10, &energy.ChainNormalRange{LowW: 0, HighW: 5}))
+	if len(r.m.Findings(testChainID)) != 1 {
+		t.Fatal("no drift finding before ResetLearned")
+	}
+	if err := r.m.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if err := r.m.ResetLearned(); err != nil {
+		t.Fatalf("ResetLearned: %v", err)
+	}
+	if got := r.m.Findings(testChainID); len(got) != 0 {
+		t.Fatalf("Findings = %v after ResetLearned, want none", got)
+	}
+	if n := len(r.tb.pairs); n != 0 {
+		t.Fatalf("table has %d pairs after ResetLearned, want 0", n)
+	}
+	if n := len(Load(path, nil).pairs); n != 0 {
+		t.Fatalf("saved table has %d pairs, want 0", n)
+	}
+}
