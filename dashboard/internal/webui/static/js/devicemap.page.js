@@ -880,6 +880,19 @@
         return device ? (device.name || device.id) : id;
       },
 
+      // Icon of the device that owns the chain point, empty when it has none.
+      chainSuggestIcon(entityId) {
+        const device = this.devices.find(item => (item.entities || []).some(entity => entity.unique_id === entityId));
+        if (!device) return '';
+        return this.iconMarkup[device.icon_name] || this.iconMarkup[device.suggested_icon] || '';
+      },
+
+      // The map knows no live value per chain point, so the modal shows only
+      // the name and the icon.
+      chainPointValue() {
+        return '';
+      },
+
       chainSuggestionText(suggestion) {
         return window.EnergyChainSuggest.suggestionText(suggestion, id => this.chainSuggestName(id), this.chains);
       },

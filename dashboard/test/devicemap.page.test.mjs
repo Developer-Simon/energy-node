@@ -3760,6 +3760,17 @@ function suggestFixture(component, suggestions = [SUGGEST]) {
   component.chainSuggestions = suggestions;
 }
 
+test('the map gives the chain modal the device icon of a point and no live value', () => {
+  const { component } = createDevicemapPanel();
+  suggestFixture(component);
+  component.devices = component.devices.map(device => (device.id === 'ac' ? { ...device, icon_name: 'battery' } : device));
+  component.iconMarkup = { battery: '<path d="battery"/>' };
+  assert.equal(component.chainSuggestIcon('ac_p'), '<path d="battery"/>');
+  assert.equal(component.chainSuggestIcon('plug_p'), '', 'a device without icon');
+  assert.equal(component.chainSuggestIcon('nowhere'), '');
+  assert.equal(component.chainPointValue('k1', 'ac_p'), '');
+});
+
 test('a chain suggestion draws one dashed edge between its two devices, only with the energy layer on', () => {
   const { component } = createDevicemapPanel();
   suggestFixture(component);

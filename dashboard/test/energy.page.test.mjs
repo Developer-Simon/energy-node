@@ -1599,6 +1599,18 @@ test('accept opens the dialog with A upstream, the swap flips it and cancel clos
   assert.equal(component.chainSuggest, null);
 });
 
+test('a chain point finds the icon of its device, without a device the icon stays empty', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch() });
+  await component.load();
+  assert.equal(component.entities.find(row => row.id === 'pv_power').deviceId, 'inverter');
+  component.iconCatalogue = [{ name: 'other', markup: '<path d="other"/>' }, { name: 'pv', markup: '<path d="pv"/>' }];
+  component.devicesList = component.devicesList.map(device => ({ ...device, icon: 'pv' }));
+  assert.equal(component.chainSuggestIcon('pv_power'), '<path d="pv"/>');
+  component.devicesList = component.devicesList.map(device => ({ ...device, icon: '' }));
+  assert.equal(component.chainSuggestIcon('pv_power'), '', 'no icon name gives no catalogue fallback');
+  assert.equal(component.chainSuggestIcon('nowhere'), '');
+});
+
 test('confirming a pair of free points posts a new chain and closes the dialog', async () => {
   const calls = [];
   const { component } = createEnergyPanel({ fetchImpl: suggestFetch({ calls }) });
