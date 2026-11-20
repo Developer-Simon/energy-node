@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -89,10 +90,40 @@ func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc 
 			doc = parsed
 		}
 	}
+	before := shownIDs(book.state.Shown())
 	out, shown := autolearn.Gate(cands, doc, book.state.Shown())
 	book.mu.Lock()
 	book.all = out
 	book.mu.Unlock()
 	book.state.SetShown(shown, now)
 	book.state.Prune(exists, out)
+	// A changed set of shown IDs is saved at once, so a restart keeps the calm
+	// rule. Changed numbers alone wait for the hourly saver.
+	if !sameIDs(before, shownIDs(book.state.Shown())) {
+		if err := book.state.Save(); err != nil {
+			log.Printf("suggestions: save after a changed set failed: %v", err)
+		}
+	}
+}
+
+// shownIDs is the set of the IDs in shown.
+func shownIDs(shown map[string]autolearn.Shown) map[string]bool {
+	ids := make(map[string]bool, len(shown))
+	for id := range shown {
+		ids[id] = true
+	}
+	return ids
+}
+
+// sameIDs reports whether both sets hold the same IDs.
+func sameIDs(a, b map[string]bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for id := range a {
+		if !b[id] {
+			return false
+		}
+	}
+	return true
 }

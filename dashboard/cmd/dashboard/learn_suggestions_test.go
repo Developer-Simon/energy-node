@@ -1,7 +1,9 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -116,5 +118,45 @@ func TestSuggestionUndoWorksAfterRestart(t *testing.T) {
 	}
 	if restarted.state.Hidden("switchtime:a") {
 		t.Fatal("undo after restart did not bring the suggestion back")
+	}
+}
+
+// TestGateSuggestionsSavesOnlyWhenTheShownSetChanges: a new suggestion is written
+// at once, the same IDs with changed numbers are not written, so the SD card is
+// spared the minute rounds. The file is removed between the rounds to see the
+// writes without timing.
+func TestGateSuggestionsSavesOnlyWhenTheShownSetChanges(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "suggestions.json")
+	state := autolearn.LoadSuggestionState(path, nil)
+	book := &suggestionBook{state: state}
+	exists := func(string) bool { return true }
+	now := time.Now()
+
+	gateSuggestions(book, fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, noRules, true, exists, now)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("new suggestion not saved: %v", err)
+	}
+	if !strings.Contains(string(data), "switchtime:a") {
+		t.Fatalf("saved file lacks the shown suggestion: %s", data)
+	}
+
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	changed := habitCandidate("switchtime:a", "dev-a", 2)
+	changed.Lower = 0.9
+	gateSuggestions(book, fakeCandidates{changed}, noRules, true, exists, now)
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("same IDs with changed numbers were written (stat err %v)", err)
+	}
+
+	gateSuggestions(book, fakeCandidates{changed, habitCandidate("switchtime:b", "dev-b", 1)}, noRules, true, exists, now)
+	data, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("appearing suggestion not saved: %v", err)
+	}
+	if !strings.Contains(string(data), "switchtime:a") || !strings.Contains(string(data), "switchtime:b") {
+		t.Fatalf("saved file lacks a shown suggestion: %s", data)
 	}
 }
