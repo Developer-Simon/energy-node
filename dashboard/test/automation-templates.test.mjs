@@ -1723,3 +1723,126 @@ test('follow_switch and runtime_off follow the configured publish interval', () 
   }), ctx).entry);
   assert.equal(off.cooldown_seconds, 90);
 });
+
+test('time_point with a learned time builds a learned start and an end five minutes later', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'time_point');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    learned: 'device/wb/usual_on', time: { from: '07:00', to: '07:05', days: [0, 1, 2, 3, 4, 5, 6] },
+  }), ctx).entry);
+  const ref = {
+    learned: 'device/wb/usual_on', min: '06:00', max: '08:00', fallback: '07:00',
+  };
+  assert.deepEqual(entry.conditions, [{
+    type: 'time_window', start: ref, end: { ...ref, offset: 5 }, weekdays: [],
+  }]);
+  assert.equal(entry.actions[0].payload, 'ON');
+});
+
+test('time_point with a learned time wraps the bounds over midnight', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'time_point');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    learned: 'device/wb/usual_off', action: 'off', time: { from: '00:30', to: '00:35', days: [0, 1, 2, 3, 4, 5, 6] },
+  }), ctx).entry);
+  assert.equal(entry.conditions[0].start.min, '23:30');
+  assert.equal(entry.conditions[0].start.max, '01:30');
+  assert.equal(entry.conditions[0].end.fallback, '00:30');
+  assert.equal(entry.conditions[0].end.offset, 5);
+});
+
+test('time_point with source fixed keeps the fixed window even with a learned key', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'time_point');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    learned: 'device/wb/usual_on', source: 'fixed', time: { from: '07:00', to: '07:05', days: [0, 1, 2, 3, 4, 5, 6] },
+  }), ctx).entry);
+  assert.deepEqual(entry.conditions, [{ type: 'time_window', start: '07:00', end: '07:05', weekdays: [] }]);
+});
+
+test('time_point shows the source step only with a learned key', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'time_point');
+  const ctx = plain(contextFor(wizard));
+  const fixed = plain(wizard.visibleSteps(template, answersFor(wizard, template, ctx), ctx)).map((step) => step.id);
+  assert.equal(fixed.includes('source'), false);
+  const learned = plain(wizard.visibleSteps(template, answersFor(wizard, template, ctx, {
+    learned: 'device/wb/usual_on',
+  }), ctx)).map((step) => step.id);
+  assert.equal(learned.includes('source'), true);
+  assert.equal(plain(wizard.defaultAnswers(template, ctx)).source, 'learned');
+});
+
+test('runtime_off with a learned runtime bounds the hold by half and three times the usual runtime', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'runtime_off');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    device: 'lamp_switch', minutes: 60, learned: 'device/lamp/usual_runtime_s', offset_s: 300,
+  }), ctx).entry);
+  assert.deepEqual(entry.conditions[0].hold_seconds, {
+    learned: 'device/lamp/usual_runtime_s', min: 1650, max: 9900, fallback: 3300, offset: 300,
+  });
+  assert.equal(entry.conditions[0].text, 'ON');
+});
+
+test('runtime_off with source fixed keeps the chosen minutes', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'runtime_off');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    device: 'lamp_switch', minutes: 60, learned: 'device/lamp/usual_runtime_s', offset_s: 300, source: 'fixed',
+  }), ctx).entry);
+  assert.equal(entry.conditions[0].hold_seconds, 3600);
+});
+
+test('runtime_off shows the source step only with a learned key', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'runtime_off');
+  const ctx = plain(contextFor(wizard));
+  const fixed = plain(wizard.visibleSteps(template, answersFor(wizard, template, ctx), ctx)).map((step) => step.id);
+  assert.equal(fixed.includes('source'), false);
+  const learned = plain(wizard.visibleSteps(template, answersFor(wizard, template, ctx, {
+    learned: 'device/lamp/usual_runtime_s',
+  }), ctx)).map((step) => step.id);
+  assert.equal(learned.includes('source'), true);
+});
+
+test('quiet_off switches a device off when the house is quiet and the switch is on', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'quiet_off');
+  const ctx = plain(contextFor(wizard));
+  const result = template.build(answersFor(wizard, template, ctx, { device: 'lamp_switch' }), ctx);
+  const entry = plain(result.entry);
+  assert.equal(result.kind, 'rule');
+  assert.equal(entry.id, 'quiet_off');
+  assert.deepEqual(entry.conditions, [
+    {
+      type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 1800,
+    },
+    {
+      type: 'entity_value', topic: 'werkstatt/lamp/state', entity_id: 'lamp_switch', value_template: '',
+      comparison: 'equals', text: 'ON', hold_seconds: 30,
+    },
+  ]);
+  assert.equal(entry.actions[0].topic, 'werkstatt/lamp/switch');
+  assert.equal(entry.actions[0].payload, 'OFF');
+});
+
+test('quiet_off needs a switch that reports its state and follows the publish interval', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'quiet_off');
+  const withoutLamp = plain(contextFor(wizard, { devices: devices.filter((item) => item.id !== 'lamp') }));
+  assert.equal(plain(wizard.templateAvailability(template, withoutLamp)).available, false);
+  const ctx = plain(contextFor(wizard, {
+    document: { ...document, settings: { ...document.settings, publish_min_interval_s: 900 } },
+  }));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { device: 'lamp_switch' }), ctx).entry);
+  assert.equal(entry.cooldown_seconds, 900);
+  const short = plain(contextFor(wizard));
+  const standard = plain(template.build(answersFor(wizard, template, short, { device: 'lamp_switch' }), short).entry);
+  assert.equal(standard.cooldown_seconds, 600);
+});
