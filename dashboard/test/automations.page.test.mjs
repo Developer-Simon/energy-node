@@ -3793,3 +3793,69 @@ test('learned_state is offered as a condition type and gets the default referenc
     { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 0 },
   ]);
 });
+
+test('leaving the stale comparison keeps a learned reference in the value', () => {
+  const { component } = createAutomationsPanel();
+  withLearned(component);
+  const ref = { learned: 'device/pump_1/usual_runtime_s', min: 100, max: 900, fallback: 300 };
+  const condition = { type: 'entity_value', entity_id: 'e', topic: 't', comparison: 'below', value: ref, hold_seconds: 0 };
+  component.setComparison(condition, 'stale');
+  component.setComparison(condition, 'below');
+  assert.deepEqual(JSON.parse(JSON.stringify(condition.value)), ref);
+  // Ohne Lernwert gilt weiter der Standard fuer den Vergleichswert.
+  const plain = { type: 'entity_value', topic: 't', comparison: 'stale', max_age_s: 900, hold_seconds: 0 };
+  component.setComparison(plain, 'below');
+  assert.equal(plain.value, 20);
+});
+
+test('a cleared learned bound blocks saving with the missing message', async () => {
+  const { component, window, stores } = createAutomationsPanel();
+  withLearned(component);
+  const condition = { type: 'time_window', start: { learned: 'site/day_start', min: '22:30', max: '00:30', fallback: '23:30' }, end: '18:00', weekdays: [] };
+  component.setLearnedBound(condition, 'start', 'min', '');
+  component.document = { version: 1, settings: { publish_allowed_prefixes: ['x/'] }, rules: [{
+    id: 'r1', name: 'R', enabled: true, conditions: [condition], actions: [{ type: 'notification', title: 'x' }],
+  }] };
+  const captured = saveCapturingBody(component, window);
+  await component.save();
+  assert.equal(captured.body, undefined);
+  assert.match(stores.toasts.last('critical'), /Bitte einen Lernwert/);
+});
+
+test('the learned accessors do not throw for a condition without the field keys', () => {
+  const { component } = createAutomationsPanel();
+  withLearned(component, []);
+  const condition = { type: 'entity_value', topic: 't', comparison: 'equals', text: 'ON' };
+  assert.equal(component.learnOffered(condition, 'value'), false);
+  assert.equal(component.learnedBound(condition, 'value', 'min'), '');
+  assert.equal(component.learnedOptions(condition, 'hold_seconds').length, 0);
+  assert.equal(typeof component.learnedCurrent(condition, 'hold_seconds'), 'string');
+  // Ohne Listen im Zustand bleibt die Pruefung stumm statt zu werfen.
+  component.learned = { enabled: false, values: null };
+  assert.equal(component.learnedChoices(condition, 'hold_seconds').length, 0);
+  assert.deepEqual([...component.validateRuleBeforeSave({ id: 'r1', name: 'R', conditions: [condition], actions: [{ type: 'notification', title: 'x' }] })], []);
+});
+
+test('a reference hold is checked against its minimum for publish rules', () => {
+  const { component } = createAutomationsPanel();
+  const publish = { type: 'publish', topic: 'werkstatt/x/set', retain: false, payload_source: 'constant', payload: '1' };
+  component.document.settings.publish_min_interval_s = 60;
+  const holdRef = (min) => ({ learned: 'device/pump_1/usual_runtime_s', min, max: 900, fallback: 300 });
+  const rule = (min) => ({
+    id: 'r1', name: 'A', enabled: true, cooldown_seconds: 60,
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: holdRef(min) }],
+    actions: [publish],
+  });
+  assert.equal(component.validateRuleBeforeSave(rule(120)).length, 0);
+  assert.equal(component.validateRuleBeforeSave(rule(30)).length, 1);
+});
+
+// Der Editor rendert das Bezugs-Formular nur bei einem Bezug; sonst wuerde die Auswahl ohne Feld lesen.
+test('the learned picker sits behind an x-if so an absent field is never read', () => {
+  const rows = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'automations-rows.html'), 'utf8');
+  const picker = rows.indexOf(`x-model="condition['{{.field}}'].learned"`);
+  assert.ok(picker > 0, 'picker not found');
+  const guard = rows.lastIndexOf(`<template x-if="isLearnedRef(condition, '{{.field}}')">`, picker);
+  const defineStart = rows.lastIndexOf('{{define "auto-learn"}}', picker);
+  assert.ok(guard > defineStart && guard < picker, 'picker must be inside the x-if guard of auto-learn');
+});

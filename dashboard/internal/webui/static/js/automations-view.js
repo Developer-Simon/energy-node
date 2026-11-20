@@ -371,9 +371,12 @@
   }
 
   // Wert fuer die Zusammenfassung: der aufgeloeste Lernwert, sonst das Feld selbst.
+  // Ohne Lernwert-Helfer zeigt der Text den Ersatzwert der Bezugsangabe, nie das Objekt.
   function shownValue(condition, field, learned) {
     const lv = learnedValue(condition, field, learned);
-    return lv ? lv.value : condition[field];
+    if (lv) return lv.value;
+    const raw = condition[field];
+    return raw && typeof raw === 'object' && 'learned' in raw ? raw.fallback : raw;
   }
 
   // Wert eines Lernwerts als Text wie im Feld: Zustand als Wort, Laufzeit als Dauer, Zahl mit Einheit.

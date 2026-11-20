@@ -9,6 +9,8 @@
   // beim Anlegen einer Entitaetsbedingung fuer den Vergleichswert.
   const STALE_DEFAULT_MAX_AGE_S = 900;
   const COMPARE_VALUE_DEFAULT = 20;
+  // Ein Lernwert ist ein Bezugsobjekt mit learned-Schluessel, ohne Helfer gilt nichts als Lernwert.
+  const isRefValue = (value) => Boolean(window.AutomationLearned && window.AutomationLearned.isRef(value));
 
   // Messketten-Bedingungen: Signale der Auswahl, Arten einer Meldung und der
   // Startwert eines Messwert-Vergleichs beim Wechsel auf ein Messwert-Signal.
@@ -708,7 +710,7 @@
 
     // Lernwerte der Regel: der Bericht der Bedingung liefert den aktuellen Wert, sonst der Endpunkt.
     learnedContext(report = null) {
-      return { report, values: this.learned.values, devices: this.devices };
+      return { report, values: this.learnedList(), devices: this.devices };
     },
 
     describeCondition(condition, report = null) {
@@ -2290,7 +2292,11 @@
     learnedChoices(condition, field) {
       const AL = window.AutomationLearned;
       const kind = AL.kindOf(condition.type, field);
-      return kind ? AL.choices(this.learned.values, kind) : [];
+      return kind ? AL.choices(this.learnedList(), kind) : [];
+    },
+
+    learnedList() {
+      return (this.learned && Array.isArray(this.learned.values)) ? this.learned.values : [];
     },
 
     // Der Schalter "Fester Wert / Lernwert" erscheint bei passenden Werten oder wenn das Feld schon einen Bezug hat.
@@ -2359,7 +2365,7 @@
     // Aktueller Wert des gewaehlten Lernwerts, oder der Hinweis, dass noch nichts gelernt ist.
     learnedCurrent(condition, field) {
       const key = (condition[field] || {}).learned;
-      const entry = this.learned.values.find((value) => value.key === key);
+      const entry = this.learnedList().find((value) => value && value.key === key);
       if (!entry) return t('automations.learned.current.none');
       const text = this.learnKind(condition, field) === 'duration' ? formatSeconds(entry.value) : String(entry.value);
       return `${t('automations.learned.current')}: ${text}`;
@@ -2913,7 +2919,8 @@
       }
       if (!wasStale) return;
       delete condition.max_age_s;
-      if (!isNumber(condition.value)) condition.value = COMPARE_VALUE_DEFAULT;
+      // Ein Lernwert im Vergleichswert bleibt beim Rueckwechsel erhalten.
+      if (!isNumber(condition.value) && !isRefValue(condition.value)) condition.value = COMPARE_VALUE_DEFAULT;
     },
 
     // Kachel des Bilanzfelds einer Bedingung mit Rollen-Icon.
@@ -2968,7 +2975,10 @@
       if (hasPublish) {
         if ((rule.cooldown_seconds || 0) < minimum) errors.push(t('automations.validation.cooldown_too_short', { name: rule.name, min: minimum }));
         for (const condition of rule.conditions || []) {
-          if ('hold_seconds' in condition && condition.hold_seconds < minimum) {
+          // Ein Lernwert prueft seine Untergrenze, sonst wuerde der Vergleich mit dem Objekt ins Leere laufen.
+          const hold = isRefValue(condition.hold_seconds) ? condition.hold_seconds.min : condition.hold_seconds;
+          const holdTooShort = isRefValue(condition.hold_seconds) ? isNumber(hold) && hold < minimum : hold < minimum;
+          if ('hold_seconds' in condition && holdTooShort) {
             errors.push(t('automations.validation.hold_seconds_too_short', { name: rule.name, min: minimum }));
           }
         }

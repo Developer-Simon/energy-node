@@ -189,3 +189,17 @@ test('describeCondition with a fixed threshold has no learned descriptors', () =
   assert.equal(card.learned.length, 0);
   assert.match(card.summary, /300 W/);
 });
+
+// Ohne Lernwert-Helfer (Geraeteplan laedt ihn nicht) zeigt die Zusammenfassung den Ersatzwert, nie das Objekt.
+test('describeCondition without the learned helper shows the fallback of a reference', () => {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  installI18n(dom.window);
+  vm.runInContext(fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8'), dom.getInternalVMContext());
+  const view = dom.window.__automationsView;
+  const card = view.describeCondition({
+    type: 'balance_threshold', field: 'grid_export', comparison: 'above', hysteresis: 0, hold_seconds: 0,
+    threshold: { learned: 'device/pump_1/usual_runtime_s', min: 100, max: 900, fallback: 800 },
+  }, null, {});
+  assert.ok(!card.summary.includes('[object Object]'), card.summary);
+  assert.ok(card.summary.includes('800'), card.summary);
+});

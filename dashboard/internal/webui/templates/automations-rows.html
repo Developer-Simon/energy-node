@@ -491,7 +491,8 @@
                             <svg class="automation-icon" aria-hidden="true"><use href="#ico-learning"></use></svg>
                             <span class="auto-assist-option-text"><b>{{t "automations.learned.mode.learned"}}</b></span>
                           </label>
-                          <div class="auto-fields auto-learn-detail" x-show="isLearnedRef(condition, '{{.field}}')">
+                          <template x-if="isLearnedRef(condition, '{{.field}}')">
+                          <div class="auto-fields auto-learn-detail">
                             <div class="auto-field auto-field-wide">
                               <span class="auto-field-label">{{t "automations.learned.pick"}}</span>
                               <select class="auto-input" x-model="condition['{{.field}}'].learned" x-bind:aria-label="$t('automations.learned.pick')">
@@ -531,6 +532,7 @@
                               </span>
                             </div>
                           </div>
+                          </template>
 {{end}}
 
 {{/* Text einer Geraete-Kachel: Name, darunter Entitaet und aktueller Wert.

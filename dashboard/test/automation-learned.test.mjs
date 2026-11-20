@@ -192,3 +192,23 @@ test('scale of a duration and of a state', () => {
   assert.equal(L.scale('state', null, null, 'quiet'), null);
   assert.equal(L.scale('time', 'x', '01:00', '08:00'), null);
 });
+
+test('validate treats empty or non finite bounds as missing, also for times', () => {
+  assert.deepEqual(L.validate({ learned: 'site/day_start', min: '', max: '01:00', fallback: '00:00' }, 'time'), ['learned.missing']);
+  assert.deepEqual(L.validate({ learned: 'device/pump_1/usual_runtime_s', min: null, max: 100, fallback: 50 }, 'duration'), ['learned.missing']);
+  assert.deepEqual(L.validate({ learned: 'device/pump_1/usual_runtime_s', min: 0, max: NaN, fallback: 50 }, 'duration'), ['learned.missing']);
+});
+
+test('prefill sorts the bounds of a negative number so min does not pass max', () => {
+  assert.deepEqual(L.prefill('number', -40), { min: -60, max: -20, fallback: -40 });
+  assert.deepEqual(L.validate({ learned: 'site/x', ...L.prefill('number', -40) }, 'number'), []);
+});
+
+// Der Geraeteplan laedt den Lernwert-Helfer auch; die Zusammenfassung braucht ihn in beiden Plaenen.
+test('the device map panel loads the learned helper before the automation view', () => {
+  const base = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'base.html'), 'utf8');
+  const line = base.split('\n').find((entry) => entry.includes('devicemap.page.js?v='));
+  assert.ok(line, 'devicemap panel script list not found');
+  assert.ok(line.includes('automation-learned.js?v=1'), 'helper missing in device map panel');
+  assert.ok(line.indexOf('automation-learned.js') < line.indexOf('automations-view.js'), 'helper must come before the view');
+});

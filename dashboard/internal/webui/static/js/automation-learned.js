@@ -112,11 +112,13 @@
       return { min: clockText(v - 60), max: clockText(v + 60), fallback: clockText(v) };
     }
     if (!isNumber(value)) return null;
+    // Bei negativen Werten tauschen die Grenzen die Seiten, damit min nie ueber max liegt.
+    const pair = (a, b) => ({ min: Math.min(a, b), max: Math.max(a, b) });
     if (kind === 'duration') {
       const v = round60(value);
-      return { min: round60(0.5 * v), max: round60(3 * v), fallback: v };
+      return { ...pair(round60(0.5 * v), round60(3 * v)), fallback: v };
     }
-    if (kind === 'number') return { min: 0.5 * value, max: 1.5 * value, fallback: value };
+    if (kind === 'number') return { ...pair(0.5 * value, 1.5 * value), fallback: value };
     return null;
   }
 
@@ -152,13 +154,19 @@
       const low = clockMinutes(r.min);
       const high = clockMinutes(r.max);
       const fallback = clockMinutes(r.fallback);
-      if (low !== null && high !== null && fallback !== null && norm(fallback - low) > norm(high - low)) {
-        errors.push('learned.fallback_range');
+      // Leere oder ungueltige Grenzen zaehlen wie fehlende.
+      if (low === null || high === null || fallback === null) {
+        errors.push('learned.missing');
+        return errors;
       }
+      if (norm(fallback - low) > norm(high - low)) errors.push('learned.fallback_range');
       return errors;
     }
     if (kind === 'state') return errors;
-    if (!isNumber(r.min) || !isNumber(r.max) || !isNumber(r.fallback)) return errors;
+    if (!isNumber(r.min) || !isNumber(r.max) || !isNumber(r.fallback)) {
+      errors.push('learned.missing');
+      return errors;
+    }
     if (r.min > r.max) errors.push('learned.min_max');
     else if (r.fallback < r.min || r.fallback > r.max) errors.push('learned.fallback_range');
     return errors;
