@@ -208,3 +208,43 @@ func gateThreshold() Condition {
 	return Condition{Type: "balance_threshold", Threshold: 500,
 		Raw: json.RawMessage(`{"type":"balance_threshold","threshold":500}`)}
 }
+
+// gateClockCand is a switch time candidate whose summary and prefill show 22:35.
+func gateClockCand(minute float64) Candidate {
+	cand := gateCand("switch_time:lamp:off:0:2230", "switch_time", 1, 2, 2, true)
+	cand.Finding.Summary = Text{Code: "switch_time.off", Params: map[string]any{"time": "22:35"}}
+	cand.Finding.Apply = []Fix{{Code: "time_point", Template: "time_point",
+		Prefill: map[string]any{"device": "lamp", "time": "22:35"}}}
+	cand.Values = map[string]float64{"time": minute}
+	cand.Spread = map[string]float64{"time": 8}
+	return cand
+}
+
+func TestGateShowsStabilisedTime(t *testing.T) {
+	prev := map[string]Shown{"switch_time:lamp:off:0:2230": {Lower: 2, Values: map[string]float64{"time": 1350}}}
+
+	out, _ := Gate([]Candidate{gateClockCand(1355)}, Doc{}, prev)
+	if len(out) != 1 {
+		t.Fatalf("got %v, want one finding", gateIDs(out))
+	}
+	if got := out[0].Summary.Params["time"]; got != "22:30" {
+		t.Errorf("summary time = %v, want 22:30", got)
+	}
+	if got := out[0].Apply[0].Prefill["time"]; got != "22:30" {
+		t.Errorf("prefill time = %v, want 22:30", got)
+	}
+	if out[0].ID != "switch_time:lamp:off:0:2230" {
+		t.Errorf("ID = %q, want unchanged", out[0].ID)
+	}
+
+	out, _ = Gate([]Candidate{gateClockCand(1370)}, Doc{}, prev)
+	if len(out) != 1 {
+		t.Fatalf("got %v, want one finding", gateIDs(out))
+	}
+	if got := out[0].Summary.Params["time"]; got != "22:50" {
+		t.Errorf("beyond spread: summary time = %v, want 22:50", got)
+	}
+	if got := out[0].Apply[0].Prefill["time"]; got != "22:50" {
+		t.Errorf("beyond spread: prefill time = %v, want 22:50", got)
+	}
+}

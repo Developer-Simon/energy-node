@@ -266,8 +266,9 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 		Limit:       switchTimeLimit,
 		HalvesAgree: agree,
 		Benefit:     benefit,
-		Values:      map[string]float64{"hit_rate": rate},
-		Spread:      map[string]float64{"time": spread},
+		Values:      map[string]float64{"hit_rate": rate, "time": propMin},
+		// The quiet check never holds the shown time within less than 5 minutes.
+		Spread: map[string]float64{"time": math.Max(spread, 5)},
 	}
 	return cand, true
 }

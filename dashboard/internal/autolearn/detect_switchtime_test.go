@@ -70,6 +70,9 @@ func TestSwitchTimeOffAt2230IsHigh(t *testing.T) {
 	if c.Finding.Summary.Code != "switch_time.off" || c.Finding.Summary.Params["time"] != "22:30" {
 		t.Errorf("summary = %+v, want switch_time.off at 22:30", c.Finding.Summary)
 	}
+	if c.Values["time"] != 1350 || c.Spread["time"] < 5 {
+		t.Errorf("Values[time] = %v, Spread[time] = %v, want 1350 and at least 5", c.Values["time"], c.Spread["time"])
+	}
 	if c.Finding.Device != "lamp" || len(c.Finding.Apply) != 1 || c.Finding.Apply[0].Template != "time_point" {
 		t.Errorf("apply = %+v, want one time_point fix for lamp", c.Finding.Apply)
 	}

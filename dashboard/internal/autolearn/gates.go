@@ -118,7 +118,6 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 
 	shown = make(map[string]Shown, len(ordered))
 	for _, s := range ordered {
-		out = append(out, s.finding)
 		last, seen := prev[s.finding.ID]
 		entry := Shown{Lower: s.cand.Lower, Values: copyValues(s.cand.Values)}
 		if seen {
@@ -128,8 +127,57 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 			}
 		}
 		shown[s.finding.ID] = entry
+		out = append(out, displayFinding(s.finding, entry.Values))
 	}
 	return out, shown
+}
+
+// displayFinding returns f with the stabilised values in its summary params
+// and in the prefills of its fixes. Only keys that exist in those maps change,
+// the key "time" is shown as HH:MM. f and its maps are not modified.
+func displayFinding(f Finding, values map[string]float64) Finding {
+	if len(values) == 0 {
+		return f
+	}
+	params := make(map[string]any, len(f.Summary.Params))
+	for k, v := range f.Summary.Params {
+		params[k] = v
+	}
+	for k, v := range values {
+		if _, ok := params[k]; ok {
+			params[k] = displayValue(k, v)
+		}
+	}
+	f.Summary = Text{Code: f.Summary.Code, Params: params}
+
+	apply := make([]Fix, len(f.Apply))
+	for i, fix := range f.Apply {
+		apply[i] = fix
+		if fix.Prefill == nil {
+			continue
+		}
+		prefill := make(map[string]any, len(fix.Prefill))
+		for k, v := range fix.Prefill {
+			prefill[k] = v
+		}
+		for k, v := range values {
+			if _, ok := prefill[k]; ok {
+				prefill[k] = displayValue(k, v)
+			}
+		}
+		apply[i].Prefill = prefill
+	}
+	f.Apply = apply
+	return f
+}
+
+// displayValue formats a stabilised value for display. Times are minutes of
+// the day and shown as HH:MM, like the detectors do.
+func displayValue(key string, v float64) any {
+	if key == "time" {
+		return switchTimeClock(v)
+	}
+	return v
 }
 
 // gateConfidence returns the confidence of a candidate and whether it passes
