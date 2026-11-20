@@ -128,6 +128,15 @@ func (e *Engine) Tick(now time.Time, groups map[string]bool) {
 	e.queue = nil
 	lightDue := e.lastLight.IsZero() || now.Sub(e.lastLight) >= limits.LightEvery
 	dailyDue := !local.Before(dailyAt) && e.dailyDay != dayKey
+	// A round only counts when one of its detectors is in an enabled group.
+	// Otherwise the timer stays, and the round runs at once when the group is
+	// switched on.
+	if lightDue && !anyEnabled(detectors, groups, true) {
+		lightDue = false
+	}
+	if dailyDue && !anyEnabled(detectors, groups, false) {
+		dailyDue = false
+	}
 	if lightDue {
 		e.lastLight = now
 	}
@@ -352,6 +361,17 @@ func shareLimit(limits learnrec.Limits) float64 {
 		return engineShareEco
 	}
 	return engineShareOther
+}
+
+// anyEnabled reports whether a detector of the given kind (light or daily) is
+// in an enabled group.
+func anyEnabled(detectors []Detector, groups map[string]bool, light bool) bool {
+	for _, d := range detectors {
+		if d.Light == light && groups[d.Group] {
+			return true
+		}
+	}
+	return false
 }
 
 func sortedDeviceIDs(devices map[string]DeviceInfo) []string {

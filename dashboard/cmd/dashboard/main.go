@@ -22,6 +22,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -201,7 +202,16 @@ func main() {
 			hadLearning = true
 		}
 	}
-	learnState := learnrec.LoadState(filepath.Join(dataDir, "learnrec", "state.json"), time.Now(), hadLearning, log.Printf)
+	learnStatePath := filepath.Join(dataDir, "learnrec", "state.json")
+	learnState := learnrec.LoadState(learnStatePath, time.Now(), hadLearning, log.Printf)
+	// learnState wird bei einer Herabstufung aus der Engine geaendert, daher
+	// nur ueber learnStateNow lesen.
+	var learnStateMu sync.Mutex
+	learnStateNow := func() learnrec.State {
+		learnStateMu.Lock()
+		defer learnStateMu.Unlock()
+		return learnState
+	}
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
 	backupSources := buildSources(cfg, *configPath)
 	runBackupApply(backupSources, systemExecutor.StartServices)
@@ -443,7 +453,7 @@ func main() {
 		if value, err := settingsStore.LoadSettings(); err == nil {
 			level = value.LearningLevel
 		}
-		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores), cores)
+		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores, learnStateNow().AutoLevel), cores)
 	}
 	learnHub := learnrec.NewHub(time.Local, learnLimits, log.Printf)
 	learnHub.AddMinute("chainsuggest", chainSuggest)
@@ -472,6 +482,40 @@ func main() {
 	}, log.Printf)
 	learnHub.AddMinute("daystore", dayStore)
 	learnHub.AddSaver("daystore", dayStore)
+	// Automationen-Engine: die Erkenner laufen in eigener Goroutine, nie im
+	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen. Ohne lesbare
+	// Einstellungen bleibt er an, wie bei den anderen Schaltern. Task 12 verfeinert
+	// das mit getrennten Schaltern fuer Gewohnheiten und Zuverlaessigkeit.
+	automationEngine := autolearn.NewEngine(dayStore, reactions,
+		func() ([]byte, error) { return configManager.Read("automation_rules") },
+		func() map[string]autolearn.DeviceInfo { return learnDevices(reg.Snapshot()) },
+		learnLimits, time.Local)
+	engineGroups := func() map[string]bool {
+		on := true
+		if value, err := settingsStore.LoadSettings(); err == nil {
+			on = !value.AutomationPatternsDisabled
+		}
+		return map[string]bool{"habit": on, "reliability": on}
+	}
+	// Herabstufung: nur bei automatischer Stufe rueckt die gemerkte Stufe eine
+	// nach unten. Eine feste Stufe der Einstellungen bleibt unberuehrt.
+	engineDowngrade := func() {
+		if value, err := settingsStore.LoadSettings(); err == nil && !learnrec.IsAutoSetting(value.LearningLevel) {
+			return
+		}
+		learnStateMu.Lock()
+		defer learnStateMu.Unlock()
+		st, err := learnrec.LowerAutoLevel(learnStatePath, learnState, runtime.NumCPU())
+		learnState = st
+		log.Printf("autolearn: load too high, automatic learning level is now %s", learnrec.ResolveLevel("auto", runtime.NumCPU(), st.AutoLevel))
+		if err != nil {
+			log.Printf("learnrec: save downgrade: %v", err)
+		}
+	}
+	engineLoop := newEngineRunner(automationEngine, engineGroups, engineDowngrade)
+	learnHub.AddMinute("autolearn-engine", engineLoop)
+	go engineLoop.Run(ctx)
+
 	origin := newOriginLearner(originTracker, dayStore, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
 	origin.rebuild()
 	go origin.run(ctx)
@@ -1113,7 +1157,7 @@ func main() {
 		Onboarding:           onboardingStore,
 		Learning: &httpapi.LearningDeps{
 			Settings:         settingsStore.LoadSettings,
-			State:            func() learnrec.State { return learnState },
+			State:            learnStateNow,
 			Usage:            dayStore.Usage,
 			ChainSuggestInfo: chainSuggest.LearnedSpan,
 			ChainLearnInfo:   chainMonitor.LearnedSpan,

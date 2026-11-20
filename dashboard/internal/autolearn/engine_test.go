@@ -168,3 +168,46 @@ func TestEngineDowngradeAfterThreeOverruns(t *testing.T) {
 	}
 	_ = took
 }
+
+func TestEngineDisabledGroupDoesNotAdvanceTimers(t *testing.T) {
+	e := newTestEngine(t, learnrec.LimitsFor(learnrec.LevelBalanced, 4))
+	var daily, light atomic.Int32
+	e.Register(Detector{Name: "daily", Group: "habit", Light: false, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+		daily.Add(1)
+		return nil
+	}})
+	e.Register(Detector{Name: "light", Group: "reliability", Light: true, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+		light.Add(1)
+		return nil
+	}})
+
+	// Both groups off: the 03:30 and the light round must not count.
+	e.Tick(at(t, "2026-11-20", "03:30"), map[string]bool{})
+	if daily.Load() != 0 || light.Load() != 0 {
+		t.Fatalf("disabled groups ran daily=%d light=%d", daily.Load(), light.Load())
+	}
+
+	// Switching the groups on later: the rounds are still due at once.
+	e.Tick(at(t, "2026-11-20", "03:31"), map[string]bool{"habit": true, "reliability": true})
+	if daily.Load() != 1 {
+		t.Fatalf("daily after enabling habit = %d, want 1", daily.Load())
+	}
+	if light.Load() != 1 {
+		t.Fatalf("light after enabling reliability = %d, want 1", light.Load())
+	}
+}
+
+func TestEngineLightTimerOnlyCountsWhenItsGroupIsOn(t *testing.T) {
+	e := newTestEngine(t, learnrec.LimitsFor(learnrec.LevelBalanced, 4))
+	var runs atomic.Int32
+	e.Register(Detector{Name: "light", Group: "reliability", Light: true, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+		runs.Add(1)
+		return nil
+	}})
+
+	e.Tick(at(t, "2026-11-20", "10:00"), habitOnly)
+	e.Tick(at(t, "2026-11-20", "10:01"), map[string]bool{"reliability": true})
+	if got := runs.Load(); got != 1 {
+		t.Fatalf("first enabled round after a disabled one = %d runs, want 1", got)
+	}
+}
