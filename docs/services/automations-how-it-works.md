@@ -314,3 +314,40 @@ Without any payload, or with one that cannot be read, the reason is
 for the efficiency option, in the scenario state, see section 8.
 
 The used findings of `once` conditions live in RAM only, as section 3 describes.
+
+## 10. Learned values
+
+The service subscribes to `outstation/energy_node/learned/<key>` for every
+learned key that a rule uses. Each topic is retained and carries
+`{"value", "n", "at"}`: the value (a number, a clock time `HH:MM` or a state),
+the number of observations `n`, and `at`, the Unix time in seconds of the
+publish.
+
+Before each evaluation the service resolves every learned reference into an
+ordinary condition. The rule then runs on the resolved values, so the rest of
+this page applies unchanged. For each reference:
+
+- The value counts as missing when there is no payload, when the JSON cannot
+  be read, when the value has the wrong type (not a number, not `HH:MM`, not a
+  state, or `NaN`), when `at` lies more than 300 s in the future, or when the age
+  counted from `at` is above `max_age_s` (default 604800). A missing value
+  resolves to `fallback` plus `offset`.
+- A present value is clamped to `min` to `max`, and `offset` is added after the
+  clamp. The source is `learned`, or `clamped` when the value lay outside the
+  bounds.
+- Times are clamped on the clock circle. `min` to `max` clockwise is the allowed
+  arc, which may cross midnight. A value outside the arc goes to the nearer
+  bound, and on equal distance to `min`.
+
+The condition report of each rule carries `"learned": {field: source}`, with
+the source of every resolved field, for example `{"start": "clamped"}`. For
+`learned_state` the entry is the source of the state.
+
+On the dashboard side, a value is published retained when its rounded value
+changes, at most once every 15 minutes per value. Unchanged values are refreshed
+once an hour with a new `at`, so a stable value does not age out after
+`max_age_s`. The dashboard deletes a value with an empty retained payload when
+its device disappears, and **Delete learned data** in the learning settings
+deletes all learned topics at once. After that, every rule that used them falls
+back to its fallback at once. With **Learn patterns** switched off nothing is
+published any more, and the retained values age as described above.
