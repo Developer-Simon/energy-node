@@ -10,6 +10,7 @@
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = new Error(apiError(body));
+      error.status = response.status;
       error.toolOutput = body.tool_output || '';
       throw error;
     }
@@ -641,8 +642,6 @@
 
     payload() {
       return {
-        health_score_threshold: Number(this.healthScoreThreshold),
-        sweep_interval_seconds: Number(this.sweepIntervalSeconds),
         show_runtime_status: Boolean(this.showRuntimeStatus),
         device_view_mode: this.deviceViewMode,
         theme: this.theme,
@@ -727,11 +726,9 @@
       }
       this.saving = true;
       try {
-        await requestJSON('/api/v1/settings', {
-          method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(this.payload()),
-        });
+        // Health-Schwelle und Sweep-Intervall speichern Storage und MQTT selbst.
+        // saveSettingsFields liest das Dokument neu und laesst sie unveraendert.
+        await saveSettingsFields(this.payload(), requestJSON);
         document.dispatchEvent(new CustomEvent('runtime-status-setting-changed', {detail: {enabled: this.showRuntimeStatus}}));
         document.dispatchEvent(new CustomEvent('device-view-mode-changed', {detail: {mode: this.deviceViewMode}}));
         document.documentElement.setAttribute('data-theme', this.theme);

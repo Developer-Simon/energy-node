@@ -19,6 +19,10 @@ const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'settings.page.js'),
   'utf8',
 );
+const fieldSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'settings-field.js'),
+  'utf8',
+);
 
 class FakeChoices {
   constructor(element, options) {
@@ -53,6 +57,7 @@ function createSettingsPanel({ fetchImpl, withChoices = true } = {}) {
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
   if (withChoices) dom.window.Choices = FakeChoices;
   installI18n(dom.window);
+  vm.runInContext(fieldSource, context);
   vm.runInContext(scriptSource, context);
   const component = factories.settingsPanel();
   const stores = attachStores(component);
@@ -286,6 +291,7 @@ function createSettingsPage(search) {
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   dom.window.fetch = async () => { throw new Error('fetch should not be called'); };
   installI18n(dom.window);
+  vm.runInContext(fieldSource, dom.getInternalVMContext());
   vm.runInContext(scriptSource, dom.getInternalVMContext());
   const page = factories.settingsPage();
   page.$nextTick = () => {};
@@ -319,6 +325,7 @@ function createSidebar() {
     </div><button id="picker"></button></body></html>`, { runScripts: 'outside-only', url: 'https://dashboard.local/' });
   const factories = {};
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
+  vm.runInContext(fieldSource, dom.getInternalVMContext());
   vm.runInContext(scriptSource, dom.getInternalVMContext());
   const component = factories.settingsPage();
   const doc = dom.window.document;
@@ -639,6 +646,7 @@ function createSubpageHarness({ search = '' } = {}) {
   const factories = {};
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   installI18n(dom.window);
+  vm.runInContext(fieldSource, dom.getInternalVMContext());
   vm.runInContext(scriptSource, dom.getInternalVMContext());
   const page = factories.settingsPage();
   page.$nextTick = () => {};

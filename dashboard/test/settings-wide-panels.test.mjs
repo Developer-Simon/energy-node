@@ -15,6 +15,10 @@ import { installI18n } from './helpers/i18n.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webui = path.join(here, '..', 'internal', 'webui');
 const scriptSource = fs.readFileSync(path.join(webui, 'static', 'js', 'settings.page.js'), 'utf8');
+const fieldSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'settings-field.js'),
+  'utf8',
+);
 const templateSource = fs.readFileSync(path.join(webui, 'templates', 'settings.html'), 'utf8');
 
 const ALL_TABS = ['overview', 'devices', 'history', 'config', 'energy', 'layout', 'devicemap', 'diagnostics', 'settings', 'automations'];
@@ -35,6 +39,7 @@ function createPanel() {
   const factories = {};
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   installI18n(dom.window);
+  vm.runInContext(fieldSource, context);
   vm.runInContext(scriptSource, context);
   const component = factories.settingsPanel();
   attachStores(component);

@@ -37,6 +37,7 @@ function createPanel(fetchImpl) {
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   dom.window.fetch = fetchImpl;
   installI18n(dom.window);
+  vm.runInContext(read('internal', 'webui', 'static', 'js', 'settings-field.js'), context);
   vm.runInContext(settingsSource, context);
   const component = factories.settingsPanel();
   attachStores(component);

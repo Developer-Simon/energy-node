@@ -19,6 +19,10 @@ const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'settings.page.js'),
   'utf8',
 );
+const fieldSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'settings-field.js'),
+  'utf8',
+);
 
 const jsonResponse = (body, ok = true) => ({ ok, status: ok ? 200 : 400, json: async () => body });
 
@@ -32,6 +36,7 @@ function load({ fetchImpl } = {}) {
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
   installI18n(dom.window);
+  vm.runInContext(fieldSource, context);
   vm.runInContext(scriptSource, context);
   return { dom, factories };
 }

@@ -76,6 +76,19 @@
     <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? $t('mqtt.status.loading') : $t('mqtt.status.refresh')"></button></div>
   </section>
 
+  <div class="setting-card" x-data="settingsField('healthScoreThreshold', 10, 3600, 10)">
+    <h3 class="setting-card-title">{{t "settings.stale.title"}}</h3>
+    <p class="setting-note">{{t "settings.stale.note"}}</p>
+    <div class="setting-row">
+      <span class="setting-row-label" id="stale-field-label">{{t "settings.stale.label"}} <span class="setting-row-unit">{{t "settings.unit.seconds"}}</span></span>
+      <span class="stepper" role="group" aria-labelledby="stale-field-label">
+        <button type="button" class="stepper-btn" aria-label="{{t "settings.stale.decrease"}}" x-on:click="step(-1)">&minus;</button>
+        <input class="stepper-input" type="number" min="10" max="3600" step="10" x-model.number="value" aria-labelledby="stale-field-label">
+        <button type="button" class="stepper-btn" aria-label="{{t "settings.stale.increase"}}" x-on:click="step(1)">+</button>
+      </span>
+    </div>
+  </div>
+
   <div class="setting-card" data-tour="mqtt-sensors">
     <h3 class="setting-card-title">{{t "mqtt.ha.title"}}</h3>
     <label class="switch-row" for="mqtt-publish-energy-device">
