@@ -108,6 +108,30 @@
       return rows;
     },
 
+    // applyRestart: die Neustarte von "Auswahl anwenden" (apply_steps des
+    // Plans). Schritt 65 laedt das Dashboard neu, damit es die Auswahl
+    // uebernimmt. Jeder andere Schritt startet, wenn er in der Auswahl an ist,
+    // sonst stoppt er.
+    applyRestart: function (plan, manifest, selection, shell) {
+      var CONFIG_STEP = '65';
+      var byId = {};
+      ((manifest && manifest.steps) || []).forEach(function (step) { byId[step.id] = step; });
+      var on = (selection && selection.steps) || {};
+      var rows = [];
+      ((plan && plan.apply_steps) || []).forEach(function (id) {
+        if (id === CONFIG_STEP) {
+          rows.push({ unit: window.Services.DASHBOARD_UNIT, reason: shell.t('preview.restart.reason.config') });
+          return;
+        }
+        var entry = byId[id];
+        if (!entry || !entry.unit) {
+          return;
+        }
+        rows.push({ unit: entry.unit, reason: shell.t(on[id] === true ? 'preview.restart.reason.start' : 'preview.restart.reason.stop') });
+      });
+      return rows;
+    },
+
     kept: function (plan, manifest, shell) {
       var serviceIds = ((manifest && manifest.steps) || []).filter(function (s) { return s.service_id; }).map(function (s) { return s.id; });
       return ((plan && plan.steps) || [])
@@ -242,7 +266,18 @@
       },
 
       get restart() {
-        return this.plan && this.manifest ? PreviewModel.restart(this.plan, this.manifest, this.shell, this.restartAll) : [];
+        if (!this.plan || !this.manifest) {
+          return [];
+        }
+        return this.canApplySelection
+          ? PreviewModel.applyRestart(this.plan, this.manifest, this.selection, this.shell)
+          : PreviewModel.restart(this.plan, this.manifest, this.shell, this.restartAll);
+      },
+
+      // "Auswahl anwenden" ersetzt "Aktualisieren", sobald der Plan Schritte
+      // dafuer nennt (apply_steps): die Auswahl weicht von der installierten ab.
+      get canApplySelection() {
+        return !!(this.plan && this.plan.apply_steps && this.plan.apply_steps.length) && !this.busy;
       },
 
       get keepNames() {
@@ -332,6 +367,23 @@
           var response = await window.Api.post('/api/run', body);
           this.shell.shared.selectionAtEntry = null;
           this.shell.startRun(response, { mode: 'redeploy' });
+        } catch (err) {
+          this.shell.fail(err);
+        } finally {
+          this.busy = false;
+        }
+      },
+
+      async applySelection() {
+        if (!this.canApplySelection) {
+          return;
+        }
+        this.busy = true;
+        this.shell.error = null;
+        try {
+          var response = await window.Api.post('/api/run', { mode: 'apply-selection' });
+          this.shell.shared.selectionAtEntry = null;
+          this.shell.startRun(response, { mode: 'apply-selection', steps: this.plan.apply_steps });
         } catch (err) {
           this.shell.fail(err);
         } finally {

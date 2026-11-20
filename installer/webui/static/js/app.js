@@ -442,6 +442,9 @@
         this.mutating = true;
         this.shared.lastRun = null;
         this.shared.run = { runId: response.run_id, mode: request.mode, only: request.only || '', resumed: false };
+        if (request.steps) {
+          this.shared.run.steps = request.steps;
+        }
         if (request.mode === 'redeploy') {
           rememberRedeployFrom(this.shared.plan);
         }
