@@ -1,6 +1,6 @@
 {
   "de": {
-    "*": "Installer zeigt Konfiguration und Aktualisierung als Module"
+    "*": "Der Konfigurationsbildschirm des Installers zeigt Dienste und Feineinstellungen als Module"
   },
   "en": {
     "*": "Show the configure and update services as modules"

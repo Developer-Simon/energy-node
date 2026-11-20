@@ -16,7 +16,7 @@
 - **installer:** show the configure services as control center modules (66bdc03)
 - **installer:** animate the configure modules quietly (3c1c6d0)
 - **installer:** show the update preview services as modules (7a2fca3)
-- **installer:** show the configure and update services as modules (#280)
+- **installer:** The configure screen of the installer shows its services and tuning as modules (#280)
 - **installer:** allow a step to require several steps (47b7493)
 - **installer:** offer the example on a first install (68b81a0)
 - **installer:** add the Debian devices to the media device table (7fa1b05)
