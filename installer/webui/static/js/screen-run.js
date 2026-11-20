@@ -90,7 +90,9 @@
         run.mode = this.model.mode;
         run.only = this.model.only;
         if (run.resumed) {
-          this.shell.entry = this.model.mode === 'repair' ? 'diagnose' : this.model.mode;
+          // Eine angewendete Auswahl laeuft im Weg des Updates (Vorschau, Neustart).
+          var entryOf = { repair: 'diagnose', 'apply-selection': 'redeploy' };
+          this.shell.entry = entryOf[this.model.mode] || this.model.mode;
         }
         if (!this.manifest) {
           this.groups = [];
@@ -101,6 +103,13 @@
           }];
         } else {
           this.groups = window.Services.runGroups(this.manifest, this.shell);
+          // Eine angewendete Auswahl zeigt nur die Stationen ihrer Schritte.
+          var steps = run.steps;
+          if (steps) {
+            this.groups = this.groups.filter(function (group) {
+              return group.ids.some(function (id) { return steps.indexOf(id) >= 0; });
+            });
+          }
         }
       },
 

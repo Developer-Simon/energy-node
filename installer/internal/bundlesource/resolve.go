@@ -18,6 +18,9 @@ const (
 	KindFile    Kind = "file"
 	KindRepo    Kind = "repo"
 	KindGitHub  Kind = "github"
+	// KindNode is the package already stored on the node. Nothing is resolved
+	// or transferred for it, the node's copy is verified in place.
+	KindNode Kind = "node"
 )
 
 // Request is one resolution: which source, for which node architecture.

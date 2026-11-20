@@ -57,6 +57,10 @@ export const PLAN_UPDATE = {
   },
 };
 
+// Der Plan, wenn die Auswahl am Node von der installierten abweicht: die
+// Schritte, die "Auswahl anwenden" fahren kann (65 = Dashboard neu laden, 81).
+export const PLAN_APPLY = Object.assign({}, PLAN_UPDATE, { apply_steps: ['65', '81'] });
+
 // Die Pruefliste des Testwirts (cmd/fakehost): Shelly ausgefallen, sonst gruen.
 export const DIAGNOSE = {
   bundle_version: 'v1.4.2',

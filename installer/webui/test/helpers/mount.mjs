@@ -56,6 +56,7 @@ export function fakeShell(window, overrides = {}) {
     startRun(response, request) {
       this.mutating = true;
       this.shared.run = { runId: response.run_id, mode: request.mode, only: request.only || '', resumed: false };
+      if (request.steps) { this.shared.run.steps = request.steps; }
       this.go('run');
     },
     openExternal(url) { window.open(url, '_blank', 'noopener'); },

@@ -461,3 +461,34 @@ test('X schliesst die Sprechblase fuer immer', async () => {
   assert.equal(first.shell.showMediaTip, false);
   assert.equal(first.window.localStorage.getItem('energy-node-installer.media-tip'), '1');
 });
+
+test('beim Aktualisieren mit gemerktem Zugang weist ein Hinweis auf das Paket auf dem Node hin', async () => {
+  const boot = Object.assign({}, MEDIA, { package: { bundled: null, repo: { available: false, path: '' }, resolved: null }, credentials: { host: 'pi.local', user: 'pi' } });
+  const { shell, window } = await createShell({ bootstrap: boot });
+  shell.entry = 'install';
+  assert.equal(shell.showNodeTip, false, 'bei Einrichten kein Hinweis');
+  shell.entry = 'redeploy';
+  assert.equal(shell.showNodeTip, true);
+  shell.useNodePackage();
+  assert.equal(shell.shared.packageChoice.kind, 'node');
+  assert.equal(shell.showNodeTip, false);
+  assert.equal(window.localStorage.getItem('energy-node-installer.node-tip'), '1');
+});
+
+test('ohne gemerkten Zugang oder ohne Paketauswahl bleibt der Node-Hinweis weg', async () => {
+  const noCredentials = await createShell({ bootstrap: Object.assign({}, MEDIA, { package: { bundled: null, repo: { available: false, path: '' }, resolved: null } }) });
+  noCredentials.shell.entry = 'redeploy';
+  assert.equal(noCredentials.shell.showNodeTip, false);
+  const noPackage = await createShell({ bootstrap: Object.assign({}, MEDIA, { credentials: { host: 'pi.local', user: 'pi' } }) });
+  noPackage.shell.entry = 'redeploy';
+  assert.equal(noPackage.shell.showNodeTip, false);
+});
+
+test('X schliesst den Node-Hinweis fuer immer', async () => {
+  const boot = Object.assign({}, MEDIA, { package: { bundled: null, repo: { available: false, path: '' }, resolved: null }, credentials: { host: 'pi.local', user: 'pi' } });
+  const { shell, window } = await createShell({ bootstrap: boot });
+  shell.entry = 'redeploy';
+  shell.dismissNodeTip();
+  assert.equal(shell.showNodeTip, false);
+  assert.equal(window.localStorage.getItem('energy-node-installer.node-tip'), '1');
+});

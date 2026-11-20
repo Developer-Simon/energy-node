@@ -88,6 +88,15 @@
 
         <template x-if="packageInfo">
           <div role="radiogroup" :aria-label="t('connect.package.heading')">
+            <div class="opt" :class="{ on: packageKind === 'github' }" role="radio" tabindex="0" :aria-checked="packageKind === 'github'"
+                 @click="selectPackage('github')" @keydown.enter.prevent="selectPackage('github')" @keydown.space.prevent="selectPackage('github')">
+              <span class="radio"></span>
+              <span>
+                <span class="opt-t" x-text="t('connect.package.github')"></span>
+                <span class="opt-s" x-text="t('connect.package.github_hint')"></span>
+              </span>
+            </div>
+
             <template x-if="packageInfo.bundled">
               <div class="opt" :class="{ on: packageKind === 'bundled' }" role="radio" tabindex="0" :aria-checked="packageKind === 'bundled'"
                    @click="selectPackage('bundled')" @keydown.enter.prevent="selectPackage('bundled')" @keydown.space.prevent="selectPackage('bundled')">
@@ -130,14 +139,27 @@
               </div>
             </template>
 
-            <div class="opt" :class="{ on: packageKind === 'github' }" role="radio" tabindex="0" :aria-checked="packageKind === 'github'"
-                 @click="selectPackage('github')" @keydown.enter.prevent="selectPackage('github')" @keydown.space.prevent="selectPackage('github')">
-              <span class="radio"></span>
-              <span>
-                <span class="opt-t" x-text="t('connect.package.github')"></span>
-                <span class="opt-s" x-text="t('connect.package.github_hint')"></span>
-              </span>
-            </div>
+            <template x-if="nodeOffered">
+              <div class="node-opt">
+                <div class="opt" :class="{ on: packageKind === 'node' }" role="radio" tabindex="0" :aria-checked="packageKind === 'node'"
+                     @click="selectPackage('node')" @keydown.enter.prevent="selectPackage('node')" @keydown.space.prevent="selectPackage('node')">
+                  <span class="radio"></span>
+                  <span>
+                    <span class="opt-t" x-text="t('connect.package.node')"></span>
+                    <span class="opt-s" x-text="t('connect.package.node_hint')"></span>
+                  </span>
+                </div>
+                <template x-if="shell.showNodeTip">
+                  <div class="mode-tip node-tip" role="note">
+                    <span class="mode-tip-t" x-text="t('entry.node_tip')"></span>
+                    <span class="mode-tip-actions">
+                      <button type="button" class="small" @click="shell.useNodePackage()" x-text="t('entry.node_tip_use')"></button>
+                      <button type="button" class="mode-tip-x" @click="shell.dismissNodeTip()" :aria-label="t('entry.media_tip_close')">{{template "icon-bad"}}</button>
+                    </span>
+                  </div>
+                </template>
+              </div>
+            </template>
           </div>
         </template>
 

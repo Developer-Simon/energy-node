@@ -107,6 +107,9 @@
         if (outcome.mode === 'repair') {
           return shell.t('result.repair.summary', { step: this.label(outcome.only), duration: this.duration });
         }
+        if (outcome.mode === 'apply-selection') {
+          return shell.t('result.apply.summary', { restarted: shell.tn('result.restarted', this.restarted), duration: this.duration });
+        }
         var version = window.Format.plainVersion(this.manifest.bundle_version);
         if (outcome.mode === 'redeploy') {
           var plan = shell.shared.plan;
@@ -191,8 +194,8 @@
           list.push({ key: 'login', title: t('result.todo.login.title'), text: outcome.loginUrl });
         }
         // Tailscale, Caddy und die Geraete sind Nacharbeit einer Installation,
-        // ein Update laesst nur Neustart und Anmeldung offen.
-        if (outcome.mode === 'redeploy') {
+        // ein Update und eine angewendete Auswahl lassen nur Neustart und Anmeldung offen.
+        if (outcome.mode === 'redeploy' || outcome.mode === 'apply-selection') {
           return list.map(function (item, index) { return Object.assign({ n: index + 1 }, item); });
         }
         if (this.selected(TAILSCALE_STEP)) {
@@ -218,6 +221,14 @@
         var key = 'fault.' + code + '.remediation';
         var remediation = t(key);
         return { message: window.RunModel.faultText(code, t), remediation: remediation === key ? '' : remediation };
+      },
+
+      // Bei einer fehlgeschlagenen Auswahl steht schon die neue Auswahl auf dem Node.
+      get failedHint() {
+        if (this.ok || this.cancelled || this.outcome.mode !== 'apply-selection') {
+          return '';
+        }
+        return this.shell.t('result.apply.failed_hint');
       },
 
       get detail() {
@@ -250,7 +261,7 @@
 
       retry() {
         var mode = this.outcome.mode;
-        this.shell.back(mode === 'redeploy' ? 'preview' : mode === 'repair' ? 'diagnose' : 'configure');
+        this.shell.back(mode === 'redeploy' || mode === 'apply-selection' ? 'preview' : mode === 'repair' ? 'diagnose' : 'configure');
       },
     };
   };

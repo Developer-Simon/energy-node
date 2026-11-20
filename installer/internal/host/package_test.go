@@ -3,6 +3,7 @@ package host
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -472,5 +473,181 @@ func TestPreflightTurnsAnABIMismatchIntoAWarningOnlyWithConsentAndInternet(t *te
 	facts.Internet = false
 	if view := h.EvaluatePreflight(facts); !has(view.Blocking, "PYTHON_ABI_MISMATCH") {
 		t.Errorf("with consent but no internet blocking = %v, want PYTHON_ABI_MISMATCH", view.Blocking)
+	}
+}
+
+const nodeManifest = `{"version":"v1.4.2","arch":"armv6","uname_machine":["armv6l"],"python_abi":"cp311","steps":[],"files":{}}`
+
+// stubNodeBundle serves the node's bundle directory from files (remote path ->
+// content) and answers the installed-manifest read with installed (nil: none).
+func stubNodeBundle(t *testing.T, files map[string]string, installed []byte) {
+	t.Helper()
+	origDownload, origInstalled := downloadRemote, readInstalledManifest
+	t.Cleanup(func() { downloadRemote, readInstalledManifest = origDownload, origInstalled })
+	downloadRemote = func(_ *transport.Client, remote, local string) error {
+		content, ok := files[remote]
+		if !ok {
+			return errors.New("no such remote file: " + remote)
+		}
+		return os.WriteFile(local, []byte(content), 0o644)
+	}
+	readInstalledManifest = func(context.Context, *transport.Client, string) ([]byte, error) {
+		return installed, nil
+	}
+}
+
+func nodeFiles(manifest string) map[string]string {
+	return map[string]string{"/var/lib/energy-node-installer/bundle/manifest.json": manifest}
+}
+
+func hasNote(sink *recordingSink, note string) bool {
+	for _, n := range sink.notes {
+		if n == note {
+			return true
+		}
+	}
+	return false
+}
+
+func TestPrepareFromNodeTransfersNothing(t *testing.T) {
+	rec := stubSeams(t, "armv6l")
+	stubNodeBundle(t, nodeFiles(nodeManifest), []byte(`{"version":"v1.4.2"}`))
+	h := hostWithBundled(t)
+	stageBundle = func(context.Context, *transport.Client, string, string, func(int64, int64)) error {
+		t.Fatalf("a node package must not be transferred")
+		return nil
+	}
+	stageDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		t.Fatalf("a node package must not be transferred as a delta")
+		return nil
+	}
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "node"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	if err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{}); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	if rec.verifyCalls != 1 || rec.signed {
+		t.Errorf("verifyStaged calls = %d signed = %v, want one unsigned verification", rec.verifyCalls, rec.signed)
+	}
+	got := h.Describe().Package.Resolved
+	if got == nil || got.Kind != "node" || got.Signed {
+		t.Errorf("Resolved = %+v, want kind node, unsigned", got)
+	}
+}
+
+func TestPrepareFromNodeMarksTheInstalledState(t *testing.T) {
+	stubSeams(t, "armv6l")
+	stubNodeBundle(t, nodeFiles(nodeManifest), []byte(`{"version":"v1.4.2"}`))
+	h := hostWithBundled(t)
+	sink := &recordingSink{}
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "node"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	if err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, sink); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	h.mu.Lock()
+	installed := h.resolved.Installed
+	h.mu.Unlock()
+	if !installed {
+		t.Errorf("resolved.Installed = false, want true for the matching version")
+	}
+	if !hasNote(sink, "package:package.log.node_used") || hasNote(sink, "package:package.log.node_not_installed") {
+		t.Errorf("notes = %v, want node_used and no node_not_installed", sink.notes)
+	}
+}
+
+func TestPrepareFromNodeOtherVersionIsNotInstalled(t *testing.T) {
+	stubSeams(t, "armv6l")
+	stubNodeBundle(t, nodeFiles(nodeManifest), []byte(`{"version":"v1.4.1"}`))
+	h := hostWithBundled(t)
+	sink := &recordingSink{}
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "node"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	if err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, sink); err != nil {
+		t.Fatalf("prepare must not fail for another version: %v", err)
+	}
+	h.mu.Lock()
+	installed := h.resolved.Installed
+	h.mu.Unlock()
+	if installed {
+		t.Errorf("resolved.Installed = true, want false for another version")
+	}
+	if !hasNote(sink, "package:package.log.node_not_installed") {
+		t.Errorf("notes = %v, want node_not_installed", sink.notes)
+	}
+}
+
+func TestPrepareFromNodeWithoutInstalledManifest(t *testing.T) {
+	stubSeams(t, "armv6l")
+	stubNodeBundle(t, nodeFiles(nodeManifest), nil)
+	h := hostWithBundled(t)
+	sink := &recordingSink{}
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "node"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	if err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, sink); err != nil {
+		t.Fatalf("prepare must not fail without an installed manifest: %v", err)
+	}
+	h.mu.Lock()
+	installed := h.resolved.Installed
+	h.mu.Unlock()
+	if installed {
+		t.Errorf("resolved.Installed = true, want false without installed-manifest.json")
+	}
+	if !hasNote(sink, "package:package.log.node_no_installed") {
+		t.Errorf("notes = %v, want node_no_installed", sink.notes)
+	}
+}
+
+func TestPrepareFromNodeWithoutPackage(t *testing.T) {
+	stubSeams(t, "armv6l")
+	stubNodeBundle(t, map[string]string{}, nil)
+	h := hostWithBundled(t)
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "node"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{})
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "NODE_PACKAGE_MISSING" || apiErr.Status != http.StatusConflict {
+		t.Fatalf("err = %v, want NODE_PACKAGE_MISSING with status 409", err)
+	}
+}
+
+func TestPrepareFromNodePassesVerifyFailuresOn(t *testing.T) {
+	stubSeams(t, "armv6l")
+	stubNodeBundle(t, nodeFiles(nodeManifest), nil)
+	verifyStaged = func(context.Context, *transport.Client, string, bool, bool) (bool, error) {
+		return false, &bundle.Error{Code: bundle.FaultHashMismatch, Message: "boom"}
+	}
+	h := hostWithBundled(t)
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "node"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{})
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != string(bundle.FaultHashMismatch) {
+		t.Fatalf("err = %v, want %s unchanged", err, bundle.FaultHashMismatch)
+	}
+}
+
+func TestSelectPackageAcceptsNode(t *testing.T) {
+	h := hostWithBundled(t)
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "node"}); err != nil {
+		t.Fatalf("SelectPackage(node): %v", err)
+	}
+	h.mu.Lock()
+	kind := h.choice.Kind
+	h.mu.Unlock()
+	if kind != bundlesource.KindNode {
+		t.Errorf("choice.Kind = %q, want %q", kind, bundlesource.KindNode)
 	}
 }

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4-pre.7 (2026-11-06)
+## v0.3.4-pre.8 (2026-11-06)
 
 ### Features
 
@@ -11,6 +11,13 @@
 - **installer:** write a Debian install stick from the media mode (#255) (cb9e1aa)
 - **onboarding:** start empty and offer an example to try out (#274) (35490ab)
 - **installer:** The configure screen of the installer shows its services and tuning as modules (#280) (f85e2a6)
+- **installer:** prepare from the package stored on the node (f5b1c87)
+- **installer:** accept the apply-selection run mode (5dc8abe)
+- **installer:** offer the package stored on the node as a source (1ac4e7a)
+- **installer:** offer apply selection in the update preview (c1a616d)
+- **installer:** show the run and result of an applied selection (6aaca33)
+- **installer:** point to the node package from the package list (0e761e9)
+- **installer:** apply a changed service selection without a full update (#282)
 - **installer:** group the configure steps into service, tuning and example modules (e1ea6c1)
 - **installer:** add the module icons from the dashboard pool (f651129)
 - **installer:** drive the configure screen from the service modules (5c7624e)
@@ -56,6 +63,7 @@
 
 ### Fixes
 
+- **installer:** keep the apply selection button while it runs (5281d56)
 - **installer:** translate the skip reasons of step 89 (23d333a)
 - **installer:** show the hotspot credentials after every successful run (bbeac07)
 - **webui:** bust the asset cache on every asset change (90fcdf8)
@@ -72,6 +80,8 @@
 
 ### Tests
 
+- **installer:** show the node package and apply selection in the fakehost (2a14121)
+- **installer:** follow the reworded package text in the connect draft (9a90595)
 - **installer:** show the journal and tailscale log steps in the fakehost (d894248)
 - **installer:** give the fakehost the example step (2426446)
 - **installer:** cover the Debian stick in the media e2e (46daa09)

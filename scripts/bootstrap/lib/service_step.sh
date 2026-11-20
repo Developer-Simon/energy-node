@@ -39,6 +39,15 @@ service_step() {
 
   step_begin "${id}"
   if ! step_selected "${id}"; then
+    # Abgewaehlt: ein Dienst, der frueher installiert war, wird gestoppt und
+    # deaktiviert. Der Stempel geht weg, damit ein spaeteres Wiederanwaehlen
+    # den Schritt wirklich ausfuehrt. Ein Fehler hier laesst den Schritt
+    # nicht scheitern.
+    if [[ -f "${EN_ROOT}/etc/systemd/system/${unit}" ]]; then
+      "${SUDO[@]}" systemctl disable --now "${unit}" \
+        || step_log "Dienst ${unit} konnte nicht gestoppt werden."
+    fi
+    rm -f "$(step_stamp_path "${id}")"
     step_skip "nicht ausgewaehlt"
     return 0
   fi

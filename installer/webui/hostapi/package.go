@@ -25,6 +25,8 @@ type RepoInfo struct {
 type ResolvedInfo struct {
 	Kind   string `json:"kind"`
 	Signed bool   `json:"signed"`
+	// Installed: the node already runs this package version.
+	Installed bool `json:"installed,omitempty"`
 }
 
 // PackageInfo ist der Teil von Description und Bootstrap, der die

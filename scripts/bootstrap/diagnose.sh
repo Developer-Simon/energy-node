@@ -72,13 +72,33 @@ for entry in data.get("steps", []):
         print(entry["unit"])
 ' "${EN_BUNDLE_DIR}/manifest.json")
   fi
+  # Units abgewaehlter Schritte (selection.json, gleiche Regel wie
+  # step_selected). Eine Zeile je Unit.
+  local deselected=""
+  if [[ -f "${EN_SELECTION}" && -f "${EN_BUNDLE_DIR}/manifest.json" ]]; then
+    deselected="$(python3 -c '
+import json, sys
+try:
+    steps = json.load(open(sys.argv[1], encoding="utf-8")).get("steps") or []
+    selection = json.load(open(sys.argv[2], encoding="utf-8")).get("steps")
+except Exception:
+    sys.exit(0)
+if not isinstance(selection, dict):
+    sys.exit(0)
+for entry in steps:
+    if entry.get("unit") and not selection.get(str(entry.get("id")), True):
+        print(entry["unit"])
+' "${EN_BUNDLE_DIR}/manifest.json" "${EN_SELECTION}")"
+  fi
   # Eine Dienst-Unit, die nicht laeuft und deren Unit-Datei fehlt (die legt
   # service_step.sh an), ist nicht installiert - der Dienst wurde nie
-  # gewaehlt. Das ist kein Fehler, sondern "not-installed".
+  # gewaehlt. Das ist kein Fehler, sondern "not-installed". Dasselbe gilt
+  # fuer eine Unit mit Datei, deren Schritt jetzt abgewaehlt ist.
   for unit in "${units[@]}"; do
     state="$(systemctl is-active "${unit}" 2>/dev/null || true)"
-    if [[ "${state}" != active && " ${service_units[*]} " == *" ${unit} "* \
-          && ! -f "${EN_ROOT}/etc/systemd/system/${unit}" ]]; then
+    if [[ "${state}" != active && " ${service_units[*]} " == *" ${unit} "* ]] \
+       && { [[ ! -f "${EN_ROOT}/etc/systemd/system/${unit}" ]] \
+            || grep -qxF -- "${unit}" <<<"${deselected}"; }; then
       state=not-installed
     fi
     printf 'unit%s%s%s%s\n' "$tab" "${unit}" "$tab" "${state}"

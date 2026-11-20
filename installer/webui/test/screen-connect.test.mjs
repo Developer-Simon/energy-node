@@ -176,9 +176,9 @@ const PACKAGE_BOOTSTRAP = {
   },
 };
 
-test('mit bootstrap.package ist die default Paketart bundled wenn ein Bundle existiert', () => {
+test('mit bootstrap.package ist die default Paketart github, auch wenn ein Bundle existiert', () => {
   const { screen } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP } });
-  assert.equal(screen.packageKind, 'bundled');
+  assert.equal(screen.packageKind, 'github');
 });
 
 test('mit bootstrap.package ist die default Paketart github wenn kein Bundle existiert', () => {
@@ -337,7 +337,7 @@ test('ein spaet eintreffender Bootstrap fuellt das Formular noch vor', () => {
   assert.equal(screen.user, 'pi');
   assert.equal(screen.remember, true);
   assert.equal(screen.canConnect, true);
-  assert.equal(screen.packageKind, 'bundled');
+  assert.equal(screen.packageKind, 'github');
   assert.equal(screen.repoPath, '/src/energy-node');
 });
 
@@ -436,7 +436,7 @@ test('eine gemerkte Wahl, die es nicht mehr gibt, faellt auf die Vorgabe zurueck
   shell.bootstrap = Object.assign({}, PACKAGE_BOOTSTRAP, { package: Object.assign({}, PACKAGE_BOOTSTRAP.package, { repo: { available: false, path: '' } }) });
   const again = window.Screens.screenConnect();
   again.init();
-  assert.equal(again.packageKind, 'bundled');
+  assert.equal(again.packageKind, 'github');
 });
 
 test('Uebergabe aus Medium belegt Schluessel-Anmeldung vor', () => {
@@ -450,4 +450,48 @@ test('Uebergabe aus Medium belegt Schluessel-Anmeldung vor', () => {
   assert.equal(screen.keyPath, '/home/dev/.energy-node/id_ed25519');
   assert.equal(screen.makeKey, false);
   assert.equal(shell.shared.handover, null);
+});
+
+test('die Option Abgelegtes Paket auf dem Node gibt es bei redeploy und diagnose, bei install nicht', () => {
+  for (const entry of ['redeploy', 'diagnose']) {
+    const { screen } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP, entry } });
+    assert.equal(screen.nodeOffered, true, `${entry} bietet die Option an`);
+  }
+  const { screen } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP, entry: 'install' } });
+  assert.equal(screen.nodeOffered, false, 'install bietet die Option nicht an');
+});
+
+test('connect mit node schickt PUT /api/package mit kind node und leerem Pfad', async () => {
+  const { screen, calls } = mount({
+    shell: { bootstrap: PACKAGE_BOOTSTRAP, entry: 'redeploy' },
+    responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR, 'PUT /api/package': {} },
+  });
+  fill(screen);
+  screen.selectPackage('node');
+  assert.equal(screen.packageKind, 'node');
+  await screen.connect();
+  const packageCall = calls.find((c) => c.key === 'PUT /api/package');
+  assert.deepEqual(packageCall.body, { kind: 'node', path: '' });
+});
+
+test('eine gemerkte Node-Wahl gilt nur bei redeploy und diagnose, bei install fällt sie auf die Vorgabe zurück', () => {
+  const choice = { kind: 'node', repoPath: '' };
+  const offered = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP, entry: 'redeploy', shared: { packageChoice: choice } } });
+  assert.equal(offered.screen.packageKind, 'node');
+
+  const install = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP, entry: 'install', shared: { packageChoice: choice } } });
+  assert.equal(install.screen.packageKind, 'github');
+});
+
+test('der Hinweis auf der Aktualisieren-Seite waehlt das Paket auf dem Node vor', () => {
+  const { screen, shell } = mountScreen('screen-connect.js', 'screenConnect', { catalog: realCatalog('de') });
+  shell.bootstrap = PACKAGE_BOOTSTRAP;
+  shell.entry = 'redeploy';
+  const watchers = [];
+  screen.$watch = (expression, callback) => watchers.push({ expression, callback });
+  screen.init();
+  assert.equal(screen.packageKind, 'github');
+  const choice = { kind: 'node', repoPath: '' };
+  watchers.filter((watcher) => watcher.expression === 'shell.shared.packageChoice').forEach((watcher) => watcher.callback(choice));
+  assert.equal(screen.packageKind, 'node');
 });

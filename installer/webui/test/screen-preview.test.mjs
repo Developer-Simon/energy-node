@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { mountScreen, realCatalog, fakeShell } from './helpers/mount.mjs';
 import { loadScripts } from './helpers/load.mjs';
-import { MANIFEST_UPDATE, SELECTION_NODE, PLAN_UPDATE } from './helpers/fixtures.mjs';
+import { MANIFEST_UPDATE, SELECTION_NODE, PLAN_UPDATE, PLAN_APPLY } from './helpers/fixtures.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -181,6 +181,43 @@ test('Aktualisieren startet den Lauf ohne Geheimnisse und vergisst die gemerkte 
   assert.equal(shell.shared.selectionAtEntry, null);
 });
 
+test('ohne apply_steps im Plan gibt es keine Auswahl anwenden', async () => {
+  const { screen } = await mount();
+  assert.equal(screen.canApplySelection, false);
+});
+
+test('Auswahl anwenden: Neustarts mit Grund, und der Lauf kennt die Schritte', async () => {
+  const { screen, shell, calls } = await mount({ responses: { 'GET /api/plan': PLAN_APPLY } });
+  assert.equal(screen.canApplySelection, true);
+  assert.deepEqual(plain(screen.restart), [
+    { unit: 'energy-node-dashboard.service', reason: 'übernimmt die Auswahl' },
+    { unit: 'apsystems-ez1.service', reason: 'wird gestartet' },
+  ]);
+
+  await screen.applySelection();
+  assert.deepEqual(plain(calls.at(-1)), { key: 'POST /api/run', body: { mode: 'apply-selection' } });
+  assert.equal(shell.screen, 'run');
+  assert.equal(shell.shared.run.mode, 'apply-selection');
+  assert.deepEqual(plain(shell.shared.run.steps), ['65', '81']);
+});
+
+test('waehrend des Laufs bleibt Auswahl anwenden angeboten, mit denselben Neustarten', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/plan': PLAN_APPLY } });
+  screen.busy = true;
+  assert.equal(screen.applyOffered, true);
+  assert.equal(screen.canApplySelection, false);
+  assert.deepEqual(plain(screen.restart), [
+    { unit: 'energy-node-dashboard.service', reason: 'übernimmt die Auswahl' },
+    { unit: 'apsystems-ez1.service', reason: 'wird gestartet' },
+  ]);
+});
+
+test('ein abgewaehlter Dienst mit apply_steps wird gestoppt', async () => {
+  const { screen, shell } = await mount({ responses: { 'GET /api/plan': PLAN_APPLY } });
+  shell.shared.selection = { source: 'node', steps: Object.assign({}, SELECTION_NODE.steps, { 81: false }) };
+  assert.equal(plain(screen.restart).find((row) => row.unit === 'apsystems-ez1.service').reason, 'wird gestoppt');
+});
+
 test('im Dashboard-Wirt fuehrt Abbrechen zurueck ins Dashboard, und der Hinweis darauf entfaellt', async () => {
   const { screen, shell, calls } = await mount({ shell: { bootstrap: { host: 'dashboard', needs_connection: false, entry_points: ['redeploy', 'diagnose'] } } });
   assert.equal(screen.showReuse, false);
@@ -316,7 +353,7 @@ function previewMarkup() {
   return html.slice(html.indexOf('<div class="screen"'), html.lastIndexOf('</template>'));
 }
 
-async function mountPreviewTemplate(manifest) {
+async function mountPreviewTemplate(manifest, plan = PLAN_UPDATE) {
   const alpine = fs.readFileSync(path.join(here, '..', 'static', 'js-deps', 'alpine.min.js'), 'utf8');
   const dom = loadScripts(['i18n.js', 'format.js', 'api.js', 'services.js', 'changelog-model.js', 'screen-preview.js'], {
     html: `<!doctype html><html><body><div class="app" x-data="harness">${previewMarkup()}</div></body></html>`,
@@ -328,7 +365,7 @@ async function mountPreviewTemplate(manifest) {
   const answers = {
     'GET /api/manifest': manifest,
     'GET /api/selection': structuredClone(SELECTION_NODE),
-    'GET /api/plan': PLAN_UPDATE,
+    'GET /api/plan': plan,
   };
   window.fetch = async (url) => {
     const key = `GET ${String(url).split('?')[0]}`;
@@ -372,4 +409,14 @@ test('ohne Systempakete zeigt die Vorschau keine Zeile unter der Liste', async (
   const { document } = await mountPreviewTemplate(MANIFEST_UPDATE);
   assert.equal(document.querySelector('.mod-hint'), null);
   assert.equal(document.querySelectorAll('.mod').length, 9);
+});
+
+test('die Fusszeile: ohne apply_steps Aktualisieren, mit apply_steps Auswahl anwenden', async () => {
+  const { document } = await mountPreviewTemplate(MANIFEST_UPDATE);
+  assert.equal(document.querySelector('.foot .primary').textContent, 'Aktualisieren');
+
+  const { document: applying } = await mountPreviewTemplate(MANIFEST_UPDATE, PLAN_APPLY);
+  const buttons = applying.querySelectorAll('.foot .primary');
+  assert.equal(buttons.length, 1, 'genau ein primaerer Knopf');
+  assert.equal(buttons[0].textContent, 'Auswahl anwenden');
 });

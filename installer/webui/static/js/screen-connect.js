@@ -80,6 +80,15 @@
             }
           });
         }
+        // Der Hinweis auf der Aktualisieren-Seite waehlt das Paket auf dem Node
+        // vor, auch wenn dieser Bildschirm schon offen ist.
+        if (this.$watch) {
+          this.$watch('shell.shared.packageChoice', (choice) => {
+            if (choice && choice.kind === 'node' && this.nodeOffered && this.packageKind !== 'node') {
+              this.packageKind = 'node';
+            }
+          });
+        }
         // Ein fertiges Medium uebergibt seinen Rechner: die Anmeldung mit dem
         // Schluessel ist dann vorbelegt, auch wenn der Bootstrap erst spaeter kommt.
         var handover = this.shell.shared.handover;
@@ -105,7 +114,7 @@
         }
         var info = this.packageInfo;
         if (info) {
-          this.packageKind = info.bundled ? 'bundled' : 'github';
+          this.packageKind = 'github';
           this.repoPath = (info.repo && info.repo.path) || '';
           // Kehrt der Betreiber zu diesem Bildschirm zurueck (etwa nach einem
           // Fehler beim Vorbereiten), gilt seine frühere Wahl. Eine Datei
@@ -120,12 +129,22 @@
         this.prefilled = true;
       },
 
+      // nodeOffered: das Paket, das schon auf dem Node liegt, ist nur bei
+      // Aktualisierung und Diagnose eine Quelle.
+      get nodeOffered() {
+        var entry = this.shell.entry;
+        return entry === 'redeploy' || entry === 'diagnose';
+      },
+
       choiceUsable(choice, info) {
         if (choice.kind === 'bundled') {
           return !!info.bundled;
         }
         if (choice.kind === 'repo') {
           return !!(info.repo && info.repo.available);
+        }
+        if (choice.kind === 'node') {
+          return this.nodeOffered;
         }
         return choice.kind === 'github';
       },

@@ -207,9 +207,9 @@ test('die Paketdatei-Quelle sperrt den Verbinden-Button bis eine Datei ausgewaeh
   // Wait for the package radiogroup with options to be visible
   await page.locator('[role="radiogroup"] .opt').first().waitFor();
 
-  // Select "Paketdatei wählen"
+  // Select "Paketdatei auswählen"
   const packageOptions = page.locator('[role="radiogroup"] .opt');
-  await packageOptions.filter({ hasText: 'Paketdatei wählen' }).click();
+  await packageOptions.filter({ hasText: 'Paketdatei auswählen' }).click();
 
   // Fill connection details
   await page.getByLabel('Adresse', { exact: true }).fill('energy-node.local');

@@ -349,3 +349,42 @@ func TestTheDiagnoseWithoutDelayIsOneEvent(t *testing.T) {
 		t.Fatalf("without a delay the diagnose is one event with nothing pending, got %+v", events)
 	}
 }
+
+// Mit --node-package steht das Paket des Nodes im Vorschau-Kopf, und die
+// Vorschau zeigt den Knopf "Dienste aendern" nur, wenn die gemerkte Auswahl
+// von der des Nodes abweicht. Dann nennt sie die geaenderten Schritte und 65.
+func TestTheNodePackageScenarioOffersApplySelection(t *testing.T) {
+	ctx := context.Background()
+	backend := newScenario("vorlage-update", options{nodePackage: true})
+	if resolved := backend.Describe().Package.Resolved; resolved == nil || resolved.Kind != "node" || !resolved.Installed {
+		t.Fatalf("package resolved = %+v, want the node package, installed", resolved)
+	}
+
+	unchanged, err := backend.Plan(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.ApplySteps != nil {
+		t.Fatalf("without a change the plan offers no apply steps, got %v", unchanged.ApplySteps)
+	}
+
+	selection, err := backend.Selection(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps := map[string]bool{}
+	for id, on := range selection.Steps {
+		steps[id] = on
+	}
+	steps["81"] = false
+	if err := backend.SaveSelection(ctx, steps); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := backend.Plan(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(changed.ApplySteps, []string{"65", "81"}) {
+		t.Fatalf("apply steps = %v, want the changed 81 and 65 in manifest order", changed.ApplySteps)
+	}
+}
