@@ -332,3 +332,105 @@ func TestDayStoreUsage(t *testing.T) {
 		t.Errorf("written per day = %d, want > 0", u.WrittenPerDay)
 	}
 }
+
+func TestDayStoreMeanSurvivesRestart(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	first := OpenDayStore(dir, loc, keepAll, noLog)
+	for i := 0; i < 3; i++ {
+		first.ObserveMinute(frameWith(base.Add(time.Duration(i)*time.Minute), lampMinute(true, 100)))
+	}
+	for i := 3; i < 7; i++ {
+		first.ObserveMinute(frameWith(base.Add(time.Duration(i)*time.Minute),
+			learnrec.DeviceMinute{ID: "lamp", Switch: map[string]bool{"switch": true}, Reachable: true}))
+	}
+	if err := first.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	second := OpenDayStore(dir, loc, keepAll, noLog)
+	second.ObserveMinute(frameWith(base.Add(7*time.Minute), lampMinute(true, 200)))
+	days := mustDays(t, second, base, base)
+	if len(days) != 1 {
+		t.Fatalf("days = %d, want 1", len(days))
+	}
+	if got := days[0].Devices["lamp"].AvgW[40]; got != 125 {
+		t.Errorf("avg_w = %v, want 125 (3 power minutes at 100 W and one at 200 W)", got)
+	}
+}
+
+func TestDayStorePendingSurvivesWriteError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	s := OpenDayStore(dir, loc, keepAll, noLog)
+	s.ObserveMinute(frameWith(time.Date(2026, 11, 19, 23, 59, 0, 0, loc), lampMinute(true, 60)))
+
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	s.ObserveMinute(frameWith(time.Date(2026, 11, 20, 0, 0, 0, 0, loc), lampMinute(true, 60)))
+	if err := s.Save(); err == nil {
+		t.Fatal("save into a read-only dir must fail")
+	}
+
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(); err != nil {
+		t.Fatalf("save after the dir is writable again: %v", err)
+	}
+	nov19 := time.Date(2026, 11, 19, 0, 0, 0, 0, loc)
+	days := mustDays(t, s, nov19, nov19)
+	if len(days) != 1 || days[0].Devices["lamp"] == nil || days[0].Devices["lamp"].Seen[95] != 1 {
+		t.Errorf("previous day must be written after the retry, got %+v", days)
+	}
+}
+
+func TestDayStoreUnreadableFileIsNotOverwritten(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads files regardless of permissions")
+	}
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	first := OpenDayStore(dir, loc, keepAll, noLog)
+	first.ObserveMinute(frameWith(base, lampMinute(true, 50)))
+	if err := first.Save(); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "2026-11-19.json.gz")
+	orig, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
+
+	var logs int
+	s := OpenDayStore(dir, loc, keepAll, func(string, ...any) { logs++ })
+	s.ObserveMinute(frameWith(base.Add(time.Minute), lampMinute(true, 50)))
+	if logs == 0 {
+		t.Error("unreadable file must be logged")
+	}
+	if err := s.Save(); err == nil {
+		t.Error("save while unreadable must return an error")
+	}
+
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	now, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(now) != string(orig) {
+		t.Error("unreadable file was overwritten")
+	}
+}

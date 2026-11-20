@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -40,12 +41,15 @@ type DayFile struct {
 }
 
 // DeviceDay sind die Viertelstunden eines Geraets. Zaehler saettigen bei 15.
+// pn zaehlt die Minuten mit Leistungsdaten, aus ihm laeuft der Mittelwert nach
+// einem Neustart weiter. Fehlt er in einer Datei, gilt seen.
 type DeviceDay struct {
 	Seen  [dayQuarters]uint8   `json:"seen"`
 	Reach [dayQuarters]uint8   `json:"reach"`
 	OnMin [dayQuarters]uint8   `json:"on_min"`
 	AvgW  [dayQuarters]float32 `json:"avg_w"`
 	Wh    [dayQuarters]float32 `json:"wh"`
+	PN    [dayQuarters]uint8   `json:"pn"`
 	Hand  [dayQuarters]uint8   `json:"hand"`
 	Ext   [dayQuarters]uint8   `json:"ext"`
 	Rule  [dayQuarters]uint8   `json:"rule"`
@@ -106,6 +110,12 @@ type DayStore struct {
 	day   string  // lokaler Tag der laufenden Datei
 	file  DayFile // Zustand des laufenden Tages
 	dirty bool
+	// blocked ist gesetzt, wenn die Datei des laufenden Tages nicht gelesen
+	// werden kann. Dann wird sie nicht ueberschrieben.
+	blocked bool
+	// pending sind abgeschlossene Tage, deren Schreiben fehlschlug. Sie werden
+	// beim naechsten Speichern in dieser Reihenfolge nachgeholt.
+	pending []DayFile
 	// n sind die wahren Minutenzahlen je Geraet und Viertelstunde fuer die
 	// Mittelwerte. Anders als Seen saettigen sie nicht bei 15.
 	n     map[string]*[dayQuarters]uint16
@@ -185,8 +195,8 @@ func (s *DayStore) ObserveMinute(f learnrec.Frame) {
 	s.dirty = true
 }
 
-// Save schreibt die laufende Datei, wenn sich seit dem letzten Schreiben etwas
-// geaendert hat.
+// Save schreibt wartende Tage und den laufenden Tag, wenn sich etwas geaendert
+// hat. Ein Fehler wird zurueckgegeben, die Daten bleiben im Speicher.
 func (s *DayStore) Save() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -286,6 +296,7 @@ func (s *DayStore) Reset() error {
 		}
 	}
 	s.written = map[string]int64{}
+	s.pending = nil
 	s.startDayLocked(s.day)
 	return nil
 }
@@ -391,7 +402,11 @@ func (s *DayStore) Days(from, to time.Time) ([]DayFile, error) {
 			out = append(out, s.snapshotLocked())
 			continue
 		}
-		f, err := s.readDay(day)
+		if i := s.pendingIndexLocked(day); i >= 0 {
+			out = append(out, s.pending[i])
+			continue
+		}
+		f, _, err := s.loadDay(day)
 		if err != nil {
 			s.logf("autolearn: %s unreadable, skipped: %v", s.path(day), err)
 			continue
@@ -403,8 +418,9 @@ func (s *DayStore) Days(from, to time.Time) ([]DayFile, error) {
 	return out, nil
 }
 
-// startDayLocked macht day zum laufenden Tag und laedt seine Datei, falls
-// vorhanden. Eine kaputte Datei wird geloggt, der Tag beginnt dann leer.
+// startDayLocked macht day zum laufenden Tag. Ein wartender Tag wird
+// uebernommen, sonst wird die Datei geladen. Eine kaputte Datei wird geloggt,
+// der Tag beginnt dann leer. Eine nicht lesbare Datei blockiert das Schreiben.
 func (s *DayStore) startDayLocked(day string) {
 	s.day = day
 	s.file = DayFile{V: dayFileVersion, Day: day, Devices: map[string]*DeviceDay{},
@@ -412,27 +428,51 @@ func (s *DayStore) startDayLocked(day string) {
 	s.n = map[string]*[dayQuarters]uint16{}
 	s.siteN = [6][dayQuarters]uint16{}
 	s.dirty = false
+	s.blocked = false
 
-	f, err := s.readDay(day)
-	if err != nil {
+	if i := s.pendingIndexLocked(day); i >= 0 {
+		snap := s.pending[i]
+		s.pending = append(s.pending[:i], s.pending[i+1:]...)
+		s.adoptLocked(&snap, true)
+		s.dirty = true
+		return
+	}
+	f, hasPN, err := s.loadDay(day)
+	switch {
+	case err != nil && isCorrupt(err):
 		s.logf("autolearn: %s unreadable, starting day %s empty: %v", s.path(day), day, err)
-		return
+	case err != nil:
+		s.blocked = true
+		s.logf("autolearn: %s cannot be read, not overwriting it: %v", s.path(day), err)
+	case f != nil:
+		s.adoptLocked(f, hasPN)
 	}
-	if f == nil {
-		return
-	}
+}
+
+// adoptLocked uebernimmt eine geladene Tagesdatei als laufenden Tag. Ohne pn
+// in der Datei zaehlt seen die Minuten mit Leistungsdaten.
+func (s *DayStore) adoptLocked(f *DayFile, hasPN bool) {
 	s.file = *f
 	if s.file.Devices == nil {
 		s.file.Devices = map[string]*DeviceDay{}
+	}
+	if s.file.Events == nil {
+		s.file.Events = []EventRec{}
+	}
+	if s.file.Actions == nil {
+		s.file.Actions = []ActionRec{}
 	}
 	for id, dd := range s.file.Devices {
 		if dd == nil {
 			dd = &DeviceDay{}
 			s.file.Devices[id] = dd
 		}
+		if !hasPN {
+			dd.PN = dd.Seen
+		}
 		n := new([dayQuarters]uint16)
 		for q := range n {
-			n[q] = uint16(dd.Seen[q])
+			n[q] = uint16(dd.PN[q])
 		}
 		s.n[id] = n
 	}
@@ -443,11 +483,48 @@ func (s *DayStore) startDayLocked(day string) {
 	}
 }
 
-// finishDayLocked schreibt den laufenden Tag, bevor ein anderer beginnt.
+// finishDayLocked haelt den laufenden Tag fest, bevor ein anderer beginnt. Schlaegt
+// das Schreiben fehl, bleibt der Tag wartend und wird beim naechsten Speichern
+// nachgeholt. Ein nicht lesbarer Tag wird nicht geschrieben.
 func (s *DayStore) finishDayLocked() {
-	if err := s.writeLocked(); err != nil {
-		s.logf("autolearn: %v", err)
+	if s.dir == "" {
+		return
 	}
+	if s.blocked {
+		s.logf("autolearn: %s not written, its file cannot be read", s.path(s.day))
+		s.dirty = false
+		return
+	}
+	if !s.dirty {
+		return
+	}
+	s.pending = append(s.pending, s.snapshotLocked())
+	s.dirty = false
+	if err := s.flushPendingLocked(); err != nil {
+		s.logf("autolearn: %v, retried on the next save", err)
+	}
+}
+
+// pendingIndexLocked liefert die Stelle eines wartenden Tages oder -1.
+func (s *DayStore) pendingIndexLocked(day string) int {
+	for i := range s.pending {
+		if s.pending[i].Day == day {
+			return i
+		}
+	}
+	return -1
+}
+
+// flushPendingLocked schreibt die wartenden Tage in ihrer Reihenfolge. Beim
+// ersten Fehler bleiben sie alle wartend.
+func (s *DayStore) flushPendingLocked() error {
+	for len(s.pending) > 0 {
+		if err := s.writeFile(s.pending[0].Day, s.pending[0]); err != nil {
+			return err
+		}
+		s.pending = s.pending[1:]
+	}
+	return nil
 }
 
 func (s *DayStore) observeDeviceLocked(dm learnrec.DeviceMinute, q int) {
@@ -471,6 +548,7 @@ func (s *DayStore) observeDeviceLocked(dm learnrec.DeviceMinute, q int) {
 	}
 	if hasPower {
 		addMean(&dd.AvgW[q], &n[q], sum)
+		bump(&dd.PN[q])
 	}
 	dd.Wh[q] += float32(sum / 60)
 	bump(&dd.Seen[q])
@@ -500,9 +578,26 @@ func (s *DayStore) observeSiteLocked(balance map[string]float64, q int) {
 	}
 }
 
-// writeLocked schreibt den laufenden Tag, wenn er geaendert wurde.
+// writeLocked schreibt wartende Tage und danach den laufenden Tag, wenn er
+// geaendert wurde. Ist seine Datei nicht lesbar, wird sie nicht ueberschrieben.
+// Wird sie lesbar, laedt der Tag neu, die Minuten dazwischen gehen verloren.
 func (s *DayStore) writeLocked() error {
-	if !s.dirty || s.dir == "" {
+	if s.dir == "" {
+		return nil
+	}
+	if err := s.flushPendingLocked(); err != nil {
+		return err
+	}
+	if !s.dirty {
+		return nil
+	}
+	if s.blocked {
+		_, _, err := s.loadDay(s.day)
+		if err != nil && !isCorrupt(err) {
+			return fmt.Errorf("autolearn: %s cannot be read, not overwritten: %w", s.path(s.day), err)
+		}
+		s.logf("autolearn: %s readable again, minutes collected while it was blocked are dropped", s.path(s.day))
+		s.startDayLocked(s.day)
 		return nil
 	}
 	if err := s.writeFile(s.day, s.snapshotLocked()); err != nil {
@@ -537,35 +632,70 @@ func (s *DayStore) path(day string) string {
 	return filepath.Join(s.dir, day+".json.gz")
 }
 
-// readDay liest eine Tagesdatei. Eine fehlende Datei ergibt nil ohne Fehler.
-func (s *DayStore) readDay(day string) (*DayFile, error) {
+// corruptError markiert eine Datei, deren Inhalt nicht zu lesen ist. Nur sie darf
+// ersetzt werden. Andere Lesefehler, etwa fehlende Rechte, nicht.
+type corruptError struct{ err error }
+
+func (e corruptError) Error() string { return e.err.Error() }
+func (e corruptError) Unwrap() error { return e.err }
+
+func isCorrupt(err error) bool {
+	var c corruptError
+	return errors.As(err, &c)
+}
+
+// loadDay liest die Tagesdatei von day. Eine fehlende Datei ergibt nil ohne Fehler.
+// hasPN meldet, ob die Datei den Zaehler pn kennt.
+func (s *DayStore) loadDay(day string) (*DayFile, bool, error) {
 	raw, err := os.ReadFile(s.path(day))
 	if os.IsNotExist(err) {
-		return nil, nil
+		return nil, false, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
+	f, hasPN, err := decodeDay(raw, day)
+	if err != nil {
+		return nil, false, corruptError{err}
+	}
+	return f, hasPN, nil
+}
+
+// decodeDay liest den Inhalt einer gzip-komprimierten Tagesdatei.
+func decodeDay(raw []byte, day string) (*DayFile, bool, error) {
 	zr, err := gzip.NewReader(bytes.NewReader(raw))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer zr.Close()
 	data, err := io.ReadAll(zr)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	var f DayFile
 	if err := json.Unmarshal(data, &f); err != nil {
-		return nil, err
+		return nil, false, err
+	}
+	var probe struct {
+		Devices map[string]map[string]json.RawMessage `json:"devices"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return nil, false, err
+	}
+	hasPN := false
+	for _, dev := range probe.Devices {
+		if _, ok := dev["pn"]; ok {
+			hasPN = true
+			break
+		}
 	}
 	if f.V != dayFileVersion {
-		return nil, fmt.Errorf("version %d", f.V)
+		return nil, false, fmt.Errorf("version %d", f.V)
 	}
 	if f.Day != day {
-		return nil, fmt.Errorf("day %q, expected %q", f.Day, day)
+		return nil, false, fmt.Errorf("day %q, expected %q", f.Day, day)
 	}
-	return &f, nil
+	return &f, hasPN, nil
 }
 
 // writeFile schreibt die Datei ueber eine Temp-Datei und benennt sie um.
