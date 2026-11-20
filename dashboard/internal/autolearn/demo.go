@@ -37,6 +37,13 @@ const (
 	demoLongDay2 = 15
 	// demoCouplingLag ist die Verzögerung der Balkonsteckdose hinter dem Relais.
 	demoCouplingLag = 40.0 / 60.0
+	// demoAwayFrom und demoAwayTo sind die Tagesindizes der Abwesenheit, drei
+	// Tage ohne Handgriff (Freitag bis Sonntag).
+	demoAwayFrom = 7
+	demoAwayTo   = 9
+	// demoStandbyMinutes ist die Warmhaltezeit der Wärmepumpe an Abwesenheitstagen,
+	// zwanzig Minuten bei 1500 W, also 0,5 kWh.
+	demoStandbyMinutes = 20
 )
 
 // demoEntities ist die unique_id der Schalter je Gerät, wie sie die Registry hat.
@@ -142,6 +149,16 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 			b.emit(relay+demoCouplingLag, demoPlugBalkon, true, OriginHand, "")
 		}
 
+		// Abwesenheit: der Tag wird neu aufgebaut, ohne Handgriff und ohne Regel.
+		// Die Wärmepumpe hält nachts zwanzig Minuten warm, der Ursprung ist leer,
+		// damit weder Hand noch Regel gezählt werden. Die Zufallswerte oben bleiben
+		// gezogen, damit die übrigen Tage dieselben Bytes behalten.
+		if i >= demoAwayFrom && i <= demoAwayTo {
+			b.clear()
+			b.emit(0, demoHeatPump, true, "", "")
+			b.emit(demoStandbyMinutes, demoHeatPump, false, "", "")
+		}
+
 		b.fill(rng)
 		out = append(out, b.f)
 	}
@@ -175,6 +192,16 @@ func (b *demoBuilder) emit(minute float64, device string, on bool, origin Origin
 	b.f.Events = append(b.f.Events, EventRec{At: at.Unix(), Device: device, Entity: demoEntities[device],
 		On: on, Origin: string(origin), Rule: rule, House: 300})
 	b.changes[device] = append(b.changes[device], demoChange{minute: at.Hour()*60 + at.Minute(), on: on})
+}
+
+// clear verwirft Ereignisse, Regelaktionen und Zähler des Tages.
+func (b *demoBuilder) clear() {
+	b.f.Events = []EventRec{}
+	b.f.Actions = []ActionRec{}
+	b.changes = map[string][]demoChange{}
+	for id := range demoEntities {
+		b.f.Devices[id] = &DeviceDay{}
+	}
 }
 
 // action schreibt die Regelaktion zu einem Schaltvorgang der Regel demoRuleID.
