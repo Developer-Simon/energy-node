@@ -158,6 +158,61 @@ everything else counts as outside. The daily profiles hold these origins in
 [Recording](settings.md#recording). Nothing changes a rule by itself. Learned
 patterns only appear as suggestions.
 
+## Suggestions
+
+The band above the list shows suggestions that come from how your devices are
+used. Each one is a pattern that the node found in the daily profiles: a device
+you switch at about the same time each day, a run that often lasts far longer
+than usual, or a device that another device follows. The band only suggests.
+A rule changes only when you create or edit it yourself.
+
+The band needs **Learn patterns** to be on in the
+[learning settings](settings.md#learning-features). With it off, the band is
+hidden. With **Habits** off, the band stays empty.
+
+### Learning phase
+
+While the node is still learning, the band reads **Learning for N days from M
+devices** and shows no cards. A new installation needs at least 10 days before
+the first card can appear. Each kind of pattern needs its own minimum:
+
+| Pattern | Needs |
+|---|---|
+| Switching time | The device is switched by hand at about the same time on 10 days. |
+| Run time | 10 runs, two of them far longer than usual. |
+| Follows another device | 10 switchings of the first device, and the second device follows in most of them. |
+
+### Cards
+
+A card shows the kind of pattern, the device and a tag, **Sure** or **Estimate**.
+**Sure** means the pattern is clear. **Estimate** means it is likely, but the
+data is still thin. The card also shows the weeks it applies to, or **Applies
+all year**. Below the title, a graphic shows what happened and what the
+suggestion would change, together with the facts behind it.
+
+The numbers on a card stay the same until they change clearly, so the card does
+not jump around from one minute to the next. The band shows three suggestions.
+**+N** shows the rest, up to 20 in total. A suggestion is not shown when it would
+save very little, or when it would duplicate or contradict a rule you already
+have.
+
+### What you can do
+
+- **Open in assistant** opens the assistant with the matching template filled
+  in. Nothing is saved until you press **Create** on the summary page. The
+  button only appears when a template fits, see [Templates](automations-templates.md).
+- **Later** hides the suggestion for seven days.
+- **Do not suggest again** hides the suggestion for good.
+
+After **Later** or **Do not suggest again**, the band shows **Suggestion hidden**
+with an **Undo** button for six seconds. After that the suggestion stays hidden.
+
+### Rules stay yours
+
+The system never changes a rule by itself, not even when you accept a
+suggestion. Accepting only opens the assistant. The rule is added when you
+create it there, and it is saved with the rest of the document.
+
 ## Rule check
 
 The rule check reads all rules and reports findings where a rule cannot work as
@@ -167,7 +222,7 @@ save the document as usual.
 
 ### What is checked
 
-The check reports seven kinds of findings. Each one names the rules involved.
+The check reports eleven kinds of findings. Each one names the rules involved.
 
 | Finding | What it means | Based on |
 |---|---|---|
@@ -178,15 +233,50 @@ The check reports seven kinds of findings. Each one names the rules involved.
 | Device missing | The rule uses an entity that is no longer in the device registry. | Rules and registry |
 | Triggers very often | The rule fired at least 12 times within one hour of the last 24 hours. | Observed triggers |
 | Never triggers | An enabled rule did not fire for 14 days, although it has been known for 14 days and its value has been seen on 7 days. | Observed triggers and values |
+| Flapping | Two rules switch the same device back and forth faster than the device tolerates. | Rules and observed switching |
+| No effect | A rule sends its command, but the device does not change in several cases. | Rules and observed switching |
+| Often overridden | The device is switched back by hand or from outside soon after the rule switched it. | Rules and observed switching |
+| Runs while offline | The start of the rule's time window falls into the usual offline time of the device. | Rules and observed switching |
 
 A threshold that was reached in earlier months of the last year does not count
 as a fault. Such a rule gets the note **Resting for the season** instead, which
 is only information and has no fix.
 
-The two observed checks need data. A new installation has no history yet, so
-**Triggers very often** and **Never triggers** stay silent until enough
-triggers and values are recorded. The check lists at most 20 findings, the
-most severe first.
+The observed checks need data. A new installation has no history yet, so
+**Triggers very often**, **Never triggers** and the reliability checks stay
+silent until enough is recorded. The reliability checks need:
+
+- **Flapping**: three changes between the two rules, over at least one day.
+- **No effect**: three commands without effect.
+- **Often overridden**: five switches set back within the time limit.
+- **Runs while offline**: 14 days of data.
+
+The check lists at most 20 findings, the most severe first.
+
+### Fixes of the reliability findings
+
+The four reliability findings follow the **Reliability** switch in the
+[learning settings](settings.md#learning-features). With the switch off they do
+not appear.
+
+- **Flapping** offers **Set a minimum runtime**. It sets the hold time of the
+  first condition of the rule that switches the device off. The hold time is the
+  longer of the device's minimum runtime and three times the switching period.
+  The minimum runtime is 10 minutes for a heat pump, 3 minutes for a wallbox,
+  2 minutes for other switchable devices and none for lights.
+- **No effect** reads the cause from the failed commands. When the device could
+  not be reached at those times, or the failures bunch up at one time of day,
+  only **Open rule** is offered. When the failures are spread over the day,
+  **Merge as a repeat** sets a repeat every 60 seconds, so the command is sent
+  again while the rule's conditions hold.
+- **Often overridden** offers **Add a condition** when a time of day, a day
+  type, the house load or the surplus separates the switches that were set back
+  from the accepted ones. Otherwise it offers **Shift the time window**, which
+  moves the start of the window to the usual time of the switch back.
+- **Runs while offline** offers **Move before the outage**. It moves the start
+  of the time window 5 minutes before the usual offline time of the device.
+
+Each fix changes only the draft in the browser, as described above.
 
 ### The mark and the popover
 

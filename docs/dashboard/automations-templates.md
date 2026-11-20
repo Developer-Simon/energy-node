@@ -353,3 +353,74 @@ Needs a wallbox with a writable power. The price and the fixed window work as in
 
 - Run: a fixed window, or the price is below a threshold of 10, 15 or 20 ct/kWh
 - Plugged-in vehicle: required, if the option is on
+
+## Switch at a set time
+
+Switches a device on or off at a set clock time, on chosen days if you like. It is the template that the suggestion for a regular switching time opens.
+
+### Category
+
+Time
+
+### Creates
+
+Rule
+
+### Phases
+
+When the set time arrives, on the chosen days. Then: the device switches on or off. The rule has no end, so it runs again on the next matching day.
+
+### Options
+
+- Time: a clock time. The rule acts during the five minutes after it. Default 07:00.
+- Days: chosen weekdays, optional
+- Action: switch on or switch off
+
+## Limit the runtime
+
+Switches a device off again once it has been on for a chosen time. It is the template that the suggestion for a usual run time opens.
+
+### Category
+
+Switching
+
+### Creates
+
+Rule
+
+### Phases
+
+When the device has been on for the chosen time. Then: the device switches off.
+
+### Requirements
+
+Needs a switch that reports its state. Only such switches can be chosen.
+
+### Options
+
+- Runtime: 10 to 600 minutes in steps of 5, default 60
+
+## Switch follows another switch
+
+Switches a device along as soon as another switch changes to the chosen state. It is the template that the suggestion for devices that are switched together opens.
+
+### Category
+
+Switching
+
+### Creates
+
+Rule
+
+### Phases
+
+When the source switch stays in the chosen state for a moment. Then: the target switch goes on or off.
+
+### Requirements
+
+Needs a source switch that reports its state, and a target switch that you can command.
+
+### Options
+
+- Source state: switches on, or switches off
+- Target action: switch on, or switch off
