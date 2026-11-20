@@ -3291,6 +3291,14 @@ test('findingText builds the title and text keys from summary.code', () => {
   assert.equal(text.text, 'automations.learn.check.seasonal_rest.text|Heizstab');
 });
 
+test('findingText shows the share of a reliability finding as a percentage', () => {
+  const { component, window } = createAutomationsPanel();
+  window.I18n.t = (key, params) => `${key}|${params ? params.share : ''}`;
+  const finding = { ...sampleFinding, kind: 'no_effect',
+    summary: { code: 'check.no_effect', params: { rule: 'R', device: 'D', failures: 9, share: 0.38 } } };
+  assert.equal(component.findingText(finding).text, 'automations.learn.check.no_effect.text|38');
+});
+
 test('applyFix writes only the draft, starts editing and never posts to the rules endpoint', () => {
   const { component, window } = createAutomationsPanel();
   component.document = { version: 1, settings: {}, rules: [

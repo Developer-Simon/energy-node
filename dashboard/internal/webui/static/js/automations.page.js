@@ -2083,7 +2083,9 @@
     },
     findingText(finding) {
       const code = (finding.summary && finding.summary.code) || '';
-      const params = (finding.summary && finding.summary.params) || {};
+      const params = { ...((finding.summary && finding.summary.params) || {}) };
+      // Der Dienst liefert den Anteil als Bruchteil, die Texte nennen Prozent.
+      if (typeof params.share === 'number') params.share = Math.round(params.share * 100);
       return {
         title: t(`automations.learn.${code}.title`, params),
         text: t(`automations.learn.${code}.text`, params),

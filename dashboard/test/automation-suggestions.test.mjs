@@ -36,6 +36,8 @@ const GROUPS = ['habit', 'check', 'reliability'];
 function requiredKeys() {
   const keys = [];
   SUMMARY_CODES.forEach((code) => keys.push(`automations.learn.${code}.title`, `automations.learn.${code}.line`));
+  // Die Regelmarke zeigt den Befund mit .text, deshalb braucht jede Zuverlässigkeitsprüfung auch diesen Text.
+  SUMMARY_CODES.filter((code) => code.startsWith('check.')).forEach((code) => keys.push(`automations.learn.${code}.text`));
   LEGEND_SHAPES.forEach((shape) => keys.push(`automations.learn.legend.${shape}`));
   FACT_CODES.forEach((code) => keys.push(`automations.learn.fact.${code}`));
   CAUSE_VALUES.forEach((value) => keys.push(`automations.learn.fact.cause.${value}`));
