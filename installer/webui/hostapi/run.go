@@ -189,7 +189,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch req.Mode {
-	case ModeInstall, ModeRedeploy, ModeRepair, ModePrepare:
+	case ModeInstall, ModeRedeploy, ModeRepair, ModePrepare, ModeApplySelection:
 	default:
 		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "unbekannter mode: "+string(req.Mode))
 		return

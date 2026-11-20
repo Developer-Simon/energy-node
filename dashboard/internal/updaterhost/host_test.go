@@ -630,3 +630,12 @@ func TestHotspotWithAMalformedFileIsAnErrorWithoutItsContent(t *testing.T) {
 		t.Fatalf("error leaks file content: %v", err)
 	}
 }
+
+func TestRunRefusesApplySelection(t *testing.T) {
+	host, _ := updaterhost.New(setupNode(t))
+	err := host.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModeApplySelection}, &recordingSink{})
+	var typed *hostapi.Error
+	if !asHostapiError(err, &typed) || typed.Code != "NOT_SUPPORTED" {
+		t.Fatalf("err = %v, want NOT_SUPPORTED", err)
+	}
+}

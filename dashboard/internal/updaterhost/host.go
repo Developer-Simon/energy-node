@@ -378,6 +378,9 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 	if req.Mode == hostapi.ModePrepare {
 		return h.runPrepare(ctx, sink)
 	}
+	if req.Mode == hostapi.ModeApplySelection {
+		return &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
+	}
 
 	candidate, err := h.loadCandidateManifest()
 	if err != nil {

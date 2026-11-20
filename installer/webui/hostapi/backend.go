@@ -218,6 +218,9 @@ type PlanView struct {
 	BundleVersion string                    `json:"bundle_version"`
 	Steps         []PlanStep                `json:"steps"`
 	Components    map[string]ComponentDelta `json:"components"`
+	// ApplySteps sind die Schritte, die ein Lauf im Modus apply-selection
+	// fuehren wuerde. Leer, wenn der Modus hier nicht gilt.
+	ApplySteps []string `json:"apply_steps,omitempty"`
 }
 
 // SystemUpdates sind die ausstehenden Systempakete, simuliert auf den
@@ -245,6 +248,9 @@ const (
 	ModeInstall  RunMode = "install"
 	ModeRedeploy RunMode = "redeploy"
 	ModeRepair   RunMode = "repair"
+	// ModeApplySelection faehrt nur die Schritte, die sich zur gemerkten
+	// Auswahl geaendert haben.
+	ModeApplySelection RunMode = "apply-selection"
 )
 
 // RunRequest ist der Rumpf von POST /api/run.

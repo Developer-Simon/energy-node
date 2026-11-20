@@ -502,3 +502,14 @@ func TestHelloNamesTheBusSoAPageNoticesARestart(t *testing.T) {
 		t.Fatalf("bus id changed within one server: %q -> %q", a, again)
 	}
 }
+
+func TestRunAcceptsApplySelection(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	connectFirst(t, server)
+	startRun(t, server, `{"mode":"apply-selection"}`)
+	waitForRunToFinish(t, server)
+
+	if fake.LastRun.Mode != hostapi.ModeApplySelection {
+		t.Errorf("the backend got mode %q, want apply-selection", fake.LastRun.Mode)
+	}
+}
