@@ -74,7 +74,7 @@
         <button class="auto-undo-button" type="button" x-on:click="undoInsert()">{{t "automations.undo.button"}}</button>
       </div>
 
-      <section class="auto-learn-band" aria-labelledby="auto-learn-band-title"
+      <section class="auto-learn-band" data-tour="auto-learn-band" aria-labelledby="auto-learn-band-title"
                x-data="autoLearnBand()" x-init="load()" x-effect="canEdit = canEditAutomations; csrf = csrfToken"
                x-show="shown" x-cloak>
         <div class="auto-learn-band-head">
@@ -88,8 +88,8 @@
         </p>
 
         <div class="auto-learn-tiles" x-show="count > 0" x-bind:class="{ 'is-all': all }">
-          <template x-for="s in visible" x-bind:key="s.id">
-            <button class="auto-learn-tile" type="button" x-on:click="toggle(s.id)"
+          <template x-for="(s, i) in visible" x-bind:key="s.id">
+            <button class="auto-learn-tile" type="button" x-on:click="toggle(s.id)" x-bind:data-tour="i === 0 ? 'auto-learn-tile' : null"
                     x-bind:aria-expanded="open === s.id ? 'true' : 'false'" aria-controls="auto-learn-detail">
               <span class="auto-learn-group" x-bind:class="'is-' + s.group" x-text="groupLabel(s, $t)"></span>
               <b class="auto-learn-tile-title" x-text="titleOf(s, $t)"></b>
@@ -104,7 +104,7 @@
         <div id="auto-learn-detail" class="auto-learn-detail" x-bind:class="{ 'is-open': current }" role="region">
           <div class="auto-learn-detail-clip">
             <template x-if="current">
-              <article class="auto-learn-card">
+              <article class="auto-learn-card" data-tour="auto-learn-card">
                 <div class="auto-learn-card-tags">
                   <span class="auto-learn-group" x-bind:class="'is-' + current.group" x-text="groupLabel(current, $t)"></span>
                   <span class="auto-learn-card-device" x-text="current.device"></span>
