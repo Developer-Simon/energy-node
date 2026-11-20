@@ -14,9 +14,14 @@ const source = fs.readFileSync(path.join(jsDir, 'automation-learned.js'), 'utf8'
 const vectors = JSON.parse(fs.readFileSync(
   path.join(here, '..', '..', 'services', 'automation', 'tests', 'learned_vectors.json'), 'utf8'));
 
+const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
+
 function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
-  vm.runInContext(source, dom.getInternalVMContext());
+  const context = dom.getInternalVMContext();
+  vm.runInContext(source, context);
+  // origin formats the age with the view's formatSeconds, so the view loads into the same window.
+  vm.runInContext(viewSource, context);
   return dom.window.AutomationLearned;
 }
 
@@ -126,4 +131,64 @@ test('keyLabel uses the site keys without a device', () => {
 
 test('keyLabel uses the unknown text for other names', () => {
   assert.equal(L.keyLabel('device/pump_1/other', [], t), 'automations.learned.key.unknown {"key":"device/pump_1/other"}');
+});
+
+const NOW = 1794000000;
+const DAY_S = 86400;
+
+test('origin fallback names the fallback without an entry', () => {
+  assert.equal(L.origin('fallback', null, NOW, t), 'automations.learned.origin.fallback');
+});
+
+test('origin learned from days names n, age and the previous value', () => {
+  const entry = { key: 'device/wp/usual_on', kind: 'time', value: '07:05', n: 9, at: NOW, changed_at: NOW - 3 * DAY_S, prev: '06:50' };
+  assert.equal(L.origin('learned', entry, NOW, t), 'automations.learned.origin.days {"n":9,"age":"3 d","prev":"06:50"}');
+});
+
+test('origin learned from runs without a previous value uses the runs_new key', () => {
+  const entry = { key: 'device/x/usual_runtime_s', kind: 'duration', value: 2700, n: 4, at: NOW, changed_at: NOW - 7200 };
+  assert.equal(L.origin('learned', entry, NOW, t), 'automations.learned.origin.runs_new {"n":4,"age":"2 h"}');
+});
+
+test('origin learned from runs with a previous value shows minutes', () => {
+  const entry = { key: 'device/x/usual_runtime_s', kind: 'duration', value: 2700, n: 4, at: NOW, changed_at: NOW - 7200, prev: 1800 };
+  assert.equal(L.origin('learned', entry, NOW, t), 'automations.learned.origin.runs {"n":4,"age":"2 h","prev":"30 min"}');
+});
+
+test('origin clamped shows the learned value', () => {
+  const entry = { key: 'device/x/usual_runtime_s', kind: 'duration', value: 2700, n: 4, at: NOW, changed_at: NOW - 60 };
+  assert.equal(L.origin('clamped', entry, NOW, t), 'automations.learned.origin.clamped {"value":"45 min"}');
+});
+
+test('origin learned without an entry has no line', () => {
+  assert.equal(L.origin('learned', null, NOW, t), '');
+});
+
+test('scale of a time across midnight gives two segments and the marker on the day', () => {
+  const shape = L.scale('time', '23:00', '01:00', '23:30');
+  assert.equal(shape.segments.length, 2);
+  assert.ok(Math.abs(shape.segments[0].from - 1380 / 1440) < 1e-9);
+  assert.equal(shape.segments[0].to, 1);
+  assert.equal(shape.segments[1].from, 0);
+  assert.ok(Math.abs(shape.segments[1].to - 60 / 1440) < 1e-9);
+  assert.ok(Math.abs(shape.marker - 1410 / 1440) < 1e-9);
+});
+
+test('scale of a time inside the day gives one segment', () => {
+  const shape = L.scale('time', '06:00', '10:00', '08:00');
+  assert.equal(shape.segments.length, 1);
+  assert.equal(shape.segments[0].from, 360 / 1440);
+  assert.equal(shape.segments[0].to, 600 / 1440);
+  assert.ok(Math.abs(shape.marker - 480 / 1440) < 1e-9);
+});
+
+test('scale of a number clamps the marker to the bounds', () => {
+  assert.deepEqual(L.scale('number', 20, 80, 90), { segments: [{ from: 0, to: 1 }], marker: 1 });
+  assert.deepEqual(L.scale('number', 20, 80, 50), { segments: [{ from: 0, to: 1 }], marker: 0.5 });
+});
+
+test('scale of a duration and of a state', () => {
+  assert.ok(Math.abs(L.scale('duration', 900, 3600, 1800).marker - 0.3333333) < 1e-6);
+  assert.equal(L.scale('state', null, null, 'quiet'), null);
+  assert.equal(L.scale('time', 'x', '01:00', '08:00'), null);
 });

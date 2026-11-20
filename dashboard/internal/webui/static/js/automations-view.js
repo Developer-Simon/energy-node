@@ -339,7 +339,84 @@
     return { summary, detail: '' };
   }
 
-  function describeCondition(condition, entity, categories, chains) {
+  // Lernwert eines Feldes mit Wert und Herkunft. Der aktuelle Wert kommt aus dem Bericht der Regel
+  // (target bei Schwelle und Wert, value bei learned_state), sonst aus dem Endpunkt. Ohne Bezugsangabe null.
+  // learned_state traegt seine Bezugsangabe flach am Typ, daher wird sie hier zur Angabe geformt.
+  function learnedValue(condition, field, learned) {
+    const AL = window.AutomationLearned;
+    const cond = condition || {};
+    const ref = cond.type === 'learned_state' && field === 'learned'
+      ? { learned: cond.learned, fallback: cond.fallback, max_age_s: cond.max_age_s }
+      : cond[field];
+    if (!AL || !AL.isRef(ref)) return null;
+    const kind = AL.kindOf(cond.type, field);
+    if (!kind) return null;
+    const context = learned || {};
+    const values = Array.isArray(context.values) ? context.values : [];
+    const entry = values.find((item) => item && item.key === ref.learned) || null;
+    const nowS = isNumber(context.now) ? context.now : Date.now() / 1000;
+    const payload = entry ? JSON.stringify({ value: entry.value, at: entry.at }) : null;
+    const resolved = AL.resolve(ref, kind, payload, nowS);
+    const report = context.report || null;
+    let value = resolved.value;
+    let source = resolved.source;
+    if (report) {
+      const reported = kind === 'state' ? report.value : (field === 'threshold' || field === 'value') ? report.target : undefined;
+      if (reported !== undefined && reported !== null) {
+        value = reported;
+        source = (report.learned && report.learned[field]) || source;
+      }
+    }
+    return { ref, kind, value, source, entry, nowS };
+  }
+
+  // Wert fuer die Zusammenfassung: der aufgeloeste Lernwert, sonst das Feld selbst.
+  function shownValue(condition, field, learned) {
+    const lv = learnedValue(condition, field, learned);
+    return lv ? lv.value : condition[field];
+  }
+
+  // Wert eines Lernwerts als Text wie im Feld: Zustand als Wort, Laufzeit als Dauer, Zahl mit Einheit.
+  // i18n-keys: automations.learned.state.active, automations.learned.state.quiet
+  function formatLearned(value, kind, unit) {
+    if (kind === 'state') return t(value === 'active' ? 'automations.learned.state.active' : 'automations.learned.state.quiet');
+    if (kind === 'duration') return formatSeconds(value);
+    if (kind === 'number') return unit ? `${value} ${unit}` : String(value);
+    return String(value);
+  }
+
+  // i18n-keys: automations.learned.chip.label, automations.learned.scale.label
+  // Chip, Skala und Herkunftszeile eines Lernwerts fuer die Regelkarte. Null ohne Bezugsangabe.
+  function learnedDescriptor(condition, field, learned, unit) {
+    const lv = learnedValue(condition, field, learned);
+    if (!lv) return null;
+    const AL = window.AutomationLearned;
+    const name = AL.keyLabel(lv.ref.learned, learned && learned.devices, t);
+    const text = formatLearned(lv.value, lv.kind, unit);
+    const shape = AL.scale(lv.kind, lv.ref.min, lv.ref.max, lv.value);
+    let scaleView = null;
+    if (shape && lv.kind !== 'state') {
+      const min = formatLearned(lv.ref.min, lv.kind, unit);
+      const max = formatLearned(lv.ref.max, lv.kind, unit);
+      scaleView = { ...shape, min, max, label: t('automations.learned.scale.label', { min, max, value: text }) };
+    }
+    return {
+      field, name, text,
+      label: t('automations.learned.chip.label', { name, value: text }),
+      scale: scaleView,
+      origin: AL.origin(lv.source, lv.entry, lv.nowS, t),
+    };
+  }
+
+  // Alle Bezugsangaben einer Bedingung. Die Zusammenfassung nennt die aufgeloesten Werte, die Karte den Chip darunter.
+  function describeCondition(condition, entity, categories, chains, learned) {
+    const card = describeCard(condition, entity, categories, chains, learned);
+    const fields = ['threshold', 'value', 'start', 'end', 'learned', 'hold_seconds'];
+    const list = fields.map((field) => learnedDescriptor(condition, field, learned, card.unit || '')).filter(Boolean);
+    return { ...card, learned: list };
+  }
+
+  function describeCard(condition, entity, categories, chains, learned) {
     const type = condition && condition.type;
     if (type === 'chain_finding' || type === 'chain_value') {
       // Fehlt die Kette, bleibt die Bedingung gespeichert und wird unveraendert
@@ -357,7 +434,7 @@
       const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
       const summaryKey = condition.hysteresis ? 'automations.summary.balance_hysteresis' : 'automations.summary.balance';
       return { icon: info.icon, title: labelText, unit: info.unit,
-               summary: t(summaryKey, { comparison, threshold: condition.threshold, unit: info.unit, hysteresis: condition.hysteresis }) };
+               summary: t(summaryKey, { comparison, threshold: shownValue(condition, 'threshold', learned), unit: info.unit, hysteresis: condition.hysteresis }) };
     }
     if (type === 'entity_value') {
       // Fehlt die Entitaet - noch nicht geladen, oder aus dem Register
@@ -365,7 +442,7 @@
       // laeuft in dem Fall unveraendert weiter, nur die Karte ist karger.
       const unit = (entity && entity.unit_of_measurement) || '';
       const icon = (entity && DEVICE_CLASS_ICONS[entity.device_class]) || 'ico-topic';
-      const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
+      const expected = condition.text !== undefined && condition.text !== '' ? condition.text : shownValue(condition, 'value', learned);
       const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
       const name = (entity && entity.name) || condition.topic || t('automations.entity_value');
       if (condition.comparison === 'stale') return { icon, title: name, unit, summary: describeStale(name, condition) };
@@ -374,7 +451,7 @@
                summary: t(summaryKey, { comparison, expected, unit }) };
     }
     if (type === 'topic_value') {
-      const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
+      const expected = condition.text !== undefined && condition.text !== '' ? condition.text : shownValue(condition, 'value', learned);
       const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
       const name = condition.topic || t('automations.topic_value');
       if (condition.comparison === 'stale') return { icon: 'ico-topic', title: name, unit: '', summary: describeStale(name, condition) };
@@ -383,7 +460,7 @@
     }
     if (type === 'time_window') {
       return { icon: 'ico-clock', title: t('automations.time_window'), unit: '',
-               summary: `${condition.start} – ${condition.end}${weekdaySuffix(condition)}` };
+               summary: `${shownValue(condition, 'start', learned)} – ${shownValue(condition, 'end', learned)}${weekdaySuffix(condition)}` };
     }
     if (type === 'sun_window') {
       const from = formatSunPoint(condition.from, condition.from_offset_min);
@@ -429,7 +506,7 @@
 
   window.__automationsView = {
     conditionState, meterScale, meterFraction, gateVerdict, isPercentCondition,
-    describeCondition, describeAction, formatSeconds, canTest, formatWeekdays, formatMonthDays,
+    describeCondition, shownValue, describeAction, formatSeconds, canTest, formatWeekdays, formatMonthDays,
     historyResultInfo, historyActionParts, historyEventParts,
     BALANCE_FIELD_INFO, GATE_VERDICTS, CONDITION_TYPES, ACTION_TYPES, FIELD_HELP,
     WEEKDAY_LABELS, SUN_EVENT_LABELS,

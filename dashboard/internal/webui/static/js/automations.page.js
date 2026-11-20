@@ -706,8 +706,13 @@
       return 'automations.rule.cond_state.open';
     },
 
-    describeCondition(condition) {
-      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories, this.chains);
+    // Lernwerte der Regel: der Bericht der Bedingung liefert den aktuellen Wert, sonst der Endpunkt.
+    learnedContext(report = null) {
+      return { report, values: this.learned.values, devices: this.devices };
+    },
+
+    describeCondition(condition, report = null) {
+      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories, this.chains, this.learnedContext(report));
     },
 
     describeAction(action) {
@@ -1172,10 +1177,13 @@
     // Minidiagramm der Regel: die Schwelle als Linie, ohne Toleranzband.
     ruleSparkFor(rule) {
       const condition = this.ruleSparkCondition(rule) || {};
+      const index = (rule.conditions || []).indexOf(condition);
+      const report = index < 0 ? null : this.conditionReport(rule, index);
+      const threshold = window.__automationsView.shownValue(condition, 'threshold', this.learnedContext(report));
       const bounds = window.__automationChart.rangeBounds('30m', this.nowTick);
       return window.__automationChart.sparkline({
         points: this.ruleSparkPoints[rule.id] || [],
-        target: isNumber(condition.threshold) ? condition.threshold : 0,
+        target: isNumber(threshold) ? threshold : 0,
         deadband: 0,
         from: bounds.from,
         to: bounds.to,
@@ -2850,11 +2858,11 @@
     // Balken einer Bedingung. Das Band liegt zwischen Schwelle und
     // Schwelle -/+ Hysterese: bei "above" darunter, bei "below" darueber.
     liveBarOf(condition, report, fallback = null) {
-      const threshold = condition.type === 'entity_value' ? condition.value : condition.threshold;
+      const view = window.__automationsView;
+      const threshold = view.shownValue(condition, condition.type === 'entity_value' ? 'value' : 'threshold', this.learnedContext(report));
       const reported = report && isNumber(report.value) ? report.value : null;
       const value = reported !== null ? reported : (isNumber(fallback) ? fallback : null);
       const target = report && isNumber(report.target) ? report.target : threshold;
-      const view = window.__automationsView;
       const scale = view.meterScale(condition, { value, target }, this.entityForCondition(condition));
       const hysteresis = isNumber(condition.hysteresis) ? condition.hysteresis : 0;
       let band = null;

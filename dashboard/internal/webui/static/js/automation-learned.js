@@ -164,5 +164,57 @@
     return errors;
   }
 
-  window.AutomationLearned = { isRef, kindOf, resolve, prefill, choices, keyLabel, validate };
+
+  // Herkunftszeile der Bezugsangabe. entry ist der Eintrag des Endpunkts (kind, value, n, at, changed_at, prev), now in Sekunden.
+  // Ohne Eintrag bleibt nur der Ersatzwert sagbar, sonst gibt es keine Zeile.
+  // i18n-keys: automations.learned.origin.days, automations.learned.origin.days_new, automations.learned.origin.runs, automations.learned.origin.runs_new, automations.learned.origin.clamped, automations.learned.origin.fallback, automations.learned.state.active, automations.learned.state.quiet
+  const ORIGIN_KEYS = {
+    days: 'automations.learned.origin.days', days_new: 'automations.learned.origin.days_new',
+    runs: 'automations.learned.origin.runs', runs_new: 'automations.learned.origin.runs_new',
+    clamped: 'automations.learned.origin.clamped', fallback: 'automations.learned.origin.fallback',
+  };
+
+  // Wert wie im Feld: Uhrzeit als HH:MM, Laufzeit in Minuten, Zustand als Wort, sonst die Zahl.
+  function originValue(value, kind, t) {
+    if (kind === 'state') return t(value === 'active' ? 'automations.learned.state.active' : 'automations.learned.state.quiet');
+    if (kind === 'time') return String(value);
+    if (kind === 'duration' && isNumber(value)) return `${Math.round(value / 60)} min`;
+    return String(value);
+  }
+
+  function origin(sourceCode, entry, now, t) {
+    if (sourceCode === 'fallback') return t(ORIGIN_KEYS.fallback);
+    if (!entry || typeof entry !== 'object') return '';
+    if (sourceCode === 'clamped') return t(ORIGIN_KEYS.clamped, { value: originValue(entry.value, entry.kind, t) });
+    if (sourceCode !== 'learned') return '';
+    const runs = entry.kind === 'duration';
+    const isNew = entry.prev === undefined || entry.prev === null;
+    const since = isNumber(entry.changed_at) && entry.changed_at > 0 ? entry.changed_at : entry.at;
+    const params = { n: entry.n, age: window.__automationsView.formatSeconds(now - since) };
+    if (!isNew) params.prev = originValue(entry.prev, entry.kind, t);
+    const base = runs ? 'runs' : 'days';
+    return t(ORIGIN_KEYS[isNew ? base + '_new' : base], params);
+  }
+
+  // Skala einer Bezugsangabe: Abschnitte auf 0 bis 1 und die Marke am Wert. Uhrzeiten sind ein Tag,
+  // ueber Mitternacht (min nach max) entstehen zwei Abschnitte. Null bei Zustand oder ungueltigen Grenzen.
+  function scale(kind, min, max, value) {
+    if (kind === 'time') {
+      const low = clockMinutes(min);
+      const high = clockMinutes(max);
+      if (low === null || high === null) return null;
+      const segments = low <= high
+        ? [{ from: low / DAY, to: high / DAY }]
+        : [{ from: low / DAY, to: 1 }, { from: 0, to: high / DAY }];
+      const now = clockMinutes(value);
+      return { segments, marker: now === null ? null : now / DAY };
+    }
+    if (kind !== 'number' && kind !== 'duration') return null;
+    if (!isNumber(min) || !isNumber(max)) return null;
+    const span = max - min;
+    const marker = isNumber(value) && span !== 0 ? Math.min(1, Math.max(0, (value - min) / span)) : null;
+    return { segments: [{ from: 0, to: 1 }], marker };
+  }
+
+  window.AutomationLearned = { isRef, kindOf, resolve, prefill, choices, keyLabel, validate, origin, scale };
 })();

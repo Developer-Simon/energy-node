@@ -17,6 +17,7 @@ function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   installI18n(dom.window);
   const context = dom.getInternalVMContext();
+  vm.runInContext(fs.readFileSync(path.join(jsDir, 'automation-learned.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8'), context);
   return dom.window.__automationsView;
 }
@@ -95,4 +96,96 @@ test('describeCondition chain_value with a missing chain shows the placeholder t
   ));
   assert.equal(card.title, 'Messkette fehlt');
   assert.match(card.summary, /Verlust/);
+});
+
+const NOW = 1794000000;
+const learnedValues = [
+  { key: 'site/power_avg', kind: 'number', value: 40, n: 3, at: NOW - 60, changed_at: NOW - 7200, prev: 35 },
+  { key: 'site/house_state', kind: 'state', value: 'quiet', n: 9, at: NOW - 60, changed_at: NOW - 3 * 86400, prev: 'active' },
+  { key: 'device/wp/usual_on', kind: 'time', value: '23:30', n: 5, at: NOW - 60, changed_at: NOW - 86400 },
+  { key: 'device/x/usual_runtime_s', kind: 'duration', value: 1200, n: 4, at: NOW - 60, changed_at: NOW - 7200 },
+];
+const learnedCtx = (extra) => ({ values: learnedValues, now: NOW, ...extra });
+const powerThreshold = { learned: 'site/power_avg', min: 20, max: 80, fallback: 50 };
+const gridCondition = { type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: powerThreshold, hysteresis: 0, hold_seconds: 0 };
+const FALLBACK_ORIGIN = 'Ersatzwert, weil noch nichts gelernt ist oder der Wert zu alt ist';
+
+test('describeCondition with a learned threshold names the learned value and never prints [object Object]', () => {
+  const view = load();
+  const card = view.describeCondition(gridCondition, null, null, null, learnedCtx());
+  assert.doesNotMatch(card.summary, /\[object Object\]/);
+  assert.match(card.summary, /40 W/);
+  assert.equal(card.learned.length, 1);
+  const [chip] = card.learned;
+  assert.equal(chip.field, 'threshold');
+  assert.match(chip.name, /site\/power_avg/);
+  assert.equal(chip.text, '40 W');
+  assert.match(chip.label, /site\/power_avg, aktuell 40 W/);
+  assert.equal(chip.scale.min, '20 W');
+  assert.equal(chip.scale.max, '80 W');
+  assert.ok(Math.abs(chip.scale.marker - 1 / 3) < 0.001);
+  assert.match(chip.origin, /Gelernt aus/);
+});
+
+test('describeCondition uses the report target and source for the learned threshold', () => {
+  const view = load();
+  const report = { value: 12, target: 50, raw_met: false, met: false, learned: { threshold: 'fallback' } };
+  const card = view.describeCondition(gridCondition, null, null, null, learnedCtx({ report }));
+  assert.match(card.summary, /50 W/);
+  assert.equal(card.learned[0].text, '50 W');
+  assert.equal(card.learned[0].origin, FALLBACK_ORIGIN);
+});
+
+test('describeCondition without an endpoint entry or report falls back to the ref fallback', () => {
+  const view = load();
+  const card = view.describeCondition(gridCondition, null, null, null, { values: [], now: NOW });
+  assert.match(card.summary, /50 W/);
+  assert.equal(card.learned[0].text, '50 W');
+  assert.equal(card.learned[0].origin, FALLBACK_ORIGIN);
+});
+
+test('describeCondition clamped report names the learned value in the origin line', () => {
+  const view = load();
+  const report = { value: 12, target: 80, raw_met: false, met: false, learned: { threshold: 'clamped' } };
+  const entry = { key: 'site/power_avg', kind: 'number', value: 95, n: 3, at: NOW - 60, changed_at: NOW - 60 };
+  const card = view.describeCondition(gridCondition, null, null, null, { values: [entry], now: NOW, report });
+  assert.match(card.learned[0].origin, /Auf die Grenze gesetzt, gelernt sind 95/);
+});
+
+test('describeCondition learned_state names the house state and its origin', () => {
+  const view = load();
+  const condition = { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 0 };
+  const card = view.describeCondition(condition, null, null, null, learnedCtx());
+  assert.equal(card.learned.length, 1);
+  const [chip] = card.learned;
+  assert.equal(chip.name, 'Hauszustand');
+  assert.equal(chip.text, 'Haus ist ruhig');
+  assert.equal(chip.scale, null);
+  assert.equal(chip.origin, 'Gelernt aus 9 Tagen, zuletzt geändert vor 3 d (vorher Haus ist aktiv)');
+});
+
+test('describeCondition time window with a learned start across midnight has two scale segments', () => {
+  const view = load();
+  const start = { learned: 'device/wp/usual_on', min: '23:00', max: '01:00', fallback: '23:30' };
+  const card = view.describeCondition({ type: 'time_window', start, end: '06:00', weekdays: [] }, null, null, null, learnedCtx());
+  assert.equal(card.summary, '23:30 – 06:00');
+  assert.equal(card.learned.length, 1);
+  assert.equal(card.learned[0].scale.segments.length, 2);
+  assert.equal(card.learned[0].text, '23:30');
+});
+
+test('describeCondition hold_seconds learned value shows a duration', () => {
+  const view = load();
+  const condition = { ...gridCondition, threshold: 50, hold_seconds: { learned: 'device/x/usual_runtime_s', min: 600, max: 3600, fallback: 1800 } };
+  const card = view.describeCondition(condition, null, null, null, learnedCtx());
+  assert.equal(card.learned.length, 1);
+  assert.equal(card.learned[0].field, 'hold_seconds');
+  assert.equal(card.learned[0].text, '20 min');
+});
+
+test('describeCondition with a fixed threshold has no learned descriptors', () => {
+  const view = load();
+  const card = view.describeCondition({ ...gridCondition, threshold: 300 }, null, null, null, learnedCtx());
+  assert.equal(card.learned.length, 0);
+  assert.match(card.summary, /300 W/);
 });
