@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -57,14 +58,15 @@ func (r *engineRunner) Run(ctx context.Context) {
 }
 
 // learnDevices baut die Geraete, die die Erkenner sehen. Der Dienst der
-// Automationen selbst fehlt, wie im Hub.
-func learnDevices(devices []registry.DeviceView) map[string]autolearn.DeviceInfo {
+// Automationen selbst fehlt, wie im Hub. Die Energierolle kommt aus dem
+// Resolver, also aus den Zuordnungen und der Heuristik der Energieansicht.
+func learnDevices(devices []registry.DeviceView, resolver *energy.Resolver) map[string]autolearn.DeviceInfo {
 	out := make(map[string]autolearn.DeviceInfo, len(devices))
 	for _, dev := range devices {
 		if dev.ID == energydiscovery.DeviceIdentifier {
 			continue
 		}
-		info := autolearn.DeviceInfo{ID: dev.ID, Name: dev.Name}
+		info := autolearn.DeviceInfo{ID: dev.ID, Name: dev.Name, Role: deviceRole(resolver, dev.Entities)}
 		for _, e := range dev.Entities {
 			info.Entities = append(info.Entities, e.UniqueID)
 			if e.Component == "light" {
@@ -78,4 +80,27 @@ func learnDevices(devices []registry.DeviceView) map[string]autolearn.DeviceInfo
 		out[dev.ID] = info
 	}
 	return out
+}
+
+// deviceRole returns the energy role of a device from its entities. A wallbox
+// or heat pump role of any entity wins, otherwise the first role that is not
+// the switch role. Without a resolver or a role the result is empty.
+func deviceRole(resolver *energy.Resolver, entities []registry.EntityView) energy.Role {
+	if resolver == nil {
+		return ""
+	}
+	var role energy.Role
+	for _, e := range entities {
+		resolved, ok := resolver.Resolve(e)
+		if !ok || resolved.Role == "" || resolved.Role == energy.RoleSwitch {
+			continue
+		}
+		if resolved.Role == energy.RoleWallbox || resolved.Role == energy.RoleHeatPump {
+			return resolved.Role
+		}
+		if role == "" {
+			role = resolved.Role
+		}
+	}
+	return role
 }

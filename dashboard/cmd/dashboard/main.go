@@ -488,7 +488,7 @@ func main() {
 	// das mit getrennten Schaltern fuer Gewohnheiten und Zuverlaessigkeit.
 	automationEngine := autolearn.NewEngine(dayStore, reactions,
 		func() ([]byte, error) { return configManager.Read("automation_rules") },
-		func() map[string]autolearn.DeviceInfo { return learnDevices(reg.Snapshot()) },
+		func() map[string]autolearn.DeviceInfo { return learnDevices(reg.Snapshot(), energyResolver) },
 		learnLimits, time.Local)
 	engineGroups := func() map[string]bool {
 		on := true
