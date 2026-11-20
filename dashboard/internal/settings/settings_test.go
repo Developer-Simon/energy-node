@@ -3204,3 +3204,41 @@ func TestSchemaKenntDieChainSchalter(t *testing.T) {
 		}
 	}
 }
+
+func TestLearningProfileDaysZeroNormalizesToDefault(t *testing.T) {
+	if got := normalizeSettings(Settings{}).LearningProfileDays; got != 56 {
+		t.Fatalf("learning_profile_days after normalize = %d, want 56", got)
+	}
+}
+
+func TestLearningProfileDaysOutOfRangeIsRejected(t *testing.T) {
+	for _, days := range []int{13, 366} {
+		value := Default()
+		value.LearningProfileDays = days
+		if err := validateSettings(value); err == nil {
+			t.Fatalf("learning_profile_days %d accepted, want rejection", days)
+		}
+	}
+}
+
+func TestLearningLevelInvalidIsRejected(t *testing.T) {
+	value := Default()
+	value.LearningLevel = "turbo"
+	if err := validateSettings(value); err == nil {
+		t.Fatal("learning_level turbo accepted, want rejection")
+	}
+}
+
+func TestLearningAcknowledgedDropsDuplicatesAndKeepsUnknown(t *testing.T) {
+	got := normalizeSettings(Settings{LearningAcknowledged: []string{"auto_patterns", "future_x", "auto_patterns"}}).LearningAcknowledged
+	if !reflect.DeepEqual(got, []string{"auto_patterns", "future_x"}) {
+		t.Fatalf("learning_acknowledged = %v", got)
+	}
+}
+
+func TestLearningFeaturesListsKnownKeysInOrder(t *testing.T) {
+	want := []string{"chain_suggestions", "chain_learning", "auto_patterns"}
+	if got := LearningFeatures(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("LearningFeatures() = %v, want %v", got, want)
+	}
+}

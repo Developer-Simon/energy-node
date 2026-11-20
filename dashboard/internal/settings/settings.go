@@ -102,6 +102,19 @@ type Settings struct {
 	ChainSuggestionsDisabled bool `json:"chain_suggestions_disabled"`
 	ChainLearningDisabled    bool `json:"chain_learning_disabled"`
 
+	// Lernfunktionen der Automationen. AutomationPatternsDisabled schaltet das
+	// Muster-Lernen ab (invertiert benannt wie oben). LearningExcludedDevices
+	// nimmt Geraete vom Lernen aus, LearningProfileDays sagt, wie viele
+	// Tagesprofile bleiben (0 heisst LearningProfileDaysDefault). Quittiert
+	// sind die Funktionen, deren Hinweis der Nutzer bestaetigt hat. Unbekannte
+	// Schluessel bleiben stehen, damit ein Downgrade keine Quittung verliert.
+	// LearningLevel waehlt die Lernstufe, leer heisst "auto".
+	AutomationPatternsDisabled bool     `json:"automation_patterns_disabled"`
+	LearningExcludedDevices    []string `json:"learning_excluded_devices"`
+	LearningProfileDays        int      `json:"learning_profile_days"`
+	LearningAcknowledged       []string `json:"learning_acknowledged"`
+	LearningLevel              string   `json:"learning_level"`
+
 	// ChangelogHistory sagt, wie viele Bundle-Versionen die Versionsseite
 	// aus dem Changelog laedt: "recent" (5), "extended" (20) oder "all".
 	// Leer heisst "recent", siehe normalizeSettings.
@@ -180,6 +193,13 @@ const (
 	EnergyStatsRecordingAlways             = "always"
 	EnergyStatsRecordingPauseWithCompanion = "pause_with_companion"
 	EnergyStatsRecordingOff                = "off"
+
+	// LearningProfileDaysDefault gilt, wenn LearningProfileDays 0 ist. Die
+	// Grenzen spiegeln das Schema (learning_profile_days).
+	LearningProfileDaysDefault = 56
+	LearningProfileDaysMin     = 14
+	LearningProfileDaysMax     = 365
+	LearningLevelAuto          = "auto"
 
 	ChangelogHistoryRecent   = "recent"
 	ChangelogHistoryExtended = "extended"
@@ -616,7 +636,18 @@ func Default() Settings {
 		HistoryViews:                 []HistoryView{},
 		EnergyStatsRecording:         EnergyStatsRecordingAlways,
 		ChangelogHistory:             ChangelogHistoryRecent,
+		LearningExcludedDevices:      []string{},
+		LearningProfileDays:          LearningProfileDaysDefault,
+		LearningAcknowledged:         []string{},
+		LearningLevel:                LearningLevelAuto,
 	}
+}
+
+// LearningFeatures liefert die Schluessel der heute bekannten Lernfunktionen
+// in fester Reihenfolge. Nur diese Schluessel gelten als bekannt, andere
+// Quittungen bleiben beim Normalisieren trotzdem erhalten.
+func LearningFeatures() []string {
+	return []string{"chain_suggestions", "chain_learning", "auto_patterns"}
 }
 
 func DefaultMQTT() MQTTConfig {
@@ -2063,6 +2094,16 @@ func normalizeSettings(value Settings) Settings {
 	if value.ChangelogHistory == "" {
 		value.ChangelogHistory = ChangelogHistoryRecent
 	}
+	if value.LearningProfileDays == 0 {
+		value.LearningProfileDays = LearningProfileDaysDefault
+	}
+	if value.LearningLevel == "" {
+		value.LearningLevel = LearningLevelAuto
+	}
+	if value.LearningExcludedDevices == nil {
+		value.LearningExcludedDevices = []string{}
+	}
+	value.LearningAcknowledged = uniqueStrings(value.LearningAcknowledged)
 	value.DashboardTitle = strings.TrimSpace(value.DashboardTitle)
 	value.DashboardSubtitle = strings.TrimSpace(value.DashboardSubtitle)
 	if value.HistoryExtraEntities == nil {
@@ -2085,6 +2126,20 @@ func normalizeSettings(value Settings) Settings {
 		view.RangeFrom, view.RangeTo = 0, 0
 	}
 	return value
+}
+
+// uniqueStrings keeps the first occurrence of every entry and never returns nil.
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]bool, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	return out
 }
 
 func normalizeEnergy(value EnergyConfig) EnergyConfig {
