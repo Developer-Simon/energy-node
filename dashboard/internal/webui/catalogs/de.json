@@ -361,6 +361,7 @@
   "automations.condition_type.entity.hint": "Ein Messwert eines Geräts, zum Beispiel eine Temperatur oder ein Schaltzustand.",
   "automations.condition_type.entity.label": "Gerätewert",
   "automations.condition_type.entity.short": "Temperatur, Zustand",
+  "automations.condition_type.learned_state.short": "Haus",
   "automations.condition_type.sun.hint": "Gilt zwischen Sonnenaufgang und Sonnenuntergang oder umgekehrt, jeweils mit Versatz in Minuten. Braucht den Standort in den Einstellungen.",
   "automations.condition_type.sun.label": "Sonnenzeit",
   "automations.condition_type.sun.short": "Auf- und Untergang",
