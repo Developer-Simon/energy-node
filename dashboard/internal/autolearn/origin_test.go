@@ -168,3 +168,58 @@ func TestRuleTargets(t *testing.T) {
 		t.Fatalf("toggle targets = %+v, want On nil", toggle)
 	}
 }
+
+func TestRuleActionWaitsForAttribution(t *testing.T) {
+	rs := NewReactions()
+	rs.Observe("light.a", time.Second) // R = P95 = 1 s
+	tr := NewTracker(rs)
+	tg := targetsFor("r1", Target{Device: "dev", Entity: "light.a", On: boolPtr(true)})
+	tr.RuleState(originT0, ruleDocState("r1", 0, originT0), tg)
+	tr.RuleState(originT0, ruleDocState("r1", 1, originT0), tg)
+	tr.StateChange(originT0.Add(1500*time.Millisecond), "dev", "light.a", true)
+
+	// Grace of the switch ends at 1.5 s + 3 R + 5 s = 9.5 s.
+	events, actions := tr.Drain(originT0.Add(2 * time.Second))
+	if len(events) != 0 || len(actions) != 0 {
+		t.Fatalf("at 2s events = %+v, actions = %+v, want none", events, actions)
+	}
+	events, actions = tr.Drain(originT0.Add(10 * time.Second))
+	if len(events) != 1 || events[0].Origin != OriginRule || events[0].RuleID != "r1" {
+		t.Fatalf("at 10s events = %+v, want one rule event", events)
+	}
+	if len(actions) != 1 || !actions[0].Effective || actions[0].Reaction != 1500*time.Millisecond {
+		t.Fatalf("at 10s actions = %+v, want effective with reaction 1.5s", actions)
+	}
+}
+
+func TestOriginCommandPairsLatest(t *testing.T) {
+	rs := NewReactions()
+	tr := NewTracker(rs)
+	tr.Command(originT0, "dev", "light.a", true)
+	tr.Command(originT0.Add(8*time.Second), "dev", "light.a", true)
+	tr.StateChange(originT0.Add(9*time.Second), "dev", "light.a", true)
+
+	events, _ := tr.Drain(originT0.Add(time.Minute))
+	if len(events) != 1 || events[0].Origin != OriginHand {
+		t.Fatalf("events = %+v, want one hand event", events)
+	}
+	if got := rs.Typical("light.a"); got != time.Second {
+		t.Fatalf("Typical = %v, want 1s from the latest command", got)
+	}
+}
+
+func TestRuleActionEffectiveClaimReaction(t *testing.T) {
+	tr := NewTracker(NewReactions())
+	tg := targetsFor("r1", Target{Device: "dev", Entity: "light.a", On: boolPtr(true)})
+	tr.RuleState(originT0, ruleDocState("r1", 0, originT0), tg)
+	tr.RuleState(originT0, ruleDocState("r1", 1, originT0), tg)
+	tr.StateChange(originT0.Add(2*time.Second), "dev", "light.a", true)
+
+	events, actions := tr.Drain(originT0.Add(40 * time.Second))
+	if len(events) != 1 || events[0].Origin != OriginRule {
+		t.Fatalf("events = %+v, want one rule event", events)
+	}
+	if len(actions) != 1 || !actions[0].Effective || actions[0].AlreadyThere || actions[0].Reaction != 2*time.Second {
+		t.Fatalf("actions = %+v, want effective with reaction 2s", actions)
+	}
+}

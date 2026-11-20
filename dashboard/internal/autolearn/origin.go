@@ -227,7 +227,7 @@ func (t *Tracker) classifyLocked(now time.Time) []SwitchEvent {
 // Ziel im Fenster [start, c.at].
 func (t *Tracker) claimRuleActLocked(c *change, start time.Time) *ruleAct {
 	for _, ra := range t.ruleActs {
-		if ra.attributed || ra.act.Entity != c.entity {
+		if ra.attributed || ra.resolved || ra.act.Entity != c.entity {
 			continue
 		}
 		if ra.act.At.Before(start) || ra.act.At.After(c.at) {
@@ -239,9 +239,10 @@ func (t *Tracker) claimRuleActLocked(c *change, start time.Time) *ruleAct {
 	return nil
 }
 
-// claimCommandLocked sucht einen noch nicht zugeordneten Befehl auf das Ziel im
-// Fenster [start, c.at].
+// claimCommandLocked sucht den spaetesten noch nicht zugeordneten Befehl auf das
+// Ziel im Fenster [start, c.at].
 func (t *Tracker) claimCommandLocked(c *change, start time.Time) *command {
+	var best *command
 	for _, cm := range t.commands {
 		if cm.claimed || cm.entity != c.entity {
 			continue
@@ -249,13 +250,38 @@ func (t *Tracker) claimCommandLocked(c *change, start time.Time) *command {
 		if cm.at.Before(start) || cm.at.After(c.at) {
 			continue
 		}
-		cm.claimed = true
-		return cm
+		if best == nil || cm.at.After(best.at) {
+			best = cm
+		}
 	}
-	return nil
+	if best != nil {
+		best.claimed = true
+	}
+	return best
 }
 
-// resolveLocked wertet Regelaktionen aus, deren Frist 2·P95 abgelaufen ist.
+// settleLocked liefert die Zeit, ab der eine Regelaktion ausgewertet werden
+// darf. Das ist mindestens a+2·P95 (effectEnd) und die Frist jedes noch nicht
+// zugeordneten Schaltvorgangs im Fenster [a, a+3R], der ihr zugeordnet werden
+// koennte. So wird eine Aktion nie als wirkungslos gemeldet und danach als
+// Ursache eines Schaltvorgangs beansprucht.
+func (t *Tracker) settleLocked(a RuleAction, effectEnd time.Time) time.Time {
+	settle := effectEnd
+	r := t.reactions.Typical(a.Entity)
+	last := a.At.Add(3 * r)
+	for _, c := range t.changes {
+		if c.emitted || c.entity != a.Entity || c.at.Before(a.At) || c.at.After(last) {
+			continue
+		}
+		if due := c.at.Add(3*r + originGrace); due.After(settle) {
+			settle = due
+		}
+	}
+	return settle
+}
+
+// resolveLocked wertet Regelaktionen aus, sobald sie ausgewertet werden duerfen
+// (siehe settleLocked).
 func (t *Tracker) resolveLocked(now time.Time) []RuleAction {
 	var out []RuleAction
 	for _, ra := range t.ruleActs {
@@ -263,13 +289,13 @@ func (t *Tracker) resolveLocked(now time.Time) []RuleAction {
 			continue
 		}
 		a := ra.act
-		deadline := a.At.Add(2 * t.reactions.P95(a.Entity))
-		if now.Before(deadline) {
+		effectEnd := a.At.Add(2 * t.reactions.P95(a.Entity))
+		if now.Before(t.settleLocked(a, effectEnd)) {
 			continue
 		}
 		ra.resolved = true
 		a.AlreadyThere = t.alreadyThereLocked(a)
-		if c := t.claimEffectLocked(a, deadline); c != nil {
+		if c := t.claimEffectLocked(a, effectEnd); c != nil {
 			a.Effective = true
 			a.Reaction = c.at.Sub(a.At)
 		}
