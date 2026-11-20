@@ -66,7 +66,7 @@
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'threshold', stepOpts: { step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.balance.threshold_label') }">
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.threshold_label"}}</span>
-                            {{template "auto-stepper"}}
+                            {{template "auto-learn" (dict "field" "threshold" "fixed" "stepper" "aria" "")}}
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hysteresis', stepOpts: { min: 0, step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.hysteresis_aria_label') }">
                             <span class="auto-field-head">
@@ -82,7 +82,7 @@
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hold_seconds', stepOpts: { min: 0, step: 1 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.condition.hold_aria_label') }">
                             {{template "auto-hold-label"}}
-                            {{template "auto-stepper"}}
+                            {{template "auto-learn" (dict "field" "hold_seconds" "fixed" "stepper" "aria" "")}}
                           </div>
                         </div>
                       </template>
@@ -99,7 +99,7 @@
                           </div>
                           <div class="auto-field" x-show="condition.comparison === 'above' || condition.comparison === 'below'" x-data="{ get stepTarget() { return condition }, stepKey: 'value', stepOpts: { step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.entity.value_label') }">
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.value_label"}}</span>
-                            {{template "auto-stepper"}}
+                            {{template "auto-learn" (dict "field" "value" "fixed" "stepper" "aria" "")}}
                           </div>
                           <div class="auto-field" x-show="condition.comparison === 'stale'" x-data="{ get stepTarget() { return { get minutes() { return Math.round((condition.max_age_s ?? 900) / 60); }, set minutes(value) { const n = Math.round(Number(value)); condition.max_age_s = (Number.isFinite(n) && String(value).trim() !== '' ? Math.min(1440, Math.max(1, n)) : 15) * 60; } }; }, stepKey: 'minutes', stepOpts: { min: 1, max: 1440, step: 1, placeholder: 15 }, stepUnit: $t('automations.condition.sun_window.unit_min'), stepLabel: $t('automations.condition.stale.value_aria') }">
                             <span class="auto-field-label">{{t "automations.condition.stale.since_label"}}</span>
@@ -111,7 +111,7 @@
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hold_seconds', stepOpts: { min: 0, step: 1 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.condition.hold_aria_label') }">
                             {{template "auto-hold-label"}}
-                            {{template "auto-stepper"}}
+                            {{template "auto-learn" (dict "field" "hold_seconds" "fixed" "stepper" "aria" "")}}
                           </div>
                           <div class="edit-card-warning auto-field-wide" x-show="computeConditionDrift(condition, readableEntities).missing"
                                x-text="$t('automations.condition.entity.missing_warning', {entity_id: condition.entity_id})"></div>
@@ -122,6 +122,26 @@
                               <svg class="automation-icon"><use href="#ico-check"></use></svg>
                               <span>{{t "automations.condition.entity.adopt_button.label"}}</span>
                             </button>
+                          </div>
+                        </div>
+                      </template>
+
+                      <template x-if="condition.type === 'learned_state'">
+                        <div class="auto-fields">
+                          <div class="auto-field auto-field-wide">
+                            <span class="auto-field-label">{{t "automations.learned.state.condition"}}</span>
+                            <select class="auto-input" x-model="condition.equals" x-bind:aria-label="$t('automations.learned.state.condition')">
+                              <option value="quiet">{{t "automations.learned.state.quiet"}}</option>
+                              <option value="active">{{t "automations.learned.state.active"}}</option>
+                            </select>
+                          </div>
+                          <div class="auto-field auto-field-wide">
+                            <span class="auto-field-label">{{t "automations.learned.state.fallback"}}</span>
+                            <select class="auto-input" x-model="condition.fallback" x-bind:aria-label="$t('automations.learned.state.fallback')">
+                              <option value="quiet">{{t "automations.learned.state.quiet"}}</option>
+                              <option value="active">{{t "automations.learned.state.active"}}</option>
+                            </select>
+                            <span class="auto-learn-help">{{t "automations.learned.fallback.help"}}</span>
                           </div>
                         </div>
                       </template>
@@ -231,7 +251,7 @@
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hold_seconds', stepOpts: { min: 0, step: 1 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.condition.hold_aria_label') }">
                             {{template "auto-hold-label"}}
-                            {{template "auto-stepper"}}
+                            {{template "auto-learn" (dict "field" "hold_seconds" "fixed" "stepper" "aria" "")}}
                           </div>
                         </div>
                       </template>
@@ -239,11 +259,11 @@
                         <div class="auto-fields">
                           <div class="auto-field">
                             <span class="auto-field-label">{{t "automations.condition.time_window.from_label"}}</span>
-                            <input class="auto-input" type="time" x-model="condition.start" x-bind:aria-label="$t('automations.condition.time_window.start_aria')">
+                            {{template "auto-learn" (dict "field" "start" "fixed" "time" "aria" "automations.condition.time_window.start_aria")}}
                           </div>
                           <div class="auto-field">
                             <span class="auto-field-label">{{t "automations.condition.time_window.to_label"}}</span>
-                            <input class="auto-input" type="time" x-model="condition.end" x-bind:aria-label="$t('automations.condition.time_window.end_aria')">
+                            {{template "auto-learn" (dict "field" "end" "fixed" "time" "aria" "automations.condition.time_window.end_aria")}}
                           </div>
                           <div class="weekday-chips auto-field-wide" role="group" data-tour="rule-weekdays" x-bind:aria-label="$t('automations.condition.time_window.weekdays_aria')">
                             <span class="weekday-chips-label" x-text="(condition.weekdays || []).length ? $t('automations.condition.time_window.specific_days') : $t('automations.condition.time_window.any_day')"></span>
@@ -426,6 +446,72 @@
                                 <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
                               </span>
                             </span>
+{{end}}
+
+{{/* Bezugsangabe eines lernbaren Feldes: zwei Optionszeilen "Fester Wert" und
+     "Lernwert". Der feste Wert ist eine Zahl (fixed "stepper") oder eine Uhrzeit
+     (fixed "time"). Ohne Lernwert zur Wahl erscheinen nur die Zeilen, die schon
+     einen Bezug haben. Parameter: field, fixed, aria.
+     i18n-keys: automations.condition.time_window.start_aria, automations.condition.time_window.end_aria */}}
+{{define "auto-learn"}}
+                          <label class="auto-assist-option auto-learn-option" x-show="learnOffered(condition, '{{.field}}')"
+                                 x-bind:class="{ 'is-selected': !isLearnedRef(condition, '{{.field}}') }">
+                            <input type="radio" x-bind:name="'learn-' + index + '-{{.field}}'" value="fixed"
+                                   x-bind:checked="!isLearnedRef(condition, '{{.field}}')"
+                                   x-on:change="switchToFixed(condition, '{{.field}}')">
+                            <span class="auto-assist-option-text"><b>{{t "automations.learned.mode.fixed"}}</b></span>
+                          </label>
+                          <div class="auto-learn-fixed" x-show="!isLearnedRef(condition, '{{.field}}')">
+                            {{if eq .fixed "time"}}<input class="auto-input" type="time" x-model="condition['{{.field}}']" aria-label="{{t .aria}}">{{else}}{{template "auto-stepper"}}{{end}}
+                          </div>
+                          <label class="auto-assist-option auto-learn-option" x-show="learnOffered(condition, '{{.field}}')"
+                                 x-bind:class="{ 'is-selected': isLearnedRef(condition, '{{.field}}') }">
+                            <input type="radio" x-bind:name="'learn-' + index + '-{{.field}}'" value="learned"
+                                   x-bind:checked="isLearnedRef(condition, '{{.field}}')"
+                                   x-on:change="switchToLearned(condition, '{{.field}}')">
+                            <svg class="automation-icon" aria-hidden="true"><use href="#ico-learning"></use></svg>
+                            <span class="auto-assist-option-text"><b>{{t "automations.learned.mode.learned"}}</b></span>
+                          </label>
+                          <div class="auto-fields auto-learn-detail" x-show="isLearnedRef(condition, '{{.field}}')">
+                            <div class="auto-field auto-field-wide">
+                              <span class="auto-field-label">{{t "automations.learned.pick"}}</span>
+                              <select class="auto-input" x-model="condition['{{.field}}'].learned" x-bind:aria-label="$t('automations.learned.pick')">
+                                <template x-for="option in learnedOptions(condition, '{{.field}}')" x-bind:key="option.key">
+                                  <option x-bind:value="option.key" x-text="option.label"></option>
+                                </template>
+                              </select>
+                              <span class="auto-learn-current" x-text="learnedCurrent(condition, '{{.field}}')"></span>
+                            </div>
+                            <div class="auto-field">
+                              <span class="auto-field-label" x-text="learnKind(condition, '{{.field}}') === 'time' ? $t('automations.learned.min.time') : $t('automations.learned.min.number')"></span>
+                              <span class="auto-learn-bound">
+                                <input class="auto-input" x-bind:type="learnKind(condition, '{{.field}}') === 'time' ? 'time' : 'number'" x-bind:value="learnedBound(condition, '{{.field}}', 'min')" x-on:input="setLearnedBound(condition, '{{.field}}', 'min', $event.target.value)">
+                                <span class="auto-input-unit" x-show="learnUnit(condition, '{{.field}}')" x-text="learnUnit(condition, '{{.field}}')"></span>
+                              </span>
+                            </div>
+                            <div class="auto-field">
+                              <span class="auto-field-label" x-text="learnKind(condition, '{{.field}}') === 'time' ? $t('automations.learned.max.time') : $t('automations.learned.max.number')"></span>
+                              <span class="auto-learn-bound">
+                                <input class="auto-input" x-bind:type="learnKind(condition, '{{.field}}') === 'time' ? 'time' : 'number'" x-bind:value="learnedBound(condition, '{{.field}}', 'max')" x-on:input="setLearnedBound(condition, '{{.field}}', 'max', $event.target.value)">
+                                <span class="auto-input-unit" x-show="learnUnit(condition, '{{.field}}')" x-text="learnUnit(condition, '{{.field}}')"></span>
+                              </span>
+                            </div>
+                            <div class="auto-field">
+                              <span class="auto-field-label">{{t "automations.learned.fallback"}}</span>
+                              <span class="auto-learn-bound">
+                                <input class="auto-input" x-bind:type="learnKind(condition, '{{.field}}') === 'time' ? 'time' : 'number'" x-bind:value="learnedBound(condition, '{{.field}}', 'fallback')" x-on:input="setLearnedBound(condition, '{{.field}}', 'fallback', $event.target.value)">
+                                <span class="auto-input-unit" x-show="learnUnit(condition, '{{.field}}')" x-text="learnUnit(condition, '{{.field}}')"></span>
+                              </span>
+                              <span class="auto-learn-help">{{t "automations.learned.fallback.help"}}</span>
+                            </div>
+                            <div class="auto-field">
+                              <span class="auto-field-label">{{t "automations.learned.offset"}}</span>
+                              <span class="auto-learn-bound">
+                                <input class="auto-input" type="number" x-bind:value="learnedBound(condition, '{{.field}}', 'offset')" x-on:input="setLearnedBound(condition, '{{.field}}', 'offset', $event.target.value)">
+                                <span class="auto-input-unit" x-text="learnKind(condition, '{{.field}}') === 'time' ? $t('automations.condition.sun_window.unit_min') : learnUnit(condition, '{{.field}}')"></span>
+                              </span>
+                            </div>
+                          </div>
 {{end}}
 
 {{/* Text einer Geraete-Kachel: Name, darunter Entitaet und aktueller Wert.

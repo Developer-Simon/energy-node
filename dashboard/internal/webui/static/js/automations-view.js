@@ -81,7 +81,7 @@
     return event.reason ? [{ kind: 'reason', title: '', text: event.reason }] : [];
   }
 
-  // i18n-keys: automations.condition_type.balance.hint, automations.condition_type.balance.label, automations.condition_type.entity.hint, automations.condition_type.entity.label, automations.condition_type.sun.hint, automations.condition_type.sun.label, automations.condition_type.time.hint, automations.condition_type.time.label
+  // i18n-keys: automations.condition_type.balance.hint, automations.condition_type.balance.label, automations.condition_type.entity.hint, automations.condition_type.entity.label, automations.condition_type.sun.hint, automations.condition_type.sun.label, automations.condition_type.time.hint, automations.condition_type.time.label, automations.condition_type.learned_state.short, automations.learned.state.condition, automations.learned.state.help
   // Was der Bearbeiten-Modus als Bedingung anbieten darf. "balance" heisst
   // bewusst Energiewert und nicht PV-Ueberschuss: der Typ balance_threshold
   // deckt jedes Bilanzfeld ab - Netzbezug, Autarkiegrad, Batterie-Fuellstand -,
@@ -98,6 +98,10 @@
     // Die Kachel erscheint nur mit mindestens einer Messkette, siehe conditionTypes().
     { key: 'chain', icon: 'ico-chain', label: 'automations.condition_type.chain.label',
       hint: 'automations.condition_type.chain.hint', short: 'automations.condition_type.chain.short' },
+    // Hauszustand ruhig oder aktiv, gelernt aus dem Verbrauch. Label und Hinweis
+    // kommen aus den Lernwert-Texten, die Kurzform hat eigene Texte.
+    { key: 'learned_state', icon: 'ico-learning', label: 'automations.learned.state.condition',
+      hint: 'automations.learned.state.help', short: 'automations.condition_type.learned_state.short' },
   ];
 
   // i18n-keys: automations.chain.signal.finding, automations.chain.signal.loss_w, automations.chain.signal.efficiency_pct, automations.chain.signal.standby_w, automations.chain.kind.any, automations.chain.once, automations.chain.min_age, automations.chain.missing, automations.summary.chain_finding, automations.summary.chain_value, diagnostics.rule.chain_drift.title, diagnostics.rule.chain_frozen.title, diagnostics.rule.chain_contradiction.title, diagnostics.rule.chain_sign.title, diagnostics.rule.chain_unit.title
@@ -386,6 +390,10 @@
       const to = formatSunPoint(condition.to, condition.to_offset_min);
       return { icon: 'ico-sun', title: t('automations.sun_window'), unit: '',
                summary: `${from} – ${to}${weekdaySuffix(condition)}` };
+    }
+    if (type === 'learned_state') {
+      const state = condition.equals === 'active' ? 'automations.learned.state.active' : 'automations.learned.state.quiet';
+      return { icon: 'ico-learning', title: t('automations.learned.state.condition'), unit: '', summary: t(state) };
     }
     // Vorwaertskompatibilitaet: Spec A bringt weitere Typen. Bis dahin - und
     // falls je ein unbekannter Typ auftaucht - wird eine neutrale Karte

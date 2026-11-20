@@ -5,7 +5,15 @@
   const DEFAULT_MAX_AGE_S = 604800;
   const FUTURE_SKEW_S = 300;
   const CLOCK_RE = /^([01][0-9]|2[0-3]):([0-5][0-9])$/;
-  const KEY_NAMES = ['usual_on', 'usual_off', 'usual_runtime_s', 'day_start', 'night_rest', 'house_state'];
+  // Ganze Katalogschluessel statt Praefix plus Name, damit die Textpruefung sie findet.
+  const KEY_LABELS = {
+    usual_on: 'automations.learned.key.usual_on',
+    usual_off: 'automations.learned.key.usual_off',
+    usual_runtime_s: 'automations.learned.key.usual_runtime_s',
+    day_start: 'automations.learned.key.day_start',
+    night_rest: 'automations.learned.key.night_rest',
+    house_state: 'automations.learned.key.house_state',
+  };
   const FIELD_KIND = { start: 'time', end: 'time', hold_seconds: 'duration', threshold: 'number', value: 'number' };
   const LEARNABLE = {
     balance_threshold: ['threshold', 'hold_seconds'],
@@ -130,9 +138,9 @@
   function keyLabel(key, devices, t) {
     const parts = String(key || '').split('/');
     const name = parts[parts.length - 1];
-    if (!KEY_NAMES.includes(name)) return t('automations.learned.key.unknown', { key });
+    if (!Object.prototype.hasOwnProperty.call(KEY_LABELS, name)) return t('automations.learned.key.unknown', { key });
     const params = parts[0] === 'device' ? { device: deviceName(parts[1], devices) } : {};
-    return t('automations.learned.key.' + name, params);
+    return t(KEY_LABELS[name], params);
   }
 
   // Fehlercodes der Bezugsangabe. Uhrzeiten brauchen keine Pruefung min gegen max, der Bogen ist immer gueltig.

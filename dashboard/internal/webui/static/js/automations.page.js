@@ -280,6 +280,8 @@
     document: emptyDocument(),
     categories: {},
     chains: [],
+    // Gelernte Werte fuer die Bezugsangaben (GET /api/v1/automations/learned).
+    learned: { enabled: false, values: [] },
     entities: [],
     readableEntities: [],
     devices: [],
@@ -386,13 +388,19 @@
     async load() {
       this.loading = true;
       try {
-        const [doc, session, , roles, energy] = await Promise.all([
+        const [doc, session, , roles, energy, learned] = await Promise.all([
           requestJSON('/api/v1/configurations/automation_rules'),
           requestJSON('/api/v1/auth/session').catch(() => null),
           this.loadDeviceCatalog(),
           requestJSON('/api/v1/energy/roles').catch(() => null),
           requestJSON('/api/v1/energy').catch(() => null),
+          // Ohne Antwort (Fehler, 401, 404) gibt es keine gelernten Werte.
+          requestJSON('/api/v1/automations/learned').catch(() => null),
         ]);
+        this.learned = {
+          enabled: Boolean(learned && learned.enabled),
+          values: learned && Array.isArray(learned.values) ? learned.values : [],
+        };
         // Die Messketten aus dem Energie-Snapshot; ohne Antwort gibt es keine Kachel.
         this.chains = (energy && energy.chains) || [];
         this.categories = (roles && roles.categories) || {};
@@ -2265,6 +2273,108 @@
                              to: 'sunset', to_offset_min: 0, weekdays: [] });
     },
 
+    addLearnedStateCondition(rule) {
+      rule.conditions.push({ type: 'learned_state', learned: 'site/house_state', equals: 'quiet',
+                             fallback: 'active', max_age_s: 7200, hold_seconds: 0 });
+    },
+
+    // Lernwerte der Art, die das Feld verlangt. Ohne Werte gibt es keinen Schalter.
+    learnedChoices(condition, field) {
+      const AL = window.AutomationLearned;
+      const kind = AL.kindOf(condition.type, field);
+      return kind ? AL.choices(this.learned.values, kind) : [];
+    },
+
+    // Der Schalter "Fester Wert / Lernwert" erscheint bei passenden Werten oder wenn das Feld schon einen Bezug hat.
+    learnOffered(condition, field) {
+      return this.learnedChoices(condition, field).length > 0 || this.isLearnedRef(condition, field);
+    },
+
+    isLearnedRef(condition, field) {
+      return window.AutomationLearned.isRef(condition[field]);
+    },
+
+    learnKind(condition, field) {
+      return window.AutomationLearned.kindOf(condition.type, field);
+    },
+
+    learnUnit(condition, field) {
+      const kind = this.learnKind(condition, field);
+      if (kind === 'duration') return t('automations.condition.unit_seconds');
+      if (kind === 'number') return this.describeCondition(condition).unit || '';
+      return '';
+    },
+
+    // Wechsel auf Lernwert: der erste gelernte Wert der Art, die Grenzen kommen aus prefill.
+    switchToLearned(condition, field) {
+      const AL = window.AutomationLearned;
+      const [choice] = this.learnedChoices(condition, field);
+      if (!choice || this.isLearnedRef(condition, field)) return false;
+      const bounds = AL.prefill(this.learnKind(condition, field), choice.value);
+      if (!bounds) return false;
+      condition[field] = { learned: choice.key, ...bounds };
+      return true;
+    },
+
+    // Zurueck auf festen Wert: der Ersatzwert wird zur Zahl oder Uhrzeit.
+    switchToFixed(condition, field) {
+      if (!this.isLearnedRef(condition, field)) return;
+      condition[field] = condition[field].fallback;
+    },
+
+    learnedBound(condition, field, bound) {
+      if (!this.isLearnedRef(condition, field)) return '';
+      const value = condition[field][bound];
+      return value === null || value === undefined ? '' : value;
+    },
+
+    // Grenzen und Ersatzwert: Uhrzeit als Text, Zahlen als Zahl, leer wird null.
+    setLearnedBound(condition, field, bound, raw) {
+      if (!this.isLearnedRef(condition, field)) return;
+      const timeText = bound !== 'offset' && this.learnKind(condition, field) === 'time';
+      if (timeText) condition[field][bound] = raw;
+      else condition[field][bound] = raw === '' || raw === null ? null : Number(raw);
+    },
+
+    // Auswahl der Lernwerte; ein Bezug auf einen fehlenden Wert bleibt sichtbar.
+    learnedOptions(condition, field) {
+      const AL = window.AutomationLearned;
+      const options = this.learnedChoices(condition, field)
+        .map((entry) => ({ key: entry.key, label: AL.keyLabel(entry.key, this.devices, t) }));
+      const key = (condition[field] || {}).learned;
+      if (key && !options.some((option) => option.key === key)) {
+        options.push({ key, label: AL.keyLabel(key, this.devices, t) });
+      }
+      return options;
+    },
+
+    // Aktueller Wert des gewaehlten Lernwerts, oder der Hinweis, dass noch nichts gelernt ist.
+    learnedCurrent(condition, field) {
+      const key = (condition[field] || {}).learned;
+      const entry = this.learned.values.find((value) => value.key === key);
+      if (!entry) return t('automations.learned.current.none');
+      const text = this.learnKind(condition, field) === 'duration' ? formatSeconds(entry.value) : String(entry.value);
+      return `${t('automations.learned.current')}: ${text}`;
+    },
+
+    // Bezugsangaben der Bedingung in der Pruefung vor dem Speichern, mit den Meldungen aus dem Katalog.
+    learnedErrors(condition) {
+      const AL = window.AutomationLearned;
+      if (!AL) return [];
+      const codes = [];
+      for (const field of ['threshold', 'value', 'start', 'end', 'hold_seconds']) {
+        const kind = AL.kindOf(condition.type, field);
+        if (kind && AL.isRef(condition[field])) codes.push(...AL.validate(condition[field], kind));
+      }
+      if (condition.type === 'learned_state') codes.push(...AL.validate({ learned: condition.learned }, 'state'));
+      const keys = {
+        'learned.min_max': 'automations.learned.error.min_max',
+        'learned.fallback_range': 'automations.learned.error.fallback_range',
+        'learned.missing': 'automations.learned.error.missing',
+      };
+      return codes.map((code) => t(keys[code]));
+    },
+
     // Neue Messketten-Bedingung: Meldung auf der ersten Kette. Ohne Kette legt
     // sie nichts an, die Kachel fehlt dann ohnehin.
     addChainCondition(rule) {
@@ -2436,6 +2546,7 @@
       if (key === 'entity') result = this.addEntityValueCondition(rule);
       if (key === 'time') result = this.addTimeWindowCondition(rule);
       if (key === 'sun') result = this.addSunWindowCondition(rule);
+      if (key === 'learned_state') result = this.addLearnedStateCondition(rule);
       if (key === 'chain') result = this.addChainCondition(rule);
       this.loadEditLive(rule);
       return result;
@@ -2860,6 +2971,9 @@
         } else if (hasPublish && repeat < minimum) {
           errors.push(t('automations.validation.repeat_too_short', { name: rule.name, min: minimum }));
         }
+      }
+      for (const condition of rule.conditions || []) {
+        errors.push(...this.learnedErrors(condition));
       }
       for (const condition of rule.conditions || []) {
         if (condition.type !== 'sun_window') continue;

@@ -396,6 +396,11 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
 .auto-field > .auto-field-label { display: flex; align-items: center; min-height: 1.35rem; }
 .auto-field-label { font-size: .8rem; color: var(--text-muted); }
 .auto-field input, .auto-field select { width: 100%; min-width: 0; }
+/* Lernwert in einer Bedingung: Optionszeilen Fester Wert und Lernwert, darunter das Feld oder die Bezugsangabe. */
+.auto-learn-detail { padding-left: .8rem; border-left: 2px solid var(--accent-line); }
+.auto-learn-bound { display: flex; align-items: center; gap: .4rem; min-width: 0; }
+.auto-learn-bound .auto-input { flex: 1 1 auto; min-width: 0; }
+.auto-learn-current, .auto-learn-help { font-size: .8rem; color: var(--text-muted); }
 .auto-edit-foot { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding-top: .8rem; border-top: 1px solid var(--border-soft); }
 
 /* --- Karten der Bedingungen und weiche Felder (Entwurf Teil 2): Kopf mit Ton-Kachel,
