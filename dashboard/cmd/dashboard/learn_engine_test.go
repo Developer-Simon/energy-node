@@ -8,6 +8,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
 func TestEngineRunnerDropsTickWhenChannelIsFull(t *testing.T) {
@@ -80,5 +81,29 @@ func TestLearnDevicesCarriesEnergyRole(t *testing.T) {
 
 	if role := learnDevices(devices, nil)["pump"].Role; role != "" {
 		t.Errorf("without resolver role = %q, want empty", role)
+	}
+}
+
+func TestEngineGroupsFollowTheSwitches(t *testing.T) {
+	cases := []struct {
+		name  string
+		value settings.Settings
+		want  map[string]bool
+	}{
+		{"defaults", settings.Default(), map[string]bool{"habit": true, "reliability": true}},
+		{"patterns off", settings.Settings{AutomationPatternsDisabled: true}, map[string]bool{"habit": false, "reliability": false}},
+		{"habits off", settings.Settings{AutomationHabitsDisabled: true}, map[string]bool{"habit": false, "reliability": true}},
+		{"reliability off", settings.Settings{AutomationReliabilityDisabled: true}, map[string]bool{"habit": true, "reliability": false}},
+		{"both off", settings.Settings{AutomationHabitsDisabled: true, AutomationReliabilityDisabled: true}, map[string]bool{"habit": false, "reliability": false}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := engineGroupsFor(tc.value)
+			for group, want := range tc.want {
+				if got[group] != want {
+					t.Fatalf("%s = %v, want %v (groups %v)", group, got[group], want, got)
+				}
+			}
+		})
 	}
 }

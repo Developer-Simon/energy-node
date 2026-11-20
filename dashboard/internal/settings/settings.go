@@ -109,11 +109,16 @@ type Settings struct {
 	// sind die Funktionen, deren Hinweis der Nutzer bestaetigt hat. Unbekannte
 	// Schluessel bleiben stehen, damit ein Downgrade keine Quittung verliert.
 	// LearningLevel waehlt die Lernstufe, leer heisst "auto".
-	AutomationPatternsDisabled bool     `json:"automation_patterns_disabled"`
-	LearningExcludedDevices    []string `json:"learning_excluded_devices"`
-	LearningProfileDays        int      `json:"learning_profile_days"`
-	LearningAcknowledged       []string `json:"learning_acknowledged"`
-	LearningLevel              string   `json:"learning_level"`
+	AutomationPatternsDisabled bool `json:"automation_patterns_disabled"`
+	// AutomationHabitsDisabled und AutomationReliabilityDisabled schalten die
+	// Gruppen unter dem Muster-Lernen getrennt ab (invertiert benannt wie oben).
+	// Ohne Muster-Lernen laufen sie nicht, egal wie sie stehen.
+	AutomationHabitsDisabled      bool     `json:"automation_habits_disabled"`
+	AutomationReliabilityDisabled bool     `json:"automation_reliability_disabled"`
+	LearningExcludedDevices       []string `json:"learning_excluded_devices"`
+	LearningProfileDays           int      `json:"learning_profile_days"`
+	LearningAcknowledged          []string `json:"learning_acknowledged"`
+	LearningLevel                 string   `json:"learning_level"`
 
 	// ChangelogHistory sagt, wie viele Bundle-Versionen die Versionsseite
 	// aus dem Changelog laedt: "recent" (5), "extended" (20) oder "all".

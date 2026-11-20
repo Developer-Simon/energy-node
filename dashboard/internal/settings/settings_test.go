@@ -3242,3 +3242,64 @@ func TestLearningFeaturesListsKnownKeysInOrder(t *testing.T) {
 		t.Fatalf("LearningFeatures() = %v, want %v", got, want)
 	}
 }
+
+func TestAutomationGroupSwitchesDefaultOn(t *testing.T) {
+	if Default().AutomationHabitsDisabled || Default().AutomationReliabilityDisabled {
+		t.Fatal("Gewohnheiten und Zuverlaessigkeit muessen in der Vorgabe an sein")
+	}
+	// Nicht gesetzt bedeutet an, sonst liesse sich der Schalter nicht abschalten.
+	normalized := normalizeSettings(Settings{})
+	if normalized.AutomationHabitsDisabled || normalized.AutomationReliabilityDisabled {
+		t.Fatal("nicht gesetzt muss 'an' bedeuten")
+	}
+}
+
+func TestAutomationGroupSwitchesPersistAndStayOff(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := Default()
+	value.AutomationHabitsDisabled = true
+	if err := store.SaveSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.AutomationHabitsDisabled || got.AutomationReliabilityDisabled {
+		t.Fatalf("switches after save and load = %+v, want habits true, reliability false", got)
+	}
+	if normalized := normalizeSettings(Settings{AutomationReliabilityDisabled: true}); !normalized.AutomationReliabilityDisabled {
+		t.Fatal("ein bewusstes Abschalten darf nicht zurueckgedreht werden")
+	}
+}
+
+func TestSchemaKenntDieAutomationGruppenSchalter(t *testing.T) {
+	var schema struct {
+		Required   []string `json:"required"`
+		Properties map[string]struct {
+			Type    string `json:"type"`
+			Default any    `json:"default"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(settingsSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"automation_habits_disabled", "automation_reliability_disabled"} {
+		property, ok := schema.Properties[key]
+		if !ok {
+			t.Fatalf("%s fehlt im Schema", key)
+		}
+		if property.Type != "boolean" || property.Default != false {
+			t.Fatalf("%s = %+v, want boolean/false", key, property)
+		}
+		found := false
+		for _, name := range schema.Required {
+			if name == key {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("%s fehlt in required", key)
+		}
+	}
+}

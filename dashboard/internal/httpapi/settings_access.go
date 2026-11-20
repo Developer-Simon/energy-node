@@ -28,6 +28,8 @@ var settingsFieldRoles = map[string]string{
 	"chain_suggestions_disabled":      auth.RoleEditSetup,
 	"chain_learning_disabled":         auth.RoleEditSetup,
 	"automation_patterns_disabled":    auth.RoleEditSetup,
+	"automation_habits_disabled":      auth.RoleEditSetup,
+	"automation_reliability_disabled": auth.RoleEditSetup,
 	"learning_excluded_devices":       auth.RoleEditSetup,
 	"learning_profile_days":           auth.RoleEditSetup,
 	"learning_acknowledged":           auth.RoleEditSetup,

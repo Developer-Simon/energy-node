@@ -10,7 +10,20 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
+
+// engineGroupsFor sagt je Gruppe der Engine, ob sie rechnen darf. Gewohnheiten
+// (habit) und Zuverlaessigkeit (reliability) laufen nur bei eingeschaltetem
+// Muster-Lernen und dann jede fuer sich. Der Befundteil der Regelpruefung und
+// die Vorschlaege nutzen dieselben Werte.
+func engineGroupsFor(value settings.Settings) map[string]bool {
+	patterns := !value.AutomationPatternsDisabled
+	return map[string]bool{
+		"habit":       patterns && !value.AutomationHabitsDisabled,
+		"reliability": patterns && !value.AutomationReliabilityDisabled,
+	}
+}
 
 // engineRunner haengt die Automationen-Engine an den Minutentakt des Hubs.
 // ObserveMinute laeuft im Hub und damit im MQTT-Pfad, also legt es nur einen

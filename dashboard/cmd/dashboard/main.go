@@ -483,9 +483,8 @@ func main() {
 	learnHub.AddMinute("daystore", dayStore)
 	learnHub.AddSaver("daystore", dayStore)
 	// Automationen-Engine: die Erkenner laufen in eigener Goroutine, nie im
-	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen. Ohne lesbare
-	// Einstellungen bleibt er an, wie bei den anderen Schaltern. Task 12 verfeinert
-	// das mit getrennten Schaltern fuer Gewohnheiten und Zuverlaessigkeit.
+	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen und den beiden
+	// Gruppenschaltern darunter. Ohne lesbare Einstellungen bleibt alles an.
 	automationEngine := autolearn.NewEngine(dayStore, reactions,
 		func() ([]byte, error) { return configManager.Read("automation_rules") },
 		func() map[string]autolearn.DeviceInfo { return learnDevices(reg.Snapshot(), energyResolver) },
@@ -498,11 +497,11 @@ func main() {
 		automationEngine.Register(det)
 	}
 	engineGroups := func() map[string]bool {
-		on := true
-		if value, err := settingsStore.LoadSettings(); err == nil {
-			on = !value.AutomationPatternsDisabled
+		value, err := settingsStore.LoadSettings()
+		if err != nil {
+			value = settings.Default()
 		}
-		return map[string]bool{"habit": on, "reliability": on}
+		return engineGroupsFor(value)
 	}
 	// Die Regelpruefung zeigt die Zuverlaessigkeitsbefunde der Engine, solange
 	// deren Gruppe an ist.

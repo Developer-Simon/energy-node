@@ -112,3 +112,39 @@ test('Die beiden Zeilen haben den Hilfe-Anker am Ende wie die Versions-Karte, oh
     assert.equal(label.querySelector('.field-help-align-start'), null, `${id}: field-help-align-start noch da`);
   }
 });
+
+test('load() liest die beiden Gruppenschalter als Boolean, fehlend heisst an', async () => {
+  const { dom, component } = createPanel(loadFetch({ automation_habits_disabled: true }));
+  await component.load();
+  assert.equal(component.automationHabitsDisabled, true);
+  assert.equal(component.automationReliabilityDisabled, false);
+  dom.window.close();
+});
+
+test('payload() schickt die beiden Gruppenschalter als Boolean', async () => {
+  const { dom, component } = createPanel(loadFetch({ automation_reliability_disabled: true }));
+  await component.load();
+  const payload = JSON.parse(JSON.stringify(component.payload()));
+  assert.equal(payload.automation_habits_disabled, false);
+  assert.equal(payload.automation_reliability_disabled, true);
+  dom.window.close();
+});
+
+test('Die beiden Gruppenschalter liegen in der Feineinstellung vor "Geräte ausnehmen" und sind an canEditSetup gebunden', () => {
+  const doc = new JSDOM(templateSource).window.document;
+  const fine = doc.getElementById('learning-fine');
+  assert.ok(fine, 'Feineinstellung fehlt');
+  const excluded = [...fine.querySelectorAll('button')].find(button => button.textContent.includes('settings.learning.auto.excluded') || button.querySelector('span')?.textContent.includes('settings.learning.auto.excluded'));
+  assert.ok(excluded, 'Zeile Geräte ausnehmen fehlt');
+  for (const id of ['learning-habits', 'learning-reliability']) {
+    const input = doc.getElementById(id);
+    assert.ok(input, `${id} fehlt`);
+    assert.equal(input.getAttribute('type'), 'checkbox');
+    assert.equal(input.getAttribute('role'), 'switch');
+    assert.equal(input.getAttribute('x-bind:disabled'), '!canEditSetup');
+    const label = input.closest('label');
+    assert.ok(label && label.getAttribute('for') === id, `${id}: Schalter ist nicht in einem Label mit for`);
+    assert.ok(fine.contains(label), `${id}: nicht in der Feineinstellung`);
+    assert.ok(label.compareDocumentPosition(excluded) & doc.defaultView.Node.DOCUMENT_POSITION_FOLLOWING, `${id}: steht nicht vor Geräte ausnehmen`);
+  }
+});
