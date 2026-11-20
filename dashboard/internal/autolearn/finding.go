@@ -18,6 +18,16 @@ type Finding struct {
 	Evidence   Evidence `json:"evidence"`
 	Facts      []Fact   `json:"facts"`
 	Apply      []Fix    `json:"apply"`
+	Device     string   `json:"device"`
+	Season     *Season  `json:"season"`
+	Benefit    *Benefit `json:"benefit"`
+}
+
+// Season is the period of the year in ISO weeks, from FromWeek to ToWeek. A
+// seasonal finding holds only in it.
+type Season struct {
+	FromWeek int `json:"from_week"`
+	ToWeek   int `json:"to_week"`
 }
 
 // Text is a translatable text: a code plus the parameters of the text.
@@ -33,11 +43,14 @@ type Fact struct {
 }
 
 // Fix is one change that can be applied to a rule. An empty Ops list only
-// opens the rule.
+// opens the rule. Template and Prefill name a template and its parameters for
+// a new rule.
 type Fix struct {
-	Code   string `json:"code"`
-	RuleID string `json:"rule_id"`
-	Ops    []Op   `json:"ops"`
+	Code     string         `json:"code"`
+	RuleID   string         `json:"rule_id"`
+	Ops      []Op           `json:"ops"`
+	Template string         `json:"template,omitempty"`
+	Prefill  map[string]any `json:"prefill,omitempty"`
 }
 
 // Op sets Value at Path, relative to the rule, for example
@@ -48,12 +61,15 @@ type Op struct {
 }
 
 // Evidence holds the numbers behind a finding. Shape tells which fields are
-// set: events, scale or links.
+// set: events, scale, links or day. The day shape uses minutes of the day from
+// From (0) to To (1440), Ist and IstSpans are the observed times, Soll and
+// SollSpans the proposed times or windows.
 type Evidence struct {
 	Shape     string     `json:"shape,omitempty"`
 	From      int64      `json:"from,omitempty"`
 	To        int64      `json:"to,omitempty"`
 	Ist       []int64    `json:"ist,omitempty"`
+	IstSpans  [][2]int64 `json:"ist_spans,omitempty"`
 	SollSpans [][2]int64 `json:"soll_spans,omitempty"`
 	Soll      []int64    `json:"soll,omitempty"`
 	Unit      string     `json:"unit,omitempty"`
