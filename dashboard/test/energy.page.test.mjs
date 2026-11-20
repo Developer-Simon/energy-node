@@ -1781,18 +1781,11 @@ test('the suggestions load on init while the chains section is closed and the ch
   assert.equal(after, before + 1, 'the event triggers one reload');
 });
 
-test('the chains heading shows the suggestion dot and the name field is not the inline rename field', () => {
+test('the chains heading shows the suggestion dot', () => {
   const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'energy.html'), 'utf8');
   const headingStart = html.indexOf('id="energy-acc-chains-toggle"');
   const headingEnd = html.indexOf('</button>', headingStart);
   const heading = html.slice(headingStart, headingEnd);
   assert.ok(heading.includes('class="efficiency-tab-dot"') && heading.includes('x-show="chainSuggestions.length > 0"'), 'dot shows with open suggestions');
   assert.ok(heading.includes('{{t "nav.suggestions_open"}}'), 'the dot has a visually hidden label');
-  const labelStart = html.indexOf('class="energy-chain-suggest-name"');
-  const labelEnd = html.indexOf('</label>', labelStart);
-  const label = html.slice(labelStart, labelEnd);
-  assert.ok(label.includes('class="energy-chain-suggest-name-input"'), 'the dialog input has its own class');
-  assert.ok(!label.includes('energy-groups-name'), 'the dialog input drops the inline rename class');
-  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'manager.css'), 'utf8');
-  assert.ok(css.includes('.energy-chain-suggest-name-input{width:100%;box-sizing:border-box;'), 'the input rule exists');
 });

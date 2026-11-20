@@ -386,28 +386,69 @@
 {{define "chain-suggest-dialog"}}{{/*
   Dialog of a chain suggestion, also used by the device map. The host
   Alpine component must provide:
-  - x-ref "chainSuggestDialog" is set here, the host does not need its own
-  - state chainSuggest: {upstream, downstream, label, chainId} or null
-  - methods chainSuggestName(id), chainSuggestSwap(), chainSuggestSave(), chainSuggestCancel()
-  - canEdit
+  - state chainSuggest: {upstream, downstream, label, chainId, suggestion} or null
+  - state chainSuggestSaving, canEdit and chains (the saved chains by id)
+  - methods chainSuggestName(id), chainSuggestIcon(id), chainPointValue(chainId, id),
+    chainSuggestSwap(), chainSuggestSave(), chainSuggestCancel()
+  The view comes from EnergyChainSuggest.modalView. The x-ref "chainSuggestDialog"
+  is set here, the host does not need its own.
   Closing the dialog sets chainSuggest back to null.
 */}}
-<dialog class="device-detail energy-chain-suggest-dialog" x-ref="chainSuggestDialog" aria-labelledby="energy-chain-suggest-heading" x-on:close="chainSuggest = null">
-  <div class="device-detail-header"><h3 id="energy-chain-suggest-heading">{{t "energy.chains.suggest.dialog_title"}}</h3></div>
+<dialog class="app-modal energy-chain-suggest-modal" x-ref="chainSuggestDialog" aria-labelledby="energy-chain-suggest-title" x-on:close="chainSuggest = null">
   <template x-if="chainSuggest">
-    <div class="energy-chain-suggest-form">
-      <div class="energy-chain-suggest-order">
-        <div class="energy-chain-suggest-point"><small>{{t "energy.chains.suggest.first"}}</small><strong x-text="chainSuggestName(chainSuggest.upstream)"></strong></div>
-        <span class="energy-chain-suggest-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-chevron"></use></svg></span>
-        <div class="energy-chain-suggest-point"><small>{{t "energy.chains.suggest.second"}}</small><strong x-text="chainSuggestName(chainSuggest.downstream)"></strong></div>
+    <div class="energy-chain-suggest-body" x-data="{ get v() { return window.EnergyChainSuggest.modalView(chainSuggest, $data) } }">
+      <div class="energy-chain-suggest-head">
+        <h2 class="app-modal-title" id="energy-chain-suggest-title" x-text="v.title"></h2>
       </div>
-      <p class="energy-chain-suggest-hint">{{t "energy.chains.suggest.hint"}}</p>
-      <button type="button" class="energy-chain-suggest-swap" x-bind:disabled="!canEdit" x-on:click="chainSuggestSwap()">{{t "energy.chains.suggest.swap"}}</button>
-      <label class="energy-chain-suggest-name" x-show="!chainSuggest.chainId">{{t "energy.chains.name_label"}}<input class="energy-chain-suggest-name-input" type="text" x-bind:disabled="!canEdit" x-model="chainSuggest.label"></label>
-      <div class="energy-actionbar">
-        <button type="button" x-on:click="chainSuggestCancel()">{{t "common.cancel"}}</button>
-        <button type="button" class="primary" x-bind:disabled="!canEdit || chainSuggestSaving" x-show="!chainSuggest.chainId" x-on:click="chainSuggestSave()">{{t "energy.chains.suggest.create"}}</button>
-        <button type="button" class="primary" x-bind:disabled="!canEdit || chainSuggestSaving" x-show="chainSuggest.chainId" x-on:click="chainSuggestSave()">{{t "energy.chains.suggest.extend"}}</button>
+
+      <div class="energy-chain-suggest-proof" x-show="v.percent">
+        <span class="energy-chain-suggest-proof-num" x-text="v.percent"></span>
+        <span class="energy-chain-suggest-proof-text"><strong>{{t "energy.chains.suggest.match"}}</strong><small x-text="v.daysText"></small></span>
+      </div>
+
+      <div class="energy-chain-suggest-chain">
+        <template x-for="node in v.nodes" x-bind:key="node.id">
+          <div class="energy-chain-suggest-step" x-bind:class="{ 'is-last': node.last }">
+            <div class="energy-chain-suggest-node" x-bind:class="{ 'is-new': node.isNew, 'is-context': v.extend && !node.inPair }">
+              <span class="energy-chain-suggest-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false" x-show="node.iconMarkup" x-html="node.iconMarkup"></svg>
+                <svg viewBox="0 0 24 24" focusable="false" x-show="!node.iconMarkup"><use href="#ico-flash"></use></svg>
+              </span>
+              <span class="energy-chain-suggest-copy">
+                <span class="energy-chain-suggest-eyebrow" x-show="node.eyebrow" x-text="node.eyebrow"></span>
+                <span class="energy-chain-suggest-label" x-text="node.name" x-bind:title="node.name"></span>
+              </span>
+              <span class="energy-chain-suggest-value" x-text="node.valueText"></span>
+            </div>
+            <div class="energy-chain-suggest-link" x-show="!node.last" x-bind:class="{ 'has-flip': node.index === v.pairLink }">
+              <span class="energy-chain-suggest-rail" aria-hidden="true"></span>
+              <button type="button" class="energy-chain-suggest-flip" x-show="node.index === v.pairLink" x-bind:disabled="!canEdit" x-on:click="chainSuggestSwap()" aria-label="{{t "energy.chains.suggest.swap"}}" title="{{t "energy.chains.suggest.swap"}}">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-refresh"></use></svg>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+      <p class="energy-chain-suggest-caption">{{t "energy.chains.suggest.hint"}}</p>
+      <p class="energy-chain-suggest-warn" x-show="v.extend && !v.fits">{{t "energy.chains.suggest.conflict"}}</p>
+      <p class="energy-chain-suggest-edge" x-show="v.edge">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-info"></use></svg>
+        <span>{{t "energy.chains.suggest.edge"}}</span>
+      </p>
+
+      <label class="devicemap-panel-field energy-chain-suggest-field" x-show="!v.extend">
+        <span class="devicemap-panel-field-label">{{t "energy.chains.name_label"}}</span>
+        <input type="text" x-bind:disabled="!canEdit" x-model="chainSuggest.label">
+      </label>
+      <p class="energy-chain-suggest-join" x-show="v.extend">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chain"></use></svg>
+        <span>{{t "energy.chains.suggest.joins"}} <strong x-text="v.chainLabel"></strong></span>
+      </p>
+
+      <div class="app-modal-actions">
+        <button type="button" autofocus x-on:click="chainSuggestCancel()">{{t "common.cancel"}}</button>
+        <button type="button" class="primary" x-bind:disabled="!canEdit || chainSuggestSaving || !v.fits" x-show="!v.extend" x-on:click="chainSuggestSave()">{{t "energy.chains.suggest.create"}}</button>
+        <button type="button" class="primary" x-bind:disabled="!canEdit || chainSuggestSaving || !v.fits" x-show="v.extend" x-on:click="chainSuggestSave()">{{t "energy.chains.suggest.extend"}}</button>
       </div>
     </div>
   </template>

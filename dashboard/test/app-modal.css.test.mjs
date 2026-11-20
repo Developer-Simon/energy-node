@@ -12,6 +12,7 @@ const base = read('internal', 'webui', 'static', 'css', 'base.css');
 const manager = read('internal', 'webui', 'static', 'css', 'manager.css');
 const baseHTML = read('internal', 'webui', 'templates', 'base.html');
 const editorHTML = read('internal', 'webui', 'templates', 'layout-editor.html');
+const energyHTML = read('internal', 'webui', 'templates', 'energy.html');
 
 // Text vom ersten `selector {` bis zur naechsten `}`.
 function block(css, selector) {
@@ -90,4 +91,25 @@ test('der Picker korrigiert nur noch Breite und Innenabstand', () => {
 test('Bestätigung und Layout-Guard sind Hinweise', () => {
   assert.match(baseHTML, /<dialog class="app-modal app-modal-alert" x-data aria-labelledby="app-modal-title"/);
   assert.match(editorHTML, /<dialog id="layout-guard-modal" class="app-modal app-modal-danger app-modal-alert"/);
+});
+test('das Messketten-Modal ist ein app-modal Sheet mit 36rem', () => {
+  assert.match(energyHTML, /<dialog class="app-modal energy-chain-suggest-modal" x-ref="chainSuggestDialog"[^>]*x-on:close="chainSuggest = null"/);
+  assert.doesNotMatch(energyHTML, /device-detail energy-chain-suggest-dialog/);
+  assert.match(block(manager, '.app-modal.energy-chain-suggest-modal'), /width:\s*min\(36rem, calc\(100vw - 2rem\)\)/);
+});
+test('das Template liest nur modalView und die Host-Methoden', () => {
+  const part = energyHTML.slice(energyHTML.indexOf('{{define "chain-suggest-dialog"}}'));
+  assert.match(part, /EnergyChainSuggest\.modalView\(chainSuggest, \$data\)/);
+  assert.match(part, /aria-label="\{\{t "energy\.chains\.suggest\.swap"\}\}"/);
+  assert.match(part, /<button type="button" autofocus x-on:click="chainSuggestCancel\(\)">/);
+  assert.match(part, /x-bind:disabled="!canEdit \|\| chainSuggestSaving \|\| !v\.fits"/);
+  assert.doesNotMatch(part, /ChainSuggestDraft|preview|ecs-only/);
+});
+test('die alten Dialogklassen sind weg, die Karte behält ihre', () => {
+  for (const name of ['dialog', 'form', 'order', 'point', 'arrow', 'hint', 'swap', 'name', 'name-input']) {
+    assert.doesNotMatch(manager, new RegExp(`\\.energy-chain-suggest-${name}\\s*\\{`), name);
+  }
+  for (const name of ['line', 'text', 'glyph', 'evidence', 'actions']) {
+    assert.match(manager, new RegExp(`\\.energy-chain-suggest-${name}\\s*\\{`), name);
+  }
 });
