@@ -178,9 +178,12 @@
   const PREFILL_MAPPERS = {
     time_point(prefill) {
       const out = {};
-      if (prefill.device !== undefined) {
-        if (!isPrefillText(prefill.device)) return null;
-        out.device = prefill.device;
+      // Der Assistent waehlt den Schalter nach Entitaets-ID, die Vorbelegung
+      // nennt sie als entity. Ohne entity gilt das Geraet.
+      const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
       }
       if (prefill.on !== undefined) {
         if (typeof prefill.on !== 'boolean') return null;
@@ -203,9 +206,10 @@
     },
     runtime_off(prefill) {
       const out = {};
-      if (prefill.device !== undefined) {
-        if (!isPrefillText(prefill.device)) return null;
-        out.device = prefill.device;
+      const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
       }
       if (prefill.minutes !== undefined) {
         if (!Number.isInteger(prefill.minutes)) return null;
@@ -216,9 +220,10 @@
     follow_switch(prefill) {
       const out = {};
       for (const key of ['source', 'target']) {
-        if (prefill[key] === undefined) continue;
-        if (!isPrefillText(prefill[key])) return null;
-        out[key] = prefill[key];
+        const value = prefill[`${key}_entity`] !== undefined ? prefill[`${key}_entity`] : prefill[key];
+        if (value === undefined) continue;
+        if (!isPrefillText(value)) return null;
+        out[key] = value;
       }
       for (const key of ['source_on', 'target_on']) {
         if (prefill[key] === undefined) continue;

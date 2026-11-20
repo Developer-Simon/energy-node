@@ -55,6 +55,8 @@ type swRef struct {
 	// events holds the minutes of the day of the hand and external events,
 	// index 0 for off and 1 for on.
 	events [2][]float64
+	// entities names the switch entity of each event, parallel to events.
+	entities [2][]string
 }
 
 // switchTimeRun finds the peaks of the switching times of one device. Each
@@ -109,6 +111,7 @@ func switchTimeRefs(in *Input, device string) []swRef {
 				dir = 1
 			}
 			r.events[dir] = append(r.events[dir], float64(at.Hour()*60+at.Minute())+float64(at.Second())/60)
+			r.entities[dir] = append(r.entities[dir], ev.Entity)
 		}
 		refs = append(refs, r)
 	}
@@ -126,6 +129,7 @@ func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []C
 	}
 	var group []int
 	var minutes, weights []float64
+	var entities []string
 	for i := range refs {
 		if refs[i].group != g {
 			continue
@@ -135,6 +139,7 @@ func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []C
 			minutes = append(minutes, m)
 			weights = append(weights, refs[i].weight)
 		}
+		entities = append(entities, refs[i].entities[dir]...)
 	}
 	if len(minutes) < 2 {
 		return nil
@@ -143,7 +148,7 @@ func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []C
 	var out []Candidate
 	ids := map[string]bool{}
 	for _, peak := range dens.Peaks(switchTimeMinShare) {
-		c, ok := switchTimeCandidate(in, device, g, on, refs, group, minutes, peak)
+		c, ok := switchTimeCandidate(in, device, g, on, refs, group, minutes, entities, peak)
 		if !ok || ids[c.Finding.ID] {
 			continue
 		}
@@ -155,7 +160,7 @@ func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []C
 
 // switchTimeCandidate builds the candidate of one peak, or reports false when
 // the peak fails the gates.
-func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef, group []int, minutes []float64, peak float64) (Candidate, bool) {
+func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef, group []int, minutes []float64, entities []string, peak float64) (Candidate, bool) {
 	dir := 0
 	dirName := "off"
 	if on {
@@ -253,8 +258,7 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 			{Code: "spread_min", Value: spread},
 			{Code: "hit_rate", Value: rate},
 		},
-		Apply: []Fix{{Code: "time_point", Template: "time_point", Prefill: map[string]any{
-			"device": device, "on": on, "time": clock, "days": weekdays}}},
+		Apply:   []Fix{{Code: "time_point", Template: "time_point", Prefill: switchTimePrefill(device, entities, on, clock, weekdays)}},
 		Device:  device,
 		Season:  season,
 		Benefit: &benefit,
@@ -273,6 +277,13 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 		Spread: map[string]float64{"time": quietSpread(spread)},
 	}
 	return cand, true
+}
+
+// switchTimePrefill is the prefill of the time_point fix. The entity is the
+// switch the events of the peak name, the assistant selects it by entity ID.
+func switchTimePrefill(device string, entities []string, on bool, clock string, weekdays []int) map[string]any {
+	prefill := map[string]any{"device": device, "on": on, "time": clock, "days": weekdays}
+	return withEntity(prefill, "entity", dominantEntity(entities))
 }
 
 // quietSpread is the spread of a shown time: never below 5 minutes, and 5 for

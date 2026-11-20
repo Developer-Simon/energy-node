@@ -226,11 +226,11 @@ func couplingCandidate(in *Input, loc *time.Location, a, b string, onA, onB bool
 	}
 
 	halves := couplingHalves(flags)
-	return couplingBuild(in, loc, a, b, onA, onB, sa, window, hits, cases, lower, share, lag, matchedB, deltas, halves), true
+	return couplingBuild(in, loc, a, b, onA, onB, sa, sb, window, hits, cases, lower, share, lag, matchedB, deltas, halves), true
 }
 
 // couplingBuild assembles the candidate of a pair that passed the gates.
-func couplingBuild(in *Input, loc *time.Location, a, b string, onA, onB bool, sa *couplingStream, window int64,
+func couplingBuild(in *Input, loc *time.Location, a, b string, onA, onB bool, sa, sb *couplingStream, window int64,
 	hits, cases int, lower, share, lag float64, matchedB []int64, deltas []float64, halves bool) Candidate {
 	dirA, dirB := couplingDirName(onA), couplingDirName(onB)
 	weights := make([]float64, len(sa.times))
@@ -263,8 +263,8 @@ func couplingBuild(in *Input, loc *time.Location, a, b string, onA, onB bool, sa
 			{Code: "window_s", Value: window},
 			{Code: "direction_share", Value: share},
 		},
-		Apply: []Fix{{Code: "follow_switch", Template: "follow_switch", Prefill: map[string]any{
-			"source": a, "source_on": onA, "target": b, "target_on": onB}}},
+		Apply: []Fix{{Code: "follow_switch", Template: "follow_switch", Prefill: withEntity(withEntity(map[string]any{
+			"source": a, "source_on": onA, "target": b, "target_on": onB}, "source_entity", sa.entity), "target_entity", sb.entity)}},
 		Device:  b,
 		Benefit: &benefit,
 	}

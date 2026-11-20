@@ -78,11 +78,13 @@ func runtimeRun(ctx context.Context, in *Input, device string) []Candidate {
 	member, stats := runtimeClusters(logs)
 
 	tallies := make([]runtimeTally, len(stats))
+	entities := make([][]string, len(stats))
 	for i, r := range runs {
 		g := member[i]
 		dur := runtimeMinutes(r)
 		st := stats[g]
 		t := &tallies[g]
+		entities[g] = append(entities[g], r.Entity)
 		if r.EndOrigin == OriginRule || dur <= math.Exp(st.m+runtimeForgetSigma*st.s) {
 			t.ordinary++
 			continue
@@ -108,7 +110,7 @@ func runtimeRun(ctx context.Context, in *Input, device string) []Candidate {
 	if best < 0 {
 		return nil
 	}
-	return []Candidate{runtimeCandidate(device, stats[best], tallies[best], weeks)}
+	return []Candidate{runtimeCandidate(device, dominantEntity(entities[best]), stats[best], tallies[best], weeks)}
 }
 
 // runtimeMinutes is the length of a run in minutes.
@@ -194,7 +196,7 @@ func runtimeSure(t runtimeTally) bool {
 
 // runtimeCandidate builds the candidate of one cluster. The suggested switch-off
 // is exp(m + 2s) rounded up to 5 minutes, the benefit is the extra energy per week.
-func runtimeCandidate(device string, st runtimeStat, t runtimeTally, weeks float64) Candidate {
+func runtimeCandidate(device, entity string, st runtimeStat, t runtimeTally, weeks float64) Candidate {
 	total := t.ordinary + t.forgotten
 	extraKWh := t.extraWh / 1000
 	usual := math.Exp(st.m)
@@ -216,7 +218,7 @@ func runtimeCandidate(device string, st runtimeStat, t runtimeTally, weeks float
 		Evidence: Evidence{Shape: "scale", IstValue: &longest, SollValue: &suggest},
 		Facts:    []Fact{{Code: "overnight", Value: t.overnight}},
 		Apply: []Fix{{Code: "runtime_off", Template: "runtime_off",
-			Prefill: map[string]any{"device": device, "minutes": int(suggest)}}},
+			Prefill: withEntity(map[string]any{"device": device, "minutes": int(suggest)}, "entity", entity)}},
 		Device:  device,
 		Benefit: &benefit,
 	}

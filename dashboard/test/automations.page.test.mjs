@@ -3636,3 +3636,41 @@ test('openAssistantWith opens the gallery for unknown or malformed prefill witho
   assert.equal(component.assistant.open, true);
   assert.equal(component.assistant.templateId, '');
 });
+
+test('prefillToAnswers takes the switch entity over the device for time points and runtimes', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const timed = prefillToAnswers('time_point', { device: 'lampe', entity: 'lamp_switch', on: true, time: '07:00', days: [5] });
+  assert.equal(timed.device, 'lamp_switch');
+  const runtime = prefillToAnswers('runtime_off', { device: 'lampe', entity: 'lamp_switch', minutes: 45 });
+  assert.deepEqual(JSON.parse(JSON.stringify(runtime)), { device: 'lamp_switch', minutes: 45 });
+  assert.equal(prefillToAnswers('time_point', { entity: 7 }), null, 'a malformed entity makes the prefill malformed');
+});
+
+test('prefillToAnswers takes the source and target entities for a following switch', () => {
+  const { window } = createAutomationsPanel();
+  const answers = window.__automationsPrefill.prefillToAnswers('follow_switch', {
+    source: 'lampe', source_entity: 'lamp_switch', source_on: true, target: 'wb', target_entity: 'wb_switch', target_on: false,
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(answers)), {
+    source: 'lamp_switch', source_on: 'on', target: 'wb_switch', target_on: 'off',
+  });
+});
+
+test('openAssistantWith selects the switch entity and lands on the summary', async () => {
+  const { component } = await prefillPanel();
+  await component.openAssistantWith('time_point', {
+    device: 'lampe', entity: 'lamp_switch', on: false, time: '22:30', days: [0, 1, 2, 3, 4, 5, 6],
+  });
+  assert.equal(component.assistant.templateId, 'time_point');
+  assert.equal(component.assistant.answers.device, 'lamp_switch');
+  assert.equal(component.assistantStep().id, 'summary');
+});
+
+test('openAssistantWith clears a switch entity that is not in the list', async () => {
+  const { component } = await prefillPanel();
+  await component.openAssistantWith('time_point', { device: 'lampe', entity: 'gibt_keinen_schalter', on: false });
+  assert.equal(component.assistant.templateId, 'time_point');
+  assert.equal(component.assistant.answers.device, '', 'an unknown entity is not taken over, not even via the device');
+  assert.equal(component.assistantStep().id, 'device');
+});

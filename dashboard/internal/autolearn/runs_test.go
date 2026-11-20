@@ -123,3 +123,15 @@ func TestRunsOfIgnoresOffWithoutOn(t *testing.T) {
 		t.Fatalf("runs = %+v, want none", runs)
 	}
 }
+
+func TestDominantEntityPicksMostFrequentThenSmallest(t *testing.T) {
+	if got := dominantEntity([]string{"b", "a", "b"}); got != "b" {
+		t.Errorf("most frequent = %q, want b", got)
+	}
+	if got := dominantEntity([]string{"b", "a"}); got != "a" {
+		t.Errorf("tie = %q, want the smallest a", got)
+	}
+	if got := dominantEntity(nil); got != "" {
+		t.Errorf("empty = %q, want empty", got)
+	}
+}

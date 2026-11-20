@@ -364,3 +364,26 @@ func TestSwitchTimePrefillDaysStartAtMonday(t *testing.T) {
 		}
 	}
 }
+
+// TestSwitchTimePrefillCarriesSwitchEntity: the assistant selects the switch
+// entity, not the device, so the prefill carries the entity of the events.
+func TestSwitchTimePrefillCarriesSwitchEntity(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	days := synthDays(start, 14, synthOpts{
+		Seed:    11,
+		Devices: []string{"lamp"},
+		Habits: []synthHabit{
+			{Device: "lamp", On: true, Minute: 1140, Spread: 0, Hit: 1},
+			{Device: "lamp", On: false, Minute: 1350, Spread: 8, Hit: 12.0 / 14.0},
+		},
+	})
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeInput(t, days), "lamp"), "lamp", "off")
+	if len(got) != 1 {
+		t.Fatalf("off candidates = %d, want 1", len(got))
+	}
+	p := got[0].Finding.Apply[0].Prefill
+	if p["device"] != "lamp" || p["entity"] != "switch.lamp" {
+		t.Errorf("prefill device and entity = %v and %v, want lamp and switch.lamp", p["device"], p["entity"])
+	}
+}

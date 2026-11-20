@@ -52,6 +52,9 @@ func TestRuntimeLongRunsAfterUsualRunsSuggestsOff(t *testing.T) {
 	if c.Apply[0].Template != "runtime_off" || c.Apply[0].Prefill["device"] != "heater" {
 		t.Errorf("apply = %+v", c.Apply)
 	}
+	if c.Apply[0].Prefill["entity"] != "switch.heater" {
+		t.Errorf("prefill entity = %v, want switch.heater", c.Apply[0].Prefill["entity"])
+	}
 	if c.Benefit == nil || c.Benefit.Unit != "kwh_week" || c.Benefit.Value <= 0 {
 		t.Errorf("benefit = %+v", c.Benefit)
 	}

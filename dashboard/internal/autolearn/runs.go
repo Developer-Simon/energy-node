@@ -84,3 +84,30 @@ func runEnergy(byDay map[string]*DayFile, loc *time.Location, device string, fro
 	}
 	return wh
 }
+
+// withEntity sets the entity key of a prefill, an empty entity leaves the key
+// out so that the assistant does not get an empty selection.
+func withEntity(prefill map[string]any, key, entity string) map[string]any {
+	if entity != "" {
+		prefill[key] = entity
+	}
+	return prefill
+}
+
+// dominantEntity returns the entity that occurs most often, the smallest name
+// wins a tie. It returns an empty string for no entities.
+func dominantEntity(entities []string) string {
+	counts := map[string]int{}
+	for _, e := range entities {
+		if e != "" {
+			counts[e]++
+		}
+	}
+	best := ""
+	for e, n := range counts {
+		if best == "" || n > counts[best] || (n == counts[best] && e < best) {
+			best = e
+		}
+	}
+	return best
+}

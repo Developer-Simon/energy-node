@@ -98,6 +98,9 @@ func TestCouplingFollowsWithinTwoMinutesIsSuggested(t *testing.T) {
 	if p["source"] != "a" || p["source_on"] != true || p["target"] != "b" || p["target_on"] != true {
 		t.Errorf("prefill = %+v, want source a on, target b on", p)
 	}
+	if p["source_entity"] != "switch.a" || p["target_entity"] != "switch.b" {
+		t.Errorf("prefill entities = %v and %v, want switch.a and switch.b", p["source_entity"], p["target_entity"])
+	}
 	if c.Finding.Benefit == nil || c.Finding.Benefit.Unit != "actions_week" || c.Finding.Benefit.Value <= 0 {
 		t.Errorf("benefit = %+v, want actions_week above zero", c.Finding.Benefit)
 	}
