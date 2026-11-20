@@ -71,19 +71,26 @@ func TestCollectorLoadBrokenFile(t *testing.T) {
 	}
 }
 
-func TestCollectorSavesHourly(t *testing.T) {
+func TestCollectorSaveWritesWhenDirty(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "chains", "suggest.json")
 	c := NewCollector(baseThresholds(), time.UTC)
 	c.SetPersistence(path, noLog)
-	for m := 0; m < 60; m++ {
-		c.Observe(storeT0.Add(time.Duration(m)*time.Minute), devicesFor(map[string]float64{"a": 100, "b": 90}))
+	feed(c, storeT0, 2, func(int) map[string]float64 { return map[string]float64{"a": 100, "b": 90} })
+
+	if err := c.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("file missing after Save with changes: %v", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Save(); err != nil {
+		t.Fatalf("second Save: %v", err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatalf("file written before one hour: %v", err)
-	}
-	c.Observe(storeT0.Add(60*time.Minute), devicesFor(map[string]float64{"a": 100, "b": 90}))
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("file missing after one hour: %v", err)
+		t.Fatalf("second Save without changes wrote the file: %v", err)
 	}
 }
 

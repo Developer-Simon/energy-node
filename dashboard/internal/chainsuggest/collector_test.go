@@ -2,56 +2,44 @@ package chainsuggest
 
 import (
 	"fmt"
+	"math"
 	"sort"
-	"strconv"
 	"testing"
 	"time"
 
-	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
-	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 )
 
-func entity(id, value, unit string) registry.EntityView {
-	return registry.EntityView{
-		UniqueID:          id,
-		Value:             value,
-		HasValue:          true,
-		Available:         true,
-		UnitOfMeasurement: unit,
-	}
-}
-
-// devicesFor macht je Entitaet ein eigenes Geraet mit Wert in W.
-func devicesFor(values map[string]float64) []registry.DeviceView {
+// frameFor macht den Rahmen einer Minute: je Entitaet ein eigenes Geraet mit
+// dem Betrag in W. kW und Vorzeichen fallen vorher in learnrec.PowerOf weg.
+func frameFor(minute time.Time, values map[string]float64) learnrec.Frame {
 	ids := make([]string, 0, len(values))
 	for id := range values {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
-	devices := make([]registry.DeviceView, 0, len(ids))
+	devices := make([]learnrec.DeviceMinute, 0, len(ids))
 	for _, id := range ids {
-		devices = append(devices, registry.DeviceView{
-			ID:       "dev-" + id,
-			Entities: []registry.EntityView{entity(id, strconv.FormatFloat(values[id], 'f', -1, 64), "W")},
+		devices = append(devices, learnrec.DeviceMinute{
+			ID:        "dev-" + id,
+			Power:     map[string]float64{id: values[id]},
+			Reachable: true,
 		})
 	}
-	return devices
+	return learnrec.Frame{Minute: minute, Devices: devices}
 }
 
-// feed fuettert je Minute sechs Beobachtungen im 10-s-Takt. Die letzte
-// Minute schliesst erst die naechste Beobachtung ab.
+// feed fuettert je Minute einen Rahmen. Jeder Rahmen ist eine abgeschlossene Minute.
 func feed(c *Collector, start time.Time, minutes int, values func(minute int) map[string]float64) {
 	for m := 0; m < minutes; m++ {
-		minuteStart := start.Add(time.Duration(m) * time.Minute)
-		for s := 0; s < 6; s++ {
-			c.Observe(minuteStart.Add(time.Duration(s)*10*time.Second), devicesFor(values(m)))
-		}
+		c.ObserveMinute(frameFor(start.Add(time.Duration(m)*time.Minute), values(m)))
 	}
 }
 
-// flush schliesst die laufende Minute ueber eine leere Beobachtung ab.
+// flush schliesst die Reihe mit einem leeren Rahmen ab. Er stoesst nur den
+// Tageswechsel an, Teilnehmer hat er keine.
 func flush(c *Collector, at time.Time) {
-	c.Observe(at, nil)
+	c.ObserveMinute(learnrec.Frame{Minute: at})
 }
 
 func TestCollectorMinuteMeansAndActiveFilter(t *testing.T) {
@@ -72,25 +60,11 @@ func TestCollectorMinuteMeansAndActiveFilter(t *testing.T) {
 		t.Errorf("sums a=%v b=%v, want 300 and 270", s.sa, s.sb)
 	}
 
-	// Geraete, die nicht teilnehmen duerfen: fehlender Wert, veraltet,
-	// nicht verfuegbar, Einheit %, Geraet energy_node. kW und negative
-	// Werte gehen mit ein.
+	// Nur die Entitaeten im Rahmen nehmen teil. Die Umrechnung von kW und
+	// das Vorzeichen liegen bei learnrec.PowerOf, hier kommen Betraege in W an.
 	c2 := NewCollector(DefaultThresholds, time.UTC)
-	devices := []registry.DeviceView{
-		{ID: "dev-a", Entities: []registry.EntityView{entity("a", "100", "W")}},
-		{ID: "dev-kw", Entities: []registry.EntityView{entity("kw", "0.1", "kW")}},
-		{ID: "dev-neg", Entities: []registry.EntityView{entity("neg", "-100", "W")}},
-		{ID: "dev-novalue", Entities: []registry.EntityView{{UniqueID: "noval", Value: "100", HasValue: false, Available: true, UnitOfMeasurement: "W"}}},
-		{ID: "dev-stale", Entities: []registry.EntityView{{UniqueID: "stale", Value: "100", HasValue: true, Stale: true, Available: true, UnitOfMeasurement: "W"}}},
-		{ID: "dev-offline", Entities: []registry.EntityView{{UniqueID: "offline", Value: "100", HasValue: true, HasAvailability: true, Available: false, UnitOfMeasurement: "W"}}},
-		{ID: "dev-pct", Entities: []registry.EntityView{entity("pct", "50", "%")}},
-		{ID: energydiscovery.DeviceIdentifier, Entities: []registry.EntityView{entity("meter", "100", "W")}},
-	}
 	for m := 0; m < 3; m++ {
-		minuteStart := start.Add(time.Duration(m) * time.Minute)
-		for s := 0; s < 6; s++ {
-			c2.Observe(minuteStart.Add(time.Duration(s)*10*time.Second), devices)
-		}
+		c2.ObserveMinute(frameFor(start.Add(time.Duration(m)*time.Minute), map[string]float64{"a": 100, "kw": 100, "neg": 100}))
 	}
 	if got := sortedKeys(c2.devices); fmt.Sprint(got) != "[a kw neg]" {
 		t.Errorf("participants = %v, want [a kw neg]", got)
@@ -98,31 +72,28 @@ func TestCollectorMinuteMeansAndActiveFilter(t *testing.T) {
 	flush(c2, start.Add(3*time.Minute))
 	kw := c2.sums[pairDay{a: "a", b: "kw", day: dayIndex(start)}]
 	if kw == nil || kw.n != 3 || kw.sb != 300 {
-		t.Errorf("kW pair sums = %+v, want n 3 and sb 300 (0.1 kW = 100 W)", kw)
+		t.Errorf("kW pair sums = %+v, want n 3 and sb 300", kw)
 	}
 	neg := c2.sums[pairDay{a: "a", b: "neg", day: dayIndex(start)}]
 	if neg == nil || neg.n != 3 || neg.sb != 300 {
-		t.Errorf("negative pair sums = %+v, want n 3 and sb 300 (Betrag)", neg)
+		t.Errorf("negative pair sums = %+v, want n 3 and sb 300", neg)
 	}
 
-	// Vor 2020 gestellte Uhr: kein Puffer, keine Teilnehmer.
+	// Vor 2020 gestellte Uhr: keine Summen, keine Teilnehmer.
 	c3 := NewCollector(DefaultThresholds, time.UTC)
-	c3.Observe(time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC), devicesFor(map[string]float64{"a": 100}))
-	if len(c3.buf) != 0 || !c3.minute.IsZero() || len(c3.devices) != 0 {
-		t.Errorf("clock not ready: buf %d, minute %v, devices %d, want nothing", len(c3.buf), c3.minute, len(c3.devices))
+	c3.ObserveMinute(frameFor(time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC), map[string]float64{"a": 100, "b": 90}))
+	if len(c3.sums) != 0 || len(c3.devices) != 0 {
+		t.Errorf("clock not ready: sums %d, devices %d, want nothing", len(c3.sums), len(c3.devices))
 	}
 }
 
 func TestCollectorWindowDropsOldDays(t *testing.T) {
 	day0 := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 	c := NewCollector(DefaultThresholds, time.UTC)
+	// Acht Tage, der Tageswechsel auf Tag 7 wirft Tag 0 aus dem Fenster.
 	for d := 0; d < 8; d++ {
-		feed(c, day0.Add(time.Duration(d)*24*time.Hour), 1, func(int) map[string]float64 {
-			return map[string]float64{"a": 100, "b": 90}
-		})
+		c.ObserveMinute(frameFor(day0.Add(time.Duration(d)*24*time.Hour), map[string]float64{"a": 100, "b": 90}))
 	}
-	// Die Minute von Tag 7 schliesst erst die Beobachtung auf Tag 8 ab.
-	flush(c, day0.Add(8*24*time.Hour))
 
 	days := map[int]bool{}
 	for key := range c.sums {
@@ -138,14 +109,14 @@ func TestCollectorWindowDropsOldDays(t *testing.T) {
 	}
 }
 
-func TestCollectorMaxEntities(t *testing.T) {
+func TestCollectorMaxEntitiesOnFrame(t *testing.T) {
 	start := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
 	values := map[string]float64{}
 	for i := 0; i < 70; i++ {
 		values[fmt.Sprintf("e%02d", i)] = 100
 	}
 	c := NewCollector(DefaultThresholds, time.UTC)
-	feed(c, start, 1, func(int) map[string]float64 { return values })
+	c.ObserveMinute(frameFor(start, values))
 
 	if len(c.devices) != 64 {
 		t.Fatalf("participants = %d, want 64", len(c.devices))
@@ -170,15 +141,13 @@ func sortedKeys(m map[string]string) []string {
 func TestCollectorSkipsNonFinite(t *testing.T) {
 	start := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
 	c := NewCollector(DefaultThresholds, time.UTC)
-	devices := []registry.DeviceView{
-		{ID: "dev-a", Entities: []registry.EntityView{entity("a", "100", "W")}},
-		{ID: "dev-nan", Entities: []registry.EntityView{entity("nan", "NaN", "W")}},
-		{ID: "dev-inf", Entities: []registry.EntityView{entity("inf", "Inf", "W")}},
-		{ID: "dev-ninf", Entities: []registry.EntityView{entity("ninf", "-Inf", "kW")}},
-	}
-	for s := 0; s < 6; s++ {
-		c.Observe(start.Add(time.Duration(s)*10*time.Second), devices)
-	}
+	f := learnrec.Frame{Minute: start, Devices: []learnrec.DeviceMinute{
+		{ID: "dev-a", Power: map[string]float64{"a": 100}},
+		{ID: "dev-nan", Power: map[string]float64{"nan": math.NaN()}},
+		{ID: "dev-inf", Power: map[string]float64{"inf": math.Inf(1)}},
+		{ID: "dev-ninf", Power: map[string]float64{"ninf": math.Inf(-1)}},
+	}}
+	c.ObserveMinute(f)
 	flush(c, start.Add(time.Minute))
 
 	if got := sortedKeys(c.owner); fmt.Sprint(got) != "[a]" {
@@ -194,42 +163,32 @@ func TestCollectorSkipsNonFinite(t *testing.T) {
 func TestCollectorDisabled(t *testing.T) {
 	start := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
 	c := NewCollector(DefaultThresholds, time.UTC)
-	both := func() []registry.DeviceView {
-		return devicesFor(map[string]float64{"a": 100, "b": 90})
+	both := func() map[string]float64 {
+		return map[string]float64{"a": 100, "b": 90}
 	}
-	// Minute 0 und die ersten drei Beobachtungen von Minute 1 vor dem Abschalten.
-	for s := 0; s < 6; s++ {
-		c.Observe(start.Add(time.Duration(s)*10*time.Second), both())
-	}
-	for s := 0; s < 3; s++ {
-		c.Observe(start.Add(time.Minute+time.Duration(s)*10*time.Second), both())
-	}
+	// Minute 0 zaehlt, bevor abgeschaltet wird.
+	c.ObserveMinute(frameFor(start, both()))
 	c.dirty = false
 
 	c.SetEnabled(false)
 	if c.Enabled() {
 		t.Fatal("Enabled after SetEnabled(false) = true")
 	}
-	if len(c.buf) != 0 {
-		t.Fatalf("minute buffer after SetEnabled(false) has %d entries, want none", len(c.buf))
-	}
 	if c.dirty {
 		t.Fatal("SetEnabled(false) set dirty")
 	}
-	for s := 3; s < 6; s++ {
-		c.Observe(start.Add(time.Minute+time.Duration(s)*10*time.Second), both())
-	}
-	if c.dirty || len(c.buf) != 0 {
-		t.Fatalf("observes while disabled: dirty %v, buffer %d, want clean and empty", c.dirty, len(c.buf))
+	// Minute 1 kommt bei abgeschaltetem Sammler an und zaehlt nicht.
+	c.ObserveMinute(frameFor(start.Add(time.Minute), both()))
+	if c.dirty {
+		t.Fatal("observe while disabled set dirty")
 	}
 
 	c.SetEnabled(true)
-	feed(c, start.Add(4*time.Minute), 2, func(int) map[string]float64 { return map[string]float64{"a": 100, "b": 90} })
-	flush(c, start.Add(6*time.Minute))
+	feed(c, start.Add(2*time.Minute), 2, func(int) map[string]float64 { return both() })
 
-	// Minute 0 zaehlt, die unterbrochene Minute 1 nicht, Minuten 4 und 5 zaehlen.
+	// Minute 0, 2 und 3 zaehlen, Minute 1 nicht.
 	s := c.sums[pairDay{a: "a", b: "b", day: dayIndex(start)}]
 	if s == nil || s.n != 3 {
-		t.Fatalf("sums = %+v, want n 3 (minute 0, minutes 4 and 5)", s)
+		t.Fatalf("sums = %+v, want n 3 (minute 0, minutes 2 and 3)", s)
 	}
 }
