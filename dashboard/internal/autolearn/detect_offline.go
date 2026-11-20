@@ -34,11 +34,28 @@ const (
 // offlineBin counts the days of one bin: n with data, k unreachable.
 type offlineBin struct{ n, k int }
 
-// offlineWindow is an unreachable span of the day in minutes, from inclusive
-// to exclusive. lower is the lower Wilson bound of its unreachable share.
+// offlineWindow is an unreachable span of the day in minutes, from inclusive to
+// to exclusive. A window across midnight has to <= from. lower is the lower
+// Wilson bound of its unreachable share.
 type offlineWindow struct {
 	from, to int
 	lower    float64
+}
+
+// contains reports whether minute m of the day lies in the window.
+func (w offlineWindow) contains(m float64) bool {
+	if w.from < w.to {
+		return m >= float64(w.from) && m < float64(w.to)
+	}
+	return m >= float64(w.from) || m < float64(w.to)
+}
+
+// spans returns the window as spans of the day: one span, or two across midnight.
+func (w offlineWindow) spans() [][2]int64 {
+	if w.from < w.to {
+		return [][2]int64{{int64(w.from), int64(w.to)}}
+	}
+	return [][2]int64{{int64(w.from), int64(minutesPerDay)}, {0, int64(w.to)}}
 }
 
 // offlineRun finds the rules whose time window starts in an unreachable window
@@ -126,40 +143,66 @@ func offlineBins(bins *[offlineWeekdays][dayQuarters]offlineBin) [dayQuarters]of
 	return pooled
 }
 
-// offlineWindows joins the quarters whose unreachable share is sure enough to
-// windows. A window is a day window only when it holds on every weekday with
-// data; the others are dropped.
+// offlineWindows joins the quarters whose pooled unreachable share is sure
+// enough into windows. A run that crosses midnight becomes one window across
+// midnight. A window is a day window only when it holds on every weekday with
+// data. The others are dropped.
 //
 // The quarters are pooled over the weekdays. With the minimum of 14 days a
 // single weekday bin holds only about two days, and no bin reaches the Wilson
 // bound of 0.6 with fewer than five.
 func offlineWindows(bins *[offlineWeekdays][dayQuarters]offlineBin) []offlineWindow {
 	pooled := offlineBins(bins)
+	var flag [dayQuarters]bool
+	first := -1
+	for q := range pooled {
+		flag[q] = WilsonLower(pooled[q].k, pooled[q].n) >= offlineLimit
+		if !flag[q] && first < 0 {
+			first = q
+		}
+	}
+	if first < 0 {
+		// Every quarter is unreachable, there is no window to find.
+		return nil
+	}
+	// Walk the day from the first quiet quarter, so that no run wraps around
+	// the walk. Offsets i count from first, the quiet quarter ends the walk.
 	var out []offlineWindow
-	start := -1
-	for q := 0; q <= dayQuarters; q++ {
-		flagged := q < dayQuarters && WilsonLower(pooled[q].k, pooled[q].n) >= offlineLimit
-		if flagged && start < 0 {
-			start = q
+	run := -1
+	for i := 1; i <= dayQuarters; i++ {
+		q := (first + i) % dayQuarters
+		switch {
+		case flag[q] && run < 0:
+			run = i
+		case !flag[q] && run >= 0:
+			out = appendOfflineRun(out, bins, (first+run)%dayQuarters, i-run)
+			run = -1
 		}
-		if flagged || start < 0 {
-			continue
-		}
-		if w, ok := offlineDayWindow(bins, start, q); ok {
-			out = append(out, w)
-		}
-		start = -1
 	}
 	return out
 }
 
-// offlineDayWindow checks the quarters from to to (exclusive) on every weekday
-// with data. It returns the window in minutes when all weekdays hold.
-func offlineDayWindow(bins *[offlineWeekdays][dayQuarters]offlineBin, from, to int) (offlineWindow, bool) {
+// appendOfflineRun adds the run of n quarters from startQ as a window when it
+// holds on every weekday.
+func appendOfflineRun(out []offlineWindow, bins *[offlineWeekdays][dayQuarters]offlineBin, startQ, n int) []offlineWindow {
+	lower, ok := offlineDayWindow(bins, startQ, n)
+	if !ok {
+		return out
+	}
+	return append(out, offlineWindow{from: startQ * 15, to: ((startQ + n) % dayQuarters) * 15, lower: lower})
+}
+
+// offlineDayWindow checks the n quarters from startQ on every weekday with data.
+// On each weekday most of the observations must be unreachable. The pooled bound
+// already gives the significance, and a Wilson bound on the weekday part would
+// fail for short windows with two days per weekday. It returns the Wilson bound
+// of the pooled window when all weekdays hold.
+func offlineDayWindow(bins *[offlineWeekdays][dayQuarters]offlineBin, startQ, n int) (float64, bool) {
 	var all offlineBin
 	for w := range bins {
 		var sum offlineBin
-		for q := from; q < to; q++ {
+		for i := 0; i < n; i++ {
+			q := (startQ + i) % dayQuarters
 			sum.n += bins[w][q].n
 			sum.k += bins[w][q].k
 		}
@@ -168,11 +211,11 @@ func offlineDayWindow(bins *[offlineWeekdays][dayQuarters]offlineBin, from, to i
 		if sum.n == 0 {
 			continue
 		}
-		if WilsonLower(sum.k, sum.n) < offlineLimit {
-			return offlineWindow{}, false
+		if sum.k*2 < sum.n {
+			return 0, false
 		}
 	}
-	return offlineWindow{from: from * 15, to: to * 15, lower: WilsonLower(all.k, all.n)}, true
+	return WilsonLower(all.k, all.n), true
 }
 
 // offlineActionMinutes returns per rule the minutes of the day of its actions on
@@ -215,12 +258,12 @@ func offlineTimeWindow(rule Rule) (int, float64, bool) {
 // offlineAffected reports whether the rule is affected by the window: its time
 // window starts inside it, or at least a third of its actions fall in it.
 func offlineAffected(start float64, mins []float64, w offlineWindow) bool {
-	if start >= float64(w.from) && start < float64(w.to) {
+	if w.contains(start) {
 		return true
 	}
 	in := 0
 	for _, m := range mins {
-		if m >= float64(w.from) && m < float64(w.to) {
+		if w.contains(m) {
 			in++
 		}
 	}
@@ -228,6 +271,7 @@ func offlineAffected(start float64, mins []float64, w offlineWindow) bool {
 }
 
 // offlineCandidate builds the finding of a rule that starts in an offline window.
+// The fix moves the start 5 minutes before the real start of the window.
 func offlineCandidate(device string, info DeviceInfo, rules map[string]Rule, ruleID string, idx int,
 	start float64, w offlineWindow, days int) Candidate {
 	proposed := math.Mod(float64(w.from)-offlineLeadMin+minutesPerDay, minutesPerDay)
@@ -245,7 +289,7 @@ func offlineCandidate(device string, info DeviceInfo, rules map[string]Rule, rul
 			"window_to":   w.to,
 		}},
 		Evidence: Evidence{Shape: "day", From: 0, To: int64(minutesPerDay),
-			Ist: []int64{int64(start)}, IstSpans: [][2]int64{{int64(w.from), int64(w.to)}},
+			Ist: []int64{int64(start)}, IstSpans: w.spans(),
 			Soll: []int64{int64(proposed)}},
 		Apply: []Fix{{Code: "move_before", RuleID: ruleID,
 			Ops: []Op{{Path: []any{"conditions", idx, "start"}, Value: switchTimeClock(proposed)}}}},

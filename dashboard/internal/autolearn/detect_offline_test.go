@@ -123,3 +123,36 @@ func TestOfflineRuleOutsideWindowGivesNothing(t *testing.T) {
 		t.Fatalf("candidates = %d, want 0 for a rule at 10:00", len(got))
 	}
 }
+
+// offlineMidnightOutage is unreachable from 23:30 to 00:30 every day.
+func offlineMidnightOutage(d, q int) bool {
+	return q == 94 || q == 95 || q == 0 || q == 1
+}
+
+func TestOfflineJoinsWindowAcrossMidnight(t *testing.T) {
+	loc := berlinLoc(t)
+	days := offlineDays(t, loc, "plug.heater", 20, offlineMidnightOutage, 10)
+	in := relInput(loc, days, map[string]DeviceInfo{"plug.heater": relDevice("")}, offlineRule("heat", "00:10"))
+
+	got := relRun(OfflineDetector.Run, in, "plug.heater")
+	if len(got) != 1 {
+		t.Fatalf("candidates = %d, want 1: %+v", len(got), got)
+	}
+	f := got[0].Finding
+	if f.Summary.Params["window_from"] != 1410 || f.Summary.Params["window_to"] != 30 {
+		t.Errorf("window params = %v, want 1410 to 30", f.Summary.Params)
+	}
+	if len(f.Apply) != 1 || f.Apply[0].Code != "move_before" {
+		t.Fatalf("apply = %+v, want move_before", f.Apply)
+	}
+	if v := f.Apply[0].Ops[0].Value; v != "23:25" {
+		t.Fatalf("op value = %v, want 23:25", v)
+	}
+	// 23:25 must lie outside the window 23:30 to 00:30.
+	if proposed := 23*60 + 25; proposed >= 1410 || proposed < 30 {
+		t.Errorf("proposed %d lies in the window", proposed)
+	}
+	if len(f.Evidence.IstSpans) != 2 || f.Evidence.IstSpans[0] != [2]int64{1410, 1440} || f.Evidence.IstSpans[1] != [2]int64{0, 30} {
+		t.Errorf("IstSpans = %v, want [1410 1440] and [0 30]", f.Evidence.IstSpans)
+	}
+}
