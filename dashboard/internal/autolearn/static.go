@@ -105,17 +105,34 @@ func unsatisfiable(rule Rule) []Finding {
 }
 
 // conditionNumber returns the number a condition compares against. Threshold
-// belongs to balance_threshold, Value to topic_value and entity_value.
+// belongs to balance_threshold, Value to topic_value and entity_value. A field
+// that holds a learned value has no fixed number, so it reports false.
 func conditionNumber(c Condition) (float64, bool) {
 	switch c.Type {
 	case "balance_threshold":
+		if _, learned := c.Learned["threshold"]; learned {
+			return 0, false
+		}
 		return c.Threshold, true
 	case "topic_value", "entity_value":
+		if _, learned := c.Learned["value"]; learned {
+			return 0, false
+		}
 		if c.Value != nil {
 			return *c.Value, true
 		}
 	}
 	return 0, false
+}
+
+// hasLearned reports whether a condition of the rule reads a learned value.
+func hasLearned(rule Rule) bool {
+	for _, c := range rule.Conditions {
+		if c.Type == "learned_state" || len(c.Learned) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func orphans(rule Rule, entityExists func(entityID string) bool) []Finding {
@@ -154,12 +171,16 @@ func orphans(rule Rule, entityExists func(entityID string) bool) []Finding {
 
 // pairFindings compares every pair of enabled rules in document order. Same
 // conditions and same actions is a duplicate, same conditions with a shared
-// publish topic and another payload is a contradiction.
+// publish topic and another payload is a contradiction. Rules with a learned
+// value are left out, since only fixed values are compared.
 func pairFindings(rules []Rule) []Finding {
 	var out []Finding
 	for i := range rules {
 		for j := i + 1; j < len(rules); j++ {
 			a, b := rules[i], rules[j]
+			if hasLearned(a) || hasLearned(b) {
+				continue
+			}
 			if conditionsKey(a) != conditionsKey(b) {
 				continue
 			}

@@ -245,3 +245,34 @@ func equalStrings(a, b []string) bool {
 	}
 	return true
 }
+
+// A rule with a learned value has no fixed number, so it is not compared with
+// other rules. Two rules on the same learned threshold with opposite actions
+// are no contradiction, identical ones no duplicate, and a learned above with
+// a fixed below on the same value is no unsatisfiable rule.
+func TestStaticSkipsRulesWithLearnedValues(t *testing.T) {
+	doc := staticDoc(t, `{
+	  "rules": [
+	    {"id": "a", "name": "On", "enabled": true,
+	     "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": {"learned": "device/wallbox_1/usual_runtime_s", "min": 60, "max": 14400, "fallback": 3600}}],
+	     "actions": [{"type": "publish", "topic": "wallbox/set", "payload_source": "constant", "payload": "on"}]},
+	    {"id": "b", "name": "Off", "enabled": true,
+	     "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": {"learned": "device/wallbox_1/usual_runtime_s", "min": 60, "max": 14400, "fallback": 3600}}],
+	     "actions": [{"type": "publish", "topic": "wallbox/set", "payload_source": "constant", "payload": "off"}]},
+	    {"id": "c", "name": "Copy one", "enabled": true,
+	     "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": {"learned": "device/heater_1/usual_on", "min": "06:00", "max": "09:00", "fallback": "07:00"}}],
+	     "actions": [{"type": "publish", "topic": "heater/set", "payload_source": "constant", "payload": "on"}]},
+	    {"id": "d", "name": "Copy two", "enabled": true,
+	     "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": {"learned": "device/heater_1/usual_on", "min": "06:00", "max": "09:00", "fallback": "07:00"}}],
+	     "actions": [{"type": "publish", "topic": "heater/set", "payload_source": "constant", "payload": "on"}]},
+	    {"id": "e", "name": "Impossible", "enabled": true,
+	     "conditions": [
+	       {"type": "balance_threshold", "field": "grid_import", "comparison": "above", "threshold": {"learned": "device/wallbox_1/usual_runtime_s", "min": 60, "max": 14400, "fallback": 3600}},
+	       {"type": "balance_threshold", "field": "grid_import", "comparison": "below", "threshold": 50}],
+	     "actions": [{"type": "publish", "topic": "x/set", "payload_source": "constant", "payload": "on"}]}
+	  ]
+	}`)
+	if findings := StaticFindings(doc, staticExists()); len(findings) != 0 {
+		t.Errorf("findings = %+v, want none", findings)
+	}
+}

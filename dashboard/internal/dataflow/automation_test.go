@@ -203,3 +203,35 @@ func TestAutomationGraphReportsAnUnknownRegulatorOutput(t *testing.T) {
 		t.Fatalf("no unresolved output in %+v", graph.Unresolved)
 	}
 }
+
+// learnedRulesDoc has a balance condition with a learned threshold, a
+// time_window with a learned start and a learned_state condition.
+const learnedRulesDoc = `{"version":1,"settings":{},"rules":[{"id":"learned","name":"Gelernt","enabled":true,` +
+	`"conditions":[` +
+	`{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":{"learned":"device/wallbox_1/usual_runtime_s","min":60,"max":14400,"fallback":3600}},` +
+	`{"type":"time_window","start":{"learned":"site/day_start","min":"23:00","max":"01:00","fallback":"00:00"},"end":"08:00"},` +
+	`{"type":"learned_state","learned":"site/house_state","equals":"quiet","fallback":"active"}],` +
+	`"actions":[{"type":"notification","severity":"info","title":"t","message":"m"}]}],"scenarios":[]}`
+
+func TestAutomationGraphReadsLearnedValues(t *testing.T) {
+	graph, err := automationGraph([]byte(learnedRulesDoc), NewIndex(automationDevices()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(graph.Nodes) != 1 {
+		t.Fatalf("nodes = %+v", graph.Nodes)
+	}
+	byID := map[string]Edge{}
+	for _, edge := range graph.Edges {
+		byID[edge.ID] = edge
+	}
+	balance := byID["auto:rule:learned/c0"]
+	if balance.From.VirtualID != BalanceID || balance.Details.Field != "grid_export" {
+		t.Errorf("balance edge = %+v", balance)
+	}
+	for _, id := range []string{"auto:rule:learned/c1", "auto:rule:learned/c2"} {
+		if _, ok := byID[id]; ok {
+			t.Errorf("%s: a time window or learned_state has no edge", id)
+		}
+	}
+}
