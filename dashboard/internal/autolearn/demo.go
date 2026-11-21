@@ -29,6 +29,9 @@ const (
 	// demoRuleID ist die Regel „Akku leer, WP aus“ der Demo. Sie schaltet die
 	// Wärmepumpe aus, werktags schaltet der Nutzer sie nach einer Minute wieder ein.
 	demoRuleID = "regel_akku_leer_wp_aus"
+	// demoPVRuleID ist die Regel „PV-Überschuss, WP an“ der Demo. Sie schaltet die
+	// Wärmepumpe an, der Temperaturvorschlag der Demo gilt für sie.
+	demoPVRuleID = "regel_pv_ueberschuss_wp_an"
 
 	// demoPlugOffMin ist die Abschaltzeit der Balkonsteckdose, 22:30 in Minuten.
 	demoPlugOffMin = 1350
@@ -327,7 +330,7 @@ func (b *demoBuilder) fill(rng *rand.Rand) {
 
 // DemoSeason liefert das Saisongedächtnis der Demo: die zwanzig Wochen vor now,
 // die älteste zuerst. Jede Woche trägt ihre Außentemperatur, fünf Auslösungen
-// der Demo-Regel, damit der Temperaturvorschlag warme Wochen findet, und die
+// der Demo-Regeln, damit der Temperaturvorschlag warme Wochen findet, und die
 // gelernte Abschaltzeit der Balkonsteckdose, damit die Jahreslinie erscheint.
 func DemoSeason(now time.Time) []Week {
 	out := make([]Week, 0, demoSeasonWeeks)
@@ -338,7 +341,7 @@ func DemoSeason(now time.Time) []Week {
 			Source:   seasonSourceDays,
 			Days:     7,
 			TempC:    &temp,
-			Triggers: map[string]float64{demoRuleID: 5},
+			Triggers: map[string]float64{demoRuleID: 5, demoPVRuleID: 5},
 			Learned:  map[string]float64{demoBedtimeKey: demoBedtimeMin + 6*math.Sin(float64(k))},
 		})
 	}

@@ -354,9 +354,27 @@ test('the assistant button needs a template fix and the editing permission', asy
   const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [unplanned, templ], learning: { since: 1, devices: 1, days: 1 } }));
   await band.load();
   band.canEdit = true;
-  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, later: true, dismiss: true });
-  assert.deepEqual(plain(band.actionsOf(band.items[1])), { assistant: true, later: true, dismiss: true });
+  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, apply: false, later: true, dismiss: true });
+  assert.deepEqual(plain(band.actionsOf(band.items[1])), { assistant: true, apply: false, later: true, dismiss: true });
   assert.equal(band.fixOf(band.items[1]).template, 'follow_switch');
+  close();
+});
+
+function withOpsFix(s) {
+  const fix = { code: 'add_condition', rule_id: 'r1', ops: [{ path: ['conditions', 0], value: { type: 'entity_value' } }] };
+  return { ...s, apply: [fix] };
+}
+
+test('a fix with ops and no template gets the apply button with the fix label', async () => {
+  const limit = withOpsFix(finding('l:1'));
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [limit], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  band.canEdit = true;
+  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, apply: true, later: true, dismiss: true });
+  assert.equal(band.opFixOf(band.items[0]).code, 'add_condition');
+  assert.equal(band.applyLabelOf(band.items[0], catalogT('de')), catalogs.de['automations.learn.fix.add_condition']);
+  band.canEdit = false;
+  assert.equal(band.actionsOf(band.items[0]).apply, false);
   close();
 });
 
@@ -365,7 +383,7 @@ test('without the automations permission there are no buttons at all', async () 
   const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [templ], learning: { since: 1, devices: 1, days: 1 } }));
   await band.load();
   band.canEdit = false;
-  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, later: false, dismiss: false });
+  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, apply: false, later: false, dismiss: false });
   close();
 });
 

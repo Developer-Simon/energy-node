@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -206,7 +207,7 @@ func temperatureRun(ctx context.Context, in *Input, _ string) []Candidate {
 		}
 		info := in.Devices[id]
 		for _, rule := range in.Doc.Rules {
-			if !ruleSwitchesDevice(rule, info) || hasOutdoorCondition(rule, in.Outdoor.EntityID) {
+			if !ruleTurnsDeviceOn(rule, info) || hasOutdoorCondition(rule, in.Outdoor.EntityID) {
 				continue
 			}
 			if warmWeeksFired(weeks, rule.ID, knee) < tempMinWarmWeeks {
@@ -315,10 +316,13 @@ func warmWeeksFired(weeks []Week, rule string, knee float64) int {
 	return n
 }
 
-// ruleSwitchesDevice reports whether an action of the rule targets an entity of the device.
-func ruleSwitchesDevice(rule Rule, info DeviceInfo) bool {
+// ruleTurnsDeviceOn reports whether an action of the rule switches on an entity
+// of the device. A rule that switches the device off, or does something else,
+// is no basis for a temperature limit: a limit would then stop the protective
+// switch in warm weather.
+func ruleTurnsDeviceOn(rule Rule, info DeviceInfo) bool {
 	for _, a := range rule.Actions {
-		if a.EntityID == "" {
+		if a.EntityID == "" || !actionTurnsOn(a) {
 			continue
 		}
 		for _, e := range info.Entities {
@@ -326,6 +330,18 @@ func ruleSwitchesDevice(rule Rule, info DeviceInfo) bool {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+// actionTurnsOn reports whether a publish action sends a constant on payload.
+func actionTurnsOn(a Action) bool {
+	if a.Type != "publish" || (a.PayloadSource != "" && a.PayloadSource != "constant") {
+		return false
+	}
+	switch strings.ToUpper(strings.TrimSpace(a.Payload)) {
+	case "ON", "1", "TRUE":
+		return true
 	}
 	return false
 }

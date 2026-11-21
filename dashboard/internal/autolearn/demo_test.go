@@ -269,19 +269,32 @@ func TestDemoSeedSuggestsSunOnHabit(t *testing.T) {
 	t.Errorf("no switch_time.sun_on for %s, got codes %v", demoPlugBalkon, codes)
 }
 
-// TestDemoSeedSuggestsTemperatureLimit checks that the heat pump rule gets a
-// temperature limit at the demo knee.
+// TestDemoSeedSuggestsTemperatureLimit checks that the rule that switches the
+// heat pump on gets a temperature limit at the demo knee, and that the rule
+// that switches it off does not.
 func TestDemoSeedSuggestsTemperatureLimit(t *testing.T) {
 	loc := berlinLoc(t)
 	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
 	var codes []string
+	onLimit, offLimit := false, false
 	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
 		codes = append(codes, c.Finding.Summary.Code)
-		if c.Finding.Summary.Code == "temperature.limit" && c.Finding.Device == demoHeatPump {
-			return
+		if c.Finding.Summary.Code != "temperature.limit" {
+			continue
+		}
+		switch {
+		case c.Finding.Device == demoHeatPump && containsString(c.Finding.RuleIDs, demoPVRuleID):
+			onLimit = true
+		case containsString(c.Finding.RuleIDs, demoRuleID):
+			offLimit = true
 		}
 	}
-	t.Errorf("no temperature.limit for %s, got codes %v", demoHeatPump, codes)
+	if !onLimit {
+		t.Errorf("no temperature.limit for the switch on rule %s, got codes %v", demoPVRuleID, codes)
+	}
+	if offLimit {
+		t.Errorf("temperature.limit for the switch off rule %s, want none", demoRuleID)
+	}
 }
 
 // valueKeys lists the keys of learned values for failure messages.

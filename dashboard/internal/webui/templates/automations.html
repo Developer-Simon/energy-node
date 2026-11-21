@@ -135,6 +135,8 @@
                 <div class="auto-learn-actions">
                   <button class="auto-btn-text is-primary" type="button" x-show="actionsOf(current).assistant"
                           x-on:click="openAssistantWith(fixOf(current).template, fixOf(current).prefill)">{{t "automations.learn.button.open_assistant"}}</button>
+                  <button class="auto-btn-text is-primary" type="button" x-show="actionsOf(current).apply"
+                          x-on:click="applyFix(opFixOf(current))" x-text="applyLabelOf(current, $t)"></button>
                   <button class="auto-btn-text" type="button" x-show="actionsOf(current).later" x-on:click="later(current)">{{t "automations.learn.button.later"}}</button>
                   <button class="auto-btn-text is-ghost auto-learn-push" type="button" x-show="actionsOf(current).dismiss" x-on:click="dismiss(current)">{{t "automations.learn.button.never"}}</button>
                 </div>

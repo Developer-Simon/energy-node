@@ -3420,6 +3420,26 @@ test('placeFinding keeps the popover inside the viewport and below the mark', ()
   assert.match(component.findingStyle, /width:360px;/);
 });
 
+test('applying a temperature limit suggestion adds the condition to the draft and saves nothing', () => {
+  const { component, window } = createAutomationsPanel();
+  const condition = { type: 'entity_value', topic: 'outstation/aussen', entity_id: 'aussen', value_template: '{{ value_json.t }}', comparison: 'below', value: 15 };
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'regel_pv', name: 'PV-Überschuss, WP an', conditions: [{ type: 'balance_threshold', field: 'grid_export', threshold: 1000 }], actions: [] },
+  ] };
+  const suggestion = { id: 'temp_limit:regel_pv', kind: 'temp_limit', device: 'Wärmepumpe', apply: [
+    { code: 'add_condition', rule_id: 'regel_pv', ops: [{ path: ['conditions', 1], value: condition }] },
+  ] };
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  const posted = [];
+  window.fetch = async (url, options) => { if (options && options.method === 'POST') posted.push(url); return { ok: true, json: async () => ({}) }; };
+  component.applyFix(suggestion.apply[0]);
+  assert.equal(component.document.rules[0].conditions.length, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.document.rules[0].conditions[1])), condition);
+  assert.deepEqual(started, ['regel_pv']);
+  assert.deepEqual(posted, []);
+});
+
 test('applyFix writes nothing and still opens the rule when a path element is missing', () => {
   const { component, window } = createAutomationsPanel();
   component.document = { version: 1, settings: {}, rules: [

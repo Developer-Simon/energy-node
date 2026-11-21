@@ -194,9 +194,15 @@
 
       // Der erste Befehl mit Vorlage oeffnet den Assistenten, sonst gibt es den Knopf nicht.
       fixOf(s) { return (s.apply || []).find((f) => f && f.template) || null; },
+      // Ein Befehl mit Ops schreibt seine Pfade direkt in den Regelentwurf (applyFix der Seite).
+      opFixOf(s) { return (s.apply || []).find((f) => f && !f.template && Array.isArray(f.ops) && f.ops.length > 0) || null; },
+      applyLabelOf(s, t) {
+        const fix = this.opFixOf(s);
+        return fix ? t(CAT + 'fix.' + fix.code, {}) : '';
+      },
       actionsOf(s) {
         const edit = Boolean(this.canEdit) && Boolean(s);
-        return { assistant: edit && Boolean(this.fixOf(s)), later: edit, dismiss: edit };
+        return { assistant: edit && Boolean(this.fixOf(s)), apply: edit && Boolean(this.opFixOf(s)), later: edit, dismiss: edit };
       },
 
       async send(s, action) {

@@ -167,9 +167,14 @@ func twoDigits(n int) string {
 	return string([]byte{byte('0' + n/10), byte('0' + n%10)})
 }
 
-// tempRule switches the heat pump.
+// tempRule switches the heat pump on.
 func tempRule(id string) Rule {
-	return Rule{ID: id, Enabled: true, Actions: []Action{{Type: "switch", EntityID: "plug.hp"}}}
+	return Rule{ID: id, Enabled: true, Actions: []Action{{Type: "publish", EntityID: "plug.hp", PayloadSource: "constant", Payload: "ON"}}}
+}
+
+// tempOffRule switches the heat pump off, like the protective demo rule.
+func tempOffRule(id string) Rule {
+	return Rule{ID: id, Enabled: true, Actions: []Action{{Type: "publish", EntityID: "plug.hp", PayloadSource: "constant", Payload: "OFF"}}}
 }
 
 func TestTemperatureHeatPumpLimit(t *testing.T) {
@@ -202,6 +207,13 @@ func TestTemperatureHeatPumpLimit(t *testing.T) {
 	}
 	if c.Benefit.Unit != "kwh_week" || c.Benefit.Value <= 0 {
 		t.Errorf("benefit = %+v, want positive kwh_week", c.Benefit)
+	}
+}
+
+func TestTemperatureNoLimitForSwitchOffRule(t *testing.T) {
+	in := tempInput(t, 60, tempWeeks("r1", true), []Rule{tempOffRule("r1")})
+	if got := TemperatureDetector.Run(context.Background(), in, ""); len(got) != 0 {
+		t.Fatalf("candidates = %d, want 0 for a rule that switches the device off", len(got))
 	}
 }
 
