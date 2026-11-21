@@ -632,8 +632,8 @@
       const unit = (this.data.units || []).find((u) => u.id === unitId);
       const total = Number(unit?.cpu_pct) || 0;
       if (kind === 'dashboard') {
-        // The learning part lists its detectors under it, each as a share of the
-        // whole load like the parts.
+        // The learning part lists its categories (habit, energy, reliability,
+        // other) under it, each as a share of the whole load like the parts.
         const parts = (bd.dashboard.parts || []).map((part) => ({
           ...part,
           name: this.partName(part.id),
@@ -641,7 +641,7 @@
           share: share(part.pct, total),
           detectors: (part.detectors || []).map((detector) => ({
             ...detector,
-            name: this.learningDetector(detector.id),
+            name: this.learningCategory(detector.id),
             pctText: pctText(detector.pct),
             share: share(detector.pct, total),
           })),
@@ -800,6 +800,10 @@
       const l = this.learning();
       return l && l.suggest ? l.suggest : '';
     },
+    // The sentence why the suggested level fits, shown as the title of its button.
+    learningSuggestText() {
+      return this.learningSuggest() ? t('performance.js.learning.suggest') : '';
+    },
     // The load the drafted level adds or saves, in percent of the budget: the
     // estimate minus the measured share. The saved base holds the measured
     // share, so the total moves by this amount. Zero without a draft.
@@ -812,11 +816,11 @@
     baseWithLearning() {
       return (this.data.base_pct || 0) + this.learningDeltaPct();
     },
-    // A detector without a label shows its id, so a new detector is still readable.
-    learningDetector(id) {
-      const key = `performance.js.learning.detector.${id}`;
-      const text = t(key);
-      return text === key ? id : text;
+    // The name of a learning category. Habit, energy and reliability use the
+    // group names of the automations, every other id is other.
+    learningCategory(id) {
+      if (['habit', 'energy', 'reliability'].includes(id)) return t(`automations.learn.group.${id}`);
+      return t('performance.js.learning.category_other');
     },
     // Drafts a level. Selecting never writes, apply() saves the draft.
     pickLearning(level) {

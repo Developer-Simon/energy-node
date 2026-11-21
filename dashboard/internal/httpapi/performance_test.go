@@ -431,6 +431,12 @@ func performanceLearningStats() autolearn.Stats {
 			"coupling":    90 * time.Millisecond,
 			"flapping":    40 * time.Millisecond,
 		},
+		Groups: map[string]string{
+			"switch_time": "habit",
+			"runtime":     "energy",
+			"coupling":    "reliability",
+			"flapping":    "reliability",
+		},
 	}
 }
 
@@ -649,29 +655,40 @@ func TestPerformanceLearningPartInDashboard(t *testing.T) {
 		t.Fatalf("dashboard parts sum to %v, want the unit 10", sum)
 	}
 
-	want := []string{"switch_time", "runtime", "coupling", "flapping"}
+	// The categories follow the groups of the detectors: switch_time is habit,
+	// runtime energy, coupling and flapping reliability. Largest first.
+	want := []string{"habit", "energy", "reliability"}
 	if len(part.Detectors) != len(want) {
-		t.Fatalf("%d detectors, want %d: %+v", len(part.Detectors), len(want), part.Detectors)
+		t.Fatalf("%d categories, want %d: %+v", len(part.Detectors), len(want), part.Detectors)
 	}
 	var detectorSum float64
 	for i, name := range want {
 		if part.Detectors[i].ID != name {
-			t.Fatalf("detectors[%d] = %q, want %q", i, part.Detectors[i].ID, name)
+			t.Fatalf("categories[%d] = %q, want %q", i, part.Detectors[i].ID, name)
 		}
 		detectorSum += part.Detectors[i].Pct
 	}
 	if math.Abs(detectorSum-part.Pct) > 1e-9 {
-		t.Fatalf("detectors sum to %v, the learning part is %v", detectorSum, part.Pct)
+		t.Fatalf("categories sum to %v, the learning part is %v", detectorSum, part.Pct)
 	}
 	if want := 0.525 * 420.0 / 760.0; math.Abs(part.Detectors[0].Pct-want) > 1e-9 {
-		t.Fatalf("switch_time pct = %v, want %v", part.Detectors[0].Pct, want)
+		t.Fatalf("habit pct = %v, want %v", part.Detectors[0].Pct, want)
+	}
+	if want := 0.525 * 130.0 / 760.0; math.Abs(part.Detectors[2].Pct-want) > 1e-9 {
+		t.Fatalf("reliability pct = %v, want %v", part.Detectors[2].Pct, want)
 	}
 }
 
-func TestPerformanceLearningDetectorsLimitedToEight(t *testing.T) {
-	stats := autolearn.Stats{Rounds: 1, Share: 0.01, Took: map[string]time.Duration{}}
-	for i := 0; i < 10; i++ {
-		stats.Took[string(rune('a'+i))] = time.Duration(i+1) * time.Millisecond
+func TestPerformanceLearningCategoriesGroupUnknownAsOther(t *testing.T) {
+	stats := autolearn.Stats{
+		Rounds: 1,
+		Share:  0.01,
+		Took: map[string]time.Duration{
+			"rule_check":  40 * time.Millisecond,
+			"save_base":   15 * time.Millisecond,
+			"new_unknown": 5 * time.Millisecond,
+		},
+		Groups: map[string]string{"rule_check": "check"},
 	}
 	router, manager := performanceRouterWithDeps(t, breakdownSnapshot(), func(deps *PerformanceDeps) {
 		deps.Learning = &PerformanceLearning{
@@ -687,16 +704,11 @@ func TestPerformanceLearningDetectorsLimitedToEight(t *testing.T) {
 	if part == nil {
 		t.Fatal("no learning part")
 	}
-	if len(part.Detectors) != performanceLearningPartLimit {
-		t.Fatalf("%d detectors, want %d", len(part.Detectors), performanceLearningPartLimit)
+	if len(part.Detectors) != 2 || part.Detectors[0].ID != "reliability" || part.Detectors[1].ID != "other" {
+		t.Fatalf("categories = %+v, want reliability then other", part.Detectors)
 	}
-	for i := 1; i < len(part.Detectors); i++ {
-		if part.Detectors[i].Pct > part.Detectors[i-1].Pct {
-			t.Fatalf("detectors not descending: %+v", part.Detectors)
-		}
-	}
-	if part.Detectors[0].ID != "j" {
-		t.Fatalf("first detector = %q, want the costliest j", part.Detectors[0].ID)
+	if want := part.Pct * 40 / 60; math.Abs(part.Detectors[0].Pct-want) > 1e-9 {
+		t.Fatalf("reliability pct = %v, want %v", part.Detectors[0].Pct, want)
 	}
 }
 

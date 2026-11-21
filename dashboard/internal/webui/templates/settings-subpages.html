@@ -161,14 +161,15 @@
               <button type="button" class="pf-step pf-step-level"
                       x-bind:class="{ 'pf-step-sel': level.id === learningSetting() }"
                       x-bind:aria-pressed="level.id === learningSetting() ? 'true' : 'false'"
+                      x-bind:title="level.id === learningSuggest() ? learningSuggestText() : null"
+                      x-bind:aria-label="level.id === learningSuggest() ? level.label + '. ' + learningSuggestText() : null"
                       x-on:click="pickLearning(level.id)">
                 <span x-text="level.label"></span>
-                <small class="pf-step-tag" x-show="level.id === learningSuggest()">{{t "performance.ui.learning.suggested"}}</small>
+                <span class="pf-step-dot" x-show="level.id === learningSuggest()" aria-hidden="true"></span>
               </button>
             </template>
           </div>
           <div class="pf-notes">
-            <span x-show="learningSuggest()">{{t "performance.js.learning.suggest"}}</span>
             <span data-tone="warn" x-show="learningOverNote()" x-text="learningOverNote()"></span>
           </div>
         </div>

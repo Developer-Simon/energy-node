@@ -209,8 +209,8 @@
 .pf-row-head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; min-width: 0; }
 .pf-pill { padding: .05rem .55rem; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: .74rem; font-weight: 600; white-space: nowrap; }
 
-/* Lernstufen: eine Gitterreihe, die Beschriftung bricht nicht, der Hinweis "empfohlen" sitzt unter ihr */
+/* Lernstufen: eine Gitterreihe mit der Höhe der Raten-Stufen, die Beschriftung bricht nicht, der Punkt markiert die empfohlene Stufe */
 .pf-steps-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
-.pf-step-level { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12rem; min-width: 0; max-width: none; white-space: nowrap; }
-.pf-step-tag { color: var(--accent); font-size: .7rem; font-weight: 600; line-height: 1.2; white-space: nowrap; }
-.pf-step-sel .pf-step-tag { color: inherit; }
+.pf-step-level { min-width: 0; max-width: none; white-space: nowrap; }
+.pf-step-dot { position: absolute; top: .3rem; right: .3rem; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.pf-step-sel .pf-step-dot { background: var(--accent-ink); }

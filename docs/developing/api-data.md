@@ -313,9 +313,11 @@ The learning engine runs inside the dashboard process, so its load is part of
 the dashboard unit. It is not a unit of its own. In `breakdown.dashboard.parts`
 it is the part `learning` (`pct`, its share of the whole budget: `share` × 100
 divided by the core count), listed last. The other parts shrink by that amount,
-so they still add up to the dashboard unit. Its `detectors` lists up to eight
-detectors in descending order, each with `id` and `pct` (its share of the whole
-budget, the parts of the learning part add up to its `pct`). The learning part is
+so they still add up to the dashboard unit. Its `detectors` lists the categories
+of the learning load in descending order, each with `id` and `pct` (its share of
+the whole budget, the categories add up to the learning part's `pct`). The ids
+are `habit`, `energy`, `reliability` (also the rule check) and `other` (saving,
+the base computation and unknown groups). Categories without a share are left out. The learning part is
 absent without the learning dependencies, without compute time in the window, or
 when the dashboard has no split.
 
@@ -326,7 +328,7 @@ when the dashboard has no split.
 ```
 
 ```json
-{"id":"learning","pct":0.525,"detectors":[{"id":"switch_time","pct":0.29},{"id":"runtime","pct":0.14}]}
+{"id":"learning","pct":0.525,"detectors":[{"id":"habit","pct":0.29},{"id":"energy","pct":0.14},{"id":"reliability","pct":0.095}]}
 ```
 
 **`POST /api/v1/learning/reset`** drops the day profiles, the learned loss values

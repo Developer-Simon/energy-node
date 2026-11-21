@@ -339,13 +339,18 @@ type Stats struct {
 	Share float64
 	// Took is the compute time per detector over the window.
 	Took map[string]time.Duration
+	// Groups is the group of each registered detector, by its name.
+	Groups map[string]string
 }
 
 // Stats reports the load of the last 24 hours, see Stats.
 func (e *Engine) Stats() Stats {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	st := Stats{Took: map[string]time.Duration{}}
+	st := Stats{Took: map[string]time.Duration{}, Groups: map[string]string{}}
+	for _, d := range e.detectors {
+		st.Groups[d.Name] = d.Group
+	}
 	cutoff := e.now.Add(-engineWindow)
 	for _, o := range e.overruns {
 		if !o.Before(cutoff) {

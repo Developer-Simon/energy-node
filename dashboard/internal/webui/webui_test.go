@@ -4691,13 +4691,13 @@ func TestSettingsSubpagePerformanceNeedsDiagnostics(t *testing.T) {
 	if strings.Contains(body, "pf-draft") || strings.Contains(body, "pf-stepper") {
 		t.Fatal("settings-page performance zeigt Entwurf oder den Stepper der spaeteren Teilauftraege")
 	}
-	// Die Lernstufe ist ein Entwurf, die Stufen haben ihre Gitterreihe und die Empfehlung ist eine Markierung am Knopf.
-	for _, want := range []string{`pf-steps pf-steps-levels`, `pf-step-level`, `pf-step-tag`, `class="pf-pill"`, `learningChanged()`, `learningSuggest()`} {
+	// Die Lernstufe ist ein Entwurf, die Stufen haben ihre Gitterreihe und die Empfehlung ist ein Punkt am Knopf mit dem Satz als Titel.
+	for _, want := range []string{`pf-steps pf-steps-levels`, `pf-step-level`, `pf-step-dot`, `learningSuggestText()`, `class="pf-pill"`, `learningChanged()`, `learningSuggest()`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("settings-page performance lacks learning level markup %s", want)
 		}
 	}
-	for _, gone := range []string{"pf-learning-top", "pf-learning-toggle", "learningSaving", "pf-lmeter", "learningMeter", "learning.adopt", "pickLearning(learningSuggest())"} {
+	for _, gone := range []string{"pf-learning-top", "pf-learning-toggle", "learningSaving", "pf-lmeter", "learningMeter", "learning.adopt", "pickLearning(learningSuggest())", "pf-step-tag", "performance.ui.learning.suggested"} {
 		if strings.Contains(body, gone) {
 			t.Fatalf("settings-page performance still renders %s", gone)
 		}

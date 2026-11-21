@@ -847,8 +847,8 @@ test('learningSetting() shows the saved level until a draft exists', async () =>
   assert.equal(made.page.learningSetting(), 'eco');
 });
 
-test('the dashboard breakdown lists the learning part with its detectors, none of them a unit', async () => {
-  const learningPart = { id: 'learning', pct: 2.1, detectors: [{ id: 'switch_time', pct: 1.1 }, { id: 'runtime', pct: 0.9 }] };
+test('the dashboard breakdown lists the learning part with its categories, none of them a unit', async () => {
+  const learningPart = { id: 'learning', pct: 2.1, detectors: [{ id: 'habit', pct: 1.1 }, { id: 'other', pct: 0.9 }] };
   const breakdown = { dashboard: { parts: [...BREAKDOWN.dashboard.parts, learningPart] }, automation: BREAKDOWN.automation };
   const made = await loadedPage({ learning: LEARNING, breakdown });
   const names = made.page.measureGroups().flatMap((group) => group.rows.map((row) => row.id));
@@ -859,19 +859,22 @@ test('the dashboard breakdown lists the learning part with its detectors, none o
   assert.equal(part.name, de['performance.js.breakdown.part.learning']);
   assert.ok(part.pctText.endsWith(' %'));
   assert.equal(part.detectors.length, 2);
-  assert.equal(part.detectors[0].name, de['performance.js.learning.detector.switch_time']);
+  assert.equal(part.detectors[0].name, de['automations.learn.group.habit'], 'habit is the group name of the automations');
+  assert.equal(part.detectors[1].name, de['performance.js.learning.category_other'], 'other is the catch all category');
   assert.equal(part.detectors[0].share, Math.min(1, Math.round((1.1 / 14) * 10000) / 10000), 'the bar is the share of the dashboard load');
   assert.equal(made.page.partName('learning'), de['performance.js.breakdown.part.learning']);
   assert.equal(made.page.partName('push'), de['performance.js.breakdown.part.push']);
   assert.equal(bd.parts.find((entry) => entry.id === 'push').detectors.length, 0, 'only the learning part has detectors');
 });
 
-test('the suggest note shows only while the API gives a suggestion, the level is marked by its id', async () => {
+test('the suggestion is marked by its id and its sentence is the title, shown only while the API gives one', async () => {
   const without = await loadedPage({ learning: LEARNING });
   assert.equal(without.page.learningSuggest(), '');
+  assert.equal(without.page.learningSuggestText(), '');
 
   const withSuggest = await loadedPage({ learning: { ...LEARNING, suggest: 'balanced' } });
   assert.equal(withSuggest.page.learningSuggest(), 'balanced');
+  assert.equal(withSuggest.page.learningSuggestText(), de['performance.js.learning.suggest']);
   assert.equal(withSuggest.page.learningLevels().some((level) => level.id === 'balanced'), true);
 });
 
@@ -929,8 +932,11 @@ test('a level above the measurement gets the note with the measured load, a leve
   assert.equal(auto.page.learningOverNote(), '');
 });
 
-test('learningDetector() names a known detector and falls back to its id', () => {
+test('learningCategory() names habit, energy and reliability by the group names, every other id is other', () => {
   const made = createPerformancePage();
-  assert.equal(made.page.learningDetector('switch_time'), de['performance.js.learning.detector.switch_time']);
-  assert.equal(made.page.learningDetector('brand_new'), 'brand_new');
+  assert.equal(made.page.learningCategory('habit'), de['automations.learn.group.habit']);
+  assert.equal(made.page.learningCategory('energy'), de['automations.learn.group.energy']);
+  assert.equal(made.page.learningCategory('reliability'), de['automations.learn.group.reliability']);
+  assert.equal(made.page.learningCategory('switch_time'), de['performance.js.learning.category_other']);
+  assert.equal(made.page.learningCategory('brand_new'), de['performance.js.learning.category_other']);
 });

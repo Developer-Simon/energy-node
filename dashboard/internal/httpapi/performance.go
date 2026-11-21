@@ -94,10 +94,6 @@ type performanceBody struct {
 // performanceLearningTop is the number of detectors listed in the learning block.
 const performanceLearningTop = 3
 
-// performanceLearningPartLimit is the number of detectors listed in the learning
-// breakdown, the costliest first.
-const performanceLearningPartLimit = 8
-
 // performanceLearningDays is the number of days the share of the learning block
 // averages over, once a daily share is recorded.
 const performanceLearningDays = 7
@@ -124,8 +120,9 @@ type performanceLearningEntry struct {
 }
 
 // performanceLearningPart is the learning engine as a part of the dashboard
-// breakdown: Pct is its share of the whole budget, Detectors the costliest
-// detectors with their share of the same budget.
+// breakdown: Pct is its share of the whole budget, Detectors the categories of
+// the learning load (habit, energy, reliability, other) with their share of the
+// same budget, the largest first.
 type performanceLearningPart struct {
 	Pct       float64
 	Detectors []performanceDetector
@@ -386,7 +383,7 @@ func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap 
 		}
 		return entries[i].Detector < entries[j].Detector
 	})
-	part := performanceLearningPartOf(entries, total, share, snap.Cores)
+	part := performanceLearningPartOf(entries, stats.Groups, total, share, snap.Cores)
 	if len(entries) > performanceLearningTop {
 		entries = entries[:performanceLearningTop]
 	}
@@ -397,12 +394,13 @@ func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap 
 	return body, part
 }
 
-// performanceLearningPartOf builds the learning part from the sorted entries.
-// The engine share is one core's fraction, so it is scaled to the whole budget
-// by the core count, the same as the unit CPU of the page. Each detector takes
-// its fraction of the learning total. It is nil without any compute time, and
-// at most performanceLearningPartLimit detectors are kept.
-func performanceLearningPartOf(entries []performanceLearningEntry, total time.Duration, share float64, cores int) *performanceLearningPart {
+// performanceLearningPartOf builds the learning part. The engine share is one
+// core's fraction, so it is scaled to the whole budget by the core count, the
+// same as the unit CPU of the page. The compute time is summed per category
+// (performanceLearningCategory of the detector's group), and each category takes
+// its fraction of the learning total. Categories without a share are left out,
+// the largest first. It is nil without any compute time.
+func performanceLearningPartOf(entries []performanceLearningEntry, groups map[string]string, total time.Duration, share float64, cores int) *performanceLearningPart {
 	totalMs := total.Milliseconds()
 	if totalMs <= 0 || len(entries) == 0 {
 		return nil
@@ -411,17 +409,37 @@ func performanceLearningPartOf(entries []performanceLearningEntry, total time.Du
 		cores = 1
 	}
 	pct := share * 100 / float64(cores)
-	if len(entries) > performanceLearningPartLimit {
-		entries = entries[:performanceLearningPartLimit]
-	}
-	out := &performanceLearningPart{Pct: pct, Detectors: make([]performanceDetector, 0, len(entries))}
+	perCategory := map[string]int64{}
 	for _, e := range entries {
-		out.Detectors = append(out.Detectors, performanceDetector{
-			ID:  e.Detector,
-			Pct: pct * float64(e.Ms) / float64(totalMs),
-		})
+		perCategory[performanceLearningCategory(groups[e.Detector])] += e.Ms
 	}
+	out := &performanceLearningPart{Pct: pct, Detectors: make([]performanceDetector, 0, len(perCategory))}
+	for id, ms := range perCategory {
+		if ms <= 0 {
+			continue
+		}
+		out.Detectors = append(out.Detectors, performanceDetector{ID: id, Pct: pct * float64(ms) / float64(totalMs)})
+	}
+	sort.Slice(out.Detectors, func(i, j int) bool {
+		if out.Detectors[i].Pct != out.Detectors[j].Pct {
+			return out.Detectors[i].Pct > out.Detectors[j].Pct
+		}
+		return out.Detectors[i].ID < out.Detectors[j].ID
+	})
 	return out
+}
+
+// performanceLearningCategory maps the group of a detector to the category of
+// the learning part. The rule check counts as reliability. Saving, the base
+// computation and unknown groups are other.
+func performanceLearningCategory(group string) string {
+	switch group {
+	case "habit", "energy":
+		return group
+	case "reliability", "check":
+		return "reliability"
+	}
+	return "other"
 }
 
 // carveLearning moves the learning load out of the dashboard parts. The engine
