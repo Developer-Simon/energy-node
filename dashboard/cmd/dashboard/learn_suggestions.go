@@ -23,16 +23,48 @@ type suggestionBook struct {
 	all   []autolearn.Finding
 	// recentC is the outdoor temperature of the last round, nil when unknown.
 	recentC *float64
+	// readDoc returns the current rule document, nil keeps every suggestion.
+	readDoc func() ([]byte, error)
 }
 
 // Visible returns the suggestions to show now, without dismissed or postponed
-// ones and without devices exists rejects.
+// ones, without devices exists rejects and without the ones the current rule
+// document already holds. The rules are read on every call, so an applied
+// suggestion vanishes before the next engine round.
 func (b *suggestionBook) Visible(now time.Time, exists func(device string) bool) []autolearn.Finding {
 	b.mu.Lock()
 	all := append([]autolearn.Finding(nil), b.all...)
 	recentC := b.recentC
 	b.mu.Unlock()
-	return b.state.Visible(all, now, exists, recentC)
+	visible := b.state.Visible(all, now, exists, recentC)
+	doc, ok := b.currentDoc()
+	if !ok {
+		return visible
+	}
+	var out []autolearn.Finding
+	for _, f := range visible {
+		if !f.AppliedIn(doc) {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// currentDoc parses the current rule document. It reports false when there is
+// no reader or the document cannot be read or parsed.
+func (b *suggestionBook) currentDoc() (autolearn.Doc, bool) {
+	if b.readDoc == nil {
+		return autolearn.Doc{}, false
+	}
+	raw, err := b.readDoc()
+	if err != nil {
+		return autolearn.Doc{}, false
+	}
+	doc, err := autolearn.ParseDoc(raw)
+	if err != nil {
+		return autolearn.Doc{}, false
+	}
+	return doc, true
 }
 
 // Known reports whether id is in the list of the last round, or whether the

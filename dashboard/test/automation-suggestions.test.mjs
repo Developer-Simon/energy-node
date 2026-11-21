@@ -50,12 +50,18 @@ function requiredKeys() {
   return keys;
 }
 
-function load() {
+function load(i18n) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  if (i18n) dom.window.I18n = i18n;
   vm.runInContext(suggestionsSource, dom.getInternalVMContext());
   vm.runInContext(evidenceSource, dom.getInternalVMContext());
   return { api: dom.window.AutomationSuggestions, evidence: dom.window.AutomationEvidence, document: dom.window.document };
 }
+
+// Number format of the page: decimal comma, like I18n.formatNumber in German.
+const germanI18n = {
+  formatNumber: (value, decimals = 0) => Number(value).toFixed(decimals).replace('.', ','),
+};
 
 // Translation stub: returns the key and remembers the calls so params can be checked.
 function recorder() {
@@ -535,11 +541,11 @@ test('a finding with only the heating limit shows the chip and no week range', (
 });
 
 test('the temperature limit title and line show the rule, device, knee and weekly kWh', () => {
-  const { api } = load();
+  const { api } = load(germanI18n);
   const t = catalogT('de');
   const s = suggestion('temperature.limit', { rule: 'Pumpe Nacht', device: 'Wärmepumpe', knee: 15, kwh_warm: 1.2345 }, 'scale');
   assert.equal(api.title(s, t), 'Pumpe Nacht nur bei Außentemperatur unter 15 °C');
-  assert.equal(api.line(s, t), 'In warmen Wochen verbraucht Wärmepumpe 1.2 kWh pro Woche. Mit der Bedingung schaltet die Regel nur bei Kälte.');
+  assert.equal(api.line(s, t), 'In warmen Wochen verbraucht Wärmepumpe 1,2 kWh pro Woche. Mit der Bedingung schaltet die Regel nur bei Kälte.');
   assert.equal(api.legend(s, t), catalogs.de['automations.learn.legend.scale']);
 });
 
@@ -610,6 +616,28 @@ test('the sun variants show a translated title, not a raw key', () => {
   const title = api.title(s, catalogT());
   assert.notEqual(title, 'automations.learn.switch_time.sun_off.after.title');
   assert.ok(!title.includes('automations.'), title);
+});
+
+test('decimal numbers in the summary are rounded to one decimal in the page format', () => {
+  const { api } = load(germanI18n);
+  const { resolveSummary } = api;
+  const float = resolveSummary({ code: 'runtime.forgotten', params: { extra_kwh: 0.30000000000000004, runs: 12, lag_s: 4 } }, (key) => key);
+  assert.equal(float.params.extra_kwh, '0,3');
+  assert.equal(float.params.runs, 12);
+  assert.equal(float.params.lag_s, 4);
+  const big = resolveSummary({ code: 'away.standby', params: { kwh_day: 1234.5678 } }, (key) => key);
+  assert.equal(big.params.kwh_day, '1234,6');
+  const whole = resolveSummary({ code: 'away.standby', params: { kwh_day: 2.04 } }, (key) => key);
+  assert.equal(whole.params.kwh_day, '2');
+  const knee = resolveSummary({ code: 'temperature.limit', params: { knee: 15.04 } }, (key) => key);
+  assert.equal(knee.params.knee, '15');
+});
+
+test('without a page number format the decimals keep a dot and one place', () => {
+  const { api } = load();
+  const { resolveSummary } = api;
+  assert.equal(resolveSummary({ code: 'away.standby', params: { kwh_day: 0.30000000000000004 } }, (key) => key).params.kwh_day, '0.3');
+  assert.equal(resolveSummary({ code: 'away.standby', params: { kwh_day: 1234.5678 } }, (key) => key).params.kwh_day, '1234.6');
 });
 
 test('the rules texts keep their shape for a share and a sun code', () => {

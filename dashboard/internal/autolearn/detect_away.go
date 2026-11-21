@@ -116,7 +116,7 @@ func awayStandbyRun(ctx context.Context, in *Input, device string) []Candidate {
 		Confidence: conf,
 		Summary: Text{Code: "away.standby", Params: map[string]any{
 			"device":    deviceName(in.Devices[device], device),
-			"kwh_day":   shown,
+			"kwh_day":   round1(shown),
 			"away_days": len(away),
 		}},
 		Evidence: Evidence{Shape: "scale", Unit: "kWh", IstValue: &shown, SollValue: &zero},

@@ -356,6 +356,11 @@ func hasOutdoorCondition(rule Rule, entityID string) bool {
 	return false
 }
 
+// round1 rounds v to one decimal, the precision the suggestion texts show.
+func round1(v float64) float64 {
+	return math.Round(v*10) / 10
+}
+
 // temperatureCandidate is the limit suggestion of a rule for one device. The
 // condition is an entity_value below the knee, in the form the rule schema
 // uses: the numeric limit is value.
@@ -388,7 +393,7 @@ func temperatureCandidate(in *Input, id string, knee float64, rule Rule, kwhWeek
 			"rule":     name,
 			"device":   devName,
 			"knee":     knee,
-			"kwh_warm": kwhWeek,
+			"kwh_warm": round1(kwhWeek),
 		}},
 		Evidence: Evidence{Shape: "scale", Unit: "kwh_week", IstValue: &kwhWeek},
 		Facts:    []Fact{{Code: "knee", Value: knee}},

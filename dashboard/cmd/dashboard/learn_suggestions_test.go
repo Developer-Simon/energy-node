@@ -298,3 +298,55 @@ func TestGateSuggestionsDeviceFindingWithKneeRestsWarmDays(t *testing.T) {
 		})
 	}
 }
+
+// outdoorRuleDoc holds one rule with a below condition on the outdoor sensor.
+const outdoorRuleDoc = `{"rules":[{"id":"r1","name":"Heizung","enabled":true,"conditions":[{"type":"entity_value","topic":"t/out","entity_id":"sensor.out","comparison":"below","value":15.4}],"actions":[]}],"scenarios":[]}`
+
+func outdoorRule() ([]byte, error) { return []byte(outdoorRuleDoc), nil }
+
+// appliedCandidate is a habit candidate whose Apply adds the outdoor limit to rule r1.
+func appliedCandidate() autolearn.Candidate {
+	c := habitCandidate("temp_limit:r1", "dev-a", 2)
+	c.Finding.Apply = []autolearn.Fix{{Code: "add_condition", RuleID: "r1", Ops: []autolearn.Op{{
+		Path:  []any{"conditions", 1},
+		Value: map[string]any{"type": "entity_value", "topic": "t/out", "entity_id": "sensor.out", "comparison": "below", "value": 15.0},
+	}}}}
+	return c
+}
+
+func TestGateSuggestionsDropsAppliedConditionAtGate(t *testing.T) {
+	state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
+	book := &suggestionBook{state: state}
+	exists := func(string) bool { return true }
+	gateSuggestions(book, fakeCandidates{appliedCandidate()}, outdoorRule, groupsHabit, exists, time.Now())
+	if got := book.Visible(time.Now(), exists); len(got) != 0 {
+		t.Fatalf("visible = %d, want 0 for an applied condition", len(got))
+	}
+}
+
+// The suggestion was shown before the owner applied it. The next refresh hides it
+// without a new engine round, because the book reads the current rules.
+func TestVisibleHidesSuggestionOnceRuleHoldsCondition(t *testing.T) {
+	state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
+	rules := noRules
+	book := &suggestionBook{state: state, readDoc: func() ([]byte, error) { return rules() }}
+	exists := func(string) bool { return true }
+	gateSuggestions(book, fakeCandidates{appliedCandidate()}, noRules, groupsHabit, exists, time.Now())
+	if got := book.Visible(time.Now(), exists); len(got) != 1 {
+		t.Fatalf("before apply: visible = %d, want 1", len(got))
+	}
+	rules = outdoorRule
+	if got := book.Visible(time.Now(), exists); len(got) != 0 {
+		t.Fatalf("after apply: visible = %d, want 0 on the next refresh", len(got))
+	}
+}
+
+func TestVisibleKeepsSuggestionWhenRuleUnreadable(t *testing.T) {
+	state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
+	book := &suggestionBook{state: state, readDoc: func() ([]byte, error) { return nil, os.ErrNotExist }}
+	exists := func(string) bool { return true }
+	gateSuggestions(book, fakeCandidates{appliedCandidate()}, noRules, groupsHabit, exists, time.Now())
+	if got := book.Visible(time.Now(), exists); len(got) != 1 {
+		t.Fatalf("visible = %d, want 1 when the rules cannot be read", len(got))
+	}
+}

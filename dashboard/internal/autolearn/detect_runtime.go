@@ -244,7 +244,7 @@ func runtimeCandidate(device, entity string, st runtimeStat, t runtimeTally, wee
 			"runs":      total,
 			"forgotten": t.forgotten,
 			"usual_min": math.Round(usual),
-			"extra_kwh": math.Round(extraKWh*10) / 10,
+			"extra_kwh": round1(extraKWh),
 		}},
 		Evidence: Evidence{Shape: "scale", Unit: "min", IstValue: &longest, SollValue: &suggest},
 		Facts:    []Fact{{Code: "overnight", Value: t.overnight}},

@@ -48,6 +48,9 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 		if c.NEff < c.MinNEff {
 			continue
 		}
+		if f.AppliedIn(doc) {
+			continue
+		}
 		_, seen := prev[f.ID]
 		if seen && c.Lower < calmKeep*c.Limit {
 			continue

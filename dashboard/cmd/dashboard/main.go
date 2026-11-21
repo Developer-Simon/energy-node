@@ -599,7 +599,7 @@ func main() {
 		}
 	}
 	seasonClose := &seasonCloser{store: seasonStore, days: dayStore.Days, learned: learnedClockMinutes(learnedStore), loc: time.Local}
-	suggestions := &suggestionBook{state: suggestionState}
+	suggestions := &suggestionBook{state: suggestionState, readDoc: func() ([]byte, error) { return configManager.Read("automation_rules") }}
 	suggestionExists := func(device string) bool {
 		if deviceFilterStore.IsIgnored(device) {
 			return false

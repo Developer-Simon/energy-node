@@ -290,7 +290,8 @@ func overriddenCandidate(device string, in *Input, rule Rule, sw []overrideSwitc
 	var soll []int64
 	var sollSpans [][2]int64
 	if split, ok := overriddenSplit(cases, in.Base); ok {
-		if fix, spans, ok := overriddenAddFix(rule, in.Base, split, cases, in.Doc.Location); ok {
+		// A split the rule already holds is not offered again.
+		if fix, spans, ok := overriddenAddFix(rule, in.Base, split, cases, in.Doc.Location); ok && !FixApplied(fix, in.Doc) {
 			feature = split.feature
 			apply = []Fix{fix}
 			sollSpans = spans

@@ -38,16 +38,28 @@
       delete params.offset_min;
       code = code + (offset < 0 ? '.before' : '.after');
     }
+    // Jede Dezimalzahl wird mit einer Nachkommastelle in der Sprache der Seite gezeigt.
+    Object.keys(params).forEach((key) => {
+      const v = params[key];
+      if (typeof v === 'number' && isFinite(v) && !Number.isInteger(v)) params[key] = roundedText(v);
+    });
     return { code, params };
   }
 
-  // Schluessel und Parameter des Bandes: zusaetzlich Zeiten als Uhrzeit, kWh mit einer Nachkommastelle.
+  // Zahl mit hoechstens einer Nachkommastelle, im Dezimalformat der Seite (1,2 auf Deutsch).
+  function roundedText(v) {
+    const r = Math.round(v * 10) / 10;
+    const format = window.I18n && window.I18n.formatNumber;
+    if (!format) return String(r);
+    return format(r, Number.isInteger(r) ? 0 : 1);
+  }
+
+  // Schluessel und Parameter des Bandes: zusaetzlich Zeiten als Uhrzeit.
   function bandOf(s, t) {
     const r = resolveSummary(s && s.summary, t);
     const src = r.params;
     if ('window_from' in src) src.window_from = clockOf(src.window_from);
     if ('window_to' in src) src.window_to = clockOf(src.window_to);
-    if ('kwh_warm' in src) src.kwh_warm = Math.round(Number(src.kwh_warm) * 10) / 10;
     return r;
   }
 
