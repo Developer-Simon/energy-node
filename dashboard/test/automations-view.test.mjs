@@ -164,13 +164,14 @@ test('describeCondition learned_state names the house state and its origin', () 
   assert.equal(chip.origin, 'Gelernt aus 9 Tagen, zuletzt geändert vor 3 d (vorher Haus ist aktiv)');
 });
 
-test('describeCondition time window with a learned start across midnight has two scale segments', () => {
+test('describeCondition time window with a learned start across midnight puts the marker on the arc', () => {
   const view = load();
   const start = { learned: 'device/wp/usual_on', min: '23:00', max: '01:00', fallback: '23:30' };
   const card = view.describeCondition({ type: 'time_window', start, end: '06:00', weekdays: [] }, null, null, null, learnedCtx());
   assert.equal(card.summary, '23:30 – 06:00');
   assert.equal(card.learned.length, 1);
-  assert.equal(card.learned[0].scale.segments.length, 2);
+  assert.equal(card.learned[0].scale.marker, 0.25);
+  assert.equal(card.learned[0].scale.range, '23:00 bis 01:00');
   assert.equal(card.learned[0].text, '23:30');
 });
 

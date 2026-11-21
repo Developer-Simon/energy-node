@@ -105,15 +105,19 @@
               <template x-if="liveBars(rule).length">
                 <div class="auto-live-list">
                   <template x-for="bar in liveBars(rule)" x-bind:key="bar.index">
-                    <div class="auto-live">
-                      <span class="auto-figure-label" x-text="$t('automations.rule.live.caption', {field: bar.title})"></span>
-                      <div class="auto-live-bar" x-bind:class="'is-tone-' + bar.tone" role="img" x-bind:aria-label="$t('automations.rule.live.aria_label')">
+                    <div class="auto-live" x-bind:class="{ 'is-learned': bar.learned }">
+                      <span class="auto-figure-label">
+                        <svg class="automation-icon" aria-hidden="true" x-show="bar.learned"><use href="#ico-learning"></use></svg>
+                        <span x-text="bar.caption || $t('automations.rule.live.caption', {field: bar.title})"></span>
+                      </span>
+                      <div class="auto-live-bar" x-bind:class="'is-tone-' + bar.tone" role="img" x-bind:aria-label="bar.label || $t('automations.rule.live.aria_label')">
                         <i class="auto-live-fill" x-bind:style="{ width: (bar.fraction * 100) + '%' }"></i>
                         <i class="auto-live-band" x-show="bar.band" x-bind:style="bar.band ? { left: (bar.band.left * 100) + '%', width: (bar.band.width * 100) + '%' } : {}"></i>
                         <i class="auto-live-mark" x-bind:style="{ left: (bar.mark * 100) + '%' }"></i>
                         <span class="auto-live-label">
                           <span x-text="bar.valueText"></span>
                           <span x-show="bar.thresholdText" x-text="$t('automations.rule.live.threshold', {value: bar.thresholdText})"></span>
+                          <span x-show="bar.rangeText" x-text="bar.rangeText"></span>
                         </span>
                       </div>
                     </div>

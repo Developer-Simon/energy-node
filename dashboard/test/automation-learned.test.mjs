@@ -164,27 +164,22 @@ test('origin learned without an entry has no line', () => {
   assert.equal(L.origin('learned', null, NOW, t), '');
 });
 
-test('scale of a time across midnight gives two segments and the marker on the day', () => {
-  const shape = L.scale('time', '23:00', '01:00', '23:30');
-  assert.equal(shape.segments.length, 2);
-  assert.ok(Math.abs(shape.segments[0].from - 1380 / 1440) < 1e-9);
-  assert.equal(shape.segments[0].to, 1);
-  assert.equal(shape.segments[1].from, 0);
-  assert.ok(Math.abs(shape.segments[1].to - 60 / 1440) < 1e-9);
-  assert.ok(Math.abs(shape.marker - 1410 / 1440) < 1e-9);
+test('scale of a time across midnight runs the arc from min to max as one beam', () => {
+  assert.equal(L.scale('time', '23:00', '01:00', '23:30').marker, 0.25);
+  assert.equal(L.scale('time', '23:00', '01:00', '00:30').marker, 0.75);
+  // Ausserhalb des Bogens auf die naehere Grenze: 02:00 liegt naeher an 01:00, 21:00 naeher an 23:00.
+  assert.equal(L.scale('time', '23:00', '01:00', '02:00').marker, 1);
+  assert.equal(L.scale('time', '23:00', '01:00', '21:00').marker, 0);
 });
 
-test('scale of a time inside the day gives one segment', () => {
-  const shape = L.scale('time', '06:00', '10:00', '08:00');
-  assert.equal(shape.segments.length, 1);
-  assert.equal(shape.segments[0].from, 360 / 1440);
-  assert.equal(shape.segments[0].to, 600 / 1440);
-  assert.ok(Math.abs(shape.marker - 480 / 1440) < 1e-9);
+test('scale of a time inside the day', () => {
+  assert.equal(L.scale('time', '06:00', '10:00', '08:00').marker, 0.5);
+  assert.deepEqual(L.scale('time', '06:00', '10:00', null), { marker: null });
 });
 
 test('scale of a number clamps the marker to the bounds', () => {
-  assert.deepEqual(L.scale('number', 20, 80, 90), { segments: [{ from: 0, to: 1 }], marker: 1 });
-  assert.deepEqual(L.scale('number', 20, 80, 50), { segments: [{ from: 0, to: 1 }], marker: 0.5 });
+  assert.deepEqual(L.scale('number', 20, 80, 90), { marker: 1 });
+  assert.deepEqual(L.scale('number', 20, 80, 50), { marker: 0.5 });
 });
 
 test('scale of a duration and of a state', () => {

@@ -293,3 +293,14 @@ func ids(cands []Candidate) []string {
 	}
 	return out
 }
+
+func TestWithDemoHouseStateAddsQuietOnlyWhenMissing(t *testing.T) {
+	got := WithDemoHouseState([]Value{{Key: "site/day_start", Kind: ValueTime, Text: "07:00"}})
+	if len(got) != 2 || got[1].Key != "site/house_state" || got[1].Text != "quiet" || got[1].Kind != ValueState {
+		t.Fatalf("demo house state missing: %+v", got)
+	}
+	real := []Value{{Key: "site/house_state", Kind: ValueState, Text: "active", N: 9}}
+	if kept := WithDemoHouseState(real); len(kept) != 1 || kept[0].Text != "active" {
+		t.Fatalf("learned house state replaced: %+v", kept)
+	}
+}

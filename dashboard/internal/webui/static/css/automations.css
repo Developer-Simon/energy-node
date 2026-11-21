@@ -48,6 +48,13 @@
 .auto-live-band { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--accent-line) 25%, transparent) 5px 8px); }
 .auto-live-mark { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent-line); }
 .auto-live-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: .84rem; color: var(--text-strong); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Lernwert-Strahl: von der unteren zur oberen Grenze, die Marke am aktuellen Wert. Mit Ersatzwert gedaempft. */
+.auto-live.is-learned .auto-figure-label .automation-icon { width: .85rem; height: .85rem; color: var(--accent-soft); }
+.auto-live-bar.is-tone-learned .auto-live-fill { background: color-mix(in srgb, var(--accent-line) 32%, transparent); }
+.auto-live-bar.is-tone-learned-fallback .auto-live-fill { background: color-mix(in srgb, var(--text-faint) 18%, transparent); }
+.auto-live-bar.is-tone-learned .auto-live-mark, .auto-live-bar.is-tone-learned-fallback .auto-live-mark { width: 3px; margin-left: -1.5px; background: var(--accent); }
+.auto-live-bar.is-tone-learned-fallback .auto-live-mark { background: var(--text-muted); }
+.auto-live-bar.is-tone-learned .auto-live-label span:last-child, .auto-live-bar.is-tone-learned-fallback .auto-live-label span:last-child { font-weight: 500; color: var(--text); }
 @media (prefers-reduced-motion: reduce) { .auto-live-fill { transition: none; } }
 
 /* Schaltflaechen im Kopf der Regel: Testen geistert, Bearbeiten hat einen Rahmen. */
@@ -396,22 +403,49 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
 .auto-field > .auto-field-label { display: flex; align-items: center; min-height: 1.35rem; }
 .auto-field-label { font-size: .8rem; color: var(--text-muted); }
 .auto-field input, .auto-field select { width: 100%; min-width: 0; }
-/* Lernwert in einer Bedingung: Optionszeilen Fester Wert und Lernwert, darunter das Feld oder die Bezugsangabe. */
-.auto-learn-detail { padding-left: .8rem; border-left: 2px solid var(--accent-line); }
-.auto-learn-bound { display: flex; align-items: center; gap: .4rem; min-width: 0; }
-.auto-learn-bound .auto-input { flex: 1 1 auto; min-width: 0; }
-.auto-learn-current, .auto-learn-help { font-size: .8rem; color: var(--text-muted); }
-/* Lernwert auf der Regelkarte: Chip, Skala mit Marke und Grenzen, Herkunftszeile unter der Bedingung. */
-.auto-learn { flex: 0 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .7rem; padding-left: .8rem; border-left: 2px solid var(--accent-line); }
-.auto-learn-chip { display: inline-flex; align-items: baseline; gap: .35rem; max-width: 100%; padding: 2px 9px; border: 1px solid var(--accent-line); border-radius: 999px; background: var(--accent-bg); font-size: .78rem; color: var(--text-strong); }
-.auto-learn-value { font-weight: 700; font-variant-numeric: tabular-nums; }
-.auto-learn-scale { flex: 1 1 160px; min-width: 0; max-width: 360px; display: grid; gap: 3px; }
-.auto-learn-track { position: relative; height: 6px; border-radius: 999px; background: var(--sunken); }
-.auto-learn-seg { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--accent-line); }
-.auto-learn-marker { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--accent); }
-.auto-learn-bounds { display: flex; justify-content: space-between; font-size: .72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.auto-learn-origin { flex: 1 1 100%; font-size: .8rem; color: var(--text-muted); }
-@media (prefers-reduced-motion: no-preference) { .auto-learn-marker { transition: left 400ms var(--ease-out); } }
+/* --- Lernwerte (auto-lv-*). Eigenes Praefix: auto-learn-* gehoert dem Vorschlagsband und dem Befund-Popover. --- */
+/* Editor: im Satz das Feld oder die Pille mit dem Lernwert, daneben der Umschalter wie ueber/unter. */
+.auto-lv-control { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.auto-lv-fixed { display: inline-flex; min-width: 0; }
+.auto-lv-pill { display: inline-flex; align-items: center; gap: 6px; height: 40px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--accent-line); border-radius: 10px; background: var(--accent-bg); color: var(--text-strong); font-size: .92rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.auto-lv-pill .automation-icon, .auto-lv-mode .automation-icon, .auto-lv-chip .automation-icon { width: .95rem; height: .95rem; color: var(--accent-soft); }
+.auto-lv-mode .auto-segment-tab { padding: .4rem .7rem; font-size: .84rem; white-space: nowrap; }
+.auto-lv-mode .auto-segment-tab[aria-checked="false"] .automation-icon { color: inherit; }
+/* Panel unter der Zeile: das Feld nimmt dann die ganze Breite, das Panel bricht in eine eigene Zeile um. */
+.auto-field:has(> .auto-lv-panel.is-open) { flex: 1 1 100%; grid-column: 1 / -1; }
+.auto-lv-panel { flex: 1 1 100%; box-sizing: border-box; display: grid; gap: 12px; min-width: 0; margin-top: 2px; padding: 12px 14px; border-radius: 12px; background: var(--sunken); }
+.auto-lv-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
+.auto-field .auto-lv-select { width: auto; max-width: 100%; min-width: 0; height: 36px; padding: 0 .7rem; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text-strong); font: inherit; font-size: .88rem; }
+.auto-lv-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.auto-lv-origin { min-width: 0; font-size: .8rem; color: var(--text-muted); }
+.auto-lv-bounds { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; }
+.auto-lv-bound { display: grid; gap: 5px; min-width: 0; }
+.auto-lv-label { font-size: .7rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+.auto-field .auto-lv-bound input[type="time"] { width: 8.5rem; height: 36px; border: 1px solid var(--border-soft); background: var(--panel); }
+.auto-lv-bound .auto-stepper { background: var(--panel); }
+.auto-lv-help { margin: 0; font-size: .78rem; color: var(--text-muted); }
+/* Einblenden des Panels: kurz und von oben, wie es aus der Zeile kommt. */
+.auto-lv-enter { transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out); }
+.auto-lv-enter-start { opacity: 0; transform: translateY(-4px); }
+.auto-lv-enter-end { opacity: 1; transform: none; }
+/* Hauszustand: Ist-Zustand mit Lernstand, darunter die Ersatzwahl. */
+.auto-lv-state { flex: 1 1 100%; grid-column: 1 / -1; box-sizing: border-box; display: grid; gap: 10px; min-width: 0; padding: 12px 14px; border-radius: 12px; background: var(--sunken); }
+.auto-lv-state-now { display: flex; align-items: center; gap: 8px; margin: 0; font-size: .88rem; color: var(--text); }
+.auto-lv-state-now .automation-icon { width: 1rem; height: 1rem; color: var(--accent-soft); }
+.auto-lv-state.is-met .auto-lv-state-now { color: var(--ok); font-weight: 600; }
+.auto-lv-state.is-none .auto-lv-state-now, .auto-lv-state.is-stale .auto-lv-state-now { color: var(--text-muted); }
+.auto-lv-state.is-none .auto-lv-state-now .automation-icon, .auto-lv-state.is-stale .auto-lv-state-now .automation-icon { color: var(--text-faint); }
+.auto-lv-state-fallback { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+/* Regelkarte: Chip mit Name und Wert, darunter die Herkunft. Der Strahl steht oben bei den Live-Balken. */
+.auto-lv { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
+.auto-lv-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; box-sizing: border-box; padding: 3px 10px 3px 8px; border: 1px solid var(--accent-line); border-radius: 999px; background: var(--accent-bg); font-size: .8rem; color: var(--text); }
+.auto-lv-chip-name { min-width: 0; overflow-wrap: anywhere; }
+.auto-lv-chip-value { color: var(--text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.auto-lv.is-fallback .auto-lv-chip { border-style: dashed; background: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  .auto-lv-enter { transition: opacity 120ms ease; }
+  .auto-lv-enter-start { transform: none; }
+}
 .auto-edit-foot { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding-top: .8rem; border-top: 1px solid var(--border-soft); }
 
 /* --- Karten der Bedingungen und weiche Felder (Entwurf Teil 2): Kopf mit Ton-Kachel,
@@ -648,6 +682,10 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-rule[data-mode="edit"] .auto-card-head { display: contents; }
   .auto-rule[data-mode="edit"] .auto-card-head > .auto-tile-icon { grid-column: 1; grid-row: 1; background: transparent; }
   .auto-rule[data-mode="edit"] .auto-card > .auto-fields { grid-column: 2; grid-row: 1; min-width: 0; }
+  /* Mit Lernwert-Panel oder Hauszustand wird die Zeile hoch: Icon und Loeschen bleiben an der ersten Zeile. */
+  .auto-rule[data-mode="edit"] .auto-card:has(.auto-lv-panel.is-open, .auto-lv-state) { align-items: start; }
+  .auto-rule[data-mode="edit"] .auto-card:has(.auto-lv-panel.is-open, .auto-lv-state) > .auto-card-head > .auto-tile-icon,
+  .auto-rule[data-mode="edit"] .auto-card:has(.auto-lv-panel.is-open, .auto-lv-state) .auto-card-actions { margin-top: 3px; }
   .auto-rule[data-mode="edit"] .auto-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .auto-rule[data-mode="edit"] .auto-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 0 0 auto; }
   /* Aktion "Aus Messwert": Gerät, Messfelder und Quellwahl in einer umbrechenden Zeile wie die Satzzeilen. Die inneren Gruppen geben ihre Felder an die Zeile ab, die Quellwahl steht am Ende. */

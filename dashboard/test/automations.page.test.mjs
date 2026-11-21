@@ -1370,6 +1370,27 @@ test('liveBars has one bar per numeric condition', () => {
   assert.deepEqual(component.liveBars(rule).map((bar) => bar.index), [0, 2]);
 });
 
+test('liveBars adds one beam per learned value from min to max, start and end of one window share it', () => {
+  const { component } = createAutomationsPanel();
+  component.nowTick = 1794000000 * 1000;
+  component.learned = { enabled: true, values: [
+    { key: 'device/plug/usual_off', kind: 'time', value: '22:30', n: 12, at: 1794000000 - 60, changed_at: 1794000000 - 60 },
+  ] };
+  const ref = { learned: 'device/plug/usual_off', min: '21:30', max: '23:30', fallback: '22:00' };
+  const rule = { id: 'r1', conditions: [
+    { type: 'time_window', start: ref, end: { ...ref, offset: 5 }, weekdays: [] },
+    { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 1800 },
+  ], actions: [] };
+  const bars = component.liveBars(rule);
+  assert.equal(bars.length, 1);
+  assert.equal(bars[0].learned, true);
+  assert.equal(bars[0].index, '0-start');
+  assert.equal(bars[0].valueText, '22:30');
+  assert.equal(bars[0].rangeText, '21:30 bis 23:30');
+  assert.equal(bars[0].mark, 0.5);
+  assert.equal(bars[0].tone, 'learned');
+});
+
 test('setComparison allows equals only outside balance conditions', () => {
   const { component } = createAutomationsPanel();
   const balance = { type: 'balance_threshold', comparison: 'above' };
@@ -3789,9 +3810,46 @@ test('learned_state is offered as a condition type and gets the default referenc
   const { component } = createAutomationsPanel();
   const rule = { id: 'r1', name: 'R', conditions: [], actions: [] };
   component.addCondition(rule, 'learned_state');
+  // Eine halbe Stunde ruhig: mit 0 lehnt die Pruefung eine Regel mit Schalt-Aktion ab (hold_seconds >= 30).
   assert.deepEqual(JSON.parse(JSON.stringify(rule.conditions)), [
-    { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 0 },
+    { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 1800 },
   ]);
+});
+
+test('learned_state editor shows the learned state, the fallback without data and a stale value', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 1800 };
+  component.nowTick = 1794000000 * 1000;
+  component.learned = { enabled: true, values: [] };
+  const none = component.learnedStateNow(condition);
+  assert.equal(none.tone, 'none');
+  assert.match(none.text, /Noch nichts gelernt\. Bis dahin gilt: Haus ist aktiv\./);
+  component.learned = { enabled: true, values: [{ key: 'site/house_state', kind: 'state', value: 'quiet', n: 14, at: 1794000000 - 600 }] };
+  const now = component.learnedStateNow(condition);
+  assert.equal(now.tone, 'met');
+  assert.match(now.text, /Jetzt Haus ist ruhig\. Gelernt aus 14 Tagen/);
+  component.learned = { enabled: true, values: [{ key: 'site/house_state', kind: 'state', value: 'quiet', n: 14, at: 1794000000 - 9000 }] };
+  const stale = component.learnedStateNow(condition);
+  assert.equal(stale.tone, 'stale');
+  assert.match(stale.text, /Es gilt: Haus ist aktiv\./);
+});
+
+test('learned bounds of a runtime are edited in minutes and stored in seconds', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0,
+    hold_seconds: { learned: 'device/x/usual_runtime_s', min: 600, max: 3600, fallback: 1800 } };
+  const target = component.learnedStepTarget(condition, 'hold_seconds');
+  assert.equal(target.min, 10);
+  assert.equal(target.offset, 0);
+  target.max = 90;
+  target.offset = 5;
+  assert.equal(condition.hold_seconds.max, 5400);
+  assert.equal(condition.hold_seconds.offset, 300);
+  target.offset = 0;
+  assert.equal('offset' in condition.hold_seconds, false);
+  target.fallback = '';
+  assert.equal(condition.hold_seconds.fallback, null);
+  assert.equal(Object.keys(component.learnedStepTarget({ type: 'balance_threshold', hold_seconds: 30 }, 'hold_seconds')).length, 0);
 });
 
 test('leaving the stale comparison keeps a learned reference in the value', () => {
@@ -3851,11 +3909,11 @@ test('a reference hold is checked against its minimum for publish rules', () => 
 });
 
 // Der Editor rendert das Bezugs-Formular nur bei einem Bezug; sonst wuerde die Auswahl ohne Feld lesen.
-test('the learned picker sits behind an x-if so an absent field is never read', () => {
+test('the learned picker reads an absent field null safe and writes only into a reference', () => {
   const rows = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'automations-rows.html'), 'utf8');
-  const picker = rows.indexOf(`x-model="condition['{{.field}}'].learned"`);
-  assert.ok(picker > 0, 'picker not found');
-  const guard = rows.lastIndexOf(`<template x-if="isLearnedRef(condition, '{{.field}}')">`, picker);
-  const defineStart = rows.lastIndexOf('{{define "auto-learn"}}', picker);
-  assert.ok(guard > defineStart && guard < picker, 'picker must be inside the x-if guard of auto-learn');
+  const start = rows.indexOf('{{define "auto-learn"}}');
+  const body = rows.slice(start, rows.indexOf('{{end}}\n', rows.indexOf('<p class="auto-lv-help">', start)));
+  assert.equal(body.includes(`x-model="condition['{{.field}}'].learned"`), false, 'no x-model on a field that may be absent');
+  assert.ok(body.includes(`x-bind:value="(condition['{{.field}}'] || {}).learned"`), 'picker reads null safe');
+  assert.ok(body.includes(`isLearnedRef(condition, '{{.field}}') && (condition['{{.field}}'].learned = $event.target.value)`), 'picker writes only into a reference');
 });

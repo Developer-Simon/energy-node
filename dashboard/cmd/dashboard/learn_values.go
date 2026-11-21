@@ -12,15 +12,16 @@ type learnedPublisher interface {
 	PublishRetained(topic, payload string) error
 }
 
-// publishLearned runs after every engine round. With the habit group off
+// publishLearned runs after every engine round with the values of that round
+// (normally Engine.Values, in the demo with the demo house state). With the habit group off
 // nothing is updated, so the retained values are not refreshed and age out on
 // the rule side. A message that could not be sent is taken back in the store,
 // so the next round sends it again. The store is saved when something changed.
-func publishLearned(store *autolearn.LearnedStore, engine *autolearn.Engine, client learnedPublisher, habitOn bool, exists func(string) bool, now time.Time) {
+func publishLearned(store *autolearn.LearnedStore, values func() []autolearn.Value, client learnedPublisher, habitOn bool, exists func(string) bool, now time.Time) {
 	if !habitOn {
 		return
 	}
-	msgs := store.Update(engine.Values(), now, exists)
+	msgs := store.Update(values(), now, exists)
 	if len(msgs) == 0 {
 		return
 	}

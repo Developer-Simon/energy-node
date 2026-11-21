@@ -265,3 +265,21 @@ func DaysDirEmpty(dir string) (bool, error) {
 	}
 	return len(entries) == 0, nil
 }
+
+// demoHouseStateDays ist die Zahl der Vergleichstage des Demo-Hauszustands.
+const demoHouseStateDays = 14
+
+// WithDemoHouseState ergänzt die Lernwerte der Demo um einen ruhigen Hauszustand,
+// solange der echte Erkenner keinen liefert. Die Demo-Tage enden gestern, für das
+// Fenster der letzten drei Stunden fehlen also die Daten. So zeigen Editor und
+// Regelkarte auch in der Demo einen gelernten Hauszustand.
+func WithDemoHouseState(vals []Value) []Value {
+	for _, v := range vals {
+		if v.Key == "site/house_state" {
+			return vals
+		}
+	}
+	out := make([]Value, 0, len(vals)+1)
+	out = append(out, vals...)
+	return append(out, Value{Key: "site/house_state", Kind: ValueState, Group: "habit", Text: "quiet", N: demoHouseStateDays})
+}

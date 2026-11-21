@@ -388,8 +388,9 @@
     return String(value);
   }
 
-  // i18n-keys: automations.learned.chip.label, automations.learned.scale.label
-  // Chip, Skala und Herkunftszeile eines Lernwerts fuer die Regelkarte. Null ohne Bezugsangabe.
+  // i18n-keys: automations.learned.chip.label, automations.learned.scale.label, automations.learned.scale.range
+  // Chip, Strahl und Herkunftszeile eines Lernwerts fuer die Regelkarte. Null ohne Bezugsangabe.
+  // Der Strahl laeuft von min bis max, die Marke steht am aktuellen Wert.
   function learnedDescriptor(condition, field, learned, unit) {
     const lv = learnedValue(condition, field, learned);
     if (!lv) return null;
@@ -401,10 +402,14 @@
     if (shape && lv.kind !== 'state') {
       const min = formatLearned(lv.ref.min, lv.kind, unit);
       const max = formatLearned(lv.ref.max, lv.kind, unit);
-      scaleView = { ...shape, min, max, label: t('automations.learned.scale.label', { min, max, value: text }) };
+      scaleView = {
+        ...shape, min, max,
+        range: t('automations.learned.scale.range', { min, max }),
+        label: t('automations.learned.scale.label', { min, max, value: text }),
+      };
     }
     return {
-      field, name, text,
+      field, name, text, kind: lv.kind, source: lv.source,
       label: t('automations.learned.chip.label', { name, value: text }),
       scale: scaleView,
       origin: AL.origin(lv.source, lv.entry, lv.nowS, t),

@@ -4,7 +4,7 @@
     "tick_interval_s": 10,
     "settling_seconds": 60,
     "balance_max_age_s": 30,
-    "publish_allowed_prefixes": ["wallbox/", "waermepumpe/", "outstation/apsystems_dach/"]
+    "publish_allowed_prefixes": ["wallbox/", "waermepumpe/", "outstation/apsystems_dach/", "plug/"]
   },
   "rules": [
     {
@@ -56,6 +56,45 @@
       ],
       "actions": [
         {"type": "publish", "topic": "wallbox/current/set", "payload_source": "constant", "payload": "16"}
+      ]
+    },
+    {
+      "id": "regel_balkon_gelernt_aus",
+      "name": "Balkonsteckdose zur üblichen Zeit aus",
+      "enabled": true,
+      "cooldown_seconds": 600,
+      "conditions": [
+        {"type": "time_window", "weekdays": [],
+         "start": {"learned": "device/plug_balkon/usual_off", "min": "21:30", "max": "23:30", "fallback": "22:30"},
+         "end": {"learned": "device/plug_balkon/usual_off", "min": "21:30", "max": "23:30", "fallback": "22:30", "offset": 5}}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "plug/balkon/output/set", "payload_source": "constant", "payload": "OFF"}
+      ]
+    },
+    {
+      "id": "regel_entfeuchter_laufzeit",
+      "name": "Entfeuchter nach üblicher Laufzeit aus",
+      "enabled": true,
+      "cooldown_seconds": 600,
+      "conditions": [
+        {"type": "entity_value", "entity_id": "plug_entfeuchter_steckdose", "topic": "plug/entfeuchter/output", "comparison": "equals", "text": "ON",
+         "hold_seconds": {"learned": "device/plug_entfeuchter/usual_runtime_s", "min": 1200, "max": 2100, "fallback": 1800}}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "plug/entfeuchter/output/set", "payload_source": "constant", "payload": "OFF"}
+      ]
+    },
+    {
+      "id": "regel_wp_haus_ruhig",
+      "name": "Wärmepumpe aus, wenn das Haus ruhig ist",
+      "enabled": true,
+      "cooldown_seconds": 600,
+      "conditions": [
+        {"type": "learned_state", "learned": "site/house_state", "equals": "quiet", "fallback": "active", "max_age_s": 7200, "hold_seconds": 1800}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "waermepumpe/mode/set", "payload_source": "constant", "payload": "OFF"}
       ]
     }
   ],

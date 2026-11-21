@@ -204,24 +204,26 @@
     return t(ORIGIN_KEYS[isNew ? base + '_new' : base], params);
   }
 
-  // Skala einer Bezugsangabe: Abschnitte auf 0 bis 1 und die Marke am Wert. Uhrzeiten sind ein Tag,
-  // ueber Mitternacht (min nach max) entstehen zwei Abschnitte. Null bei Zustand oder ungueltigen Grenzen.
+  // Skala einer Bezugsangabe als Strahl von min (0) bis max (1) mit der Marke am Wert.
+  // Uhrzeiten laufen den Bogen im Uhrzeigersinn ab, so bleibt auch 23:00 bis 01:00 ein Strahl.
+  // Ein Wert ausserhalb liegt auf der naeheren Grenze. Null bei Zustand oder ungueltigen Grenzen.
   function scale(kind, min, max, value) {
     if (kind === 'time') {
       const low = clockMinutes(min);
       const high = clockMinutes(max);
       if (low === null || high === null) return null;
-      const segments = low <= high
-        ? [{ from: low / DAY, to: high / DAY }]
-        : [{ from: low / DAY, to: 1 }, { from: 0, to: high / DAY }];
+      const span = norm(high - low);
       const now = clockMinutes(value);
-      return { segments, marker: now === null ? null : now / DAY };
+      if (now === null || span === 0) return { marker: null };
+      const along = norm(now - low);
+      if (along <= span) return { marker: along / span };
+      return { marker: norm(now - high) < norm(low - now) ? 1 : 0 };
     }
     if (kind !== 'number' && kind !== 'duration') return null;
     if (!isNumber(min) || !isNumber(max)) return null;
     const span = max - min;
     const marker = isNumber(value) && span !== 0 ? Math.min(1, Math.max(0, (value - min) / span)) : null;
-    return { segments: [{ from: 0, to: 1 }], marker };
+    return { marker };
   }
 
   window.AutomationLearned = { isRef, kindOf, resolve, prefill, choices, keyLabel, validate, origin, scale };

@@ -724,9 +724,14 @@ func main() {
 		_, ok := reg.Get(device)
 		return ok
 	}
+	// In der Demo kommt ein ruhiger Hauszustand dazu, die Demo-Tage tragen kein Heute.
+	learnedValues := automationEngine.Values
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" {
+		learnedValues = func() []autolearn.Value { return autolearn.WithDemoHouseState(automationEngine.Values()) }
+	}
 	engineLoop.afterRound = func() {
 		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
-		publishLearned(learnedStore, automationEngine, client, engineGroups()["habit"], learnedExists, time.Now())
+		publishLearned(learnedStore, learnedValues, client, engineGroups()["habit"], learnedExists, time.Now())
 	}
 	go engineLoop.Run(ctx)
 
