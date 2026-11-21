@@ -15,7 +15,8 @@ from .const import DOMAIN, PANEL_COOKIE, PANEL_SESSION_TTL_S, proxy_prefix
 from .link import CompanionLink
 from .panel_access import may_use_panel
 from .proxy_headers import (
-    guest_cookie, is_companion_control, is_logout, own_session, response_headers, upstream_headers,
+    guest_cookie, is_companion_control, is_logout, own_session, response_headers, shows_login_page,
+    upstream_headers,
 )
 from .runtime import EnergyNodeData
 
@@ -28,6 +29,8 @@ UPSTREAM_TIMEOUT = aiohttp.ClientTimeout(total=None, sock_connect=15)
 RETRYABLE = ("GET", "HEAD")
 # Antwortcode des Companion-Tors, wenn das Kopplungstoken nicht passt.
 UNPAIRED_CODE = "companion_unauthorized"
+# Fragt ab, ob das Dashboard eine Sitzung noch kennt (401 sonst).
+SESSION_PATH = "api/v1/auth/session"
 
 
 def _loaded(hass: HomeAssistant, entry_id: str) -> ConfigEntry | None:
@@ -171,6 +174,13 @@ class DashboardProxyView(HomeAssistantView):
             return response
 
         user_token = await self._user_token(hass, link, user)
+        if user_token is not None and shows_login_page(request.method, path):
+            # Die Startseite verraet eine abgelaufene Sitzung nicht (Anmeldeseite
+            # mit 200). Das gemerkte Token lebt bis zum Neustart von HA, die
+            # Sitzung im Dashboard nur 24 h oder bis jemand sie beendet.
+            if await self._expired(request, link, user_token, secure):
+                link.user_sessions.drop(user.id, user_token)
+                user_token = await self._user_token(hass, link, user)
         if user_token is not None:
             response, expired = await self._answer(
                 link, await self._send_paired(request, url, body, link, guest_cookie(user_token, secure))
@@ -198,6 +208,15 @@ class DashboardProxyView(HomeAssistantView):
                 link, await self._send_paired(request, url, body, link, guest_cookie(guest, secure))
             )
         return response
+
+    async def _expired(self, request: web.Request, link: CompanionLink, token: str, secure: bool) -> bool:
+        """Ob das Dashboard die Sitzung nicht mehr kennt."""
+        response, expired = await self._answer(
+            link, await self._send_paired(request, f"{link.base}/{SESSION_PATH}", None, link, guest_cookie(token, secure))
+        )
+        if isinstance(response, aiohttp.ClientResponse):
+            response.release()
+        return expired
 
     async def _user_token(self, hass: HomeAssistant, link: CompanionLink, user) -> str | None:
         """Sitzung des HA-Benutzers. None bei gesperrtem Konto oder wenn der Companion-Port nicht antwortet."""
