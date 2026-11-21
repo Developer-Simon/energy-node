@@ -28,13 +28,17 @@ const (
 )
 
 // LearnedEntry is one learned value as it was last published. Value holds the
-// published value, a clock text, a state or a number of seconds. Prev is the value
-// before the last change, ChangedAt and PublishedAt are Unix seconds.
+// published value, a clock text, a state or a number. Unit and Estimate describe
+// the value for the endpoint and are not part of the change check beyond
+// Estimate. Prev is the value before the last change, ChangedAt and
+// PublishedAt are Unix seconds.
 type LearnedEntry struct {
 	Key         string `json:"key"`
 	Device      string `json:"device,omitempty"`
 	Kind        string `json:"kind"`
+	Unit        string `json:"unit,omitempty"`
 	Value       any    `json:"value"`
+	Estimate    bool   `json:"estimate,omitempty"`
 	N           int    `json:"n"`
 	At          int64  `json:"at"`
 	Prev        any    `json:"prev,omitempty"`
@@ -54,11 +58,13 @@ type learnedFile struct {
 	Entries []LearnedEntry `json:"entries"`
 }
 
-// learnedPayload is the payload of a learned value topic.
+// learnedPayload is the payload of a learned value topic. Est is set only for
+// an estimate, so the payload of a measured value stays as it was.
 type learnedPayload struct {
 	Value any   `json:"value"`
 	N     int   `json:"n"`
 	At    int64 `json:"at"`
+	Est   bool  `json:"est,omitempty"`
 }
 
 // LearnedStore keeps the learned values and what was published last. It decides
@@ -129,24 +135,25 @@ func (s *LearnedStore) Update(vals []Value, now time.Time, deviceExists func(str
 		switch {
 		case !ok:
 			s.touchLocked(v.Key)
-			s.entries[v.Key] = &LearnedEntry{Key: v.Key, Device: v.Device, Kind: v.Kind, Value: cur,
-				N: v.N, At: at, ChangedAt: at, PublishedAt: at}
-			out = append(out, learnedMessage(v.Key, cur, v.N, at))
-		case e.Value != cur:
+			s.entries[v.Key] = &LearnedEntry{Key: v.Key, Device: v.Device, Kind: v.Kind, Unit: v.Unit,
+				Value: cur, Estimate: v.Estimate, N: v.N, At: at, ChangedAt: at, PublishedAt: at}
+			out = append(out, learnedMessage(v.Key, cur, v.N, at, v.Estimate))
+		case e.Value != cur || e.Estimate != v.Estimate:
 			if now.Sub(time.Unix(e.PublishedAt, 0)) < learnedChangeGap {
 				continue
 			}
 			s.touchLocked(v.Key)
 			e.Prev, e.Value, e.N = e.Value, cur, v.N
+			e.Unit, e.Estimate = v.Unit, v.Estimate
 			e.At, e.ChangedAt, e.PublishedAt = at, at, at
-			out = append(out, learnedMessage(v.Key, cur, v.N, at))
+			out = append(out, learnedMessage(v.Key, cur, v.N, at, v.Estimate))
 		default:
 			if now.Sub(time.Unix(e.PublishedAt, 0)) < learnedRefreshGap {
 				continue
 			}
 			s.touchLocked(v.Key)
 			e.N, e.At, e.PublishedAt = v.N, at, at
-			out = append(out, learnedMessage(v.Key, cur, v.N, at))
+			out = append(out, learnedMessage(v.Key, cur, v.N, at, v.Estimate))
 		}
 	}
 	return out
@@ -246,16 +253,16 @@ func (s *LearnedStore) sortedKeysLocked() []string {
 }
 
 // learnedCurrent is the value a learned value publishes: the seconds of a
-// duration, the text of a time or a state.
+// duration, the number of a number, the text of a time or a state.
 func learnedCurrent(v Value) any {
-	if v.Kind == ValueDuration {
+	if v.Kind == ValueDuration || v.Kind == ValueNumber {
 		return v.Num
 	}
 	return v.Text
 }
 
 // learnedMessage is the retained message of one learned value.
-func learnedMessage(key string, value any, n int, at int64) Message {
-	payload, _ := json.Marshal(learnedPayload{Value: value, N: n, At: at})
+func learnedMessage(key string, value any, n int, at int64, est bool) Message {
+	payload, _ := json.Marshal(learnedPayload{Value: value, N: n, At: at, Est: est})
 	return Message{Topic: learnedTopicPrefix + key, Payload: string(payload)}
 }

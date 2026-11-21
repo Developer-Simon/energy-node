@@ -7,21 +7,25 @@ import (
 )
 
 // Value kinds. A time value carries Text as "HH:MM", a state value carries its
-// state in Text, and a duration value carries its seconds in Num.
+// state in Text, and a duration or number value carries its value in Num.
 const (
 	ValueTime     = "time"
 	ValueDuration = "duration"
 	ValueState    = "state"
+	ValueNumber   = "number"
 )
 
 // Value is a learned number, clock time or state. It is published under Key
 // as a retained topic and feeds the rules that reference it. N is the number
-// of days or runs the value rests on.
+// of days or runs the value rests on. Unit names the unit of a number, and
+// Estimate marks a value that is derived from a fallback and not measured.
 type Value struct {
 	Key, Device, Kind, Group string
+	Unit                     string
 	Num                      float64
 	Text                     string
 	N                        int
+	Estimate                 bool
 }
 
 // learnTodayGroup returns the day type group of the weekday of in.Now. A
