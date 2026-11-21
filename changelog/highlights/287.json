@@ -1,0 +1,61 @@
+{
+  "de": {
+    "*": "Das Lernen kennt Jahreszeiten, Sonnenstand und Außentemperatur"
+  },
+  "en": {
+    "*": "Learning knows the seasons, the sun and the outdoor temperature"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "edit_setup",
+          "page": "general",
+          "panel": "settings-panel",
+          "target": "settings-learning",
+          "text": {
+            "de": "Auf der Lernseite wählst du einen Außentemperatur-Sensor. Damit lernt der Knoten, unter welcher Temperatur ein Heizgerät läuft. Ohne Standort kennt er die Sonnenzeiten nicht, dann fragt ein Hinweis auf dieser Seite danach.",
+            "en": "On the learning page you can choose an outdoor temperature sensor. With it the node learns below which temperature a heater runs. Without a location the node does not know the sun times, a hint on this page then asks for it."
+          },
+          "title": {
+            "de": "Außentemperatur und Standort",
+            "en": "Outdoor temperature and location"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_automations",
+          "open": [
+            "auto-learn-tile"
+          ],
+          "panel": "automations-panel",
+          "target": "auto-learn-card",
+          "text": {
+            "de": "Jeder Vorschlag hat jetzt einen kurzen Text mit den Daten dahinter. Eine Gewohnheit, die der Sonne folgt, wird als Regel mit Bezug auf Sonnenuntergang oder Sonnenaufgang angeboten, und eine Heizregel kann die Bedingung nur unter einer gelernten Temperatur bekommen. Übernehmen legt die Änderung in den Regelentwurf, gespeichert wird erst beim Speichern.",
+            "en": "Each suggestion now has a short text with the data behind it. A habit that follows the sun is offered as a rule relative to sunset or sunrise, and a heater rule can get the condition only below a learned temperature. Apply puts the change into the rule draft, nothing is saved before you save."
+          },
+          "title": {
+            "de": "Vorschläge erklären sich selbst",
+            "en": "Suggestions explain themselves"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_diagnostics",
+          "page": "performance",
+          "panel": "settings-panel",
+          "target": "performance-learning",
+          "text": {
+            "de": "Wähle hier die Lernstufe. Die Wahl ist ein Entwurf, bis du Übernehmen drückst, und die Gesamtlast oben zeigt schon ihre Wirkung. Ein Punkt markiert die nächste Stufe, wenn die Last eine Woche niedrig blieb.",
+            "en": "Pick a learning level here. The choice is a draft until you press Apply, and the total load at the top already shows its effect. A dot marks the next level when the load stayed low for a week."
+          },
+          "title": {
+            "de": "Die Lernstufe auf der Leistungsseite",
+            "en": "The learning level on the performance page"
+          }
+        }
+      ]
+    }
+  }
+}

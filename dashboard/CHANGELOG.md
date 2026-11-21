@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.21-pre.27 (2026-11-06)
+## v0.11.21-pre.28 (2026-11-06)
 
 ### Features
 
@@ -28,6 +28,34 @@
 - **installer:** apply a changed service selection without a full update (#282) (ab11a7a)
 - **automations:** suggest rules from learned habits and check rule reliability (#283) (318066c)
 - **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284) (8aae55b)
+- **sun:** compute sunrise, sunset and the sun position in Go (053ac08)
+- **autolearn:** keep weekly figures for three years and backfill them from the energy statistics (a7b5800)
+- **autolearn:** wire the season store into the learning run (2a532e4)
+- **settings:** collect an outdoor temperature for learning (15262b3)
+- **settings:** read the outdoor temperature entity from the settings (0ae03ea)
+- **settings:** choose an outdoor temperature for learning (6caff7b)
+- **autolearn:** tell sun habits from clock habits for switch times (36430eb)
+- **autolearn:** split overrides by the sun (ebf2ff9)
+- **automations:** sun anchor for time points and sun features in the catalogs (96a7c99)
+- **autolearn:** fit a heating knee to daily energy over outdoor temperature (44cea79)
+- **autolearn:** add the heating season validity and the energy group switch (88b383a)
+- **autolearn:** learn the heating season from the outdoor temperature (c1bb08f)
+- **automations:** show the heating season and the temperature suggestion (7b51b41)
+- **automations:** serve the yearly course of learned values (7e8c8fc)
+- **automations:** show how a learned value moved over the year (18f6fa8)
+- **learnrec:** record the daily learning share and suggest a higher level (af89de7)
+- **performance:** serve the learning load for the performance page (dc51a8e)
+- **performance:** show the learning load and let the user pick the learning level (5bc2e1c)
+- **autolearn:** seed season data in the demo (4bbc4fc)
+- **settings:** explain the energy switch in a tooltip, even out the fine rows and embed the location hint (f99576d)
+- **demo:** seed an outdoor sensor and the learn data for seasons (2fb767a)
+- **performance:** draft the learning level and list the learning functions in the measurements (15ba519)
+- **performance:** show the learning estimate and the draft state in the rates card (683fc79)
+- **automations:** explain each habit and energy suggestion in a short text (4251fce)
+- **automations:** show an explanation text on suggestion cards (b7a63f8)
+- **performance:** count the learning effort in the total and inside the dashboard (8a54711)
+- **demo:** cover every learning season feature and document how to test it (eca8289)
+- **automations:** Learning knows the seasons, the sun and the outdoor temperature (#287)
 - **automations:** accept learned values in the rule schema (a8c404d)
 - **autolearn:** read learned values from the rule file (59b796e)
 - **autolearn:** learn usual switch times and runtimes (b982d6c)
@@ -197,6 +225,21 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **autolearn:** use the median night load and the median learned value in the weekly figures (9d1bac8)
+- **autolearn:** close the previous season week on any weekday and test the closing (0ff36cc)
+- **automations:** open sun suggestions with the sun anchor and word negative offsets (bca2a79)
+- **autolearn:** use the mean absolute deviation as the knee baseline (71c1342)
+- **autolearn:** mark device findings with the heating season (38ca1d3)
+- **settings:** show the missing location hint only without a configured location (a797666)
+- **autolearn:** suggest the temperature limit only for switch on rules and let it be applied (5aa4bf6)
+- **autolearn:** hide applied condition suggestions and round the numbers in suggestion texts (4a35de3)
+- **performance:** keep the level buttons at the regular height and group the learning breakdown (e81a038)
+- **autolearn:** set the weekly outdoor temperature from the day files (e7c3a81)
+- **learn:** keep the running ISO week out of the backfill and close stats weeks (f891f6b)
+- **autolearn:** drop the overridden sun fix when its offset leaves the schema range (bcabc35)
+- **automations:** append add_condition ops instead of writing their index (4857620)
+- **learn:** record the daily load share only while the engine runs for a day (d23028d)
+- **autolearn:** fall back to the clock when the sun offset leaves the assistant range (01c8192)
 - **automation:** reject malformed learned references consistently (934c418)
 - **autolearn:** ignore untyped days and allow zero spread in the house state (addd701)
 - **automations:** carry the learned prefill into the assistant (746da93)
@@ -279,6 +322,8 @@
 
 ### Tests
 
+- **webui:** follow the new cache-bust marks (b06cc13)
+- **automations:** do not pin the cache-bust mark of the learned helper (2fd09ce)
 - **webui:** follow the cache-bust marks of the automation modules (590dd8a)
 - **settings:** follow the learning page in the settings tests (a155ef5)
 - **dashboard:** pin the example scenario to the surplus_switch template (b99bda3)
@@ -290,10 +335,17 @@
 - **network:** smoke the fallback settings and the hotspot secret (e3c2f4b)
 - **webui:** know the storage page in the tour target test (8c10d07)
 
+### Style
+
+- **performance:** style the learning row fold (55b33c1)
+
 ### Chores
 
+- **dashboard:** bump the cache-bust marks for seasons (5f8fe25)
+- **dashboard:** bump the learning settings stylesheet mark (c903788)
+- **dashboard:** bump the performance core mark (c1ef9d5)
+- **dashboard:** refresh the cache-bust history stamps after the rebase (2b39659)
 - **dashboard:** bump the cache-bust marks for learned values (dd435dc)
-- **dashboard:** refresh the cache-bust history stamps after the rebase (e5a356e)
 - **dashboard:** bump the cache-bust marks for the suggestion band (00daac8)
 - **dashboard:** refresh the cache-bust history for the current version (4513bde)
 - **onboarding:** add tour targets to the suggestion band (add6a58)
