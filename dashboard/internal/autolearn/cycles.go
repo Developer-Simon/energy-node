@@ -16,10 +16,11 @@ const (
 	cycleMinShare   = 0.10     // minimal share of minutes on each side of the threshold
 	cycleMinGapLog  = 0.5      // minimal distance of the two group means, log10(W)
 	cycleStartMin   = 2        // minutes above the threshold before a cycle opens
-	cycleGapStart   = 5        // initial pause that ends a cycle, minutes
+	cycleGapStart   = 15       // initial and lowest pause that ends a cycle, minutes
 	cycleGapMax     = 90       // upper bound of the pause that ends a cycle, minutes
 	cycleGapHistory = 50       // cycles whose pauses feed the percentile
 	cyclePercentile = 0.95     // percentile of the pauses that sets the pause
+	cycleMaxMinutes = 24 * 60  // a cycle open for longer is cut at this length
 )
 
 // CycleRec is one finished cycle of a device. Grid, PV and Bat are the shares
@@ -112,23 +113,29 @@ func (t *CycleTracker) ObserveMinute(f learnrec.Frame, origin func(device string
 	var out []CycleRec
 	if t.firstCall {
 		// An open cycle whose last minute lies more than G back was cut off by
-		// a restart and is dropped.
+		// a restart and is dropped. A run of above-threshold minutes that is
+		// that old is stale as well.
 		for _, st := range t.devices {
-			if st.Open != nil && f.Minute.Sub(st.Open.lastMinute()) > minutesDur(gapMinutes(st)) {
+			g := minutesDur(gapMinutes(st))
+			if st.Open != nil && f.Minute.Sub(st.Open.lastMinute()) > g {
 				st.Open = nil
+			}
+			if n := len(st.Run); n > 0 && f.Minute.Sub(st.Run[n-1].At) > g {
 				st.Run = nil
 			}
 		}
 		t.firstCall = false
 	}
 
+	// Without a positive load the source shares are unknown, so they stay 0
+	// instead of claiming all the power came from PV.
 	load := f.Balance["load_total"]
-	var gridShare, batShare float64
+	var gridShare, batShare, pvShare float64
 	if load > 0 {
 		gridShare = clamp01(f.Balance["grid_import"] / load)
 		batShare = clamp01(f.Balance["battery_discharge"] / load)
+		pvShare = math.Max(0, 1-gridShare-batShare)
 	}
-	pvShare := math.Max(0, 1-gridShare-batShare)
 
 	for _, dm := range f.Devices {
 		w, ok := devicePower(dm)
@@ -145,10 +152,20 @@ func (t *CycleTracker) ObserveMinute(f learnrec.Frame, origin func(device string
 		st.Thr = otsuThreshold(st.Hist)
 		above := st.Thr > 0 && w >= st.Thr
 
+		if st.Open != nil && st.Open.minutes() >= cycleMaxMinutes {
+			// A cycle that never ends is cut at the cap, this minute starts afresh.
+			out = append(out, finishCycle(dm.ID, st.Open, "self"))
+			addGap(st, st.Open.Pauses)
+			st.Open = nil
+		}
 		if st.Open == nil {
 			if !above {
 				st.Run = nil
 				continue
+			}
+			// A run only counts minutes that follow each other.
+			if n := len(st.Run); n > 0 && s.At.Sub(st.Run[n-1].At) > time.Minute {
+				st.Run = nil
 			}
 			st.Run = append(st.Run, s)
 			if len(st.Run) < cycleStartMin {
@@ -173,10 +190,7 @@ func (t *CycleTracker) ObserveMinute(f learnrec.Frame, origin func(device string
 		oc.Tail = append(oc.Tail, s)
 		if len(oc.Tail) >= gapMinutes(st) {
 			out = append(out, finishCycle(dm.ID, oc, endOf(origin, dm.ID, oc.LastAbove)))
-			st.Gaps = append(st.Gaps, oc.Pauses)
-			if len(st.Gaps) > cycleGapHistory {
-				st.Gaps = st.Gaps[len(st.Gaps)-cycleGapHistory:]
-			}
+			addGap(st, oc.Pauses)
 			st.Open = nil
 		}
 	}
@@ -267,8 +281,10 @@ func otsuThreshold(hist [cycleBins]int) float64 {
 	return math.Pow(10, float64(bestT)*width)
 }
 
-// gapMinutes is the pause that ends a cycle: the 95th percentile of the pauses
-// of the last 50 cycles, kept between 5 and 90 minutes. Without pauses it is 5.
+// gapMinutes is the pause that ends a cycle: twice the 95th percentile of the
+// pauses of the last 50 cycles, kept between 15 and 90 minutes. Without pauses
+// it is 15. Only pauses shorter than G stay inside a cycle, so G grows from
+// the recorded pauses.
 func gapMinutes(st *devCycleState) int {
 	var all []float64
 	for _, pauses := range st.Gaps {
@@ -282,7 +298,21 @@ func gapMinutes(st *devCycleState) int {
 	sort.Float64s(all)
 	idx := int(math.Ceil(cyclePercentile*float64(len(all)))) - 1
 	idx = min(max(idx, 0), len(all)-1)
-	return min(max(int(all[idx]), cycleGapStart), cycleGapMax)
+	return min(max(int(2*all[idx]), cycleGapStart), cycleGapMax)
+}
+
+// addGap keeps the pauses of a finished cycle for the percentile.
+func addGap(st *devCycleState, pauses []int) {
+	st.Gaps = append(st.Gaps, pauses)
+	if len(st.Gaps) > cycleGapHistory {
+		st.Gaps = st.Gaps[len(st.Gaps)-cycleGapHistory:]
+	}
+}
+
+// minutes is the number of minutes the cycle has run, above or below the
+// threshold.
+func (oc *openCycle) minutes() int {
+	return len(oc.Samples) + len(oc.Tail)
 }
 
 func minutesDur(n int) time.Duration {

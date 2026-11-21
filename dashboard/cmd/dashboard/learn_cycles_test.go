@@ -69,8 +69,9 @@ func TestCycleRunnerCollectsCyclesAndSurvivesRestart(t *testing.T) {
 		warmup = append(warmup, block{on: i%2 == 0, min: 30})
 	}
 	at := feedRun(t, r, start, warmup)
-	// Two cycles of 20 minutes on, each ended by 10 minutes off.
-	at = feedRun(t, r, at, []block{{true, 20}, {false, 10}, {true, 20}, {false, 10}})
+	// Two cycles of 20 minutes on, each ended by 20 minutes off (the pause that
+	// ends a cycle starts at 15 minutes).
+	at = feedRun(t, r, at, []block{{true, 20}, {false, 20}, {true, 20}, {false, 20}})
 
 	to := at.Add(48 * time.Hour)
 	if got := countCycles(t, days, start, to); got != 2 {
@@ -87,7 +88,7 @@ func TestCycleRunnerCollectsCyclesAndSurvivesRestart(t *testing.T) {
 	// old cycles must not be counted again.
 	days2 := autolearn.OpenDayStore(filepath.Join(dir, "days"), loc, func() int { return 100000 }, noLogf)
 	r2 := newCycleRunner(statePath, days2, nil, noLogf)
-	feedRun(t, r2, at, []block{{true, 20}, {false, 10}})
+	feedRun(t, r2, at, []block{{true, 20}, {false, 20}})
 	if got := countCycles(t, days2, start, to); got != 3 {
 		t.Fatalf("cycles after restart = %d, want 3 (no duplicates, one new)", got)
 	}
