@@ -3,11 +3,13 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 )
 
 // seasonTestDays returns n day files starting at the given day, each with a
@@ -166,5 +168,51 @@ func TestSeasonCloserReplacesStatsWeekWithDays(t *testing.T) {
 	}
 	if got := closer.store.Weeks("2026-W47", "2026-W47"); len(got) != 1 || got[0].Source != "days" || got[0].Days != 4 {
 		t.Fatalf("weeks 2026-W47 = %+v, want the day-built week", got)
+	}
+}
+
+// TestDailyShareSaverRecordsOnlyWhenRunning checks that the hourly share is
+// written only while a group of the engine is on and after a full day of running.
+func TestDailyShareSaverRecordsOnlyWhenRunning(t *testing.T) {
+	start := time.Date(2026, 11, 21, 8, 0, 0, 0, time.UTC)
+	clock := start
+	now := func() time.Time { return clock }
+	on := func() map[string]bool { return map[string]bool{"habit": true, "energy": false} }
+	off := func() map[string]bool { return map[string]bool{"habit": false, "energy": false} }
+	cases := []struct {
+		name   string
+		groups func() map[string]bool
+		after  time.Duration
+		want   bool
+	}{
+		{"groups off after a day", off, 25 * time.Hour, false},
+		{"running for an hour", on, time.Hour, false},
+		{"running for a day", on, 24 * time.Hour, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clock = start
+			path := filepath.Join(t.TempDir(), "learn.json")
+			var mu sync.Mutex
+			st := learnrec.State{}
+			engine := autolearn.NewEngine(nil, nil, nil,
+				func() map[string]autolearn.DeviceInfo { return map[string]autolearn.DeviceInfo{} },
+				func() learnrec.Limits { return learnrec.LimitsFor(learnrec.LevelBalanced, 4) }, time.UTC)
+			saver := dailyShareSaver(engine, tc.groups, &mu, &st, path, now)
+
+			clock = start.Add(tc.after)
+			if err := saver.Save(); err != nil {
+				t.Fatal(err)
+			}
+
+			_, recorded := st.DailyShare[clock.Format("2006-01-02")]
+			if recorded != tc.want {
+				t.Errorf("recorded = %v, want %v", recorded, tc.want)
+			}
+			_, statErr := os.Stat(path)
+			if (statErr == nil) != tc.want {
+				t.Errorf("state file written = %v, want %v", statErr == nil, tc.want)
+			}
+		})
 	}
 }

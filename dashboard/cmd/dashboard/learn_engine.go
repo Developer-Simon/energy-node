@@ -154,6 +154,16 @@ func engineGroupsFor(value settings.Settings) map[string]bool {
 	}
 }
 
+// anyGroupOn reports whether a group of the engine is switched on.
+func anyGroupOn(groups map[string]bool) bool {
+	for _, on := range groups {
+		if on {
+			return true
+		}
+	}
+	return false
+}
+
 // registerEnergyDetectors meldet die Erkenner der Gruppe Energie bei der Engine.
 // Sie laufen nur, wenn der Schalter Energie an ist.
 func registerEnergyDetectors(e *autolearn.Engine) {
@@ -199,11 +209,21 @@ type saverFunc func() error
 // Save ruft die Funktion auf.
 func (f saverFunc) Save() error { return f() }
 
+// dailyShareWindow is how long the engine must have run in this process before
+// its load share covers a full day. Before that the window is mostly empty.
+const dailyShareWindow = 24 * time.Hour
+
 // dailyShareSaver schreibt den Tagesanteil der Lernlast (Engine.Load, die
 // Last der letzten 24 Stunden) in den Lernstand. Der Hub ruft ihn hoechstens
-// stuendlich auf. mu schuetzt st, weil die Herabstufung denselben Stand aendert.
-func dailyShareSaver(engine *autolearn.Engine, mu *sync.Mutex, st *learnrec.State, path string, now func() time.Time) saverFunc {
+// stuendlich auf. Geschrieben wird nur, wenn eine Gruppe der Engine rechnet
+// und sie seit mindestens 24 Stunden in diesem Prozess laeuft, sonst bleibt
+// der Stand unveraendert. mu schuetzt st, weil die Herabstufung denselben Stand aendert.
+func dailyShareSaver(engine *autolearn.Engine, groups func() map[string]bool, mu *sync.Mutex, st *learnrec.State, path string, now func() time.Time) saverFunc {
+	started := now()
 	return func() error {
+		if !anyGroupOn(groups()) || now().Sub(started) < dailyShareWindow {
+			return nil
+		}
 		_, share, _ := engine.Load()
 		mu.Lock()
 		defer mu.Unlock()
