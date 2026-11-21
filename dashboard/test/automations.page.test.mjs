@@ -3322,6 +3322,29 @@ test('findingText shows the share of a reliability finding as a percentage', () 
   assert.equal(component.findingText(finding).text, 'automations.learn.check.no_effect.text|38');
 });
 
+test('findingText words a sun switch time as after or before with the absolute minutes', () => {
+  const { component, window } = createAutomationsPanel();
+  const calls = [];
+  window.I18n.t = (key, params) => {
+    calls.push({ key, params });
+    return key;
+  };
+  const sunFinding = (offset) => ({ ...sampleFinding, kind: 'switch_time',
+    summary: { code: 'switch_time.sun_on', params: { device: 'Lampe', hits: 9, days: 10, event: 'sunset', offset_min: offset } } });
+  const after = component.findingText(sunFinding(20));
+  assert.equal(after.title, 'automations.learn.switch_time.sun_on.after.title');
+  const afterCall = calls.find((call) => call.key === 'automations.learn.switch_time.sun_on.after.title');
+  assert.equal(afterCall.params.minutes, 20);
+  assert.equal(afterCall.params.event, 'automations.sun_event.sunset');
+  assert.equal('offset_min' in afterCall.params, false);
+
+  calls.length = 0;
+  const before = component.findingText(sunFinding(-20));
+  assert.equal(before.title, 'automations.learn.switch_time.sun_on.before.title');
+  const beforeCall = calls.find((call) => call.key === 'automations.learn.switch_time.sun_on.before.title');
+  assert.equal(beforeCall.params.minutes, 20);
+});
+
 test('applyFix writes only the draft, starts editing and never posts to the rules endpoint', () => {
   const { component, window } = createAutomationsPanel();
   component.document = { version: 1, settings: {}, rules: [
@@ -3591,6 +3614,19 @@ test('prefillToAnswers maps a time point to the action and the five minute windo
   const wrapped = prefillToAnswers('time_point', { device: 'lamp_switch', on: true, time: '23:58', days: [5] });
   assert.equal(wrapped.action, 'on');
   assert.equal(wrapped.time.to, '00:03');
+});
+
+test('prefillToAnswers opens a sun suggestion with the sun anchor and the offset', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const sun = prefillToAnswers('time_point', {
+    device: 'lamp_switch', on: true, anchor: 'sunset', offset_min: -20, days: [0, 1, 2, 3, 4, 5, 6],
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(sun)), {
+    device: 'lamp_switch', action: 'on', anchor: 'sunset', offset_min: -20, time: { days: [0, 1, 2, 3, 4, 5, 6] },
+  });
+  assert.equal(prefillToAnswers('time_point', { device: 'lamp_switch', anchor: 'noon' }), null);
+  assert.equal(prefillToAnswers('time_point', { device: 'lamp_switch', anchor: 'sunrise', offset_min: 2.5 }), null);
 });
 
 test('prefillToAnswers maps a runtime limit to minutes', () => {
