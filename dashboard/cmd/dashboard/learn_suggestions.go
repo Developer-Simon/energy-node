@@ -76,7 +76,7 @@ func (b *suggestionBook) Reset() error {
 // through the gates and stores the result in book. Only the groups that are on
 // in groups count. Candidates of devices that do not exist any more are dropped
 // before the gate, so they cannot take a slot. A finding on a device with a
-// heating knee and a heating season gets the knee as its season limit.
+// heating knee gets the knee as its season limit, except temperature findings.
 func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc func() ([]byte, error), groups map[string]bool, exists func(device string) bool, now time.Time) {
 	var cands []autolearn.Candidate
 	for _, c := range source.Candidates() {
@@ -89,6 +89,11 @@ func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc 
 		}
 		cands = append(cands, c)
 	}
+	// The detector of a finding decides below whether it gets the heating limit.
+	detectors := make(map[string]string, len(cands))
+	for _, c := range cands {
+		detectors[c.Finding.ID] = c.Detector
+	}
 	var doc autolearn.Doc
 	if raw, err := readDoc(); err == nil {
 		if parsed, err := autolearn.ParseDoc(raw); err == nil {
@@ -99,15 +104,20 @@ func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc 
 	out, shown := autolearn.Gate(cands, doc, book.state.Shown())
 	for i := range out {
 		f := &out[i]
-		if f.Season == nil || f.Device == "" {
+		// The temperature limit is the cure for warm weather, so it is never rested.
+		if f.Device == "" || detectors[f.ID] == "temperature" {
 			continue
 		}
 		knee, ok := source.HeatingKnee(f.Device)
 		if !ok {
 			continue
 		}
-		// A copy, the season of the candidate belongs to the engine.
-		season := *f.Season
+		// A copy, the season of the candidate belongs to the engine. A finding
+		// without a season gets one that holds only the heating limit.
+		var season autolearn.Season
+		if f.Season != nil {
+			season = *f.Season
+		}
 		season.HeatingBelowC = &knee
 		f.Season = &season
 	}

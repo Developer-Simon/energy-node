@@ -507,6 +507,15 @@ test('a heating only season shows no week range, a dated season shows its weeks'
   close();
 });
 
+test('a finding with only the heating limit shows the chip and no week range', () => {
+  const { band, close } = loadBand(listRoutes({ enabled: false, suggestions: [] }));
+  const t = catalogT('de');
+  const finding = { season: { from_week: 0, to_week: 0, heating_below_c: 15.04 } };
+  assert.equal(band.seasonOf(finding, t), '');
+  assert.equal(band.heatingOf(finding, t), 'Heizzeit unter 15 °C');
+  close();
+});
+
 test('the temperature limit title and line show the rule, device, knee and weekly kWh', () => {
   const { api } = load();
   const t = catalogT('de');

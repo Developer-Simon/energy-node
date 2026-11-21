@@ -228,3 +228,73 @@ func TestGateSuggestionsHeatingKneeRestsWarmDays(t *testing.T) {
 		})
 	}
 }
+
+// The device finding gets the knee of dev-a, the temperature finding stays without a season.
+func TestGateSuggestionsDeviceFindingGetsHeatingLimit(t *testing.T) {
+	state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
+	book := &suggestionBook{state: state}
+	exists := func(string) bool { return true }
+	src := kneeCandidates{fakeCandidates: fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, recent: 10}
+	gateSuggestions(book, src, noRules, groupsHabit, exists, time.Now())
+	got := book.Visible(time.Now(), exists)
+	if len(got) != 1 || got[0].Season == nil || got[0].Season.HeatingBelowC == nil {
+		t.Fatalf("visible = %+v, want one finding with a heating limit", got)
+	}
+	if *got[0].Season.HeatingBelowC != 15 {
+		t.Fatalf("heating limit = %v, want 15", *got[0].Season.HeatingBelowC)
+	}
+	if got[0].Season.FromWeek != 0 || got[0].Season.ToWeek != 0 {
+		t.Fatalf("season = %+v, want no week range", got[0].Season)
+	}
+}
+
+func TestGateSuggestionsDeviceFindingWithoutKneeGetsNoSeason(t *testing.T) {
+	state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
+	book := &suggestionBook{state: state}
+	exists := func(string) bool { return true }
+	src := kneeCandidates{fakeCandidates: fakeCandidates{habitCandidate("switchtime:b", "dev-b", 2)}, recent: 18}
+	gateSuggestions(book, src, noRules, groupsHabit, exists, time.Now())
+	got := book.Visible(time.Now(), exists)
+	if len(got) != 1 || got[0].Season != nil {
+		t.Fatalf("visible = %+v, want one finding without a season", got)
+	}
+}
+
+func TestGateSuggestionsTemperatureFindingIsNeverRested(t *testing.T) {
+	state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
+	book := &suggestionBook{state: state}
+	exists := func(string) bool { return true }
+	temp := habitCandidate("temp_limit:a", "dev-a", 2)
+	temp.Detector = "temperature"
+	src := kneeCandidates{fakeCandidates: fakeCandidates{temp}, recent: 18}
+	gateSuggestions(book, src, noRules, groupsHabit, exists, time.Now())
+	got := book.Visible(time.Now(), exists)
+	if len(got) != 1 {
+		t.Fatalf("visible = %d, want the temperature finding shown in warm weather", len(got))
+	}
+	if got[0].Season != nil {
+		t.Fatalf("season = %+v, want none for a temperature finding", got[0].Season)
+	}
+}
+
+func TestGateSuggestionsDeviceFindingWithKneeRestsWarmDays(t *testing.T) {
+	exists := func(string) bool { return true }
+	for _, tc := range []struct {
+		name   string
+		recent float64
+		want   int
+	}{
+		{"warm three-day mean rests", 18, 0},
+		{"cold three-day mean shows", 10, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
+			book := &suggestionBook{state: state}
+			src := kneeCandidates{fakeCandidates: fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, recent: tc.recent}
+			gateSuggestions(book, src, noRules, groupsHabit, exists, time.Now())
+			if got := book.Visible(time.Now(), exists); len(got) != tc.want {
+				t.Fatalf("visible = %d, want %d", len(got), tc.want)
+			}
+		})
+	}
+}
