@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -30,6 +31,13 @@ func (f *fakeLearned) Entries() []autolearn.LearnedEntry {
 // the device filter of suggestionRouter, hiding the device "hidden".
 func learnedRouter(t *testing.T, source learnedValueSource, learning *LearningDeps) (http.Handler, *auth.Manager) {
 	t.Helper()
+	return learnedRouterWithSeason(t, source, learning, nil)
+}
+
+// learnedRouterWithSeason is learnedRouter with the season store that serves the
+// yearly course of the values.
+func learnedRouterWithSeason(t *testing.T, source learnedValueSource, learning *LearningDeps, season learnedSeasonSource) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
 	if err != nil {
 		t.Fatal(err)
@@ -50,14 +58,15 @@ func learnedRouter(t *testing.T, source learnedValueSource, learning *LearningDe
 		DeviceFilter:  hidden,
 		Learning:      learning,
 		LearnedValues: source,
+		LearnedSeason: season,
 	})
 	return router, manager
 }
 
 // learnedBody is the answer of GET /api/v1/automations/learned.
 type learnedBody struct {
-	Enabled bool                     `json:"enabled"`
-	Values  []autolearn.LearnedEntry `json:"values"`
+	Enabled bool               `json:"enabled"`
+	Values  []learnedValueView `json:"values"`
 }
 
 func getLearned(t *testing.T, router http.Handler, cookie *http.Cookie) (*httptest.ResponseRecorder, learnedBody) {
@@ -170,5 +179,77 @@ func TestAutomationLearnedWithoutSourceIsNotImplemented(t *testing.T) {
 
 	if recorder, _ := getLearned(t, router, cookie); recorder.Code != http.StatusNotImplemented {
 		t.Fatalf("without source: %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+// weekKeyBack is the ISO week key of the week n weeks before now.
+func weekKeyBack(now time.Time, n int) string {
+	y, w := now.AddDate(0, 0, -7*n).ISOWeek()
+	return fmt.Sprintf("%d-W%02d", y, w)
+}
+
+// yearSeasonStore holds the given number of weeks, each with the same learned
+// clock time (minutes of the day) for the key of learnedEntries.
+func yearSeasonStore(t *testing.T, weeks int, minutes float64) *autolearn.SeasonStore {
+	t.Helper()
+	store := autolearn.LoadSeasonStore(filepath.Join(t.TempDir(), "season.json"), nil)
+	now := time.Now()
+	for n := 0; n < weeks; n++ {
+		store.Put(autolearn.Week{Key: weekKeyBack(now, n), Source: "days", Learned: map[string]float64{"device/dev-a/usual_off": minutes}})
+	}
+	return store
+}
+
+func TestAutomationLearnedYearHasWeeksOfTheValue(t *testing.T) {
+	season := yearSeasonStore(t, 30, 22*60+30)
+	router, manager := learnedRouterWithSeason(t, &fakeLearned{entries: learnedEntries()}, suggestionLearning(true, time.Now(), 2), season)
+	cookie, _ := guestCookie(t, router, manager, []string{auth.RoleViewAutomations})
+
+	recorder, body := getLearned(t, router, cookie)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET: %d %s", recorder.Code, recorder.Body.String())
+	}
+	if len(body.Values) != 2 {
+		t.Fatalf("values = %s", recorder.Body.String())
+	}
+	if got := len(body.Values[0].Year); got != 30 {
+		t.Fatalf("year entries = %d, want 30: %s", got, recorder.Body.String())
+	}
+	if got := body.Values[0].Year[29].Value; got != "22:30" {
+		t.Fatalf("year value = %v, want the clock text 22:30", got)
+	}
+	if body.Values[1].Year != nil {
+		t.Fatalf("site value without weeks has a year: %s", recorder.Body.String())
+	}
+	if strings.Contains(recorder.Body.String(), `"year":null`) {
+		t.Fatalf("year is null: %s", recorder.Body.String())
+	}
+}
+
+func TestAutomationLearnedYearKeepsFiveWeeks(t *testing.T) {
+	season := yearSeasonStore(t, 5, 6*60)
+	router, manager := learnedRouterWithSeason(t, &fakeLearned{entries: learnedEntries()}, suggestionLearning(true, time.Now(), 2), season)
+	cookie, _ := guestCookie(t, router, manager, []string{auth.RoleViewAutomations})
+
+	recorder, body := getLearned(t, router, cookie)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET: %d %s", recorder.Code, recorder.Body.String())
+	}
+	if got := len(body.Values[0].Year); got != 5 {
+		t.Fatalf("year entries = %d, want 5 (the eight week rule is UI only): %s", got, recorder.Body.String())
+	}
+	if got := body.Values[0].Year[0].Value; got != "06:00" {
+		t.Fatalf("year value = %v, want 06:00", got)
+	}
+}
+
+func TestAutomationLearnedYearIsCappedAtFiftyThree(t *testing.T) {
+	season := yearSeasonStore(t, 60, 480)
+	router, manager := learnedRouterWithSeason(t, &fakeLearned{entries: learnedEntries()}, suggestionLearning(true, time.Now(), 2), season)
+	cookie, _ := guestCookie(t, router, manager, []string{auth.RoleViewAutomations})
+
+	_, body := getLearned(t, router, cookie)
+	if got := len(body.Values[0].Year); got > 53 {
+		t.Fatalf("year entries = %d, want at most 53", got)
 	}
 }

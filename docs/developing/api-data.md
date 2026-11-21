@@ -400,6 +400,14 @@ value before the last change and `changed_at` the Unix time of that change:
 {"enabled":true,"values":[{"key":"device/stehlampe/usual_off","device":"stehlampe","kind":"time","value":"22:30","n":12,"at":1794000000,"prev":"22:25","changed_at":1793650000}]}
 ```
 
+Each value has a `year` list when the season store knows the value. It holds
+one entry per week of the last twelve months in which the value was learned,
+oldest first, at most 53 entries: `{"week":"2026-W30","value":"22:30"}`. `week`
+is the ISO week as `YYYY-Www`. A clock time is text `HH:MM` (the weekly median,
+rounded to the minute), any other kind is a number. `year` is left out when no
+week has the value. The field is not stored in `learned.json` and not published
+over MQTT.
+
 The same values go out as retained MQTT messages on the topic
 `outstation/energy_node/learned/<key>`, for example
 `outstation/energy_node/learned/device/stehlampe/usual_off`. The payload is

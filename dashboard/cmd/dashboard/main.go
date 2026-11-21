@@ -1283,6 +1283,7 @@ func main() {
 		AutomationFindings:    automationChecker,
 		AutomationSuggestions: suggestions,
 		LearnedValues:         learnedStore,
+		LearnedSeason:         seasonStore,
 		CommandObserver:       origin.observeCommand,
 		StorageFallback:       storageFallback,
 		HistorySampler:        historySampler,
