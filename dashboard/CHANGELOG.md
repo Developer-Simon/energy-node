@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.21-pre.26 (2026-11-06)
+## v0.11.21-pre.27 (2026-11-06)
 
 ### Features
 
@@ -26,6 +26,25 @@
 - **settings:** add the learning page and collect device profiles (#279) (48d1947)
 - **webui:** give app-modal a glass base and a new chain suggestion modal (#281) (d32e0d9)
 - **installer:** apply a changed service selection without a full update (#282) (ab11a7a)
+- **automations:** suggest rules from learned habits and check rule reliability (#283) (318066c)
+- **automations:** accept learned values in the rule schema (a8c404d)
+- **autolearn:** read learned values from the rule file (59b796e)
+- **autolearn:** learn usual switch times and runtimes (b982d6c)
+- **autolearn:** learn day bounds and the house state (6af5590)
+- **autolearn:** store and throttle learned values (58d9a2f)
+- **autolearn:** publish learned values as retained MQTT (9aa481e)
+- **dashboard:** serve the learned values (f10c26e)
+- **autolearn:** offer learned apply variants and suggest switching off while away (7ec64d5)
+- **automations:** offer learned values in the templates (7189f17)
+- **automations:** resolve learned values in the browser (df82cc1)
+- **automations:** let a condition use a learned value in the editor (066483b)
+- **automations:** add the tile text of the house state condition (12f6d22)
+- **automations:** describe learned conditions on the rule card (da56d7d)
+- **automations:** show the learned value, its bounds and its source on the rule card (65cd2b0)
+- **autolearn:** seed learned values in the demo (ebe254e)
+- **demo:** run the catch-up learning round on the first tick (0bb4320)
+- **automations:** add a tour target to the learned value control (6074197)
+- **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284)
 - **autolearn:** add robust and circular statistics for the detectors (da9fe21)
 - **autolearn:** add detector input types and a synthetic day generator (265c2cd)
 - **autolearn:** derive day types, absence and day bounds from the profiles (14aad61)
@@ -50,7 +69,6 @@
 - **autolearn:** seed demo profiles (2ad45d1)
 - **automations:** draw observed values as bars with reference lines and a zoomed time axis (55e19bb)
 - **automations:** move the chart legend into a tooltip and round the facts (65cf0ec)
-- **automations:** suggest rules from learned habits and check rule reliability (#283)
 - **installer:** accept the apply-selection run mode (5dc8abe)
 - **webui:** give every app-modal the glass sheet and alert look (267fe94)
 - **energy:** add the view model of the chain suggestion modal (81a92f8)
@@ -179,6 +197,12 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **automation:** reject malformed learned references consistently (934c418)
+- **autolearn:** ignore untyped days and allow zero spread in the house state (addd701)
+- **automations:** carry the learned prefill into the assistant (746da93)
+- **automations:** harden the learned value editor and the device map summary (b16b82c)
+- **automations:** rework the learned value editor after the visual check (a0c6a08)
+- **automations:** anchor the open suggestion card to its tile (fd77ffc)
 - **autolearn:** treat days as quiet when the usual activity is zero (6c74109)
 - **autolearn:** carry unfinished work only into due rounds and add the start catch-up (d86e781)
 - **autolearn:** read the previous day at midnight in the switch time detector (ba3bba1)
@@ -255,6 +279,7 @@
 
 ### Tests
 
+- **webui:** follow the cache-bust marks of the automation modules (590dd8a)
 - **settings:** follow the learning page in the settings tests (a155ef5)
 - **dashboard:** pin the example scenario to the surplus_switch template (b99bda3)
 - **bootstrap:** pin the example seed contract between bootstrap and dashboard (e86b1c8)
@@ -267,6 +292,8 @@
 
 ### Chores
 
+- **dashboard:** bump the cache-bust marks for learned values (dd435dc)
+- **dashboard:** refresh the cache-bust history stamps after the rebase (e5a356e)
 - **dashboard:** bump the cache-bust marks for the suggestion band (00daac8)
 - **dashboard:** refresh the cache-bust history for the current version (4513bde)
 - **onboarding:** add tour targets to the suggestion band (add6a58)

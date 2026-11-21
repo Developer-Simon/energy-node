@@ -1,13 +1,22 @@
 # Changelog
 
-## v0.7.3-pre.3 (2026-11-19)
+## v0.7.3-pre.4 (2026-11-21)
 
 ### Features
 
 - **automation:** react to measurement chains in automations (#226) (0066f15)
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 - **automations:** flag rules that do not work and offer a fix (#278) (d369133)
+- **automation:** resolve learned values with bounds and a fallback (1049a08)
+- **automation:** compare against learned values and the learned house state (e27f41c)
+- **automations:** accept learned values in the rule schema (a8c404d)
+- **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284)
 - **automation:** report trigger_count per rule in the state document (c238d9d)
+
+### Fixes
+
+- **automation:** keep resolving learned values exception free and allow hold_seconds on all conditions (081dfed)
+- **automation:** reject malformed learned references consistently (934c418)
 
 ## v0.7.2 (2026-10-27)
 

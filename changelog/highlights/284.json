@@ -1,0 +1,31 @@
+{
+  "de": {
+    "*": "Regeln folgen gelernten Werten mit Grenzen und reagieren auf ein ruhiges oder aktives Haus"
+  },
+  "en": {
+    "*": "Rules can follow learned values with bounds and react to a quiet or active house"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "automations",
+          "open": [
+            "@time-rule"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-learned-value",
+          "text": {
+            "de": "Uhrzeiten, Schwellen und Haltezeiten können jetzt dem folgen, was der Knoten gelernt hat. Wechsle von Fester Wert zu Lernwert, wähle den gelernten Wert und lege eine untere und obere Grenze fest. Der Lernwert verlässt diese Grenzen nie, und solange nichts gelernt ist, gilt der Ersatzwert. Der Umschalter erscheint erst, wenn der Knoten für dieses Feld einen Lernwert hat.",
+            "en": "Times, thresholds and hold times can now follow what the node has learned. Switch from Fixed value to Learned value, pick what was learned and set a lower and upper bound. The learned value never leaves these bounds, and the fallback applies while nothing is learned. The switch only shows once the node has a learned value for this field."
+          },
+          "title": {
+            "de": "Fester Wert oder Lernwert",
+            "en": "Fixed value or learned value"
+          }
+        }
+      ]
+    }
+  }
+}
