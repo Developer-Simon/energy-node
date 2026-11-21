@@ -168,9 +168,11 @@ func anyGroupOn(groups map[string]bool) bool {
 }
 
 // registerEnergyDetectors meldet die Erkenner der Gruppe Energie bei der Engine.
-// Sie laufen nur, wenn der Schalter Energie an ist.
-func registerEnergyDetectors(e *autolearn.Engine) {
+// Sie laufen nur, wenn der Schalter Energie an ist. reserve liefert die PV-Reserve
+// der letzten Minute.
+func registerEnergyDetectors(e *autolearn.Engine, reserve func() (float64, bool, bool)) {
 	e.Register(autolearn.TemperatureDetector)
+	e.Register(autolearn.PVReserveDetector(reserve))
 }
 
 // learnOutdoor finds the outdoor temperature entity by its unique id among the

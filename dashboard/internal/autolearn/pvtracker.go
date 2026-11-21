@@ -66,6 +66,15 @@ func (t *PVTracker) Raster() *Raster {
 	return t.raster
 }
 
+// BestAt returns the expected PV power at az/el of model on the live raster.
+// It takes the tracker mutex, so it must not be called from a path that holds
+// it. The raster is not copied.
+func (t *PVTracker) BestAt(model PVModel, az, el float64) float64 {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return model.Best(az, el, t.raster)
+}
+
 // LastUnthrottled reports whether the last observed minute was unthrottled.
 func (t *PVTracker) LastUnthrottled() bool {
 	t.mu.Lock()

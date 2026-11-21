@@ -486,6 +486,31 @@ func main() {
 	originTracker := autolearn.NewTracker(reactions)
 	learnHub.AddMinute("origin", originTracker)
 	learnHub.AddSaver("reactions", reactions)
+	// PV-Himmelsraster: nur ungedrosselte PV-Minuten zaehlen. Standort und Regler
+	// kommen aus dem Regelwerk, das pvSite.refresh nur beim Speichern liest.
+	pvSite := &pvSiteCache{readDoc: func() ([]byte, error) { return configManager.Read("automation_rules") }, logf: log.Printf}
+	pvSite.refresh()
+	pvPath := filepath.Join(autolearnDir, "pvraster.json")
+	pvTracker := autolearn.NewPVTracker(loadPVRaster(pvPath, learnLimits(), log.Printf),
+		pvSite.location, pvSite.regulator,
+		func() string { return time.Now().In(time.Local).Format("2006-01-02") }, pvPath)
+	learnHub.AddMinute("pvtracker", pvTracker)
+	learnHub.AddSaver("pvtracker", saverFunc(func() error {
+		pvSite.refresh()
+		return pvTracker.Save()
+	}))
+	// Geometriemodell der Dachflaechen: nachts aus dem Himmelsraster neu gefittet,
+	// nur bei Aenderung gespeichert.
+	pvModelStore := autolearn.NewPVModelStore(filepath.Join(autolearnDir, "pvmodel.json"))
+	learnHub.AddSaver("pvmodel", pvModelStore)
+	// Wetterfaktor und PV-Reserve: laeuft nach dem Tracker, damit dieselbe Minute
+	// schon im Raster steht. Die Reserve geht ueber den Minutenrahmen in den
+	// Tagesspeicher (Schluessel k).
+	pvWeatherPath := filepath.Join(autolearnDir, "pvweather.json")
+	pvReserve := autolearn.NewPVReserveRunner(pvTracker, pvModelStore, pvSite.location,
+		autolearn.LoadPVWeather(pvWeatherPath, log.Printf), pvWeatherPath)
+	learnHub.AddMinute("pvreserve", pvReserve)
+	learnHub.AddSaver("pvweather", pvReserve)
 	// Tagesdateien: je Minute der Rahmen, je Minute die Ereignisse des Trackers.
 	// Die Aufbewahrung kommt aus den Einstellungen, 0 heisst 56 Tage.
 	// Demo: mit ENERGY_NODE_AUTOLEARN_FAST=1 bekommt ein leeres Tagesverzeichnis
@@ -514,23 +539,6 @@ func main() {
 	cycles := newCycleRunner(filepath.Join(autolearnDir, "cycles.json"), dayStore, nil, log.Printf)
 	learnHub.AddMinute("cycles", cycles)
 	learnHub.AddSaver("cycles", cycles)
-	// PV-Himmelsraster: nur ungedrosselte PV-Minuten zaehlen. Standort und Regler
-	// kommen aus dem Regelwerk, das pvSite.refresh nur beim Speichern liest.
-	pvSite := &pvSiteCache{readDoc: func() ([]byte, error) { return configManager.Read("automation_rules") }, logf: log.Printf}
-	pvSite.refresh()
-	pvPath := filepath.Join(autolearnDir, "pvraster.json")
-	pvTracker := autolearn.NewPVTracker(loadPVRaster(pvPath, learnLimits(), log.Printf),
-		pvSite.location, pvSite.regulator,
-		func() string { return time.Now().In(time.Local).Format("2006-01-02") }, pvPath)
-	learnHub.AddMinute("pvtracker", pvTracker)
-	learnHub.AddSaver("pvtracker", saverFunc(func() error {
-		pvSite.refresh()
-		return pvTracker.Save()
-	}))
-	// Geometriemodell der Dachflaechen: nachts aus dem Himmelsraster neu gefittet,
-	// nur bei Aenderung gespeichert.
-	pvModelStore := autolearn.NewPVModelStore(filepath.Join(autolearnDir, "pvmodel.json"))
-	learnHub.AddSaver("pvmodel", pvModelStore)
 	// Automationen-Engine: die Erkenner laufen in eigener Goroutine, nie im
 	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen und den beiden
 	// Gruppenschaltern darunter. Ohne lesbare Einstellungen bleibt alles an.
@@ -552,7 +560,7 @@ func main() {
 		automationEngine.Register(det)
 	}
 	registerLearnDetectors(automationEngine)
-	registerEnergyDetectors(automationEngine)
+	registerEnergyDetectors(automationEngine, pvReserve.Current)
 	automationEngine.Register(autolearn.NewPVModelDetector(pvTracker.Snapshot, pvModelStore))
 	// Die Aussentemperatur fuer den Heizzeit-Erkenner: die Entitaet aus den
 	// Einstellungen, aufgeloest ueber die Registry wie beim Lernhub.

@@ -101,6 +101,7 @@ var catalog = []Entry{
 	{RootData, "autolearn/season.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/pvraster.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/pvmodel.json", ClassRuntime, AreaHistory},
+	{RootData, "autolearn/pvweather.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/cycles.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/*", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/days/*", ClassRuntime, AreaHistory},
