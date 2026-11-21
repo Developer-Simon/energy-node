@@ -634,3 +634,27 @@ func TestDayStoreCyclesSurviveSaveOfLoadedDay(t *testing.T) {
 		t.Errorf("days = %+v, want the dryer cycle kept after a save", days)
 	}
 }
+
+func TestDayStoreAddCyclesRespectsExcludedAndEnabled(t *testing.T) {
+	loc := berlinLoc(t)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(frameWith(base, lampMinute(true, 50)))
+
+	s.SetExcluded([]string{"fan"})
+	s.AddCycles([]CycleRec{{Device: "lamp", Start: base.Unix(), DurS: 120, End: "rule"}, {Device: "fan", Start: base.Unix()}})
+	s.SetEnabled(false)
+	s.AddCycles([]CycleRec{{Device: "lamp", Start: base.Unix() + 600}})
+	s.SetEnabled(true)
+
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 {
+		t.Fatalf("days = %d, want 1", len(days))
+	}
+	if got := len(days[0].Cycles); got != 1 {
+		t.Fatalf("cycles = %d, want 1 (excluded and disabled dropped)", got)
+	}
+	if c := days[0].Cycles[0]; c.Device != "lamp" || c.End != "rule" || c.DurS != 120 {
+		t.Errorf("cycle = %+v", c)
+	}
+}

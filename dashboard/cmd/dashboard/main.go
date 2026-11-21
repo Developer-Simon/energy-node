@@ -510,6 +510,10 @@ func main() {
 	}, log.Printf)
 	learnHub.AddMinute("daystore", dayStore)
 	learnHub.AddSaver("daystore", dayStore)
+	// Zyklen der Geraete: ohne Herkunftsabfrage enden alle Zyklen als self.
+	cycles := newCycleRunner(filepath.Join(autolearnDir, "cycles.json"), dayStore, nil, log.Printf)
+	learnHub.AddMinute("cycles", cycles)
+	learnHub.AddSaver("cycles", cycles)
 	// Automationen-Engine: die Erkenner laufen in eigener Goroutine, nie im
 	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen und den beiden
 	// Gruppenschaltern darunter. Ohne lesbare Einstellungen bleibt alles an.

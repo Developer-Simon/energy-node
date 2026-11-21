@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -201,6 +203,53 @@ func registerLearnDetectors(e *autolearn.Engine) {
 	} {
 		e.Register(det)
 	}
+}
+
+// cycleRunner findet die Zyklen der Geraete in den Minutenrahmen und gibt sie an
+// den Tagesspeicher weiter. Sein Zustand liegt in cycles.json, damit ein Neustart
+// dort weitermacht. mu schuetzt den Tracker, weil Minute und Save verschiedene
+// Goroutinen nutzen.
+type cycleRunner struct {
+	mu      sync.Mutex
+	tracker *autolearn.CycleTracker
+	days    *autolearn.DayStore
+	origin  func(device string, at time.Time) string
+	path    string
+}
+
+// newCycleRunner liest den Zustand aus path. Fehlt die Datei, startet er leer.
+func newCycleRunner(path string, days *autolearn.DayStore, origin func(device string, at time.Time) string, logf func(string, ...any)) *cycleRunner {
+	var state []byte
+	data, err := os.ReadFile(path)
+	switch {
+	case err == nil:
+		state = data
+	case !os.IsNotExist(err):
+		logf("autolearn: %s unreadable, starting empty: %v", path, err)
+	}
+	return &cycleRunner{tracker: autolearn.NewCycleTracker(state), days: days, origin: origin, path: path}
+}
+
+// ObserveMinute gibt den Minutenrahmen an den Tracker und die beendeten Zyklen an
+// den Tagesspeicher weiter.
+func (c *cycleRunner) ObserveMinute(f learnrec.Frame) {
+	c.mu.Lock()
+	cs := c.tracker.ObserveMinute(f, c.origin)
+	c.mu.Unlock()
+	if len(cs) > 0 {
+		c.days.AddCycles(cs)
+	}
+}
+
+// Save schreibt den Zustand des Trackers atomar nach cycles.json.
+func (c *cycleRunner) Save() error {
+	c.mu.Lock()
+	data := c.tracker.State()
+	c.mu.Unlock()
+	if data == nil {
+		return fmt.Errorf("cycle state could not be encoded")
+	}
+	return energystats.WriteFileAtomic(filepath.Dir(c.path), c.path, data)
 }
 
 // saverFunc macht eine Funktion zum Saver des Hubs.

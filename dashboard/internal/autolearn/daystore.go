@@ -297,6 +297,23 @@ func (s *DayStore) Add(events []SwitchEvent, actions []RuleAction) {
 	}
 }
 
+// AddCycles uebernimmt die abgeschlossenen Zyklen in den laufenden Tag. Ausgenommene
+// Geraete fehlen, wie bei Add.
+func (s *DayStore) AddCycles(cs []CycleRec) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.enabled {
+		return
+	}
+	for _, c := range cs {
+		if s.excluded[c.Device] {
+			continue
+		}
+		s.file.Cycles = append(s.file.Cycles, c)
+		s.dirty = true
+	}
+}
+
 // Usage liefert den Speicherbedarf. WrittenPerDay ist der Mittel der letzten
 // sieben Tage aus den beim Schreiben gezaehlten Bytes.
 func (s *DayStore) Usage() Usage {
