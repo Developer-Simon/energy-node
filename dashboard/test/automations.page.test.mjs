@@ -3975,3 +3975,18 @@ test('the learned picker reads an absent field null safe and writes only into a 
   assert.ok(body.includes(`x-bind:value="(condition['{{.field}}'] || {}).learned"`), 'picker reads null safe');
   assert.ok(body.includes(`isLearnedRef(condition, '{{.field}}') && (condition['{{.field}}'].learned = $event.target.value)`), 'picker writes only into a reference');
 });
+
+test('applyFix appends an add_condition even when its index is stale', () => {
+  const { component } = createAutomationsPanel();
+  const existing = { type: 'balance_threshold', threshold: 100, hysteresis: 0 };
+  const extra = { type: 'time_window', start: '06:00', end: '08:00' };
+  const added = { type: 'balance_threshold', threshold: 300, hysteresis: 0 };
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [existing, extra], actions: [] },
+  ] };
+  component.startEditing = () => {};
+  // The finding was made when the rule had one condition, so its index is 1.
+  component.applyFix({ rule_id: 'r1', code: 'add_condition', ops: [{ path: ['conditions', 1], value: added }] });
+  const conditions = JSON.parse(JSON.stringify(component.document.rules[0].conditions));
+  assert.deepEqual(conditions, [existing, extra, added]);
+});

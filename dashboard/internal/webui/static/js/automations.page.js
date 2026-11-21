@@ -2196,9 +2196,20 @@
         if (path.length === 0 || !node || typeof node !== 'object') return null;
         return { parent: node, key: path[path.length - 1] };
       };
-      const writes = (fix.ops || []).map((op) => ({ target: targetOf(op.path || []), value: op.value }));
+      // Ein add_condition nennt den Index, den die Bedingung beim Befund hatte.
+      // Seitdem kann eine Bedingung dazugekommen sein, deshalb wird angehaengt.
+      const writes = (fix.ops || []).map((op) => {
+        const target = targetOf(op.path || []);
+        if (fix.code === 'add_condition') {
+          return { target: target && Array.isArray(target.parent) ? { parent: target.parent, append: true } : null, value: op.value };
+        }
+        return { target, value: op.value };
+      });
       if (writes.every((write) => write.target)) {
-        writes.forEach((write) => { write.target.parent[write.target.key] = write.value; });
+        writes.forEach((write) => {
+          if (write.target.append) write.target.parent.push(write.value);
+          else write.target.parent[write.target.key] = write.value;
+        });
       }
       this.startEditing(rule);
       this.expanded[rule.id] = true;
