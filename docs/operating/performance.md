@@ -303,16 +303,21 @@ rest of the measurement.
 
 ### 7.2 Learning level
 
-The card Measurements has the row **Learning features**. It shows the time of
-one learning run, the share of the load that learning takes and the learning
-level. The level is one of Automatic, Economical, Balanced and Full. Automatic
-lets the node choose. A click on the row shows the three most expensive
-detectors.
+The card Polling rates has the row **Learning features**. The level is one of
+Automatic, Economical, Balanced and Full. Automatic lets the node choose. A
+click on a level only changes the draft. **Apply** saves it together with the
+polling rates.
 
-Each level has a target share of the load. The page compares the measured share
-with the target of the chosen level. If the share is above the target, the page
-says so, and the choice stays possible.
+The effort of learning is part of the total load at the top. The measured share
+is already counted there. When the draft level is higher or lower, the total
+moves by the estimated difference, so you see the effect before you save. In the
+card Measurements, learning is listed inside the breakdown of the dashboard,
+with its detectors.
 
-When the share stays below half of the target for 7 days in a row, the page
-suggests the next higher level in the same row. **Apply** saves the level as the
-learning level.
+Each level has a target share of the load: 5 percent on Economical and 10
+percent on the others. If the draft level would exceed its target, the page says
+so, and the choice stays possible.
+
+When the share stays below half of the target for 7 days in a row, the page marks
+the next higher level as suggested. Selecting it puts it into the draft like any
+other level.
