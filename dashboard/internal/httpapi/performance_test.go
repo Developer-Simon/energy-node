@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/performance"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -60,6 +62,13 @@ func performanceRouterWithChanges(t *testing.T, snap performance.Snapshot, chang
 // the performance deps before the router is built.
 func performanceRouterWithDeps(t *testing.T, snap performance.Snapshot, mutate func(*PerformanceDeps)) (http.Handler, *auth.Manager) {
 	t.Helper()
+	return performanceRouterWithStore(t, settings.NewStore(t.TempDir()), snap, mutate)
+}
+
+// performanceRouterWithStore is performanceRouterWithDeps with the settings store
+// given, so a test can change a setting the page reads.
+func performanceRouterWithStore(t *testing.T, store *settings.Store, snap performance.Snapshot, mutate func(*PerformanceDeps)) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +84,7 @@ func performanceRouterWithDeps(t *testing.T, snap performance.Snapshot, mutate f
 		mutate(perf)
 	}
 	deps := RouterDependencies{Auth: manager, Performance: perf}
-	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, deps)
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), store, nil, nil, nil, nil, nil, deps)
 	return router, manager
 }
 
@@ -390,5 +399,172 @@ func TestPerformanceRegulatorRowFollowsScenarios(t *testing.T) {
 				t.Fatalf("regulator row present = %v, want %v: %s", found, tc.want, raw)
 			}
 		})
+	}
+}
+
+// learningBlockBody reads the learning block of GET /api/v1/performance.
+type learningBlockBody struct {
+	Learning *struct {
+		Setting  string  `json:"setting"`
+		Level    string  `json:"level"`
+		Share    float64 `json:"share"`
+		Target   float64 `json:"target"`
+		PerRunMs int64   `json:"per_run_ms"`
+		Top      []struct {
+			Detector string `json:"detector"`
+			Ms       int64  `json:"ms"`
+		} `json:"top"`
+		Suggest *string `json:"suggest"`
+	} `json:"learning"`
+}
+
+// performanceLearningStats is an engine load with four detectors over two rounds.
+func performanceLearningStats() autolearn.Stats {
+	return autolearn.Stats{
+		Rounds:   2,
+		Share:    0.021,
+		Overruns: 0,
+		Took: map[string]time.Duration{
+			"switch_time": 420 * time.Millisecond,
+			"runtime":     210 * time.Millisecond,
+			"coupling":    90 * time.Millisecond,
+			"flapping":    40 * time.Millisecond,
+		},
+	}
+}
+
+// learningDayShares fills the seven days before now with share.
+func learningDayShares(now time.Time, days int, share float64) map[string]float64 {
+	out := map[string]float64{}
+	for i := 1; i <= days; i++ {
+		out[now.AddDate(0, 0, -i).Format("2006-01-02")] = share
+	}
+	return out
+}
+
+func TestPerformanceLearningBlockTopDescending(t *testing.T) {
+	stats := performanceLearningStats()
+	router, manager := performanceRouterWithDeps(t, performanceTestSnapshot(), func(deps *PerformanceDeps) {
+		deps.Learning = &PerformanceLearning{
+			Load:  func() autolearn.Stats { return stats },
+			State: func() learnrec.State { return learnrec.State{} },
+		}
+	})
+	raw := getPerformance(t, router, manager)
+	var body learningBlockBody
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Learning == nil {
+		t.Fatal("learning block missing")
+	}
+	// Auto on four cores resolves to balanced, so the target is 0.10.
+	if body.Learning.Setting != "auto" || body.Learning.Level != "balanced" || body.Learning.Target != 0.10 {
+		t.Fatalf("setting %q level %q target %v", body.Learning.Setting, body.Learning.Level, body.Learning.Target)
+	}
+	if body.Learning.Share != 0.021 {
+		t.Fatalf("share = %v", body.Learning.Share)
+	}
+	// Four detectors over two rounds: 760 ms in total, 380 ms per round.
+	if body.Learning.PerRunMs != 380 {
+		t.Fatalf("per_run_ms = %d, want 380", body.Learning.PerRunMs)
+	}
+	want := []string{"switch_time", "runtime", "coupling"}
+	if len(body.Learning.Top) != len(want) {
+		t.Fatalf("top has %d entries, want %d", len(body.Learning.Top), len(want))
+	}
+	for i, name := range want {
+		if body.Learning.Top[i].Detector != name {
+			t.Fatalf("top[%d] = %q, want %q", i, body.Learning.Top[i].Detector, name)
+		}
+	}
+	for i := 1; i < len(body.Learning.Top); i++ {
+		if body.Learning.Top[i].Ms > body.Learning.Top[i-1].Ms {
+			t.Fatalf("top not descending: %+v", body.Learning.Top)
+		}
+	}
+	if body.Learning.Suggest != nil {
+		t.Fatalf("suggest = %q without a suggestion", *body.Learning.Suggest)
+	}
+	if strings.Contains(string(raw), `"suggest"`) {
+		t.Fatal("suggest key present without a suggestion")
+	}
+}
+
+func TestPerformanceLearningBlockNullWithoutDeps(t *testing.T) {
+	router, manager := performanceRouter(t)
+	if !strings.Contains(string(getPerformance(t, router, manager)), `"learning":null`) {
+		t.Fatal("learning block is not null without the learning deps")
+	}
+}
+
+func TestPerformanceLearningSuggestsUpAfterSevenDays(t *testing.T) {
+	now := time.Now()
+	stats := performanceLearningStats()
+	for _, tc := range []struct {
+		name    string
+		days    int
+		suggest bool
+	}{
+		{"seven quiet days", 7, true},
+		{"six quiet days", 6, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := settings.NewStore(t.TempDir())
+			value, err := store.LoadSettings()
+			if err != nil {
+				t.Fatal(err)
+			}
+			value.LearningLevel = "eco"
+			if err := store.SaveSettings(value); err != nil {
+				t.Fatal(err)
+			}
+			router, manager := performanceRouterWithStore(t, store, performanceTestSnapshot(), func(deps *PerformanceDeps) {
+				deps.Learning = &PerformanceLearning{
+					Load:  func() autolearn.Stats { return stats },
+					State: func() learnrec.State { return learnrec.State{DailyShare: learningDayShares(now, tc.days, 0.02)} },
+				}
+			})
+			var body learningBlockBody
+			if err := json.Unmarshal(getPerformance(t, router, manager), &body); err != nil {
+				t.Fatal(err)
+			}
+			if body.Learning == nil || body.Learning.Level != "eco" || body.Learning.Target != 0.05 {
+				t.Fatalf("learning block %+v, want eco with target 0.05", body.Learning)
+			}
+			if tc.suggest {
+				if body.Learning.Suggest == nil || *body.Learning.Suggest != "balanced" {
+					t.Fatalf("suggest = %v, want balanced", body.Learning.Suggest)
+				}
+			} else if body.Learning.Suggest != nil {
+				t.Fatalf("suggest = %q, want none", *body.Learning.Suggest)
+			}
+		})
+	}
+}
+
+func TestPerformanceLearningFollowsChangedSetting(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	stats := performanceLearningStats()
+	router, manager := performanceRouterWithStore(t, store, performanceTestSnapshot(), func(deps *PerformanceDeps) {
+		deps.Learning = &PerformanceLearning{
+			Load:  func() autolearn.Stats { return stats },
+			State: func() learnrec.State { return learnrec.State{} },
+		}
+	})
+	value, err := store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.LearningLevel = "full"
+	if err := store.SaveSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	var body learningBlockBody
+	if err := json.Unmarshal(getPerformance(t, router, manager), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Learning == nil || body.Learning.Setting != "full" || body.Learning.Level != "full" {
+		t.Fatalf("learning block %+v, want full after the change", body.Learning)
 	}
 }

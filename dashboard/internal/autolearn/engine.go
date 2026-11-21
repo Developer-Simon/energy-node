@@ -329,16 +329,27 @@ func (e *Engine) lastInOrder() []Candidate {
 	return out
 }
 
-// Load reports the overruns in the last 24 hours, the compute share of one
-// core over the same window and the compute time per detector.
-func (e *Engine) Load() (overruns int, share float64, took map[string]time.Duration) {
+// Stats is the compute load of the engine over the last 24 hours.
+type Stats struct {
+	// Rounds is the number of rounds that ran in the window.
+	Rounds int
+	// Overruns is the number of detector runs that missed the budget.
+	Overruns int
+	// Share is the compute share of one core over the window.
+	Share float64
+	// Took is the compute time per detector over the window.
+	Took map[string]time.Duration
+}
+
+// Stats reports the load of the last 24 hours, see Stats.
+func (e *Engine) Stats() Stats {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	took = map[string]time.Duration{}
+	st := Stats{Took: map[string]time.Duration{}}
 	cutoff := e.now.Add(-engineWindow)
 	for _, o := range e.overruns {
 		if !o.Before(cutoff) {
-			overruns++
+			st.Overruns++
 		}
 	}
 	var total time.Duration
@@ -346,12 +357,21 @@ func (e *Engine) Load() (overruns int, share float64, took map[string]time.Durat
 		if s.at.Before(cutoff) {
 			continue
 		}
+		st.Rounds++
 		for name, d := range s.took {
-			took[name] += d
+			st.Took[name] += d
 			total += d
 		}
 	}
-	return overruns, total.Seconds() / engineWindow.Seconds(), took
+	st.Share = total.Seconds() / engineWindow.Seconds()
+	return st
+}
+
+// Load reports the overruns in the last 24 hours, the compute share of one
+// core over the same window and the compute time per detector. See Stats.
+func (e *Engine) Load() (overruns int, share float64, took map[string]time.Duration) {
+	st := e.Stats()
+	return st.Overruns, st.Share, st.Took
 }
 
 // Downgrade reports whether the load asked for a lower level since the last

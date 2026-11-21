@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/performance"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -51,6 +53,17 @@ type PerformanceDeps struct {
 	// Automation gives the active rules and scenarios for the breakdown and the
 	// regulator row. Nil means no entries, the regulator row stays as it was.
 	Automation func() []performance.AutomationEntry
+
+	// Learning gives the compute load of the learning engine and the learning
+	// state for the block learning. Nil answers the block as null.
+	Learning *PerformanceLearning
+}
+
+// PerformanceLearning wires the learning block of the performance page. Both
+// fields are functions, so httpapi does not depend on the engine itself.
+type PerformanceLearning struct {
+	Load  func() autolearn.Stats
+	State func() learnrec.State
 }
 
 // performanceBreakdownLimit is the number of items shown per automation group.
@@ -75,6 +88,27 @@ type performanceBody struct {
 	Units            []performanceUnit    `json:"units"`
 	Change           *performance.Change  `json:"change"`
 	Breakdown        performanceBreakdown `json:"breakdown"`
+	Learning         *performanceLearning `json:"learning"`
+}
+
+// performanceLearningTop is the number of detectors listed in the learning block.
+const performanceLearningTop = 3
+
+// performanceLearning is the learning block of GET /api/v1/performance. Suggest
+// is left out when there is no suggestion to move up a level.
+type performanceLearning struct {
+	Setting  string                     `json:"setting"`
+	Level    string                     `json:"level"`
+	Share    float64                    `json:"share"`
+	Target   float64                    `json:"target"`
+	PerRunMs int64                      `json:"per_run_ms"`
+	Top      []performanceLearningEntry `json:"top"`
+	Suggest  string                     `json:"suggest,omitempty"`
+}
+
+type performanceLearningEntry struct {
+	Detector string `json:"detector"`
+	Ms       int64  `json:"ms"`
 }
 
 // performanceBreakdown splits the load into the parts of the dashboard and the
@@ -211,6 +245,7 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 		if deps.Changes != nil {
 			body.Change = deps.Changes.CurrentChange()
 		}
+		body.Learning = performanceLearningBody(store, deps, snap, now())
 
 		for _, row := range rows {
 			editable := true
@@ -270,6 +305,59 @@ func performanceTarget(store *settings.Store, snap performance.Snapshot, request
 		}
 	}
 	return target
+}
+
+// performanceLearningBody builds the learning block from the engine load, the
+// learning setting and the learning state. It is nil without the learning deps.
+// The share is the 24 hour share of the engine, the target follows the resolved
+// level, and per_run_ms is the mean compute time of one round in the window.
+func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap performance.Snapshot, now time.Time) *performanceLearning {
+	if deps == nil || deps.Learning == nil || deps.Learning.Load == nil {
+		return nil
+	}
+	setting := settings.LearningLevelAuto
+	if store != nil {
+		if value, err := store.LoadSettings(); err == nil && value.LearningLevel != "" {
+			setting = value.LearningLevel
+		}
+	}
+	var state learnrec.State
+	if deps.Learning.State != nil {
+		state = deps.Learning.State()
+	}
+	level := learnrec.ResolveLevel(setting, snap.Cores, state.AutoLevel)
+	stats := deps.Learning.Load()
+
+	body := &performanceLearning{
+		Setting: setting,
+		Level:   string(level),
+		Share:   stats.Share,
+		Target:  learnrec.TargetShare(level),
+		Top:     []performanceLearningEntry{},
+	}
+	var total time.Duration
+	entries := make([]performanceLearningEntry, 0, len(stats.Took))
+	for name, d := range stats.Took {
+		total += d
+		entries = append(entries, performanceLearningEntry{Detector: name, Ms: d.Milliseconds()})
+	}
+	if stats.Rounds > 0 {
+		body.PerRunMs = total.Milliseconds() / int64(stats.Rounds)
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Ms != entries[j].Ms {
+			return entries[i].Ms > entries[j].Ms
+		}
+		return entries[i].Detector < entries[j].Detector
+	})
+	if len(entries) > performanceLearningTop {
+		entries = entries[:performanceLearningTop]
+	}
+	body.Top = append(body.Top, entries...)
+	if next, ok := learnrec.SuggestUp(state, level, now); ok {
+		body.Suggest = string(next)
+	}
+	return body
 }
 
 // performanceBreakdownBody builds the breakdown of GET. The dashboard parts

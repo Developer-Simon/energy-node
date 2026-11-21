@@ -1319,6 +1319,7 @@ func main() {
 			Provider:   perfProvider,
 			Rates:      performanceRates,
 			Automation: performanceAutomation,
+			Learning:   &httpapi.PerformanceLearning{Load: automationEngine.Stats, State: learnStateNow},
 			Floors:     perfFloors,
 			Changes:    perfMonitor,
 			Auth:       authManager,

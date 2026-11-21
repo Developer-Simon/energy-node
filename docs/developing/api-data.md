@@ -294,6 +294,22 @@ that are switched on and not yet confirmed. Example:
  "acknowledged":["chain_learning"],"new":["chain_suggestions","auto_patterns"]}
 ```
 
+**The `learning` block of `GET /api/v1/performance`** shows the compute load of
+the learning engine on the performance page. `setting` is the saved level
+(`auto` when empty), `level` the resolved level. `share` is the compute share
+of one core over the last 24 hours, `target` the target share of that level
+(0.05 on `eco`, 0.10 on `balanced` and `full`). `per_run_ms` is the mean compute
+time of one round in the window, and `top` lists the three most expensive
+detectors in descending order with their `ms` in the window. `suggest` is only
+present when the load stayed under half the target for seven days, and names
+the level to move up to. Without the learning dependencies the block is `null`.
+
+```json
+{"setting":"auto","level":"eco","share":0.021,"target":0.05,"per_run_ms":840,
+ "top":[{"detector":"switch_time","ms":420},{"detector":"runtime","ms":210}],
+ "suggest":"balanced"}
+```
+
 **`POST /api/v1/learning/reset`** drops the day profiles, the learned loss values
 of the measurement chains and the reaction times. Dismissed chain suggestions
 stay dismissed. The settings are not changed. The reset needs `edit_setup` and a
