@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Der Installer weist beim Debian-Stick deutlich darauf hin, dass ein Netzwerkkabel nötig ist"
+  },
+  "en": {
+    "*": "Highlight that the Debian stick needs a network cable"
+  }
+}
