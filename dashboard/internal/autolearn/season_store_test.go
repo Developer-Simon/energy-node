@@ -239,3 +239,53 @@ func TestSeasonSaveAndLoadEqual(t *testing.T) {
 		t.Errorf("reloaded weeks differ:\n got %+v\nwant %+v", after, before)
 	}
 }
+
+// seasonTempDay sets the outdoor temperature of the given quarters of a day file.
+func seasonTempDay(f DayFile, temp float32, quarters ...int) DayFile {
+	for _, q := range quarters {
+		v := temp
+		f.Site.TempC[q] = &v
+	}
+	return f
+}
+
+func TestSeasonWeekOfTempIsMeanOfDays(t *testing.T) {
+	var days []DayFile
+	for i := 0; i < 7; i++ {
+		var quarters []int
+		for q := 0; q < dayQuarters; q++ {
+			quarters = append(quarters, q)
+		}
+		days = append(days, seasonTempDay(seasonDay(time.Date(2026, 11, 9+i, 0, 0, 0, 0, time.UTC), 300, 0, 0), float32(i), quarters...))
+	}
+	week, ok := WeekOf(days, nil, time.UTC)
+	if !ok {
+		t.Fatal("ok = false, want true for 7 days")
+	}
+	if week.TempC == nil || math.Abs(*week.TempC-3) > 1e-9 {
+		t.Errorf("TempC = %v, want the mean of the daily means 3", week.TempC)
+	}
+}
+
+func TestSeasonWeekOfTempCountsOnlyDaysWithTemperature(t *testing.T) {
+	var days []DayFile
+	for i := 0; i < 4; i++ {
+		days = append(days, seasonDay(time.Date(2026, 11, 9+i, 0, 0, 0, 0, time.UTC), 300, 0, 0))
+	}
+	if week, ok := WeekOf(days, nil, time.UTC); !ok || week.TempC != nil {
+		t.Fatalf("TempC = %v, want nil without any temperature", week.TempC)
+	}
+	// Day 5 has one quarter of 10 degC, day 6 has two quarters of 20 and 30 degC:
+	// the daily means are 10 and 25, the week mean is 17.5. The four days without
+	// temperature do not count.
+	days = append(days, seasonTempDay(seasonDay(time.Date(2026, 11, 13, 0, 0, 0, 0, time.UTC), 300, 0, 0), 10, 0))
+	days = append(days, seasonTempDay(seasonDay(time.Date(2026, 11, 14, 0, 0, 0, 0, time.UTC), 300, 0, 0), 20, 0))
+	days[len(days)-1] = seasonTempDay(days[len(days)-1], 30, 1)
+	week, ok := WeekOf(days, nil, time.UTC)
+	if !ok || week.TempC == nil {
+		t.Fatalf("ok = %v TempC = %v, want a mean", ok, week.TempC)
+	}
+	if math.Abs(*week.TempC-17.5) > 1e-9 {
+		t.Errorf("TempC = %v, want 17.5 (mean of the daily means 10 and 25)", *week.TempC)
+	}
+}

@@ -264,3 +264,62 @@ func TestTemperatureKneesSurviveReload(t *testing.T) {
 		t.Errorf("house knee after reload = %v, want 14", h)
 	}
 }
+
+// tempDayFile is a heat pump day at the outdoor temperature temp on which the
+// rule fired, the energy follows tempHeatPump.
+func tempDayFile(day time.Time, temp float64, rule string) DayFile {
+	energy := tempHeatPump(temp)
+	f := DayFile{V: 1, Day: day.Format(dayLayout), Devices: map[string]*DeviceDay{}}
+	dd := &DeviceDay{}
+	for q := 0; q < dayQuarters; q++ {
+		dd.Seen[q] = 1
+		dd.Wh[q] = float32(energy * 1000 / dayQuarters)
+		f.Site.Seen[q] = 1
+		f.Site.LoadTotal[q] = float32(energy * 1000 / (dayQuarters * 0.25))
+		tq := float32(temp)
+		f.Site.TempC[q] = &tq
+	}
+	f.Devices["hp"] = dd
+	f.Actions = []ActionRec{{Rule: rule, Device: "hp"}}
+	return f
+}
+
+// TestTemperatureLimitWeeksFromWeekOf builds the season weeks with WeekOf from
+// the day files only, without hand-set week temperatures, and expects the
+// temperature limit for a rule that fires in winter and summer.
+func TestTemperatureLimitWeeksFromWeekOf(t *testing.T) {
+	rng := rand.New(rand.NewSource(3))
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	var days []DayFile
+	for i := 0; i < 60; i++ {
+		days = append(days, tempDayFile(start.AddDate(0, 0, i), -5+30*rng.Float64(), "r1"))
+	}
+	summer := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 35; i++ {
+		days = append(days, tempDayFile(summer.AddDate(0, 0, i), 15+10*rng.Float64(), "r1"))
+	}
+	byWeek := map[string][]DayFile{}
+	for _, f := range days {
+		d, _ := time.Parse(dayLayout, f.Day)
+		byWeek[isoWeekKey(d)] = append(byWeek[isoWeekKey(d)], f)
+	}
+	store := LoadSeasonStore("", nil)
+	for _, group := range byWeek {
+		if w, ok := WeekOf(group, nil, time.UTC); ok {
+			store.Put(w)
+		}
+	}
+	in := &Input{
+		Now:     summer.AddDate(0, 0, 36),
+		Loc:     time.UTC,
+		Days:    days,
+		Doc:     Doc{Rules: []Rule{tempRule("r1")}},
+		Devices: map[string]DeviceInfo{"hp": {ID: "hp", Entities: []string{"plug.hp"}}},
+		Season:  store,
+		Outdoor: OutdoorSource{EntityID: "sensor.out", Topic: "ha/out", ValueTemplate: "{{ value_json.t }}"},
+	}
+	got := TemperatureDetector.Run(context.Background(), in, "")
+	if len(got) != 1 || got[0].Finding.ID != "temp_limit:r1" {
+		t.Fatalf("candidates = %+v, want one temp_limit:r1 from the WeekOf weeks", got)
+	}
+}

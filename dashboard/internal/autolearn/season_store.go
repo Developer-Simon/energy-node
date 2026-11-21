@@ -52,7 +52,8 @@ type Week struct {
 // fewer than seasonMinDays day files with a valid date. The week is the ISO
 // week of the earliest day. BaseW is the median over the days of the 10th
 // percentile of each day's load in the night window (00:00 to 05:00 local).
-// learned maps a key to its clock times in minutes of the day, the median of
+// TempC is the mean over the days of each day's mean outdoor temperature, nil
+// when no day has a temperature. learned maps a key to its clock times in minutes of the day, the median of
 // each key is stored.
 func WeekOf(days []DayFile, learned map[string][]float64, loc *time.Location) (Week, bool) {
 	if loc == nil {
@@ -79,9 +80,11 @@ func WeekOf(days []DayFile, learned map[string][]float64, loc *time.Location) (W
 		Source: seasonSourceDays,
 		Days:   len(used),
 	}
-	var dayBase []float64
+	var dayBase, dayTemp []float64
 	for _, d := range used {
 		var night []float64
+		var tempSum float64
+		var tempN int
 		for q := 0; q < dayQuarters; q++ {
 			w.ExportKWh += float64(d.Site.GridExport[q]) * baseWattQuarterKWh
 			w.PVKWh += float64(d.Site.PV[q]) * baseWattQuarterKWh
@@ -89,9 +92,16 @@ func WeekOf(days []DayFile, learned map[string][]float64, loc *time.Location) (W
 			if d.Site.Seen[q] != 0 && q < seasonNightQuarters {
 				night = append(night, float64(d.Site.LoadTotal[q]))
 			}
+			if c := d.Site.TempC[q]; c != nil {
+				tempSum += float64(*c)
+				tempN++
+			}
 		}
 		if len(night) > 0 {
 			dayBase = append(dayBase, basePercentile10(night))
+		}
+		if tempN > 0 {
+			dayTemp = append(dayTemp, tempSum/float64(tempN))
 		}
 		for id, dev := range d.Devices {
 			if dev == nil {
@@ -120,6 +130,14 @@ func WeekOf(days []DayFile, learned map[string][]float64, loc *time.Location) (W
 	}
 	if len(dayBase) > 0 {
 		w.BaseW = seasonMedian(dayBase)
+	}
+	if len(dayTemp) > 0 {
+		var sum float64
+		for _, t := range dayTemp {
+			sum += t
+		}
+		mean := sum / float64(len(dayTemp))
+		w.TempC = &mean
 	}
 	for key, minutes := range learned {
 		if len(minutes) == 0 {
