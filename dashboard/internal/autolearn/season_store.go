@@ -23,6 +23,10 @@ const (
 	// refilled from the energy statistics. Day files win over statistics.
 	seasonSourceDays  = "days"
 	seasonSourceStats = "stats"
+	// seasonNightHours is the night window 00:00 to 05:00 local in hours, and
+	// seasonNightQuarters the same window in quarter hours of a day file.
+	seasonNightHours    = 5
+	seasonNightQuarters = seasonNightHours * 4
 )
 
 // Week is the summary of one calendar week (ISO week). Key is YYYY-Www. Energy
@@ -46,8 +50,10 @@ type Week struct {
 
 // WeekOf summarises the day files of one week. It returns false when there are
 // fewer than seasonMinDays day files with a valid date. The week is the ISO
-// week of the earliest day. learned maps a key to its clock times in minutes of
-// the day, the mean of each key is stored.
+// week of the earliest day. BaseW is the median over the days of the 10th
+// percentile of each day's load in the night window (00:00 to 05:00 local).
+// learned maps a key to its clock times in minutes of the day, the median of
+// each key is stored.
 func WeekOf(days []DayFile, learned map[string][]float64, loc *time.Location) (Week, bool) {
 	if loc == nil {
 		loc = time.Local
@@ -73,15 +79,19 @@ func WeekOf(days []DayFile, learned map[string][]float64, loc *time.Location) (W
 		Source: seasonSourceDays,
 		Days:   len(used),
 	}
-	var loads []float64
+	var dayBase []float64
 	for _, d := range used {
+		var night []float64
 		for q := 0; q < dayQuarters; q++ {
 			w.ExportKWh += float64(d.Site.GridExport[q]) * baseWattQuarterKWh
 			w.PVKWh += float64(d.Site.PV[q]) * baseWattQuarterKWh
 			w.LoadKWh += float64(d.Site.LoadTotal[q]) * baseWattQuarterKWh
-			if d.Site.Seen[q] != 0 {
-				loads = append(loads, float64(d.Site.LoadTotal[q]))
+			if d.Site.Seen[q] != 0 && q < seasonNightQuarters {
+				night = append(night, float64(d.Site.LoadTotal[q]))
 			}
+		}
+		if len(night) > 0 {
+			dayBase = append(dayBase, basePercentile10(night))
 		}
 		for id, dev := range d.Devices {
 			if dev == nil {
@@ -108,27 +118,25 @@ func WeekOf(days []DayFile, learned map[string][]float64, loc *time.Location) (W
 			w.Triggers[a.Rule]++
 		}
 	}
-	if len(loads) > 0 {
-		w.BaseW = basePercentile10(loads)
+	if len(dayBase) > 0 {
+		w.BaseW = seasonMedian(dayBase)
 	}
 	for key, minutes := range learned {
 		if len(minutes) == 0 {
 			continue
 		}
-		var sum float64
-		for _, m := range minutes {
-			sum += m
-		}
 		if w.Learned == nil {
 			w.Learned = map[string]float64{}
 		}
-		w.Learned[key] = sum / float64(len(minutes))
+		w.Learned[key] = seasonMedian(minutes)
 	}
 	return w, true
 }
 
 // WeeksFromStats builds one week per ISO week from the hourly energy statistics,
-// oldest first. Weeks without hours are not listed.
+// oldest first. Weeks without hours are not listed. BaseW is the median over the
+// days of the 10th percentile of each day's hourly load (W) for the hours
+// 00:00 to 05:00 local.
 func WeeksFromStats(hours []energystats.HourRecord, loc *time.Location) []Week {
 	if loc == nil {
 		loc = time.Local
@@ -136,7 +144,7 @@ func WeeksFromStats(hours []energystats.HourRecord, loc *time.Location) []Week {
 	type acc struct {
 		week  Week
 		days  map[string]bool
-		loads []float64
+		night map[string][]float64
 	}
 	byKey := map[string]*acc{}
 	for _, h := range hours {
@@ -144,22 +152,29 @@ func WeeksFromStats(hours []energystats.HourRecord, loc *time.Location) []Week {
 		key := isoWeekKey(local)
 		a := byKey[key]
 		if a == nil {
-			a = &acc{week: Week{Key: key, Source: seasonSourceStats}, days: map[string]bool{}}
+			a = &acc{week: Week{Key: key, Source: seasonSourceStats}, days: map[string]bool{}, night: map[string][]float64{}}
 			byKey[key] = a
 		}
-		a.days[local.Format(dayLayout)] = true
+		day := local.Format(dayLayout)
+		a.days[day] = true
 		a.week.ExportKWh += h.KWh["grid_export"]
 		a.week.PVKWh += h.KWh["pv"]
 		if load, ok := h.KWh["load_total"]; ok {
 			a.week.LoadKWh += load
-			a.loads = append(a.loads, load*1000)
+			if local.Hour() < seasonNightHours {
+				a.night[day] = append(a.night[day], load*1000)
+			}
 		}
 	}
 	out := make([]Week, 0, len(byKey))
 	for _, a := range byKey {
 		a.week.Days = len(a.days)
-		if len(a.loads) > 0 {
-			a.week.BaseW = basePercentile10(a.loads)
+		var dayBase []float64
+		for _, xs := range a.night {
+			dayBase = append(dayBase, basePercentile10(xs))
+		}
+		if len(dayBase) > 0 {
+			a.week.BaseW = seasonMedian(dayBase)
 		}
 		out = append(out, a.week)
 	}
@@ -305,4 +320,19 @@ func isoWeekMonday(key string) (time.Time, bool) {
 
 func sortWeeks(ws []Week) {
 	sort.Slice(ws, func(i, j int) bool { return ws[i].Key < ws[j].Key })
+}
+
+// seasonMedian is the median of xs, the mean of the two middle values for an
+// even count. xs is not changed. It returns 0 for no values.
+func seasonMedian(xs []float64) float64 {
+	if len(xs) == 0 {
+		return 0
+	}
+	s := append([]float64(nil), xs...)
+	sort.Float64s(s)
+	mid := len(s) / 2
+	if len(s)%2 == 1 {
+		return s[mid]
+	}
+	return (s[mid-1] + s[mid]) / 2
 }

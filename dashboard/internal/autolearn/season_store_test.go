@@ -65,35 +65,65 @@ func TestSeasonWeekOfNeedsFourDays(t *testing.T) {
 	}
 }
 
-func TestSeasonWeekOfLearnedTimesAsMinutes(t *testing.T) {
+func TestSeasonWeekOfBaseIsMedianOfNightWindows(t *testing.T) {
+	// Daytime load is 1000 W everywhere. The night window 00:00 to 05:00 is
+	// 200, 300, 400 and 900 W on the four days. The median is 350, the mean 450.
+	nights := []float32{200, 300, 400, 900}
+	var days []DayFile
+	for i, night := range nights {
+		d := seasonDay(time.Date(2026, 11, 9+i, 0, 0, 0, 0, time.UTC), 1000, 100, 0)
+		for q := 0; q < seasonNightQuarters; q++ {
+			d.Site.LoadTotal[q] = night
+		}
+		days = append(days, d)
+	}
+	week, ok := WeekOf(days, nil, time.UTC)
+	if !ok {
+		t.Fatal("ok = false, want true for 4 days")
+	}
+	if math.Abs(week.BaseW-350) > 1e-9 {
+		t.Errorf("BaseW = %v, want 350 (median of the night values)", week.BaseW)
+	}
+}
+
+func TestSeasonWeekOfLearnedTimesAsMedian(t *testing.T) {
 	var days []DayFile
 	for i := 0; i < 4; i++ {
 		days = append(days, seasonDay(time.Date(2026, 11, 9+i, 0, 0, 0, 0, time.UTC), 300, 100, 0))
 	}
-	week, ok := WeekOf(days, map[string][]float64{"habit/lamp": {600, 620}}, time.UTC)
+	// 1200 is an outlier: the median 610 is the usual time, the mean would be 806.
+	week, ok := WeekOf(days, map[string][]float64{"habit/lamp": {600, 610, 1200}}, time.UTC)
 	if !ok {
 		t.Fatal("ok = false, want true for 4 days")
 	}
 	if got := week.Learned["habit/lamp"]; got != 610 {
-		t.Errorf("Learned = %v, want 610 minutes of the day", got)
+		t.Errorf("Learned = %v, want 610 minutes of the day (median)", got)
 	}
 }
 
 func TestSeasonWeeksFromStatsSkipsMissingWeek(t *testing.T) {
 	var hours []energystats.HourRecord
-	addDays := func(first time.Time, n int) {
-		for d := 0; d < n; d++ {
+	// Night load per day (kWh per hour) for 00:00 to 05:00: 0.2, 0.3, 0.4, 0.9.
+	// Daytime load is 1.0 kWh per hour. The median of the nights is 0.35 kWh, so
+	// 350 W, the mean would be 450 W.
+	nights := []float64{0.2, 0.3, 0.4, 0.9}
+	addDays := func(first time.Time) {
+		for d := range nights {
 			for h := 0; h < 24; h++ {
+				load := 1.0
+				if h < 5 {
+					load = nights[d]
+				}
 				hours = append(hours, energystats.HourRecord{
 					Hour:    first.AddDate(0, 0, d).Add(time.Duration(h) * time.Hour),
-					KWh:     map[string]float64{"grid_export": 0.5, "pv": 1.0, "load_total": 0.4},
+					KWh:     map[string]float64{"grid_export": 0.5, "pv": 1.0, "load_total": load},
 					Covered: 3600,
 				})
 			}
 		}
 	}
-	addDays(time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC), 4)  // KW 45
-	addDays(time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC), 4) // KW 47, KW 46 missing
+	addDays(time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC))  // KW 45
+	addDays(time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)) // KW 47, KW 46 missing
 
 	weeks := WeeksFromStats(hours, time.UTC)
 	if len(weeks) != 2 {
@@ -109,8 +139,8 @@ func TestSeasonWeeksFromStatsSkipsMissingWeek(t *testing.T) {
 		if math.Abs(w.ExportKWh-48) > 1e-9 {
 			t.Errorf("week %s: ExportKWh = %v, want 48", w.Key, w.ExportKWh)
 		}
-		if math.Abs(w.BaseW-400) > 1e-9 {
-			t.Errorf("week %s: BaseW = %v, want 400", w.Key, w.BaseW)
+		if math.Abs(w.BaseW-350) > 1e-9 {
+			t.Errorf("week %s: BaseW = %v, want 350 (median of the nights)", w.Key, w.BaseW)
 		}
 	}
 }
