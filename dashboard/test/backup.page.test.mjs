@@ -539,6 +539,48 @@ test('a restore that skipped the battery state says so', async () => {
   assert.equal(page.doneNote(), de['backup.import.code.partial_battery']);
 });
 
+test('a restart that is over before the first health check still shows the new result', async () => {
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    '/api/v1/health': reply(200, { status: 'ok' }),
+    '/api/v1/backup/import/result': reply(200, { ok: true, applied: ['settings'], finished_at: '2026-11-21T22:31:48Z' }),
+    '/api/v1/backup/status': reply(200, statusBody()),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.flow = 'import';
+  page.doneKind = 'import';
+  page.prevResultAt = '2026-11-21T21:47:13Z';
+  await page.awaitRestart();
+
+  assert.equal(page.step, 'done');
+  assert.equal(page.importFailed, false);
+});
+
+test('the result of an earlier restore is not taken for the running one', async () => {
+  let reads = 0;
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    '/api/v1/health': reply(200, { status: 'ok' }),
+    '/api/v1/backup/import/result': () => {
+      reads += 1;
+      return reply(200, reads < 2
+        ? { ok: false, code: 'apply_failed', finished_at: '2026-11-21T21:47:13Z' }
+        : { ok: true, finished_at: '2026-11-21T22:31:48Z' });
+    },
+    '/api/v1/backup/status': reply(200, statusBody()),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.flow = 'import';
+  page.doneKind = 'import';
+  page.prevResultAt = '2026-11-21T21:47:13Z';
+  await page.awaitRestart();
+
+  assert.equal(reads, 2);
+  assert.equal(page.importFailed, false);
+});
+
 test('an apply job that fails before the restart goes back to the pick step with the error', async () => {
   const { fetchImpl } = router({
     '/api/v1/auth/session': session(),
