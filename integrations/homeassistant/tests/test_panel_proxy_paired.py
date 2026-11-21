@@ -78,6 +78,10 @@ async def node(hass, tmp_path):
         if state["revoke_proxy"] or not paired(request):
             return _unpaired()
         if request.headers.get("Cookie", "") in state["expired"]:
+            if request.path == "/" and request.method == "GET":
+                # Wie authMiddleware im Dashboard: die Startseite zeigt ohne
+                # Sitzung die Anmeldeseite, mit 200 statt 401.
+                return web.Response(text="login page", content_type="text/html")
             return web.json_response({"code": "authentication_required"}, status=401)
         return web.json_response({"ok": True})
 
@@ -202,6 +206,28 @@ async def test_expired_user_session_is_renewed_once(node, hass_client, hass_clie
     assert response.status == 200
     assert node["sessions"] == 2
     assert node["seen"][-1]["headers"].getall("Cookie") == [f"energy_node_guest_session={node['issued'][1]}"]
+
+
+async def test_expired_user_session_is_renewed_before_the_start_page(node, hass_client, hass_client_no_auth):
+    entry = await node["start"]()
+    cookie = await _panel_cookie(hass_client, entry)
+    assert (await _proxy(hass_client_no_auth, entry, cookie, path="")).status == 200
+    node["expired"].add(f"energy_node_guest_session={node['issued'][0]}")
+    response = await _proxy(hass_client_no_auth, entry, cookie, path="")
+    assert response.status == 200
+    assert await response.json() == {"ok": True}
+    assert node["sessions"] == 2
+    assert node["seen"][-1]["path"] == "/"
+    assert node["seen"][-1]["headers"].getall("Cookie") == [f"energy_node_guest_session={node['issued'][1]}"]
+
+
+async def test_start_page_keeps_a_valid_user_session(node, hass_client, hass_client_no_auth):
+    entry = await node["start"]()
+    cookie = await _panel_cookie(hass_client, entry)
+    for _ in range(2):
+        assert (await _proxy(hass_client_no_auth, entry, cookie, path="")).status == 200
+    assert node["sessions"] == 1
+    assert [seen["path"] for seen in node["seen"]] == ["/api/v1/auth/session", "/"] * 2
 
 
 async def test_logout_keeps_the_user_session(node, hass_client, hass_client_no_auth):

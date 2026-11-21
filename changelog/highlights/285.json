@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Das Home-Assistant-Panel meldet HA-Benutzer nach Ablauf der Sitzung wieder selbst an"
+  },
+  "en": {
+    "*": "The Home Assistant panel signs HA users in again after their session expired"
+  }
+}
