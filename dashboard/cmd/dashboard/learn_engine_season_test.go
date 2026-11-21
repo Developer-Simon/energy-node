@@ -127,3 +127,44 @@ func TestBackfillSeasonFillsWeeksFromStats(t *testing.T) {
 		t.Fatalf("season store not saved: %v", err)
 	}
 }
+
+func TestBackfillSeasonSkipsCurrentWeek(t *testing.T) {
+	stats := energystats.NewStore(t.TempDir())
+	// seasonWednesday is in ISO week 2026-W48, which is still running.
+	for _, h := range []time.Time{
+		time.Date(2026, 11, 16, 3, 0, 0, 0, time.UTC),
+		time.Date(2026, 11, 23, 3, 0, 0, 0, time.UTC),
+	} {
+		rec := energystats.HourRecord{Hour: h, KWh: map[string]float64{"load_total": 0.4}, Covered: 3600}
+		if err := stats.AddOwn(rec); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store := autolearn.LoadSeasonStore(filepath.Join(t.TempDir(), "season.json"), t.Logf)
+
+	if err := backfillSeason(store, stats, seasonWednesday, time.UTC); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Weeks("2026-W48", "2026-W48"); len(got) != 0 {
+		t.Fatalf("weeks 2026-W48 = %+v, want none for the running week", got)
+	}
+	if got := store.Weeks("2026-W47", "2026-W47"); len(got) != 1 || got[0].Source != "stats" {
+		t.Fatalf("weeks 2026-W47 = %+v, want one stats week", got)
+	}
+}
+
+func TestSeasonCloserReplacesStatsWeekWithDays(t *testing.T) {
+	calls := 0
+	closer, _ := newSeasonCloserForTest(t, seasonTestDays(seasonPrevMon, 4), &calls)
+	closer.store.Put(autolearn.Week{Key: "2026-W47", Source: "stats", Days: 7})
+
+	closer.Run(seasonWednesday)
+
+	if calls != 1 {
+		t.Fatalf("days calls = %d, want 1 for a week that has only statistics", calls)
+	}
+	if got := closer.store.Weeks("2026-W47", "2026-W47"); len(got) != 1 || got[0].Source != "days" || got[0].Days != 4 {
+		t.Fatalf("weeks 2026-W47 = %+v, want the day-built week", got)
+	}
+}

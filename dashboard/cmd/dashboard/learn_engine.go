@@ -35,8 +35,9 @@ type seasonCloser struct {
 	done    string
 }
 
-// Run closes the previous ISO week when the store has no week for it yet. It
-// runs on every weekday and never closes the current week.
+// Run closes the previous ISO week when the store has no week for it yet, or
+// only a week refilled from the statistics. It runs on every weekday and never
+// closes the current week.
 func (c *seasonCloser) Run(now time.Time) {
 	local := now.In(c.loc)
 	day := local.Format("2006-01-02")
@@ -48,7 +49,9 @@ func (c *seasonCloser) Run(now time.Time) {
 	prevMonday := thisMonday.AddDate(0, 0, -7)
 	year, week := prevMonday.ISOWeek()
 	key := fmt.Sprintf("%d-W%02d", year, week)
-	if len(c.store.Weeks(key, key)) == 0 {
+	// A week refilled from the statistics is closed again from the day files,
+	// the day files win over the statistics.
+	if ws := c.store.Weeks(key, key); len(ws) == 0 || ws[0].Source != "days" {
 		c.close(now, prevMonday, thisMonday)
 	}
 	c.done = day
@@ -124,7 +127,14 @@ func backfillSeason(store *autolearn.SeasonStore, stats *energystats.Store, now 
 	if err != nil {
 		return err
 	}
+	// The current ISO week is still running, its statistics are incomplete.
+	// The season closer writes it once it is over.
+	cy, cw := now.In(loc).ISOWeek()
+	current := fmt.Sprintf("%d-W%02d", cy, cw)
 	for _, w := range autolearn.WeeksFromStats(hours, loc) {
+		if w.Key >= current {
+			continue
+		}
 		store.Put(w)
 	}
 	store.Prune(now)
