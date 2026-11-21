@@ -114,6 +114,7 @@
                   <span class="auto-learn-season" x-show="heatingOf(current, $t)" x-text="heatingOf(current, $t)"></span>
                 </div>
                 <h4 class="auto-learn-card-title" x-text="titleOf(current, $t)"></h4>
+                <p class="auto-learn-card-text" x-show="textOf(current, $t)" x-text="textOf(current, $t)"></p>
                 <div class="auto-learn-evidence">
                   <div class="auto-learn-card-evidence" x-html="evidenceOf(current, $t)"></div>
                   <span class="auto-learn-tip-wrap" x-show="legendOf(current, $t)" x-on:click.outside="closeTip()" x-on:keydown.escape="closeTip()">

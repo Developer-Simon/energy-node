@@ -27,6 +27,7 @@ const rollupSource = fs.readFileSync(path.join(jsDir, 'history-rollup.js'), 'utf
 const wizardSource = fs.readFileSync(path.join(jsDir, 'automation-wizard.js'), 'utf8');
 const templatesSource = fs.readFileSync(path.join(jsDir, 'automation-templates.js'), 'utf8');
 const learnedSource = fs.readFileSync(path.join(jsDir, 'automation-learned.js'), 'utf8');
+const suggestionsSource = fs.readFileSync(path.join(jsDir, 'automation-suggestions.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -49,6 +50,7 @@ function createAutomationsPanel(setup) {
   vm.runInContext(wizardSource, context);
   vm.runInContext(templatesSource, context);
   vm.runInContext(learnedSource, context);
+  vm.runInContext(suggestionsSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};

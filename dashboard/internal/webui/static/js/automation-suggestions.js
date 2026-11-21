@@ -23,27 +23,50 @@
     return pad2(Math.floor(total / 60)) + ':' + pad2(total % 60);
   }
 
-  // Parameter fuer den Katalog: Zeiten als Uhrzeit, Anteile als ganze Prozent.
-  function paramsOf(s) {
-    const src = (s && s.summary && s.summary.params) || {};
-    const out = Object.assign({}, src);
-    if ('window_from' in src) out.window_from = clockOf(src.window_from);
-    if ('window_to' in src) out.window_to = clockOf(src.window_to);
-    if ('share' in src) out.share = Math.round(Number(src.share) * 100);
-    if ('kwh_warm' in src) out.kwh_warm = Math.round(Number(src.kwh_warm) * 10) / 10;
-    return out;
+  // Schluessel und Parameter eines Befunds, gemeinsam fuer Vorschlagsband und Regelmarken.
+  // Der Dienst liefert den Anteil als Bruchteil, die Texte nennen Prozent.
+  // Sonnenzeit: der Dienst nennt das Ereignis als Kennung und den Abstand mit Vorzeichen.
+  // Ab 0 steht "nach", darunter "vor" mit dem Betrag, damit kein "-20 Minuten nach" entsteht.
+  function resolveSummary(summary, t) {
+    let code = (summary && summary.code) || '';
+    const params = Object.assign({}, (summary && summary.params) || {});
+    if (typeof params.share === 'number') params.share = Math.round(params.share * 100);
+    if (/^switch_time\.sun_(on|off)$/.test(code)) {
+      const offset = Number(params.offset_min) || 0;
+      params.minutes = Math.abs(offset);
+      params.event = t(`automations.sun_event.${params.event}`);
+      delete params.offset_min;
+      code = code + (offset < 0 ? '.before' : '.after');
+    }
+    return { code, params };
   }
 
-  function codeOf(s) {
-    return (s && s.summary && s.summary.code) || '';
+  // Schluessel und Parameter des Bandes: zusaetzlich Zeiten als Uhrzeit, kWh mit einer Nachkommastelle.
+  function bandOf(s, t) {
+    const r = resolveSummary(s && s.summary, t);
+    const src = r.params;
+    if ('window_from' in src) src.window_from = clockOf(src.window_from);
+    if ('window_to' in src) src.window_to = clockOf(src.window_to);
+    if ('kwh_warm' in src) src.kwh_warm = Math.round(Number(src.kwh_warm) * 10) / 10;
+    return r;
   }
 
   function title(s, t) {
-    return t(CAT + codeOf(s) + '.title', paramsOf(s));
+    const r = bandOf(s, t);
+    return t(CAT + r.code + '.title', r.params);
   }
 
   function line(s, t) {
-    return t(CAT + codeOf(s) + '.line', paramsOf(s));
+    const r = bandOf(s, t);
+    return t(CAT + r.code + '.line', r.params);
+  }
+
+  // Erklaerungstext der Karte. Ohne Katalogtext (t liefert den Schluessel) bleibt er leer.
+  function text(s, t) {
+    const r = bandOf(s, t);
+    const key = CAT + r.code + '.text';
+    const out = t(key, r.params);
+    return out === key ? '' : out;
   }
 
   // Die Legende hangt an der Form der Grafik. Ohne bekannte Form gibt es keine.
@@ -53,7 +76,7 @@
     return t(CAT + 'legend.' + shape, {});
   }
 
-  const api = { arrange, title, line, legend };
+  const api = { arrange, title, line, text, legend, resolveSummary };
   window.AutomationSuggestions = api;
 
   // Vorschlagsband oberhalb der Regeln. Laedt einmal beim Oeffnen der Seite. Die
@@ -164,6 +187,7 @@
 
       titleOf(s, t) { return api.title(s, t); },
       lineOf(s, t) { return api.line(s, t); },
+      textOf(s, t) { return api.text(s, t); },
       legendOf(s, t) { return api.legend(s, t); },
       groupLabel(s, t) { return t(CAT + 'group.' + s.group, {}); },
       evidenceOf(s, t) { return window.AutomationEvidence ? window.AutomationEvidence.render(s.evidence, t, { full: this.fullDay }) : ''; },

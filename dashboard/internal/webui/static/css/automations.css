@@ -1078,6 +1078,7 @@ button.auto-learn-tile[aria-expanded="true"]:not(:disabled) { background: var(--
 .auto-learn-card-device { font-size: .82rem; color: var(--text-muted); flex: 1 1 8rem; min-width: 0; }
 .auto-learn-season { font-size: .74rem; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 999px; padding: .1rem .55rem; white-space: nowrap; }
 .auto-learn-card-title { margin: .45rem 0 0; font-size: 1.02rem; line-height: 1.25; letter-spacing: -.005em; color: var(--text-strong); }
+.auto-learn-card-text { margin: .3rem 0 0; font-size: .86rem; line-height: 1.45; color: var(--text-muted); }
 /* Erklaerung von Ist und Soll: Info-Knopf oben rechts an der Grafik, der Tooltip schwebt darunter.
    Nur opacity und transform animieren. Hover oeffnet mit 150 ms Verzoegerung, Tipp und Fokus sofort. */
 .auto-learn-evidence { position: relative; }

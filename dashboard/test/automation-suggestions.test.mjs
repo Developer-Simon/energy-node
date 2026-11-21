@@ -558,3 +558,67 @@ test('the temperature limit and the knee fact have catalog texts in both languag
     });
   });
 });
+
+test('textOf gives the explanation text with the data of the code', () => {
+  const { api } = load();
+  const { t, calls } = recorder();
+  const s = suggestion('switch_time.off', { device: 'Leiste', time: '22:30', hits: 12, days: 14 });
+  const shown = api.text(s, catalogT());
+  assert.match(shown, /Leiste/);
+  assert.match(shown, /22:30/);
+  api.text(s, t);
+  assert.equal(calls[0].key, 'automations.learn.switch_time.off.text');
+  assert.equal(calls[0].params.time, '22:30');
+});
+
+test('textOf leaves the text empty for a code without a text key', () => {
+  const { api } = load();
+  const s = suggestion('scale.summary', { n: 1 }, 'scale');
+  assert.equal(api.text(s, catalogT()), '');
+});
+
+test('textOf returns a catalog text for the sun variants, and an unknown code gets none', () => {
+  const { api } = load();
+  const before = suggestion('switch_time.sun_on', { device: 'Lampe', hits: 9, days: 14, event: 'sunset', offset_min: -20 });
+  const after = suggestion('switch_time.sun_off', { device: 'Lampe', hits: 9, days: 14, event: 'sunrise', offset_min: 15 });
+  assert.ok(api.text(before, catalogT()).length > 0, 'the before variant has a text');
+  assert.ok(api.text(after, catalogT()).length > 0, 'the after variant has a text');
+  assert.ok(!api.text(before, catalogT()).includes('automations.learn'), 'no raw key shown');
+  assert.equal(api.text(suggestion('unknown.code', {}), catalogT()), '');
+});
+
+test('the sun variants pick before or after by the sign and show minutes and the translated event', () => {
+  const { api } = load();
+  const { t, calls } = recorder();
+  api.title(suggestion('switch_time.sun_on', { device: 'Lampe', hits: 9, days: 14, event: 'sunset', offset_min: -20 }), t);
+  const titleCall = calls.find((c) => c.key.endsWith('.title'));
+  assert.equal(titleCall.key, 'automations.learn.switch_time.sun_on.before.title');
+  assert.equal(titleCall.params.minutes, 20);
+  assert.equal(titleCall.params.event, 'automations.sun_event.sunset');
+  assert.equal('offset_min' in titleCall.params, false);
+
+  const later = recorder();
+  api.line(suggestion('switch_time.sun_off', { device: 'Lampe', hits: 9, days: 14, event: 'sunrise', offset_min: 0 }), later.t);
+  const lineCall = later.calls.find((c) => c.key.endsWith('.line'));
+  assert.equal(lineCall.key, 'automations.learn.switch_time.sun_off.after.line');
+  assert.equal(lineCall.params.minutes, 0);
+});
+
+test('the sun variants show a translated title, not a raw key', () => {
+  const { api } = load();
+  const s = suggestion('switch_time.sun_off', { device: 'Lampe', hits: 9, days: 14, event: 'sunset', offset_min: 15 });
+  const title = api.title(s, catalogT());
+  assert.notEqual(title, 'automations.learn.switch_time.sun_off.after.title');
+  assert.ok(!title.includes('automations.'), title);
+});
+
+test('the rules texts keep their shape for a share and a sun code', () => {
+  const { api } = load();
+  const { resolveSummary } = api;
+  const share = resolveSummary({ code: 'check.no_effect', params: { share: 0.38 } }, (key) => key);
+  assert.equal(share.code, 'check.no_effect');
+  assert.equal(share.params.share, 38);
+  const sun = resolveSummary({ code: 'switch_time.sun_on', params: { event: 'sunrise', offset_min: -5 } }, (key) => key);
+  assert.equal(sun.code, 'switch_time.sun_on.before');
+  assert.equal(sun.params.minutes, 5);
+});

@@ -2137,19 +2137,8 @@
       return this.allFindings().find((finding) => (finding.rule_ids || []).includes(ruleId)) || null;
     },
     findingText(finding) {
-      let code = (finding.summary && finding.summary.code) || '';
-      const params = { ...((finding.summary && finding.summary.params) || {}) };
-      // Der Dienst liefert den Anteil als Bruchteil, die Texte nennen Prozent.
-      if (typeof params.share === 'number') params.share = Math.round(params.share * 100);
-      // Sonnenzeit: der Dienst nennt das Ereignis als Kennung und den Abstand mit Vorzeichen.
-      // Ab 0 steht „nach“, darunter „vor“ mit dem Betrag, damit kein „-20 Minuten nach“ entsteht.
-      if (/^switch_time\.sun_(on|off)$/.test(code)) {
-        const offset = Number(params.offset_min) || 0;
-        params.minutes = Math.abs(offset);
-        params.event = t(`automations.sun_event.${params.event}`);
-        delete params.offset_min;
-        code = `${code}.${offset < 0 ? 'before' : 'after'}`;
-      }
+      // Schluessel und Parameter teilen sich Vorschlagsband und Regelmarken (automation-suggestions.js).
+      const { code, params } = window.AutomationSuggestions.resolveSummary(finding.summary, t);
       return {
         title: t(`automations.learn.${code}.title`, params),
         text: t(`automations.learn.${code}.text`, params),
