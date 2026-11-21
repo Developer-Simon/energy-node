@@ -6,6 +6,8 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // SwitchTimeDetector suggests a time rule for a device that is switched by
@@ -57,6 +59,8 @@ type swRef struct {
 	events [2][]float64
 	// entities names the switch entity of each event, parallel to events.
 	entities [2][]string
+	// at holds the instants of the events, parallel to events.
+	at [2][]time.Time
 }
 
 // switchTimeRun finds the peaks of the switching times of one device. Each
@@ -114,6 +118,7 @@ func switchTimeRefs(in *Input, device string) []swRef {
 			}
 			r.events[dir] = append(r.events[dir], float64(at.Hour()*60+at.Minute())+float64(at.Second())/60)
 			r.entities[dir] = append(r.entities[dir], ev.Entity)
+			r.at[dir] = append(r.at[dir], at)
 		}
 		refs = append(refs, r)
 	}
@@ -256,23 +261,37 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 	season := switchTimeSeason(refs, counted, hit)
 	agree := switchTimeHalvesAgree(refs, counted, dir, center, window, spread)
 
+	reading := switchTimeReading(in, refs, group, dir, center, spread)
+	facts := []Fact{
+		{Code: "spread_min", Value: spread},
+		{Code: "hit_rate", Value: rate},
+	}
+	if in.Doc.Location == nil {
+		facts = append(facts, Fact{Code: "no_location", Value: true})
+	}
+	summary := Text{Code: "switch_time." + dirName, Params: map[string]any{
+		"hits": hits, "days": days, "time": clock, "device": device}}
+	apply := switchTimeApply(device, entities, on, clock, weekdays)
+	if reading.sun {
+		summary = Text{Code: "switch_time.sun_" + dirName, Params: map[string]any{
+			"hits": hits, "days": days, "device": device,
+			"event": reading.event, "offset_min": reading.offset}}
+		apply = switchTimeSunApply(device, entities, on, reading, weekdays)
+	}
+
 	finding := Finding{
 		ID:         id,
 		Kind:       "switch_time",
 		Group:      "habit",
 		Severity:   "info",
 		Confidence: conf,
-		Summary: Text{Code: "switch_time." + dirName, Params: map[string]any{
-			"hits": hits, "days": days, "time": clock, "device": device}},
-		Evidence: Evidence{Shape: "day", From: 0, To: minutesPerDay, Ist: ist, Soll: []int64{int64(propMin)}},
-		Facts: []Fact{
-			{Code: "spread_min", Value: spread},
-			{Code: "hit_rate", Value: rate},
-		},
-		Apply:   switchTimeApply(device, entities, on, clock, weekdays),
-		Device:  device,
-		Season:  season,
-		Benefit: &benefit,
+		Summary:    summary,
+		Evidence:   Evidence{Shape: "day", From: 0, To: minutesPerDay, Ist: ist, Soll: []int64{int64(propMin)}},
+		Facts:      facts,
+		Apply:      apply,
+		Device:     device,
+		Season:     season,
+		Benefit:    &benefit,
 	}
 	cand := Candidate{
 		Finding:     finding,
@@ -303,6 +322,111 @@ func switchTimeApply(device string, entities []string, on bool, clock string, we
 		{Code: "time_point", Template: "time_point", Prefill: prefill},
 		{Code: "time_point_learned", Template: "time_point", Prefill: learned},
 	}
+}
+
+// switchTimeSunApply offers the time_point rule anchored at the sun event of
+// the cluster, with the minutes after it.
+func switchTimeSunApply(device string, entities []string, on bool, r sunReading, weekdays []int) []Fix {
+	prefill := map[string]any{"device": device, "on": on, "anchor": r.event, "offset_min": r.offset, "days": weekdays}
+	return []Fix{{Code: "time_point", Template: "time_point", Prefill: withEntity(prefill, "entity", dominantEntity(entities))}}
+}
+
+const (
+	// switchTimeSunSlope is the Theil-Sen slope of the event time over the sun
+	// time from which a cluster reads as sun. Below it the reading is clock.
+	switchTimeSunSlope = 0.7
+	// switchTimeSunMinDays is the number of events with a sun time a cluster
+	// needs before it can read as sun. The value is an assumption.
+	switchTimeSunMinDays = 3
+	// switchTimeSunMoveFactor is the movement of the sun time over the period,
+	// in spreads, that a cluster needs to read as sun.
+	switchTimeSunMoveFactor = 2.0
+	// switchTimeSunRoundMin rounds the offset to the sun event.
+	switchTimeSunRoundMin = 5.0
+	// switchTimeNoon is the local minute from which a cluster is evening.
+	switchTimeNoon = 720.0
+)
+
+// sunReading is the reading of one cluster. sun is set when the events follow
+// the sun, event then names the sun event and offset holds the minutes after
+// it, rounded to 5 minutes.
+type sunReading struct {
+	sun    bool
+	event  string
+	offset int
+}
+
+// switchTimeReading decides between sun and clock for one cluster (spec 15.5,
+// steps 2 to 4). The events are read against the sunset of evening clusters,
+// whose centre lies after 12:00, and against the sunrise otherwise. Without a
+// location, without enough sun times, or when the sun time does not move
+// clearly over the period, the reading is clock.
+func switchTimeReading(in *Input, refs []swRef, group []int, dir int, center, spread float64) sunReading {
+	loc := in.Doc.Location
+	if loc == nil {
+		return sunReading{}
+	}
+	evening := center >= switchTimeNoon
+	event := "sunrise"
+	if evening {
+		event = "sunset"
+	}
+	window := switchTimeWindow * spread
+	var xs, ys []float64
+	for _, i := range group {
+		r := &refs[i]
+		rise, set, ok := sun.Times(r.t, loc.Lat, loc.Lon)
+		if !ok {
+			continue
+		}
+		sunAt := rise
+		if evening {
+			sunAt = set
+		}
+		x := sunUnwrap(sunUTCMinute(sunAt), evening)
+		for k, m := range r.events[dir] {
+			if math.Abs(circDelta(m, center)) > window {
+				continue
+			}
+			xs = append(xs, x)
+			ys = append(ys, sunUnwrap(sunUTCMinute(r.at[dir][k]), evening))
+		}
+	}
+	if len(xs) < switchTimeSunMinDays {
+		return sunReading{}
+	}
+	slope, _ := TheilSen(xs, ys)
+	if slope < switchTimeSunSlope {
+		return sunReading{}
+	}
+	lo, hi := xs[0], xs[0]
+	diffs := make([]float64, len(xs))
+	for k := range xs {
+		lo = math.Min(lo, xs[k])
+		hi = math.Max(hi, xs[k])
+		diffs[k] = ys[k] - xs[k]
+	}
+	if hi-lo < switchTimeSunMoveFactor*spread {
+		return sunReading{}
+	}
+	offset := math.Round(Median(diffs)/switchTimeSunRoundMin) * switchTimeSunRoundMin
+	return sunReading{sun: true, event: event, offset: int(offset)}
+}
+
+// sunUTCMinute is the minute of the day in world time, with the seconds as a
+// fraction.
+func sunUTCMinute(t time.Time) float64 {
+	u := t.UTC()
+	return float64(u.Hour()*60+u.Minute()) + float64(u.Second())/60
+}
+
+// sunUnwrap moves a world time minute of an evening cluster past midnight, so
+// that the evening times of the day stay in one run.
+func sunUnwrap(m float64, evening bool) float64 {
+	if evening && m < switchTimeNoon {
+		return m + minutesPerDay
+	}
+	return m
 }
 
 // learnSwitchKey is the key of the learned usual switch time of a device in one
