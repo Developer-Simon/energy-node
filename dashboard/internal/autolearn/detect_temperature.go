@@ -78,15 +78,21 @@ func hingeX(temp []float64, knee float64, cooling bool) []float64 {
 	return x
 }
 
-// explainedShare returns 1 minus the mean absolute error over the median
-// absolute deviation of y, clamped to [0, 1]. Without spread it is 0.
+// explainedShare returns 1 minus the mean absolute error over the mean
+// absolute deviation of y around its median, clamped to [0, 1]. The mean (not
+// the median) of the deviations is used, so a device that sits on its baseline
+// on most days still has a spread. Without spread it is 0.
 func explainedShare(y []float64, mae float64) float64 {
 	med := Median(y)
 	dev := make([]float64, len(y))
 	for i, v := range y {
 		dev[i] = math.Abs(v - med)
 	}
-	spread := Median(dev)
+	spread := 0.0
+	for _, d := range dev {
+		spread += d
+	}
+	spread /= float64(len(dev))
 	if spread == 0 {
 		return 0
 	}
