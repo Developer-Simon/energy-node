@@ -63,7 +63,6 @@
   };
 
   const t = defaultT;
-  const isNumber = value => typeof value === 'number' && Number.isFinite(value);
   const picker = () => (window.DevicePicker ? window.DevicePicker.mixin() : {});
 
   // Einzelwahl der Aussentemperatur: nur Entitaeten mit device_class
@@ -105,7 +104,7 @@
     learning_excluded_devices: [],
     // Aussentemperatur-Entitaet (unique_id) je settings.automation_outdoor_entity, leer wenn keine gewaehlt ist.
     automation_outdoor_entity: '',
-    // Standort (settings.latitude und settings.longitude) ist eingetragen. Solange
+    // Standort ist in den Automationen eingetragen (status.location_set). Solange
     // der Stand nicht geladen ist, bleibt der Hinweis verborgen.
     location_set: true,
 
@@ -186,7 +185,8 @@
         this.csrfToken = (session && session.csrf_token) || '';
         this.learnCanEdit = session ? session.edit_setup === true : true;
         this.automation_outdoor_entity = settings && typeof settings.automation_outdoor_entity === 'string' ? settings.automation_outdoor_entity : '';
-        this.location_set = !settings || (isNumber(settings.latitude) && isNumber(settings.longitude));
+        // Fehlt das Feld (aelterer Server), bleibt der Hinweis verborgen.
+        this.location_set = !(status && status.location_set === false);
         if (Array.isArray(devices)) this.devices = devices;
         // Der Punkt am Reiter Einstellungen in der Seitenleiste folgt dem Hinweis.
         window.dispatchEvent(new CustomEvent('learning-new-changed', {detail: {open: this.newHintVisible}}));

@@ -1271,6 +1271,7 @@ func main() {
 			ChainSuggestInfo: chainSuggest.LearnedSpan,
 			ChainLearnInfo:   chainMonitor.LearnedSpan,
 			SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
+			Rules:            func() ([]byte, error) { return configManager.Read("automation_rules") },
 			Reset: func() error {
 				resetLearned(learnedStore, client)
 				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset())

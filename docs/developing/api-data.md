@@ -283,7 +283,9 @@ node had nothing learned at its first start. `setup_done` tells whether the
 onboarding is complete. `level` is the resolved level (`eco`, `balanced` or
 `full`), `level_setting` the setting as saved (`auto` when empty).
 `acknowledged` lists the features the user has confirmed, `new` the features
-that are switched on and not yet confirmed. Example:
+that are switched on and not yet confirmed. `location_set` is true when the
+automation rule document has a site location (latitude and longitude, both not
+zero). It comes from the automation rules, not from `GET /api/v1/settings`. Example:
 
 ```json
 {"fresh":false,"setup_done":true,"level":"eco","level_setting":"auto",
@@ -291,7 +293,8 @@ that are switched on and not yet confirmed. Example:
              "chain_learning":{"on":true,"since":1794000000,"devices":4},
              "auto_patterns":{"on":true,"since":1794000000,"devices":14}},
  "usage":{"bytes":412000,"written_per_day":96000,"since":1794000000,"devices":14},
- "acknowledged":["chain_learning"],"new":["chain_suggestions","auto_patterns"]}
+ "acknowledged":["chain_learning"],"new":["chain_suggestions","auto_patterns"],
+ "location_set":true}
 ```
 
 **The `learning` block of `GET /api/v1/performance`** shows the compute load of

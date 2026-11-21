@@ -296,29 +296,33 @@ test('a saved outdoor entity that is gone from the registry shows "nicht mehr vo
   assert.equal(page.outdoorLabel(), 'nicht mehr vorhanden');
 });
 
-// The location hint: visible while no location is saved, gone with it.
-const settingsRoutes = (settings) => ({
-  '/api/v1/learning/status': statusBody,
+// The location hint: visible while no location is saved, gone with it. The
+// state comes from status.location_set, the settings only carry the outdoor entity.
+const statusWithLocation = (location_set) => ({ ...statusBody, location_set });
+const settingsRoutes = (status, settings = { learning_level: 'auto' }) => ({
+  '/api/v1/learning/status': status,
   '/api/v1/auth/session': { csrf_token: 'tok', roles: [] },
   '/api/v1/settings': settings,
 });
 
-test('the location hint shows without a saved location and goes away with one', async () => {
-  const missing = createPage({ routes: settingsRoutes({ learning_level: 'auto' }) });
+test('the location hint shows when the status reports no location and goes away with one', async () => {
+  const missing = createPage({ routes: settingsRoutes(statusWithLocation(false)) });
   await missing.page.load();
   assert.equal(missing.page.locationMissing, true);
 
-  const half = createPage({ routes: settingsRoutes({ latitude: 52.5 }) });
-  await half.page.load();
-  assert.equal(half.page.locationMissing, true, 'latitude alone is no location');
-
-  const set = createPage({ routes: settingsRoutes({ latitude: 52.5, longitude: 13.4 }) });
+  const set = createPage({ routes: settingsRoutes(statusWithLocation(true)) });
   await set.page.load();
   assert.equal(set.page.locationMissing, false);
 });
 
-test('the location hint stays hidden while the settings are not loaded', async () => {
-  const { page } = createPage({ routes: { '/api/v1/learning/status': statusBody, '/api/v1/auth/session': { csrf_token: 'tok', roles: [] } } });
+test('the location hint ignores latitude and longitude in the settings', async () => {
+  const { page } = createPage({ routes: settingsRoutes(statusWithLocation(true), { latitude: 52.5, longitude: 13.4 }) });
+  await page.load();
+  assert.equal(page.locationMissing, false);
+});
+
+test('the location hint stays hidden when the status has no location_set field', async () => {
+  const { page } = createPage({ routes: settingsRoutes(statusBody) });
   await page.load();
   assert.equal(page.locationMissing, false);
 });

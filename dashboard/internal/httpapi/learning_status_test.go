@@ -162,6 +162,51 @@ func TestLearningStatusNewIsEmptyWhenOffOrAcknowledged(t *testing.T) {
 	}
 }
 
+func TestLearningStatusLocationSet(t *testing.T) {
+	withLocation := []byte(`{"rules":[],"settings":{"latitude":52.5,"longitude":13.4}}`)
+	withoutLocation := []byte(`{"rules":[],"settings":{"latitude":52.5}}`)
+	cases := map[string]struct {
+		read func() ([]byte, error)
+		want bool
+	}{
+		"location saved":       {func() ([]byte, error) { return withLocation, nil }, true},
+		"latitude only":        {func() ([]byte, error) { return withoutLocation, nil }, false},
+		"document unreadable":  {func() ([]byte, error) { return nil, errors.New("missing") }, false},
+		"no rule source given": {nil, false},
+	}
+	for name, tc := range cases {
+		got := learningStatus(settings.Settings{}, &LearningDeps{Rules: tc.read}, 1)
+		if got.LocationSet != tc.want {
+			t.Errorf("%s: location_set = %v, want %v", name, got.LocationSet, tc.want)
+		}
+	}
+}
+
+func TestLearningStatusExposesLocationSet(t *testing.T) {
+	fake := &fakeLearning{}
+	deps := fake.deps()
+	deps.Rules = func() ([]byte, error) {
+		return []byte(`{"rules":[],"settings":{"latitude":52.5,"longitude":13.4}}`), nil
+	}
+	router, manager := learningTestRouter(t, deps)
+	cookie, _ := loginWithRoles(t, router, manager, "automata", []string{auth.RoleViewAutomations})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, sessionRequest(t, "/api/v1/learning/status", cookie, true))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status: %d %s", recorder.Code, recorder.Body.String())
+	}
+	var got struct {
+		LocationSet *bool `json:"location_set"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got.LocationSet == nil || !*got.LocationSet {
+		t.Fatalf("location_set = %v, want true", got.LocationSet)
+	}
+}
+
 func TestLearningStatusLevelDefaultsToAuto(t *testing.T) {
 	got := learningStatus(settings.Settings{}, &LearningDeps{}, 4)
 	if got.LevelSetting != "auto" || got.Level != "balanced" {
