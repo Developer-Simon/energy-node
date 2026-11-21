@@ -21,9 +21,10 @@ import (
 // store the first time, when season.json is missing.
 const seasonBackfillYears = 3
 
-// seasonCloser closes the previous week in the season store on Monday. It runs
-// in the engine round goroutine, so it needs no lock. done is the Monday that
-// was closed last, so each Monday is attempted once.
+// seasonCloser closes the previous ISO week in the season store. It runs in the
+// engine round goroutine, so it needs no lock. done is the calendar day of the
+// last attempt, so each day is attempted once. A dashboard that was down on
+// Monday closes that week on the next day it runs.
 type seasonCloser struct {
 	store   *autolearn.SeasonStore
 	days    func(from, to time.Time) ([]autolearn.DayFile, error)
@@ -32,20 +33,28 @@ type seasonCloser struct {
 	done    string
 }
 
-// Run closes the previous ISO week when now is a Monday. It reads the day files
-// of that week, puts the summary, prunes and saves the store.
+// Run closes the previous ISO week when the store has no week for it yet. It
+// runs on every weekday and never closes the current week.
 func (c *seasonCloser) Run(now time.Time) {
 	local := now.In(c.loc)
-	if local.Weekday() != time.Monday {
-		return
-	}
 	day := local.Format("2006-01-02")
 	if day == c.done {
 		return
 	}
-	c.done = day
 	thisMonday := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, c.loc)
+	thisMonday = thisMonday.AddDate(0, 0, -((int(local.Weekday()) + 6) % 7))
 	prevMonday := thisMonday.AddDate(0, 0, -7)
+	year, week := prevMonday.ISOWeek()
+	key := fmt.Sprintf("%d-W%02d", year, week)
+	if len(c.store.Weeks(key, key)) == 0 {
+		c.close(now, prevMonday, thisMonday)
+	}
+	c.done = day
+}
+
+// close reads the day files from prevMonday up to thisMonday and puts the week
+// when it has four day files. The store is pruned and saved in any case.
+func (c *seasonCloser) close(now, prevMonday, thisMonday time.Time) {
 	days, err := c.days(prevMonday, thisMonday.AddDate(0, 0, -1))
 	if err != nil {
 		log.Printf("autolearn: season week day files incomplete: %v", err)
