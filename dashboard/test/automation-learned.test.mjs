@@ -241,3 +241,40 @@ test('yearPlot draws one point per week and needs 8 weeks', () => {
   assert.equal(L.yearPlot('number', 0, 100, { year: yearWeeks(5, () => 50) }), null);
   assert.equal(L.yearPlot('number', 0, 100, null), null);
 });
+
+test('choices filter number values by unit, so thresholds offer W only', () => {
+  const values = [
+    { key: 'site/pv_reserve_w', kind: 'number', unit: 'W' },
+    { key: 'device/wb/op_power_w', kind: 'number', unit: 'W' },
+    { key: 'device/wb/cycle_wh', kind: 'number', unit: 'Wh' },
+    { key: 'site/surplus_left_wh', kind: 'number', unit: 'Wh' },
+  ];
+  const kind = L.kindOf('balance_threshold', 'threshold');
+  assert.deepEqual(L.choices(values, kind, 'W').map((v) => v.key),
+    ['site/pv_reserve_w', 'device/wb/op_power_w']);
+  assert.deepEqual(L.choices(values, kind).length, 4);
+});
+
+test('keyLabel names the new energy and power keys', () => {
+  assert.equal(L.keyLabel('device/wb/op_power_w', [{ id: 'wb', name: 'Wallbox' }], t),
+    'automations.learned.key.op_power_w {"device":"Wallbox"}');
+  assert.equal(L.keyLabel('device/wb/cycle_wh', [], t), 'automations.learned.key.cycle_wh {"device":"wb"}');
+  assert.equal(L.keyLabel('site/pv_reserve_w', [], t), 'automations.learned.key.pv_reserve_w {}');
+  assert.equal(L.keyLabel('site/surplus_left_wh', [], t), 'automations.learned.key.surplus_left_wh {}');
+});
+
+test('valueSuffix adds the unit and the estimate text, nothing for a measured duration', () => {
+  assert.equal(L.valueSuffix({ unit: 'W', estimate: true }, 'number', t), ' W (automations.learned.estimate)');
+  assert.equal(L.valueSuffix({ unit: 'W' }, 'number', t), ' W');
+  assert.equal(L.valueSuffix({ estimate: true }, 'duration', t), ' (automations.learned.estimate)');
+  assert.equal(L.valueSuffix(null, 'number', t), '');
+});
+
+test('origin adds the other programs of a cycle energy value', () => {
+  const entry = { kind: 'number', value: 900, n: 5, at: 1000, changed_at: 1000, programs: [1200, 800.4] };
+  const line = L.origin('learned', entry, 1000 + 3600, t);
+  assert.match(line, /automations\.learned\.origin\.days_new /);
+  assert.match(line, / automations\.learned\.origin\.programs \{"programs":"1200, 800"\}$/);
+  assert.equal(L.origin('learned', { ...entry, programs: undefined }, 1000 + 3600, t).endsWith('}'), true);
+  assert.equal(L.origin('fallback', null, 0, t), 'automations.learned.origin.fallback');
+});

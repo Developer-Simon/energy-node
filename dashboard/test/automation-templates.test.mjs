@@ -1901,3 +1901,50 @@ test('quiet_off needs a switch that reports its state and follows the publish in
   const standard = plain(template.build(answersFor(wizard, template, short, { device: 'lamp_switch' }), short).entry);
   assert.equal(standard.cooldown_seconds, 600);
 });
+
+// Gelernte Betriebsleistung als Karte, so wie die Oberflaeche sie an ctx.learned uebergibt.
+const withLearned = (ctx, pairs) => ({ ...ctx, learned: new Map(pairs) });
+
+// Geraete-ID der Vorlage: das Geraet, das der Standard-Schritt device waehlt.
+const deviceIdOf = (entries, answers) => entries.find((item) => item.id === answers.device).deviceId;
+
+test('surplus_switch prefills the switch-on threshold from the learned operating power', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const base = plain(contextFor(wizard));
+  const answers = answersFor(wizard, template, base);
+  const key = `device/${deviceIdOf(base.switches, answers)}/op_power_w`;
+  const ctx = withLearned(base, [[key, 1840]]);
+  const prefilled = wizard.defaultAnswers(template, ctx);
+  assert.equal(prefilled.on, 2000);
+  const entry = plain(template.build(prefilled, ctx).entry);
+  assert.equal(entry.when.conditions[0].threshold, 2000);
+});
+
+test('surplus_switch rounds the learned threshold up to 100 W', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const base = plain(contextFor(wizard));
+  const key = `device/${deviceIdOf(base.switches, answersFor(wizard, template, base))}/op_power_w`;
+  const ctx = withLearned(base, [[key, 1000]]);
+  assert.equal(wizard.defaultAnswers(template, ctx).on, 1100);
+});
+
+test('surplus_switch keeps 1500 W without a learned operating power', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const ctx = withLearned(plain(contextFor(wizard)), [['device/other/op_power_w', 1840]]);
+  assert.equal(wizard.defaultAnswers(template, ctx).on, 1500);
+  const none = plain(contextFor(wizard));
+  assert.equal(wizard.defaultAnswers(template, none).on, 1500);
+});
+
+test('surplus_wallbox prefills the start threshold from the learned operating power', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_wallbox');
+  const base = plain(contextFor(wizard));
+  const key = `device/${deviceIdOf(base.wallboxes, answersFor(wizard, template, base))}/op_power_w`;
+  const ctx = withLearned(base, [[key, 1840]]);
+  assert.equal(wizard.defaultAnswers(template, ctx).start, 2000);
+  assert.equal(wizard.defaultAnswers(template, base).start, 1400);
+});
