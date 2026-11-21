@@ -562,6 +562,7 @@ func main() {
 	registerLearnDetectors(automationEngine)
 	registerEnergyDetectors(automationEngine, pvReserve.Current)
 	automationEngine.Register(autolearn.NewPVModelDetector(pvTracker.Snapshot, pvModelStore))
+	automationEngine.Register(autolearn.NewShadeDetector(pvTracker.Snapshot, pvModelStore.Model))
 	// Die Aussentemperatur fuer den Heizzeit-Erkenner: die Entitaet aus den
 	// Einstellungen, aufgeloest ueber die Registry wie beim Lernhub.
 	automationEngine.SetOutdoor(func() autolearn.OutdoorSource {

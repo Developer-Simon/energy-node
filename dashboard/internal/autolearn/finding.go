@@ -64,9 +64,11 @@ type Op struct {
 }
 
 // Evidence holds the numbers behind a finding. Shape tells which fields are
-// set: events, scale, links or day. The day shape uses minutes of the day from
+// set: events, scale, links, day or curve. The day shape uses minutes of the day from
 // From (0) to To (1440), Ist and IstSpans are the observed times, Soll and
-// SollSpans the proposed times or windows.
+// SollSpans the proposed times or windows. The curve shape holds the power per
+// quarter of the day in W: Quarters is the measured curve, SollQ the clear sky
+// curve and BestQ the best curve with the sky raster (JSON ist_q, soll_q, best_q).
 type Evidence struct {
 	Shape     string     `json:"shape,omitempty"`
 	From      int64      `json:"from,omitempty"`
@@ -75,6 +77,9 @@ type Evidence struct {
 	IstSpans  [][2]int64 `json:"ist_spans,omitempty"`
 	SollSpans [][2]int64 `json:"soll_spans,omitempty"`
 	Soll      []int64    `json:"soll,omitempty"`
+	Quarters  []float32  `json:"ist_q,omitempty"`
+	SollQ     []float32  `json:"soll_q,omitempty"`
+	BestQ     []float32  `json:"best_q,omitempty"`
 	Unit      string     `json:"unit,omitempty"`
 	Max       float64    `json:"max,omitempty"`
 	Seen      [2]float64 `json:"seen,omitempty"`
