@@ -62,6 +62,8 @@
   const ENV_LABELS = { broker: 'backup.env.row.broker', port: 'backup.env.row.port', bridge: 'backup.env.row.bridge', tailscale: 'backup.env.row.tailscale' };
   const ENV_OFF = { bridge: 'backup.env.off.bridge', tailscale: 'backup.env.off.tailscale' };
   const IMPORT_CODES = { interrupted: 'backup.import.code.interrupted', apply_failed: 'backup.import.code.apply_failed' };
+  // A restore that worked but left a part out. The title stays the success one.
+  const PARTIAL_CODES = { partial_battery: 'backup.import.code.partial_battery', partial_stats: 'backup.import.code.partial_stats' };
 
   // Bytes as KB, MB or GB with the language's decimal separator.
   const formatSize = (bytes) => {
@@ -124,6 +126,7 @@
     envRows: [],
     importFailed: false,
     importCode: '',
+    importDetail: '',
     disabledUsers: [],
     rollbackId: '',
     restarting: false,
@@ -345,6 +348,7 @@
       this.source = null;
       this.importFailed = false;
       this.importCode = '';
+      this.importDetail = '';
       this.disabledUsers = [];
       this.rollbackId = '';
       this.restarting = false;
@@ -681,6 +685,7 @@
       this.stopPolling();
       this.importFailed = !result.ok;
       this.importCode = result.code || '';
+      this.importDetail = result.ok ? '' : (result.detail || '');
       this.disabledUsers = result.disabled_users || [];
       this.rollbackId = '';
       this.taskIndex = this.tasks.length;
@@ -716,6 +721,7 @@
     doneNote() {
       if (this.doneKind === 'import') {
         if (this.importFailed) return t(IMPORT_CODES[this.importCode] || IMPORT_CODES.apply_failed);
+        if (PARTIAL_CODES[this.importCode]) return t(PARTIAL_CODES[this.importCode]);
         if (this.disabledUsers.length) return t('backup.done.import.users');
         return t('backup.done.import.note');
       }

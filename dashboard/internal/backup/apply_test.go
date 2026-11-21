@@ -190,3 +190,54 @@ func TestApplySkipsBatteryWithoutEntry(t *testing.T) {
 		t.Errorf("battery without entry was written, base dir has %d entries", len(entries))
 	}
 }
+
+// blockedStatePath liefert einen Zielpfad, dessen Verzeichnis sich nicht anlegen lässt,
+// weil ein Teil davon eine Datei ist. So geht es auch als root schief.
+func blockedStatePath(t *testing.T) string {
+	t.Helper()
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	writeTestFile(t, blocker, "x")
+	return filepath.Join(blocker, "battery-soc", "state.json")
+}
+
+func TestApplyKeepsOtherAreasWhenBatteryStateCannotBeWritten(t *testing.T) {
+	src := applyRoot(t)
+	src.BatteryStates["bat1"] = blockedStatePath(t)
+
+	stageArchive(t, src, map[string]string{
+		"battery/bat1.json":  `{"soc":50}`,
+		"data/settings.json": `{"new":1}`,
+	}, Pending{Areas: map[Area]bool{AreaBattery: true, AreaSettings: true}})
+
+	res, err := ApplyPending(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || !res.OK {
+		t.Fatalf("Result = %+v, want OK despite the unwritable battery state", res)
+	}
+	if res.Code != "partial_battery" {
+		t.Errorf("Code = %q, want partial_battery", res.Code)
+	}
+	if got := readTestFile(t, filepath.Join(src.DataDir, "settings.json")); got != `{"new":1}` {
+		t.Errorf("settings = %s, want the staged content", got)
+	}
+}
+
+func TestApplyFailedResultCarriesCause(t *testing.T) {
+	src := applyRoot(t)
+	// Ein unbrauchbares Ziel: das Geräteverzeichnis ist eine Datei.
+	writeTestFile(t, src.DevicesDir, "not a directory")
+
+	stageArchive(t, src, map[string]string{
+		"devices/shelly_devices.json": `{"new":1}`,
+	}, Pending{Areas: map[Area]bool{AreaDevices: true}})
+
+	res, _ := ApplyPending(src)
+	if res == nil || res.OK || res.Code != "apply_failed" {
+		t.Fatalf("Result = %+v, want apply_failed", res)
+	}
+	if res.Detail == "" {
+		t.Error("Detail is empty, want the cause of the failure")
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -36,8 +37,10 @@ type Pending struct {
 
 // Result hält das Ergebnis des letzten Einspielens. Code ist leer bei Erfolg.
 type Result struct {
-	OK            bool      `json:"ok"`
-	Code          string    `json:"code,omitempty"`
+	OK   bool   `json:"ok"`
+	Code string `json:"code,omitempty"`
+	// Detail nennt bei einem Fehlschlag die Ursache, damit die Oberfläche mehr als apply_failed zeigen kann.
+	Detail        string    `json:"detail,omitempty"`
 	Applied       []Area    `json:"applied,omitempty"`
 	DisabledUsers []string  `json:"disabled_users,omitempty"`
 	FinishedAt    time.Time `json:"finished_at"`
@@ -66,7 +69,11 @@ type fileWrite struct {
 
 // applyPlan sammelt alles, was ein Einspielen tut, bevor es die erste Datei anfasst.
 type applyPlan struct {
-	writes   []fileWrite
+	writes []fileWrite
+	// optional sind Zustandsdateien anderer Dienste, etwa der Batterie. Ihr Ziel liegt oft
+	// außerhalb des Datenverzeichnisses und ist nicht beschreibbar. Das ist kein Grund,
+	// alles andere zurückzurollen.
+	optional []fileWrite
 	statsDst string
 	statsSrc string
 	disabled []string
@@ -180,7 +187,7 @@ func runApply(src Sources, pendingDir string, p Pending) (*Result, error) {
 	if err := writeJournal(pendingDir, j); err != nil {
 		return applyFailed(src.DataDir, pendingDir, j, err)
 	}
-	partial, err := execute(pl)
+	partial, batterySkipped, err := execute(pl)
 	if err != nil {
 		return applyFailed(src.DataDir, pendingDir, j, err)
 	}
@@ -198,8 +205,11 @@ func runApply(src Sources, pendingDir string, p Pending) (*Result, error) {
 		DisabledUsers: pl.disabled,
 		FinishedAt:    time.Now().UTC(),
 	}
-	if partial {
+	switch {
+	case partial:
 		res.Code = "partial_stats"
+	case batterySkipped > 0:
+		res.Code = "partial_battery"
 	}
 	if err := writeResult(src.DataDir, res); err != nil {
 		return res, err
@@ -213,7 +223,7 @@ func applyFailed(dataDir, pendingDir string, j journal, cause error) (*Result, e
 	if err := rollback(pendingDir, j); err != nil {
 		return nil, errors.Join(cause, fmt.Errorf("Zurückrollen: %w", err))
 	}
-	res := &Result{OK: false, Code: "apply_failed", FinishedAt: time.Now().UTC()}
+	res := &Result{OK: false, Code: "apply_failed", Detail: cause.Error(), FinishedAt: time.Now().UTC()}
 	if err := writeResult(dataDir, res); err != nil {
 		return res, errors.Join(cause, err)
 	}
@@ -264,7 +274,7 @@ func buildPlan(src Sources, staging string, p Pending) (applyPlan, error) {
 			if !ok {
 				continue
 			}
-			pl.writes = append(pl.writes, fileWrite{target: state, data: data})
+			pl.optional = append(pl.optional, fileWrite{target: state, data: data})
 		case area == AreaStats:
 			// Monatsdateien laufen über MergeDir, siehe unten.
 			continue
@@ -317,11 +327,15 @@ func snapshot(pendingDir string, pl applyPlan) (journal, error) {
 	if err := os.MkdirAll(oldDir, 0o700); err != nil {
 		return j, err
 	}
-	for i, w := range pl.writes {
+	all := append(append([]fileWrite{}, pl.writes...), pl.optional...)
+	for i, w := range all {
 		e := journalEntry{Target: w.target, Old: fmt.Sprintf("file-%d", i)}
 		data, err := os.ReadFile(w.target)
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
+		case err != nil && i >= len(pl.writes):
+			// Ein unlesbares optionales Ziel wird auch nicht beschrieben, es gehört nicht ins Journal.
+			continue
 		case err != nil:
 			return j, err
 		default:
@@ -353,25 +367,35 @@ func snapshot(pendingDir string, pl applyPlan) (journal, error) {
 }
 
 // execute schreibt die Dateien und führt die Monatsdaten zusammen. partial meldet
-// Monatsdateien des Archivs, die nicht lesbar waren. Das ist kein Fehler.
-func execute(pl applyPlan) (partial bool, err error) {
+// Monatsdateien des Archivs, die nicht lesbar waren. batterySkipped zählt
+// Batteriezustände, deren Ziel nicht beschreibbar war. Beides ist kein Fehler.
+func execute(pl applyPlan) (partial bool, batterySkipped int, err error) {
 	for _, w := range pl.writes {
 		if err := config.AtomicWrite(w.target, w.data, 0o600); err != nil {
-			return false, err
+			return false, 0, err
 		}
 	}
-	if pl.statsSrc == "" {
-		return false, nil
+	if pl.statsSrc != "" {
+		if err := os.MkdirAll(pl.statsDst, 0o750); err != nil {
+			return false, 0, err
+		}
+		err = energystats.MergeDir(pl.statsDst, pl.statsSrc)
+		var skipped *energystats.MergeSkipped
+		switch {
+		case errors.As(err, &skipped):
+			partial = true
+		case err != nil:
+			return false, 0, err
+		}
 	}
-	if err := os.MkdirAll(pl.statsDst, 0o750); err != nil {
-		return false, err
+	// Zuletzt, damit ein unbeschreibbares Ziel nichts anderes verhindert.
+	for _, w := range pl.optional {
+		if err := config.AtomicWrite(w.target, w.data, 0o600); err != nil {
+			log.Printf("backup apply: Zustandsdatei %s übersprungen: %v", w.target, err)
+			batterySkipped++
+		}
 	}
-	err = energystats.MergeDir(pl.statsDst, pl.statsSrc)
-	var skipped *energystats.MergeSkipped
-	if errors.As(err, &skipped) {
-		return true, nil
-	}
-	return false, err
+	return partial, batterySkipped, nil
 }
 
 // writeJournal schreibt das Journal als letzten Schritt vor dem ersten Ziel.

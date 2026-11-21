@@ -763,9 +763,10 @@
 
             <!-- Fertig -->
             <div class="bs-step bs-done" data-step="done" x-show="step === 'done'">
-              <span class="bs-done-mark" x-bind:class="{ drawn: step === 'done' }" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><path d="m14 25 7 7 13-15"/></svg></span>
+              <span class="bs-done-mark" x-bind:class="{ drawn: step === 'done', failed: importFailed }" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><path x-show="!importFailed" d="m14 25 7 7 13-15"/><path x-show="importFailed" d="M17 17l14 14M31 17L17 31"/></svg></span>
               <h4 x-text="doneTitle()"></h4>
               <p class="setting-note" x-text="doneNote()"></p>
+              <p class="setting-note bs-done-detail" x-show="importFailed && importDetail" x-text="importDetail"></p>
               <ul class="setting-note" x-show="disabledUsers.length">
                 <template x-for="name in disabledUsers" x-bind:key="name"><li x-text="name"></li></template>
               </ul>
