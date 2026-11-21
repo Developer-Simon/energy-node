@@ -269,3 +269,40 @@ func TestLearnedStorePrograms(t *testing.T) {
 		t.Errorf("entries = %+v, want programs [500]", entries)
 	}
 }
+
+// A refresh of an unchanged value must still reach the file with the new
+// programs, the unit and the estimate flag, so a restart keeps them.
+func TestLearnedStoreRefreshSavesProgramsUnitAndEstimate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "learned.json")
+	s := LoadLearnedStore(path, nil)
+	now := time.Date(2026, 3, 20, 3, 30, 0, 0, time.UTC)
+	first := []Value{{Key: "device/geschirr/cycle_wh", Device: "geschirr", Kind: ValueNumber,
+		Unit: "Wh", Group: "energy", Num: 900, N: 12, Estimate: true, Programs: []float64{500}}}
+	s.Update(first, now, everyDevice)
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	later := now.Add(learnedRefreshGap + time.Minute)
+	refresh := []Value{{Key: "device/geschirr/cycle_wh", Device: "geschirr", Kind: ValueNumber,
+		Unit: "Wh", Group: "energy", Num: 900, N: 13, Estimate: true, Programs: []float64{420}}}
+	msgs := s.Update(refresh, later, everyDevice)
+	if len(msgs) != 1 {
+		t.Fatalf("refresh sent %d messages, want 1", len(msgs))
+	}
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := LoadLearnedStore(path, nil).Entries()
+	if len(got) != 1 {
+		t.Fatalf("reloaded %d entries, want 1", len(got))
+	}
+	e := got[0]
+	if !reflect.DeepEqual(e.Programs, []float64{420}) {
+		t.Errorf("programs after reload = %v, want [420]", e.Programs)
+	}
+	if e.Unit != "Wh" || !e.Estimate || e.N != 13 {
+		t.Errorf("unit %q estimate %v n %d after reload, want Wh true 13", e.Unit, e.Estimate, e.N)
+	}
+}

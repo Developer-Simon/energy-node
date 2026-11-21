@@ -560,9 +560,21 @@ func main() {
 		automationEngine.Register(det)
 	}
 	registerLearnDetectors(automationEngine)
-	registerEnergyDetectors(automationEngine, pvReserve.Current)
+	// Prognose-Selbstpruefung des Rest-Ueberschusses, gespeichert mit dem Hub.
+	forecastCheck := autolearn.LoadForecastCheck(filepath.Join(autolearnDir, "forecast.json"), log.Printf)
+	learnHub.AddSaver("forecast", forecastCheck)
+	registerEnergyDetectors(automationEngine, pvReserve.Current, forecastCheck)
 	automationEngine.Register(autolearn.NewPVModelDetector(pvTracker.Snapshot, pvModelStore))
 	automationEngine.Register(autolearn.NewShadeDetector(pvTracker.Snapshot, pvModelStore.Model))
+	// Modell und Himmelsraster fuer den Rest-Ueberschuss. Der Raster-Schnappschuss
+	// entsteht nur, wenn ein Modell da ist.
+	automationEngine.SetPV(func() (autolearn.PVModel, *autolearn.Raster, bool) {
+		m, ok := pvModelStore.Model()
+		if !ok {
+			return autolearn.PVModel{}, nil, false
+		}
+		return m, pvTracker.Snapshot(), true
+	})
 	// Die Aussentemperatur fuer den Heizzeit-Erkenner: die Entitaet aus den
 	// Einstellungen, aufgeloest ueber die Registry wie beim Lernhub.
 	automationEngine.SetOutdoor(func() autolearn.OutdoorSource {

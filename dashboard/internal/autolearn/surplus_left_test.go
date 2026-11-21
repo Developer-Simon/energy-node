@@ -116,7 +116,7 @@ func TestSurplusLeftWithoutModel(t *testing.T) {
 	if _, _, ok := SurplusLeft(in, now); ok {
 		t.Error("ok = true without a model, want false")
 	}
-	det := LearnSurplusDetector.Run(context.Background(), in, "")
+	det := NewLearnSurplusDetector(nil).Run(context.Background(), in, "")
 	if len(det) != 0 {
 		t.Errorf("detector returned %d candidates without a model, want 0", len(det))
 	}
@@ -150,7 +150,7 @@ func TestLearnSurplusDetectorPublishesRounded(t *testing.T) {
 	today := surplusDay(t, "2026-11-21", m, 0.9, shadeSite, loc)
 	in, _ := surplusInput(t, append(sunny, today), m, true)
 
-	cands := LearnSurplusDetector.Run(context.Background(), in, "")
+	cands := NewLearnSurplusDetector(nil).Run(context.Background(), in, "")
 	if len(cands) != 1 || cands[0].Value == nil {
 		t.Fatalf("candidates = %+v, want one learned value", cands)
 	}

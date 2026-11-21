@@ -13,14 +13,20 @@ import (
 // the days that looked most like today up to now. The forecast works on the
 // weather factor k, the measured PV and the clear sky curve of the roof model.
 
-// LearnSurplusDetector publishes the surplus of the rest of today as a site
-// value. It is light and runs with the other site values.
-var LearnSurplusDetector = Detector{
-	Name:      "learn_surplus",
-	Group:     "energy",
-	Light:     true,
-	PerDevice: false,
-	Run:       surplusRun,
+// NewLearnSurplusDetector returns the detector that publishes the surplus of the
+// rest of today as a site value. It is light and runs with the other site
+// values. check keeps the 10:00 forecast for the self-check, nil runs without
+// it and always publishes the forecast.
+func NewLearnSurplusDetector(check *ForecastCheck) Detector {
+	return Detector{
+		Name:      "learn_surplus",
+		Group:     "energy",
+		Light:     true,
+		PerDevice: false,
+		Run: func(ctx context.Context, in *Input, _ string) []Candidate {
+			return surplusRun(ctx, in, check)
+		},
+	}
 }
 
 const (
@@ -123,17 +129,7 @@ func surplusPicks(in *Input, td *DayFile, today string, q0 int) []*DayFile {
 		f    *DayFile
 		dist float64
 	}
-	var pool []*DayFile
-	for i := range in.Days {
-		f := &in.Days[i]
-		if f.Day < today {
-			pool = append(pool, f)
-		}
-	}
-	sort.Slice(pool, func(a, b int) bool { return pool[a].Day > pool[b].Day })
-	if n := in.Limits.SimilarPoolDays; n > 0 && len(pool) > n {
-		pool = pool[:n]
-	}
+	pool := surplusPool(in, today)
 
 	todayType, haveToday := in.Base.DayType[today]
 	var cands []cand
@@ -159,6 +155,44 @@ func surplusPicks(in *Input, td *DayFile, today string, q0 int) []*DayFile {
 	out := make([]*DayFile, 0, len(cands))
 	for _, c := range cands {
 		out = append(out, c.f)
+	}
+	return out
+}
+
+// surplusPool returns the days before the day before, most recent first, at
+// most Limits.SimilarPoolDays of them (0 for all).
+func surplusPool(in *Input, before string) []*DayFile {
+	var pool []*DayFile
+	for i := range in.Days {
+		f := &in.Days[i]
+		if f.Day < before {
+			pool = append(pool, f)
+		}
+	}
+	sort.Slice(pool, func(a, b int) bool { return pool[a].Day > pool[b].Day })
+	if n := in.Limits.SimilarPoolDays; n > 0 && len(pool) > n {
+		pool = pool[:n]
+	}
+	return pool
+}
+
+// surplusPoolRests returns the rest of the pool days before day from quarter q0
+// on, each measured on its own day, the rest of surplusConvert without the
+// conversion. The median of these is the season median of the rest.
+func surplusPoolRests(in *Input, m PVModel, r *Raster, before string, q0 int) []float64 {
+	loc := in.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	var out []float64
+	for _, f := range surplusPool(in, before) {
+		midnight, err := time.ParseInLocation(dayLayout, f.Day, loc)
+		if err != nil {
+			continue
+		}
+		if v, ok := surplusConvert(f, m, r, loc, in.Doc.Location, midnight, q0); ok {
+			out = append(out, v)
+		}
 	}
 	return out
 }
@@ -221,14 +255,24 @@ func surplusConvert(f *DayFile, m PVModel, r *Raster, loc *time.Location, site *
 	return rest * todayBest / dayBest, true
 }
 
-// surplusRun publishes the rest surplus of today as site/surplus_left_wh.
-func surplusRun(ctx context.Context, in *Input, _ string) []Candidate {
+// surplusRun publishes the rest surplus of today as site/surplus_left_wh. With a
+// check it first runs the self-check, and when the season median has been the
+// better forecast, it publishes that median with Estimate.
+func surplusRun(ctx context.Context, in *Input, check *ForecastCheck) []Candidate {
 	if ctx.Err() != nil {
 		return nil
+	}
+	if check != nil {
+		surplusSelfCheck(in, check)
 	}
 	res, ok := surplusLeft(in, in.Now)
 	if !ok {
 		return nil
+	}
+	if check != nil && check.UseSeasonMedian() {
+		if med, ok := surplusSeasonMedian(in, in.Now); ok {
+			res.wh, res.est = med, true
+		}
 	}
 	return []Candidate{{
 		Detector: "learn_surplus",
@@ -240,4 +284,90 @@ func surplusRun(ctx context.Context, in *Input, _ string) []Candidate {
 			N:        res.n,
 			Estimate: res.est},
 	}}
+}
+
+// surplusSelfCheck keeps the forecast of today at 10:00 once the day has reached
+// 10:00, and closes the days before today with their measured rest and the
+// season median of that day. A day without its file or without a median is
+// closed without an entry. Without a model it does nothing.
+func surplusSelfCheck(in *Input, check *ForecastCheck) {
+	if in.PV == nil || in.Doc.Location == nil {
+		return
+	}
+	m, r, have := in.PV()
+	if !have {
+		return
+	}
+	loc := in.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	local := in.Now.In(loc)
+	today := local.Format(dayLayout)
+	if local.Hour() >= forecastHour && !check.Recorded(today) {
+		at := time.Date(local.Year(), local.Month(), local.Day(), forecastHour, 0, 0, 0, loc)
+		if res, ok := surplusLeft(in, at); ok {
+			check.Record(today, res.wh)
+		}
+	}
+	for _, day := range check.Pending() {
+		if day >= today {
+			continue
+		}
+		f := dayFileOf(in, day)
+		midnight, err := time.ParseInLocation(dayLayout, day, loc)
+		if f == nil || err != nil {
+			check.Close(day, 0, math.NaN())
+			continue
+		}
+		actual, ok := surplusConvert(f, m, r, loc, in.Doc.Location, midnight, forecastQuarter)
+		if !ok {
+			check.Close(day, 0, math.NaN())
+			continue
+		}
+		rests := surplusPoolRests(in, m, r, day, forecastQuarter)
+		check.Close(day, actual, medianOrNaN(rests))
+	}
+}
+
+// surplusSeasonMedian is the median of the pool days' rest from now on, the
+// value that replaces the forecast when the self-check prefers it.
+func surplusSeasonMedian(in *Input, now time.Time) (float64, bool) {
+	if in.PV == nil || in.Doc.Location == nil {
+		return 0, false
+	}
+	m, r, have := in.PV()
+	if !have {
+		return 0, false
+	}
+	loc := in.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	local := now.In(loc)
+	today := local.Format(dayLayout)
+	q0 := (local.Hour()*60 + local.Minute()) / shadeQuarterMin
+	med := medianOrNaN(surplusPoolRests(in, m, r, today, q0))
+	if math.IsNaN(med) {
+		return 0, false
+	}
+	return med, true
+}
+
+// dayFileOf returns the day file of day in the input, nil when there is none.
+func dayFileOf(in *Input, day string) *DayFile {
+	for i := range in.Days {
+		if in.Days[i].Day == day {
+			return &in.Days[i]
+		}
+	}
+	return nil
+}
+
+// medianOrNaN is the median of xs, NaN for none.
+func medianOrNaN(xs []float64) float64 {
+	if len(xs) == 0 {
+		return math.NaN()
+	}
+	return Median(xs)
 }
