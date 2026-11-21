@@ -119,6 +119,9 @@ type Settings struct {
 	LearningProfileDays           int      `json:"learning_profile_days"`
 	LearningAcknowledged          []string `json:"learning_acknowledged"`
 	LearningLevel                 string   `json:"learning_level"`
+	// AutomationOutdoorEntity ist die unique_id der Aussentemperatur-Entitaet
+	// fuers Saisonlernen. Leer heisst: keine Temperatur wird gesammelt.
+	AutomationOutdoorEntity string `json:"automation_outdoor_entity"`
 
 	// ChangelogHistory sagt, wie viele Bundle-Versionen die Versionsseite
 	// aus dem Changelog laedt: "recent" (5), "extended" (20) oder "all".
@@ -2109,6 +2112,7 @@ func normalizeSettings(value Settings) Settings {
 		value.LearningExcludedDevices = []string{}
 	}
 	value.LearningAcknowledged = uniqueStrings(value.LearningAcknowledged)
+	value.AutomationOutdoorEntity = strings.TrimSpace(value.AutomationOutdoorEntity)
 	value.DashboardTitle = strings.TrimSpace(value.DashboardTitle)
 	value.DashboardSubtitle = strings.TrimSpace(value.DashboardSubtitle)
 	if value.HistoryExtraEntities == nil {

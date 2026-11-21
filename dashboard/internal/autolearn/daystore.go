@@ -67,6 +67,26 @@ type SiteDay struct {
 	PV               [dayQuarters]float32 `json:"pv"`
 	BatteryCharge    [dayQuarters]float32 `json:"battery_charge"`
 	BatteryDischarge [dayQuarters]float32 `json:"battery_discharge"`
+	// TempC ist die Aussentemperatur je Viertelstunde, nil ohne Messwert. Fehlt
+	// das Feld, wenn keine Entitaet gewaehlt ist (siehe MarshalJSON).
+	TempC [dayQuarters]*float32 `json:"temp_c"`
+}
+
+// MarshalJSON laesst temp_c weg, solange keine Viertelstunde einen Wert hat.
+// Alte Dateien ohne das Feld lesen sich weiter ueber das normale Decodieren.
+func (d SiteDay) MarshalJSON() ([]byte, error) {
+	type plain SiteDay
+	var temps *[dayQuarters]*float32
+	for _, t := range d.TempC {
+		if t != nil {
+			temps = &d.TempC
+			break
+		}
+	}
+	return json.Marshal(struct {
+		plain
+		TempC *[dayQuarters]*float32 `json:"temp_c,omitempty"`
+	}{plain: plain(d), TempC: temps})
 }
 
 // EventRec ist ein Schaltvorgang im Tagesprotokoll.
@@ -123,6 +143,10 @@ type DayStore struct {
 	// Mittelwerte. Anders als Seen saettigen sie nicht bei 15.
 	n     map[string]*[dayQuarters]uint16
 	siteN [6][dayQuarters]uint16
+	// tempAvg und tempN sind Mittel und Minutenzahl der Aussentemperatur je
+	// Viertelstunde, wie siteN fuer die Haus-Reihen.
+	tempAvg [dayQuarters]float32
+	tempN   [dayQuarters]uint16
 	// written zaehlt die geschriebenen Bytes je Tag, nur fuer Usage.
 	written map[string]int64
 }
@@ -195,6 +219,7 @@ func (s *DayStore) ObserveMinute(f learnrec.Frame) {
 		s.observeDeviceLocked(dm, q)
 	}
 	s.observeSiteLocked(f.Balance, q)
+	s.observeTempLocked(f.OutdoorC, q)
 	s.dirty = true
 }
 
@@ -430,6 +455,8 @@ func (s *DayStore) startDayLocked(day string) {
 		Events: []EventRec{}, Actions: []ActionRec{}}
 	s.n = map[string]*[dayQuarters]uint16{}
 	s.siteN = [6][dayQuarters]uint16{}
+	s.tempAvg = [dayQuarters]float32{}
+	s.tempN = [dayQuarters]uint16{}
 	s.dirty = false
 	s.blocked = false
 
@@ -483,6 +510,13 @@ func (s *DayStore) adoptLocked(f *DayFile, hasPN bool) {
 		for q := range s.siteN[i] {
 			s.siteN[i][q] = uint16(s.file.Site.Seen[q])
 		}
+	}
+	for q, p := range s.file.Site.TempC {
+		if p == nil {
+			continue
+		}
+		s.tempAvg[q] = *p
+		s.tempN[q] = max(uint16(s.file.Site.Seen[q]), 1)
 	}
 }
 
@@ -564,6 +598,17 @@ func (s *DayStore) observeDeviceLocked(dm learnrec.DeviceMinute, q int) {
 			break
 		}
 	}
+}
+
+// observeTempLocked mittelt die Aussentemperatur der Viertelstunde. Jeder Wert
+// bekommt einen neuen Zeiger, damit alte Snapshots unveraendert bleiben.
+func (s *DayStore) observeTempLocked(c *float64, q int) {
+	if c == nil || !finite(*c) {
+		return
+	}
+	addMean(&s.tempAvg[q], &s.tempN[q], *c)
+	v := s.tempAvg[q]
+	s.file.Site.TempC[q] = &v
 }
 
 func (s *DayStore) observeSiteLocked(balance map[string]float64, q int) {
