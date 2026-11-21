@@ -7,10 +7,10 @@
 - **automation:** react to measurement chains in automations (#226) (0066f15)
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 - **automations:** flag rules that do not work and offer a fix (#278) (d369133)
+- **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284) (8aae55b)
 - **automation:** resolve learned values with bounds and a fallback (1049a08)
 - **automation:** compare against learned values and the learned house state (e27f41c)
 - **automations:** accept learned values in the rule schema (a8c404d)
-- **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284)
 - **automation:** report trigger_count per rule in the state document (c238d9d)
 
 ### Fixes

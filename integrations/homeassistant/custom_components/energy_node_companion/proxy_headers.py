@@ -111,6 +111,15 @@ def is_logout(path: str) -> bool:
     return path.strip("/") == "api/v1/auth/logout"
 
 
+def shows_login_page(method: str, path: str) -> bool:
+    """Ob das Dashboard hier ohne gueltige Sitzung die Anmeldeseite mit 200 zeigt.
+
+    Wie authMiddleware im Dashboard: nur GET auf die Startseite. Ueberall sonst
+    antwortet es mit 401, und daran erkennt der Proxy eine abgelaufene Sitzung.
+    """
+    return method == "GET" and path.strip("/") == ""
+
+
 _COMPANION_CONTROL = "api/v1/companion"
 
 
