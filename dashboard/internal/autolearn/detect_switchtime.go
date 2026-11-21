@@ -343,6 +343,10 @@ const (
 	switchTimeSunMoveFactor = 2.0
 	// switchTimeSunRoundMin rounds the offset to the sun event.
 	switchTimeSunRoundMin = 5.0
+	// switchTimeSunOffsetMin and switchTimeSunOffsetMax bound the sun offset the
+	// assistant offers, see sunOffset in automation-templates.js.
+	switchTimeSunOffsetMin = -240.0
+	switchTimeSunOffsetMax = 235.0
 	// switchTimeNoon is the local minute from which a cluster is evening.
 	switchTimeNoon = 720.0
 )
@@ -410,6 +414,9 @@ func switchTimeReading(in *Input, refs []swRef, group []int, dir int, center, sp
 		return sunReading{}
 	}
 	offset := math.Round(Median(diffs)/switchTimeSunRoundMin) * switchTimeSunRoundMin
+	if offset < switchTimeSunOffsetMin || offset > switchTimeSunOffsetMax {
+		return sunReading{}
+	}
 	return sunReading{sun: true, event: event, offset: int(offset)}
 }
 

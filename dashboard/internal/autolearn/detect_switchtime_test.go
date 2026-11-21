@@ -572,3 +572,22 @@ func TestSwitchTimeWithoutLocationIsClockUntilLocationIsSet(t *testing.T) {
 		t.Errorf("ID changed from %s to %s, dismissing would be lost", first[0].Finding.ID, second[0].Finding.ID)
 	}
 }
+
+// A sun habit five hours before the sunrise lies outside the offsets the
+// assistant offers (-240..235), so the reading falls back to the clock.
+func TestSwitchTimeSunOffsetOutOfRangeIsClock(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, loc)
+	days := sunHabitDays(t, loc, start, 30, 48, 11, "lamp", true, true, -300, 0)
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeAt(t, days, 48, 11), "lamp"), "lamp", "on")
+	if len(got) != 1 {
+		t.Fatalf("on candidates = %d, want 1: %+v", len(got), got)
+	}
+	c := got[0].Finding
+	if c.Summary.Code == "switch_time.sun_on" {
+		t.Fatalf("summary = %s, want the clock reading for an offset of -300 minutes", c.Summary.Code)
+	}
+	if len(c.Apply) == 1 && c.Apply[0].Template == "time_point" && c.Apply[0].Prefill["anchor"] != nil {
+		t.Errorf("prefill = %+v, want no sun anchor", c.Apply[0].Prefill)
+	}
+}
