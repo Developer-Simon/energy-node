@@ -527,6 +527,10 @@ func main() {
 		pvSite.refresh()
 		return pvTracker.Save()
 	}))
+	// Geometriemodell der Dachflaechen: nachts aus dem Himmelsraster neu gefittet,
+	// nur bei Aenderung gespeichert.
+	pvModelStore := autolearn.NewPVModelStore(filepath.Join(autolearnDir, "pvmodel.json"))
+	learnHub.AddSaver("pvmodel", pvModelStore)
 	// Automationen-Engine: die Erkenner laufen in eigener Goroutine, nie im
 	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen und den beiden
 	// Gruppenschaltern darunter. Ohne lesbare Einstellungen bleibt alles an.
@@ -549,6 +553,7 @@ func main() {
 	}
 	registerLearnDetectors(automationEngine)
 	registerEnergyDetectors(automationEngine)
+	automationEngine.Register(autolearn.NewPVModelDetector(pvTracker.Snapshot, pvModelStore))
 	// Die Aussentemperatur fuer den Heizzeit-Erkenner: die Entitaet aus den
 	// Einstellungen, aufgeloest ueber die Registry wie beim Lernhub.
 	automationEngine.SetOutdoor(func() autolearn.OutdoorSource {
