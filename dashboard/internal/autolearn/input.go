@@ -33,6 +33,10 @@ type Input struct {
 	Season *SeasonStore
 	// Outdoor names the outdoor temperature entity, zero when none is chosen.
 	Outdoor OutdoorSource
+	// PV returns the stored roof model, the sky raster and whether a model
+	// exists. Nil means no model is wired, and the detectors that need one
+	// return nothing.
+	PV func() (PVModel, *Raster, bool)
 }
 
 // OutdoorSource names the outdoor temperature entity: its unique id, its state
