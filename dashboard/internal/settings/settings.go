@@ -110,11 +110,13 @@ type Settings struct {
 	// Schluessel bleiben stehen, damit ein Downgrade keine Quittung verliert.
 	// LearningLevel waehlt die Lernstufe, leer heisst "auto".
 	AutomationPatternsDisabled bool `json:"automation_patterns_disabled"`
-	// AutomationHabitsDisabled und AutomationReliabilityDisabled schalten die
-	// Gruppen unter dem Muster-Lernen getrennt ab (invertiert benannt wie oben).
-	// Ohne Muster-Lernen laufen sie nicht, egal wie sie stehen.
+	// AutomationHabitsDisabled, AutomationReliabilityDisabled und
+	// AutomationEnergyDisabled schalten die Gruppen unter dem Muster-Lernen
+	// getrennt ab (invertiert benannt wie oben). Ohne Muster-Lernen laufen sie
+	// nicht, egal wie sie stehen.
 	AutomationHabitsDisabled      bool     `json:"automation_habits_disabled"`
 	AutomationReliabilityDisabled bool     `json:"automation_reliability_disabled"`
+	AutomationEnergyDisabled      bool     `json:"automation_energy_disabled"`
 	LearningExcludedDevices       []string `json:"learning_excluded_devices"`
 	LearningProfileDays           int      `json:"learning_profile_days"`
 	LearningAcknowledged          []string `json:"learning_acknowledged"`

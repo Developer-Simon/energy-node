@@ -15,6 +15,9 @@ type fakeCandidates []autolearn.Candidate
 
 func (f fakeCandidates) Candidates() []autolearn.Candidate { return f }
 
+// RecentOutdoorC reports no temperature, so no heating season rests.
+func (f fakeCandidates) RecentOutdoorC() *float64 { return nil }
+
 // habitCandidate is a candidate that passes every gate of the habit group.
 func habitCandidate(id, device string, kwh float64) autolearn.Candidate {
 	return autolearn.Candidate{

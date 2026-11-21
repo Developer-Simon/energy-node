@@ -67,6 +67,9 @@ type Engine struct {
 	limits    func() learnrec.Limits
 	loc       *time.Location
 	season    *SeasonStore
+	// recentC is the mean outdoor temperature of the last three days as the
+	// last round read it, nil when unknown.
+	recentC *float64
 
 	// tickMu serialises Tick, so one round runs at a time.
 	tickMu sync.Mutex
@@ -383,7 +386,19 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 		}
 	}
 	in.Base = BuildBase(in.Days, e.loc)
+	e.mu.Lock()
+	e.recentC = in.Base.RecentOutdoorC
+	e.mu.Unlock()
 	return in
+}
+
+// RecentOutdoorC returns the mean outdoor temperature of the last three days
+// as the last round read it, nil when unknown. The suggestions use it to rest
+// the findings of a heating season.
+func (e *Engine) RecentOutdoorC() *float64 {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.recentC
 }
 
 // SetSeason gives the engine the weekly figures. A round reads them through

@@ -138,6 +138,7 @@ func engineGroupsFor(value settings.Settings) map[string]bool {
 	return map[string]bool{
 		"habit":       patterns && !value.AutomationHabitsDisabled,
 		"reliability": patterns && !value.AutomationReliabilityDisabled,
+		"energy":      patterns && !value.AutomationEnergyDisabled,
 	}
 }
 

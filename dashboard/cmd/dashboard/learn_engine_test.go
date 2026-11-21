@@ -95,6 +95,8 @@ func TestEngineGroupsFollowTheSwitches(t *testing.T) {
 		{"habits off", settings.Settings{AutomationHabitsDisabled: true}, map[string]bool{"habit": false, "reliability": true}},
 		{"reliability off", settings.Settings{AutomationReliabilityDisabled: true}, map[string]bool{"habit": true, "reliability": false}},
 		{"both off", settings.Settings{AutomationHabitsDisabled: true, AutomationReliabilityDisabled: true}, map[string]bool{"habit": false, "reliability": false}},
+		{"energy off", settings.Settings{AutomationEnergyDisabled: true}, map[string]bool{"habit": true, "reliability": true, "energy": false}},
+		{"energy on by default", settings.Default(), map[string]bool{"habit": true, "reliability": true, "energy": true}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

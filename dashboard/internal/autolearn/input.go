@@ -42,6 +42,9 @@ type Base struct {
 	Away      map[string]bool
 	DayStart  map[int]float64
 	NightRest map[int]float64
+	// RecentOutdoorC is the mean outdoor temperature of the last three days,
+	// nil when no day has a temperature.
+	RecentOutdoorC *float64
 }
 
 // Benefit is the gain of a candidate in its unit: kWh per week, actions per

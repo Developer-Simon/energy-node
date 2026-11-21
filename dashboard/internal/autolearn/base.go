@@ -67,10 +67,11 @@ func BuildBase(days []DayFile, loc *time.Location) Base {
 	now := time.Now().In(loc)
 	recs := baseRecords(days, loc, now.Format(dayLayout))
 	base := Base{
-		DayType:   map[string]int{},
-		Away:      map[string]bool{},
-		DayStart:  map[int]float64{},
-		NightRest: map[int]float64{},
+		DayType:        map[string]int{},
+		Away:           map[string]bool{},
+		DayStart:       map[int]float64{},
+		NightRest:      map[int]float64{},
+		RecentOutdoorC: recentOutdoorC(days, now),
 	}
 
 	var sample []int
@@ -740,4 +741,27 @@ func baseMean(xs []float64) float64 {
 		s += x
 	}
 	return s / float64(len(xs))
+}
+
+// recentOutdoorC is the mean outdoor temperature of today and the two days
+// before, over all quarters that have a value. Nil without a value.
+func recentOutdoorC(days []DayFile, now time.Time) *float64 {
+	cutoff := now.AddDate(0, 0, -2).Format(dayLayout)
+	sum, n := 0.0, 0
+	for _, d := range days {
+		if d.Day < cutoff {
+			continue
+		}
+		for _, t := range d.Site.TempC {
+			if t != nil {
+				sum += float64(*t)
+				n++
+			}
+		}
+	}
+	if n == 0 {
+		return nil
+	}
+	mean := sum / float64(n)
+	return &mean
 }

@@ -11,6 +11,7 @@ import (
 // suggestionCandidates is the part of the engine the suggestions read.
 type suggestionCandidates interface {
 	Candidates() []autolearn.Candidate
+	RecentOutdoorC() *float64
 }
 
 // suggestionBook keeps the suggestions of the last engine round and the
@@ -19,6 +20,8 @@ type suggestionBook struct {
 	state *autolearn.SuggestionState
 	mu    sync.Mutex
 	all   []autolearn.Finding
+	// recentC is the outdoor temperature of the last round, nil when unknown.
+	recentC *float64
 }
 
 // Visible returns the suggestions to show now, without dismissed or postponed
@@ -26,8 +29,9 @@ type suggestionBook struct {
 func (b *suggestionBook) Visible(now time.Time, exists func(device string) bool) []autolearn.Finding {
 	b.mu.Lock()
 	all := append([]autolearn.Finding(nil), b.all...)
+	recentC := b.recentC
 	b.mu.Unlock()
-	return b.state.Visible(all, now, exists)
+	return b.state.Visible(all, now, exists, recentC)
 }
 
 // Known reports whether id is in the list of the last round, or whether the
@@ -94,6 +98,7 @@ func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc 
 	out, shown := autolearn.Gate(cands, doc, book.state.Shown())
 	book.mu.Lock()
 	book.all = out
+	book.recentC = source.RecentOutdoorC()
 	book.mu.Unlock()
 	book.state.SetShown(shown, now)
 	book.state.Prune(exists, out)
