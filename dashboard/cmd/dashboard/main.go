@@ -204,6 +204,14 @@ func main() {
 	}
 	learnStatePath := filepath.Join(dataDir, "learnrec", "state.json")
 	learnState := learnrec.LoadState(learnStatePath, time.Now(), hadLearning, log.Printf)
+	// Demo: ohne Tagesanteile bekommt der Lernstand die Lernlast der letzten
+	// zwei Wochen, damit der Vorschlag der naechsten Stufe erscheint.
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" && len(learnState.DailyShare) == 0 {
+		learnState.DailyShare = autolearn.DemoDailyShare(time.Now())
+		if err := learnrec.SaveState(learnStatePath, learnState); err != nil {
+			log.Printf("autolearn: demo daily share: %v", err)
+		}
+	}
 	// learnState wird bei einer Herabstufung aus der Engine geaendert, daher
 	// nur ueber learnStateNow lesen.
 	var learnStateMu sync.Mutex

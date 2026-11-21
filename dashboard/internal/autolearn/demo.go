@@ -54,13 +54,28 @@ const (
 	demoRelayOffset = 5.0
 	// demoAwayC ist die Außentemperatur an den Abwesenheitstagen, warm wie im Urlaub.
 	demoAwayC = 22.0
-	// demoSeasonWeeks ist die Zahl der Wochen im Saisongedächtnis der Demo.
-	demoSeasonWeeks = 8
+	// demoSeasonWeeks ist die Zahl der Wochen im Saisongedächtnis der Demo, ein
+	// halbes Jahr, damit die Jahreslinie eines gelernten Werts sichtbar ist.
+	demoSeasonWeeks = 20
+	// demoShareDays ist die Zahl der Tage mit Tagesanteil der Lernlast im Lernstand
+	// der Demo, und demoShare der Anteil je Tag. Unter der Hälfte des Ziels der
+	// Stufe eco (0,05), damit die nächsthöhere Stufe vorgeschlagen wird.
+	demoShareDays = 14
+	demoShare     = 0.02
+	// demoBedtimeMin ist die mittlere Abschaltzeit der Balkonsteckdose im
+	// Saisongedächtnis, sie schwankt je Woche um wenige Minuten.
+	demoBedtimeMin = 1350.0
+	// demoBedtimeKey ist der gelernte Wert, dessen Jahreslinie die Demo zeigt.
+	demoBedtimeKey = "device/" + demoPlugBalkon + "/usual_off"
 )
 
 // demoWeekTempC sind die Wochenmittel der Außentemperatur im Saisongedächtnis,
-// eine Woche je Eintrag, die jüngste zuerst. Mehr als 15 °C sind warme Wochen.
-var demoWeekTempC = []float64{17, 12, 16, 18, 13, 16.5, 19, 11}
+// eine Woche je Eintrag, die jüngste zuerst. Mehr als 15 °C sind warme Wochen,
+// die Reihe läuft vom Sommer in den Herbst.
+var demoWeekTempC = []float64{
+	3.5, 4.0, 6.5, 5.5, 6.0, 7.5, 8.0, 9.0, 10.0, 11.5,
+	12.0, 13.0, 14.0, 16.5, 15.5, 17.0, 16.0, 17.5, 19.0, 18.5,
+}
 
 // demoHeatKneeC ist der Heizknick der Wärmepumpe der Demo.
 const demoHeatKneeC = 15.0
@@ -310,9 +325,10 @@ func (b *demoBuilder) fill(rng *rand.Rand) {
 	}
 }
 
-// DemoSeason liefert das Saisongedächtnis der Demo: die acht Wochen vor now,
-// die älteste zuerst. Jede Woche trägt ihre Außentemperatur und fünf Auslösungen
-// der Demo-Regel, damit der Temperaturvorschlag warme Wochen findet.
+// DemoSeason liefert das Saisongedächtnis der Demo: die zwanzig Wochen vor now,
+// die älteste zuerst. Jede Woche trägt ihre Außentemperatur, fünf Auslösungen
+// der Demo-Regel, damit der Temperaturvorschlag warme Wochen findet, und die
+// gelernte Abschaltzeit der Balkonsteckdose, damit die Jahreslinie erscheint.
 func DemoSeason(now time.Time) []Week {
 	out := make([]Week, 0, demoSeasonWeeks)
 	for k := demoSeasonWeeks; k >= 1; k-- {
@@ -323,7 +339,19 @@ func DemoSeason(now time.Time) []Week {
 			Days:     7,
 			TempC:    &temp,
 			Triggers: map[string]float64{demoRuleID: 5},
+			Learned:  map[string]float64{demoBedtimeKey: demoBedtimeMin + 6*math.Sin(float64(k))},
 		})
+	}
+	return out
+}
+
+// DemoDailyShare liefert den Tagesanteil der Lernlast für die letzten
+// demoShareDays Tage vor now, den der Lernstand der Demo beim ersten Start
+// bekommt. Der Anteil liegt unter der Hälfte des Ziels der Stufe eco.
+func DemoDailyShare(now time.Time) map[string]float64 {
+	out := make(map[string]float64, demoShareDays)
+	for i := 1; i <= demoShareDays; i++ {
+		out[now.AddDate(0, 0, -i).Format("2006-01-02")] = demoShare
 	}
 	return out
 }

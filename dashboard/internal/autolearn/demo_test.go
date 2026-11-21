@@ -354,3 +354,98 @@ func TestWithDemoHouseStateAddsQuietOnlyWhenMissing(t *testing.T) {
 		t.Fatalf("learned house state replaced: %+v", kept)
 	}
 }
+
+// TestDemoOutdoorSensorIsInBrokerAndSettings checks that the demo broker
+// publishes the outdoor temperature sensor and that the demo settings select it.
+func TestDemoOutdoorSensorIsInBrokerAndSettings(t *testing.T) {
+	raw, err := os.ReadFile(demoFixture("demo.json"))
+	if err != nil {
+		t.Fatalf("read demo broker fixture: %v", err)
+	}
+	var msgs []struct {
+		Topic   string          `json:"topic"`
+		Payload json.RawMessage `json:"payload"`
+	}
+	if err := json.Unmarshal(raw, &msgs); err != nil {
+		t.Fatalf("parse demo broker fixture: %v", err)
+	}
+	var config struct {
+		UniqueID    string `json:"unique_id"`
+		StateTopic  string `json:"state_topic"`
+		DeviceClass string `json:"device_class"`
+		Unit        string `json:"unit_of_measurement"`
+	}
+	found, state := false, false
+	for _, m := range msgs {
+		if m.Topic == "homeassistant/sensor/aussensensor/temperature/config" {
+			if err := json.Unmarshal(m.Payload, &config); err != nil {
+				t.Fatalf("outdoor config: %v", err)
+			}
+			found = true
+		}
+		if m.Topic == "outstation/aussensensor/temperature" {
+			state = true
+		}
+	}
+	if !found || !state {
+		t.Fatalf("broker fixture lacks the outdoor sensor (config %v, state %v)", found, state)
+	}
+	if config.UniqueID != demoOutdoorEntity || config.DeviceClass != "temperature" || config.Unit != "°C" {
+		t.Errorf("outdoor config = %+v, want unique_id %s, device_class temperature, unit °C", config, demoOutdoorEntity)
+	}
+
+	rawSettings, err := os.ReadFile(demoFixture("seed", "demo", "settings.json"))
+	if err != nil {
+		t.Fatalf("read demo settings: %v", err)
+	}
+	var settings struct {
+		Outdoor string `json:"automation_outdoor_entity"`
+		Level   string `json:"learning_level"`
+	}
+	if err := json.Unmarshal(rawSettings, &settings); err != nil {
+		t.Fatalf("parse demo settings: %v", err)
+	}
+	if settings.Outdoor != demoOutdoorEntity {
+		t.Errorf("automation_outdoor_entity = %q, want %q", settings.Outdoor, demoOutdoorEntity)
+	}
+	if settings.Level != "eco" {
+		t.Errorf("learning_level = %q, want eco, the level the next-level suggestion starts from", settings.Level)
+	}
+}
+
+// TestDemoSeasonYearCourseOfBedtime checks that the demo season carries a learned
+// bedtime for at least eight weeks, so the yearly line of the value shows.
+func TestDemoSeasonYearCourseOfBedtime(t *testing.T) {
+	now := time.Date(2026, 11, 21, 9, 0, 0, 0, berlinLoc(t))
+	weeks := DemoSeason(now)
+	if len(weeks) != demoSeasonWeeks || demoSeasonWeeks < 20 {
+		t.Fatalf("season weeks = %d, want %d (at least 20)", len(weeks), demoSeasonWeeks)
+	}
+	count := 0
+	for _, w := range weeks {
+		if v, ok := w.Learned[demoBedtimeKey]; ok {
+			count++
+			if math.Abs(v-demoBedtimeMin) > 10 {
+				t.Errorf("week %s learned bedtime %.1f, want about %.0f", w.Key, v, demoBedtimeMin)
+			}
+		}
+	}
+	if count < 8 {
+		t.Errorf("weeks with a learned bedtime = %d, want at least 8", count)
+	}
+}
+
+// TestDemoDailyShareSuggestsNextLevel checks that the demo learning state
+// suggests the next level from eco, where the demo settings start.
+func TestDemoDailyShareSuggestsNextLevel(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 21, 9, 0, 0, 0, loc)
+	st := learnrec.State{DailyShare: DemoDailyShare(now)}
+	if n := len(st.DailyShare); n != demoShareDays {
+		t.Fatalf("daily share days = %d, want %d", n, demoShareDays)
+	}
+	next, ok := learnrec.SuggestUp(st, learnrec.LevelEco, now)
+	if !ok || next != learnrec.LevelBalanced {
+		t.Errorf("SuggestUp(eco) = %q, %v, want balanced", next, ok)
+	}
+}

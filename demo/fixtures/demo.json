@@ -1996,5 +1996,33 @@
   {
     "topic": "speicher/akku/soc",
     "payload": "58"
+  },
+  {
+    "topic": "homeassistant/sensor/aussensensor/temperature/config",
+    "payload": {
+      "name": "Aussentemperatur",
+      "unique_id": "aussentemperatur",
+      "device": {
+        "name": "Aussensensor",
+        "identifiers": ["aussensensor"],
+        "via_device": "energy_node"
+      },
+      "state_topic": "outstation/aussensensor/temperature",
+      "availability_topic": "outstation/aussensensor/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "state_class": "measurement",
+      "enabled_by_default": true
+    }
+  },
+  {
+    "topic": "outstation/aussensensor/temperature",
+    "payload": "7.9"
+  },
+  {
+    "topic": "outstation/aussensensor/status/online",
+    "payload": "1"
   }
 ]
