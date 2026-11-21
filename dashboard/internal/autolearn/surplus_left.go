@@ -50,8 +50,8 @@ type surplusResult struct {
 // closest days of the pool, the Limits.SimilarPoolDays most recent days before
 // today or all days when that is 0, give the values. Limits.SimilarLastYear is
 // ignored here, the last year pool comes later. For each similar day the rest
-// is measured PV plus unused PV, where unused is max(0, Best*k - PV) per quarter.
-// It is converted to today by the ratio of the Best curves over the rest of the
+// is the surplus: measured PV plus unused PV, where unused is max(0, Best*k - PV)
+// per quarter, minus the house load LoadTotal. It is converted to today by the ratio of the Best curves over the rest of the
 // day. est is set when fewer similar days than SimilarDays were found. The
 // result is the 25th percentile of the converted values.
 func SurplusLeft(in *Input, now time.Time) (wh float64, est bool, ok bool) {
@@ -182,9 +182,13 @@ func surplusDistance(today, f *DayFile, q0 int) (float64, bool) {
 	return sum / float64(n), true
 }
 
-// surplusConvert returns the rest of the day of one similar day in Wh, scaled to
-// today. The rest runs from quarter q0 on, over the quarters the day has a
-// measurement for. A day without sun in the rest has no ratio and counts as 0.
+// surplusConvert returns the surplus of the rest of the day of one similar day in
+// Wh, scaled to today. Per quarter the potential is the measured PV plus the
+// unused PV, and the surplus is the part the house does not use:
+// max(0, potential - LoadTotal) over 0.25 h. The rest runs from quarter q0 on,
+// over the quarters the day has a measurement for, and quarters without
+// LoadTotal data are skipped. A day without sun in the rest has no ratio and
+// counts as 0.
 func surplusConvert(f *DayFile, m PVModel, r *Raster, loc *time.Location, site *sun.Location, todayMidnight time.Time, q0 int) (float64, bool) {
 	dayMidnight, err := time.ParseInLocation(dayLayout, f.Day, loc)
 	if err != nil {
@@ -203,7 +207,9 @@ func surplusConvert(f *DayFile, m PVModel, r *Raster, loc *time.Location, site *
 		}
 		pv := float64(f.Site.PV[q])
 		unused := math.Max(0, best*k-pv)
-		rest += (pv + unused) * shadeQuarterMin / 60
+		potential := pv + unused
+		load := float64(f.Site.LoadTotal[q])
+		rest += math.Max(0, potential-load) * shadeQuarterMin / 60
 		dayBest += best
 
 		taz, tel := sun.Position(shadeQuarterTime(todayMidnight, q), site.Lat, site.Lon)

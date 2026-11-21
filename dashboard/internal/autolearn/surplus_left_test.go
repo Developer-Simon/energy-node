@@ -2,6 +2,7 @@ package autolearn
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -14,8 +15,11 @@ func surplusModel() PVModel {
 	return PVModel{Surfaces: []Surface{{PMax: 6000, TiltDeg: 30, AzimuthDeg: 180}}, CapW: 6000, Safe: true}
 }
 
-// surplusDay builds a day with the weather factor k on every quarter and the
-// measured PV equal to the clear sky curve times k.
+// surplusLoadW is the flat house load of the test days in W.
+const surplusLoadW = 400
+
+// surplusDay builds a day with the weather factor k on every quarter, the
+// measured PV equal to the clear sky curve times k and a flat house load.
 func surplusDay(t *testing.T, day string, m PVModel, k float32, site *sun.Location, loc *time.Location) DayFile {
 	t.Helper()
 	midnight, err := time.ParseInLocation(dayLayout, day, loc)
@@ -25,6 +29,7 @@ func surplusDay(t *testing.T, day string, m PVModel, k float32, site *sun.Locati
 	f := DayFile{V: 1, Day: day}
 	for q := 0; q < dayQuarters; q++ {
 		f.Site.Seen[q] = 1
+		f.Site.LoadTotal[q] = surplusLoadW
 		v := k
 		f.Site.K[q] = &v
 		az, el := sun.Position(shadeQuarterTime(midnight, q), site.Lat, site.Lon)
@@ -61,8 +66,9 @@ func surplusInput(t *testing.T, days []DayFile, m PVModel, withModel bool) (*Inp
 	return in, now
 }
 
-// surplusExpected is the clear sky energy of today from now to midnight in Wh,
-// scaled by k. It is the value a forecast of sunny days should reach.
+// surplusExpected is the surplus of today from now to midnight in Wh: the clear
+// sky energy scaled by k, minus the house load per quarter, not below 0. It is
+// the value a forecast of days with the factor k should reach.
 func surplusExpected(t *testing.T, m PVModel, k float64, now time.Time, site *sun.Location) float64 {
 	t.Helper()
 	loc := now.Location()
@@ -71,7 +77,7 @@ func surplusExpected(t *testing.T, m PVModel, k float64, now time.Time, site *su
 	sum := 0.0
 	for q := q0; q < dayQuarters; q++ {
 		az, el := sun.Position(shadeQuarterTime(midnight, q), site.Lat, site.Lon)
-		sum += m.Best(az, el, nil) * k * shadeQuarterMin / 60
+		sum += math.Max(0, m.Best(az, el, nil)*k-surplusLoadW) * shadeQuarterMin / 60
 	}
 	return sum
 }
