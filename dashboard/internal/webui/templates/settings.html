@@ -219,6 +219,16 @@
         <span><b>{{t "settings.learning.auto.check_title"}}</b> {{t "settings.learning.auto.check_body"}}</span>
       </div>
     </div>
+    <div class="setting-card">
+      <h3 class="setting-card-title">{{t "settings.learning.outdoor.title"}}</h3>
+      <p class="setting-note">{{t "settings.learning.outdoor.note"}}</p>
+      <button type="button" class="learn-pick-row" x-bind:disabled="!canEditSetup" x-on:click="chooseOutdoor()">
+        <span class="learn-pick-text"><span>{{t "settings.learning.outdoor.sensor"}}</span><small x-bind:class="{ 'is-set': automation_outdoor_entity !== '' }" x-text="outdoorLabel()"></small></span>
+        <span class="learn-pick-action">{{t "settings.learning.outdoor.choose"}}</span>
+        <svg class="automation-icon learn-pick-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+      </button>
+      <button type="button" class="learn-link" x-show="automation_outdoor_entity !== ''" x-bind:disabled="!canEditSetup" x-on:click="clearOutdoor()">{{t "settings.learning.outdoor.clear"}}</button>
+    </div>
     <div class="setting-card" data-tour="learning-record">
       <h3 class="setting-card-title">{{t "settings.learning.record.title"}}</h3>
       <p class="setting-note">{{t "settings.learning.record.note"}}</p>
