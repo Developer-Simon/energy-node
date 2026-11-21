@@ -19,6 +19,8 @@ const (
 // as a retained topic and feeds the rules that reference it. N is the number
 // of days or runs the value rests on. Unit names the unit of a number, and
 // Estimate marks a value that is derived from a fallback and not measured.
+// Programs holds the cycle energy of the other programs of a device, for the
+// origin line of the endpoint. It is not published.
 type Value struct {
 	Key, Device, Kind, Group string
 	Unit                     string
@@ -26,6 +28,7 @@ type Value struct {
 	Text                     string
 	N                        int
 	Estimate                 bool
+	Programs                 []float64
 }
 
 // learnTodayGroup returns the day type group of the weekday of in.Now. A

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -160,7 +161,7 @@ func TestLearnedStoreSaveAndLoadKeepEntries(t *testing.T) {
 		t.Fatalf("loaded %d entries, want %d", len(got), len(want))
 	}
 	for i := range want {
-		if got[i] != want[i] {
+		if !reflect.DeepEqual(got[i], want[i]) {
 			t.Errorf("entry %d = %+v, want %+v", i, got[i], want[i])
 		}
 	}
@@ -248,5 +249,23 @@ func TestLearnedStoreOldStateFileLoads(t *testing.T) {
 	}
 	if msgs := s.Update(lampValue("22:30", 12), time.Unix(1763632800, 0).Add(time.Minute), everyDevice); len(msgs) != 0 {
 		t.Errorf("unchanged old entry published: %+v", msgs)
+	}
+}
+
+func TestLearnedStorePrograms(t *testing.T) {
+	s := LoadLearnedStore(filepath.Join(t.TempDir(), "learned.json"), nil)
+	now := time.Date(2026, 3, 20, 3, 30, 0, 0, time.UTC)
+	vals := []Value{{Key: "device/geschirr/cycle_wh", Device: "geschirr", Kind: ValueNumber,
+		Unit: "Wh", Group: "energy", Num: 900, N: 12, Programs: []float64{500}}}
+	msgs := s.Update(vals, now, everyDevice)
+	if len(msgs) != 1 {
+		t.Fatalf("got %d messages, want 1", len(msgs))
+	}
+	if strings.Contains(msgs[0].Payload, "programs") {
+		t.Errorf("payload %s carries programs, want none", msgs[0].Payload)
+	}
+	entries := s.Entries()
+	if len(entries) != 1 || !reflect.DeepEqual(entries[0].Programs, []float64{500}) {
+		t.Errorf("entries = %+v, want programs [500]", entries)
 	}
 }

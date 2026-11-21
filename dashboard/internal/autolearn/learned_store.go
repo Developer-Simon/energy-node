@@ -44,6 +44,8 @@ type LearnedEntry struct {
 	Prev        any    `json:"prev,omitempty"`
 	ChangedAt   int64  `json:"changed_at"`
 	PublishedAt int64  `json:"published_at"`
+	// Programs is the cycle energy of the other programs, endpoint only.
+	Programs []float64 `json:"programs,omitempty"`
 }
 
 // Message is a retained publish. An empty payload deletes the retained topic.
@@ -136,7 +138,8 @@ func (s *LearnedStore) Update(vals []Value, now time.Time, deviceExists func(str
 		case !ok:
 			s.touchLocked(v.Key)
 			s.entries[v.Key] = &LearnedEntry{Key: v.Key, Device: v.Device, Kind: v.Kind, Unit: v.Unit,
-				Value: cur, Estimate: v.Estimate, N: v.N, At: at, ChangedAt: at, PublishedAt: at}
+				Value: cur, Estimate: v.Estimate, N: v.N, At: at, ChangedAt: at, PublishedAt: at,
+				Programs: copyPrograms(v.Programs)}
 			out = append(out, learnedMessage(v.Key, cur, v.N, at, v.Estimate))
 		case e.Value != cur || e.Estimate != v.Estimate:
 			if now.Sub(time.Unix(e.PublishedAt, 0)) < learnedChangeGap {
@@ -145,6 +148,7 @@ func (s *LearnedStore) Update(vals []Value, now time.Time, deviceExists func(str
 			s.touchLocked(v.Key)
 			e.Prev, e.Value, e.N = e.Value, cur, v.N
 			e.Unit, e.Estimate = v.Unit, v.Estimate
+			e.Programs = copyPrograms(v.Programs)
 			e.At, e.ChangedAt, e.PublishedAt = at, at, at
 			out = append(out, learnedMessage(v.Key, cur, v.N, at, v.Estimate))
 		default:
@@ -153,6 +157,7 @@ func (s *LearnedStore) Update(vals []Value, now time.Time, deviceExists func(str
 			}
 			s.touchLocked(v.Key)
 			e.N, e.At, e.PublishedAt = v.N, at, at
+			e.Programs = copyPrograms(v.Programs)
 			out = append(out, learnedMessage(v.Key, cur, v.N, at, v.Estimate))
 		}
 	}
@@ -177,6 +182,14 @@ func (s *LearnedStore) Revert(failed []Message) {
 		}
 		delete(s.before, key)
 	}
+}
+
+// copyPrograms returns a copy of the programs, nil for none.
+func copyPrograms(ps []float64) []float64 {
+	if len(ps) == 0 {
+		return nil
+	}
+	return append([]float64(nil), ps...)
 }
 
 // Entries returns the entries sorted by key.
