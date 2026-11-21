@@ -205,7 +205,7 @@ test('prefill sorts the bounds of a negative number so min does not pass max', (
 test('the device map panel loads the learned helper before the automation view', () => {
   const base = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'base.html'), 'utf8');
   const line = base.split('\n').find((entry) => entry.includes('devicemap.page.js?v='));
-  assert.ok(line, 'devicemap panel script list not found');
+  assert.match(line, /automation-learned\.js\?v=\d+/, 'helper missing in device map panel');
   assert.ok(line.includes('automation-learned.js?v=1'), 'helper missing in device map panel');
   assert.ok(line.indexOf('automation-learned.js') < line.indexOf('automations-view.js'), 'helper must come before the view');
 });
