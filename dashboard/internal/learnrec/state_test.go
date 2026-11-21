@@ -128,3 +128,29 @@ func TestLowerAutoLevelEcoStaysAndWritesNothing(t *testing.T) {
 		t.Fatalf("state file rewritten on eco:\n before %s\n after  %s", before, after)
 	}
 }
+
+func TestRecentShareMeansTodayAndSixDaysBefore(t *testing.T) {
+	st := State{DailyShare: map[string]float64{
+		"2026-11-20": 0.02,
+		"2026-11-19": 0.04,
+		"2026-11-14": 0.06,
+		"2026-11-13": 0.9, // outside the seven days
+	}}
+	got, ok := RecentShare(st, stateT0, 7)
+	if !ok {
+		t.Fatal("RecentShare reports no share, want the mean of three days")
+	}
+	if want := (0.02 + 0.04 + 0.06) / 3; got != want {
+		t.Fatalf("RecentShare = %v, want %v", got, want)
+	}
+}
+
+func TestRecentShareWithoutRecordedDay(t *testing.T) {
+	if _, ok := RecentShare(State{}, stateT0, 7); ok {
+		t.Fatal("RecentShare without records reports a share")
+	}
+	st := State{DailyShare: map[string]float64{"2026-11-01": 0.5}}
+	if _, ok := RecentShare(st, stateT0, 7); ok {
+		t.Fatal("RecentShare with only an old day reports a share")
+	}
+}

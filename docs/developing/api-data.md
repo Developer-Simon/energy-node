@@ -297,17 +297,30 @@ that are switched on and not yet confirmed. Example:
 **The `learning` block of `GET /api/v1/performance`** shows the compute load of
 the learning engine on the performance page. `setting` is the saved level
 (`auto` when empty), `level` the resolved level. `share` is the compute share
-of one core over the last 24 hours, `target` the target share of that level
+of one core: the mean of the daily shares recorded for the last seven days, or
+the engine's share over the last 24 hours while no daily share is recorded.
+`target` the target share of that level
 (0.05 on `eco`, 0.10 on `balanced` and `full`). `per_run_ms` is the mean compute
 time of one round in the window, and `top` lists the three most expensive
 detectors in descending order with their `ms` in the window. `suggest` is only
 present when the load stayed under half the target for seven days, and names
 the level to move up to. Without the learning dependencies the block is `null`.
 
+The same load appears in the measurements as the unit `learning` (fixed, with
+`cpu_pct` = `share` × 100 and `round_s` = `per_run_ms` / 1000). Its breakdown is
+`breakdown.learning`: `parts` lists up to eight detectors in descending order,
+each with `id`, `share` (its fraction of the learning total, 0 to 1) and `ms` in
+the window. It is `null` without the learning dependencies or without compute
+time in the window.
+
 ```json
 {"setting":"auto","level":"eco","share":0.021,"target":0.05,"per_run_ms":840,
  "top":[{"detector":"switch_time","ms":420},{"detector":"runtime","ms":210}],
  "suggest":"balanced"}
+```
+
+```json
+"breakdown":{"learning":{"parts":[{"id":"switch_time","share":0.55,"ms":420},{"id":"runtime","share":0.28,"ms":210}]}}
 ```
 
 **`POST /api/v1/learning/reset`** drops the day profiles, the learned loss values

@@ -731,35 +731,140 @@ test('the learning row reads the learning block; without it the row is absent', 
   assert.equal(none.page.learningTop().length, 0);
 });
 
-test('the selector writes learning_level, keeps the rest of the document and sends the CSRF token', async () => {
-  const calls = [];
-  const settingsDoc = { latitude: 52.5, longitude: 13.4, learning_level: 'auto', dashboard_title: 'Haus' };
-  const { fetchImpl } = router({
-    '/api/v1/performance': reply(200, performanceBody({ learning: LEARNING })),
-    '/api/v1/auth/session': reply(200, { csrf_token: 'tok', edit_setup: true }),
-    '/api/v1/settings': reply(200, settingsDoc),
+const SETTINGS_DOC = { latitude: 52.5, longitude: 13.4, learning_level: 'auto', dashboard_title: 'Haus' };
+
+// A page with the learning draft tests' routes. The apply writes the rates,
+// the settings and the session, all recorded in calls.
+function learningRoutes(calls, session = { csrf_token: 'tok', edit_setup: true }, overrides = {}) {
+  return router({
+    '/api/v1/performance': reply(200, performanceBody({ learning: LEARNING, ...overrides })),
+    'POST /api/v1/performance/apply': reply(200, {}),
+    '/api/v1/auth/session': reply(200, session),
+    '/api/v1/settings': reply(200, SETTINGS_DOC),
     'PUT /api/v1/settings': reply(200, {}),
   }, calls);
+}
+
+test('pickLearning() only drafts the level: nothing is sent until apply()', async () => {
+  const calls = [];
+  const { fetchImpl } = learningRoutes(calls);
   const made = createPerformancePage({ fetchImpl });
   await made.page.load();
-  await made.page.pickLearning('full');
-  const put = calls.find((call) => call.method === 'PUT');
-  assert.ok(put, 'a PUT is sent');
-  assert.equal(put.headers['X-CSRF-Token'], 'tok');
-  assert.deepEqual(JSON.parse(put.body), { ...settingsDoc, learning_level: 'full' });
+  made.page.pickLearning('full');
+  assert.equal(made.page.learningSetting(), 'full');
+  assert.equal(made.page.learningSel, 'full');
+  assert.equal(calls.length, 1, 'only the load was sent');
 });
 
-test('pickLearning() writes nothing without the setup right', async () => {
-  const calls = [];
-  const { fetchImpl } = router({
-    '/api/v1/performance': reply(200, performanceBody({ learning: LEARNING })),
-    '/api/v1/auth/session': reply(200, { csrf_token: 'tok', edit_setup: false }),
-  }, calls);
+test('changed() is true for a learning draft only, and false when the draft equals the saved level', async () => {
+  const { fetchImpl } = learningRoutes([]);
   const made = createPerformancePage({ fetchImpl });
   await made.page.load();
-  await made.page.pickLearning('full');
-  assert.equal(calls.filter((call) => call.method === 'PUT').length, 0);
+  assert.equal(made.page.changed(), false);
+  made.page.pickLearning('eco');
+  assert.equal(made.page.learningChanged(), true);
+  assert.equal(made.page.ratesChanged(), false);
+  assert.equal(made.page.changed(), true);
+  made.page.pickLearning('auto');
+  assert.equal(made.page.learningChanged(), false, 'the saved level is no change');
+  assert.equal(made.page.changed(), false);
+  made.page.pickLearning('full');
+  made.page.reset();
+  assert.equal(made.page.learningSel, null);
+  assert.equal(made.page.changed(), false);
+});
+
+test('apply() writes learning_level once with the rates, keeps the document and sends the CSRF token', async () => {
+  const calls = [];
+  const { fetchImpl } = learningRoutes(calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  made.page.pick('shelly', 10);
+  made.page.pickLearning('full');
+  await made.page.apply();
+
+  const posts = calls.filter((call) => call.method === 'POST');
+  assert.equal(posts.length, 1, 'one rates request');
+  assert.deepEqual(JSON.parse(posts[0].body), { rates: { shelly: 10 } });
+  const puts = calls.filter((call) => call.method === 'PUT');
+  assert.equal(puts.length, 1, 'learning_level is written once');
+  assert.equal(puts[0].headers['X-CSRF-Token'], 'tok');
+  assert.deepEqual(JSON.parse(puts[0].body), { ...SETTINGS_DOC, learning_level: 'full' });
+  assert.ok(calls.indexOf(posts[0]) < calls.indexOf(puts[0]), 'the rates go first');
+  assert.equal(made.page.learningSel, null, 'the draft is cleared after the save');
+});
+
+test('apply() with a learning level alone skips the measuring confirmation and the rates request', async () => {
+  const calls = [];
+  const { fetchImpl } = learningRoutes(calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  assert.equal(made.page.measuring(), true);
+  made.page.pickLearning('balanced');
+  await made.page.requestApply();
+  assert.equal(made.page.confirming, false, 'no confirmation for the learning level');
+  assert.equal(calls.filter((call) => call.method === 'POST').length, 0);
+  const puts = calls.filter((call) => call.method === 'PUT');
+  assert.equal(puts.length, 1);
+  assert.deepEqual(JSON.parse(puts[0].body), { ...SETTINGS_DOC, learning_level: 'balanced' });
+});
+
+test('apply() with a learning draft and no setup right writes nothing and keeps the draft', async () => {
+  const calls = [];
+  const { fetchImpl } = learningRoutes(calls, { csrf_token: 'tok', edit_setup: false });
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  made.page.pick('shelly', 10);
+  made.page.pickLearning('full');
+  await made.page.apply();
+  assert.equal(calls.filter((call) => call.method === 'POST' || call.method === 'PUT').length, 0);
+  assert.equal(made.page.learningSel, 'full', 'the draft stays for a later try');
   assert.equal(made.stores.toasts.items.at(-1).severity, 'critical');
+});
+
+test('learningEstimate() scales the measured share by the budget ratio of the drafted level', async () => {
+  const made = await loadedPage({ learning: { ...LEARNING, setting: 'eco', level: 'eco', share: 0.01 } });
+  // Budgets 2 s (eco), 10 s (balanced), 60 s (full): ratios 1, 5 and 30.
+  assert.deepEqual({ ...made.page.learningEstimate() }, { measured: 0.01, estimate: 0.01, target: 0.05, over: false });
+  made.page.pickLearning('balanced');
+  let estimate = made.page.learningEstimate();
+  assert.ok(Math.abs(estimate.estimate - 0.05) < 1e-12);
+  assert.equal(estimate.target, 0.10);
+  assert.equal(estimate.over, false);
+  made.page.pickLearning('full');
+  estimate = made.page.learningEstimate();
+  assert.ok(Math.abs(estimate.estimate - 0.3) < 1e-12);
+  assert.equal(estimate.over, true);
+  assert.equal(made.page.learningOverNote() === '', false);
+  made.page.pickLearning('auto');
+  assert.equal(made.page.learningEstimate().target, 0.05, 'auto stays on the resolved level');
+  assert.equal(made.page.learningOverNote(), '');
+});
+
+test('learningSetting() shows the saved level until a draft exists', async () => {
+  const made = await loadedPage({ learning: { ...LEARNING, setting: 'balanced' } });
+  assert.equal(made.page.learningSetting(), 'balanced');
+  made.page.pickLearning('eco');
+  assert.equal(made.page.learningSetting(), 'eco');
+});
+
+test('the measurements list the learning unit in the base group, with its breakdown', async () => {
+  const learningUnit = { id: 'learning', cpu_pct: 2.1, ram_bytes: 0, round_s: 0.38, msg_per_min: 0, fixed: true };
+  const breakdown = { learning: { parts: [{ id: 'switch_time', share: 0.55, ms: 420 }, { id: 'runtime', share: 0.45, ms: 340 }] } };
+  const made = await loadedPage({ learning: LEARNING, breakdown, units: [...performanceBody().units, learningUnit] });
+  const base = made.page.measureGroups()[1];
+  const row = base.rows.find((entry) => entry.id === 'learning');
+  assert.ok(row, 'the learning unit is in the base group');
+  assert.equal(row.name, de['performance.js.unit.learning']);
+
+  const bd = made.page.breakdownOf('learning');
+  assert.equal(bd.kind, 'learning');
+  assert.equal(bd.parts.length, 2);
+  assert.equal(bd.parts[0].name, de['performance.js.learning.detector.switch_time']);
+  assert.equal(bd.parts[0].share, 0.55, 'the bar is the fraction of the learning total');
+  assert.ok(bd.parts[0].pctText.endsWith(' %'));
+  assert.equal(made.page.partName('switch_time'), de['performance.js.learning.detector.switch_time']);
+  assert.equal(made.page.partName('push'), de['performance.js.breakdown.part.push']);
 });
 
 test('the suggest row exists only when the API gives a suggestion, and its button sets that level', async () => {

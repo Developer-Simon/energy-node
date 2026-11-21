@@ -113,3 +113,21 @@ func RecordShare(st State, now time.Time, share float64) State {
 func SaveState(path string, st State) error {
 	return writeState(path, st)
 }
+
+// RecentShare mittelt die Tagesanteile der letzten days Kalendertage bis
+// einschliesslich des Tages von now. Fehlt jeder Tagesanteil, gibt es keinen
+// Mittelwert und ok ist false.
+func RecentShare(st State, now time.Time, days int) (float64, bool) {
+	var sum float64
+	var n int
+	for i := 0; i < days; i++ {
+		if share, ok := st.DailyShare[now.AddDate(0, 0, -i).Format(dayLayout)]; ok {
+			sum += share
+			n++
+		}
+	}
+	if n == 0 {
+		return 0, false
+	}
+	return sum / float64(n), true
+}

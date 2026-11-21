@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -566,5 +567,149 @@ func TestPerformanceLearningFollowsChangedSetting(t *testing.T) {
 	}
 	if body.Learning == nil || body.Learning.Setting != "full" || body.Learning.Level != "full" {
 		t.Fatalf("learning block %+v, want full after the change", body.Learning)
+	}
+}
+
+// learningUnitBody reads the learning unit and its breakdown of GET /api/v1/performance.
+type learningUnitBody struct {
+	Units []struct {
+		ID     string   `json:"id"`
+		CPUPct float64  `json:"cpu_pct"`
+		RoundS *float64 `json:"round_s"`
+		Fixed  bool     `json:"fixed"`
+	} `json:"units"`
+	Breakdown struct {
+		Learning *struct {
+			Parts []struct {
+				ID    string  `json:"id"`
+				Share float64 `json:"share"`
+				Ms    int64   `json:"ms"`
+			} `json:"parts"`
+		} `json:"learning"`
+	} `json:"breakdown"`
+}
+
+func TestPerformanceLearningUnitAndBreakdown(t *testing.T) {
+	stats := performanceLearningStats()
+	router, manager := performanceRouterWithDeps(t, performanceTestSnapshot(), func(deps *PerformanceDeps) {
+		deps.Learning = &PerformanceLearning{
+			Load:  func() autolearn.Stats { return stats },
+			State: func() learnrec.State { return learnrec.State{} },
+		}
+	})
+	var body learningUnitBody
+	if err := json.Unmarshal(getPerformance(t, router, manager), &body); err != nil {
+		t.Fatal(err)
+	}
+
+	var unit *struct {
+		ID     string   `json:"id"`
+		CPUPct float64  `json:"cpu_pct"`
+		RoundS *float64 `json:"round_s"`
+		Fixed  bool     `json:"fixed"`
+	}
+	for i := range body.Units {
+		if body.Units[i].ID == "learning" {
+			unit = &body.Units[i]
+		}
+	}
+	if unit == nil {
+		t.Fatal("no learning unit in the measurements")
+	}
+	if !unit.Fixed || math.Abs(unit.CPUPct-2.1) > 1e-9 {
+		t.Fatalf("learning unit = %+v, want fixed with cpu 2.1", *unit)
+	}
+	if unit.RoundS == nil || math.Abs(*unit.RoundS-0.38) > 1e-9 {
+		t.Fatalf("learning unit round_s = %v, want 0.38", unit.RoundS)
+	}
+
+	if body.Breakdown.Learning == nil {
+		t.Fatal("breakdown.learning missing")
+	}
+	parts := body.Breakdown.Learning.Parts
+	want := []string{"switch_time", "runtime", "coupling", "flapping"}
+	if len(parts) != len(want) {
+		t.Fatalf("%d parts, want %d: %+v", len(parts), len(want), parts)
+	}
+	var sum float64
+	for i, name := range want {
+		if parts[i].ID != name {
+			t.Fatalf("parts[%d] = %q, want %q", i, parts[i].ID, name)
+		}
+		sum += parts[i].Share
+	}
+	if math.Abs(sum-1) > 1e-9 {
+		t.Fatalf("shares sum to %v, want 1", sum)
+	}
+	if parts[0].Ms != 420 || math.Abs(parts[0].Share-420.0/760.0) > 1e-9 {
+		t.Fatalf("switch_time part = %+v, want 420 ms of 760", parts[0])
+	}
+}
+
+func TestPerformanceLearningBreakdownLimitsToEight(t *testing.T) {
+	stats := autolearn.Stats{Rounds: 1, Took: map[string]time.Duration{}}
+	for i := 0; i < 10; i++ {
+		stats.Took[string(rune('a'+i))] = time.Duration(i+1) * time.Millisecond
+	}
+	router, manager := performanceRouterWithDeps(t, performanceTestSnapshot(), func(deps *PerformanceDeps) {
+		deps.Learning = &PerformanceLearning{
+			Load:  func() autolearn.Stats { return stats },
+			State: func() learnrec.State { return learnrec.State{} },
+		}
+	})
+	var body learningUnitBody
+	if err := json.Unmarshal(getPerformance(t, router, manager), &body); err != nil {
+		t.Fatal(err)
+	}
+	parts := body.Breakdown.Learning.Parts
+	if len(parts) != performanceLearningPartLimit {
+		t.Fatalf("%d parts, want %d", len(parts), performanceLearningPartLimit)
+	}
+	for i := 1; i < len(parts); i++ {
+		if parts[i].Ms > parts[i-1].Ms {
+			t.Fatalf("parts not descending: %+v", parts)
+		}
+	}
+	if parts[0].ID != "j" {
+		t.Fatalf("first part = %q, want the costliest detector j", parts[0].ID)
+	}
+}
+
+func TestPerformanceLearningBreakdownNullWithoutDeps(t *testing.T) {
+	router, manager := performanceRouter(t)
+	var body learningUnitBody
+	if err := json.Unmarshal(getPerformance(t, router, manager), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Breakdown.Learning != nil {
+		t.Fatal("breakdown.learning is not null without the learning deps")
+	}
+	for _, unit := range body.Units {
+		if unit.ID == "learning" {
+			t.Fatal("learning unit present without the learning deps")
+		}
+	}
+}
+
+func TestPerformanceLearningShareAveragesRecordedDays(t *testing.T) {
+	now := time.Now()
+	stats := performanceLearningStats()
+	shares := map[string]float64{}
+	for i := 0; i < 7; i++ {
+		shares[now.AddDate(0, 0, -i).Format("2006-01-02")] = 0.04
+	}
+	shares[now.AddDate(0, 0, -8).Format("2006-01-02")] = 0.5 // outside the window
+	router, manager := performanceRouterWithDeps(t, performanceTestSnapshot(), func(deps *PerformanceDeps) {
+		deps.Learning = &PerformanceLearning{
+			Load:  func() autolearn.Stats { return stats },
+			State: func() learnrec.State { return learnrec.State{DailyShare: shares} },
+		}
+	})
+	var body learningBlockBody
+	if err := json.Unmarshal(getPerformance(t, router, manager), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Learning == nil || math.Abs(body.Learning.Share-0.04) > 1e-9 {
+		t.Fatalf("share = %+v, want the recorded mean 0.04 instead of the live 0.021", body.Learning)
 	}
 }

@@ -94,6 +94,18 @@ type performanceBody struct {
 // performanceLearningTop is the number of detectors listed in the learning block.
 const performanceLearningTop = 3
 
+// performanceLearningPartLimit is the number of detectors listed in the learning
+// breakdown, the costliest first.
+const performanceLearningPartLimit = 8
+
+// performanceLearningDays is the number of days the share of the learning block
+// averages over, once a daily share is recorded.
+const performanceLearningDays = 7
+
+// performanceLearningUnitID is the id of the learning engine in the units and
+// the breakdown of the measurements.
+const performanceLearningUnitID = "learning"
+
 // performanceLearning is the learning block of GET /api/v1/performance. Suggest
 // is left out when there is no suggestion to move up a level.
 type performanceLearning struct {
@@ -111,11 +123,24 @@ type performanceLearningEntry struct {
 	Ms       int64  `json:"ms"`
 }
 
+// performanceLearningBreakdown is the learning part of the breakdown. Share is
+// the fraction of the learning total, Ms the time in the window.
+type performanceLearningBreakdown struct {
+	Parts []performanceLearningPart `json:"parts"`
+}
+
+type performanceLearningPart struct {
+	ID    string  `json:"id"`
+	Share float64 `json:"share"`
+	Ms    int64   `json:"ms"`
+}
+
 // performanceBreakdown splits the load into the parts of the dashboard and the
 // automation entries. A part is null when it has nothing to show.
 type performanceBreakdown struct {
 	Dashboard  *performanceDashboardBreakdown  `json:"dashboard"`
 	Automation *performanceAutomationBreakdown `json:"automation"`
+	Learning   *performanceLearningBreakdown   `json:"learning"`
 }
 
 type performanceDashboardBreakdown struct {
@@ -245,7 +270,7 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 		if deps.Changes != nil {
 			body.Change = deps.Changes.CurrentChange()
 		}
-		body.Learning = performanceLearningBody(store, deps, snap, now())
+		body.Learning, body.Breakdown.Learning = performanceLearningBody(store, deps, snap, now())
 
 		for _, row := range rows {
 			editable := true
@@ -282,6 +307,9 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			}
 			body.Units = append(body.Units, unit)
 		}
+		if body.Learning != nil {
+			body.Units = append(body.Units, performanceLearningUnit(body.Learning))
+		}
 		writeJSON(w, body)
 	}
 }
@@ -308,12 +336,14 @@ func performanceTarget(store *settings.Store, snap performance.Snapshot, request
 }
 
 // performanceLearningBody builds the learning block from the engine load, the
-// learning setting and the learning state. It is nil without the learning deps.
-// The share is the 24 hour share of the engine, the target follows the resolved
-// level, and per_run_ms is the mean compute time of one round in the window.
-func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap performance.Snapshot, now time.Time) *performanceLearning {
+// learning setting and the learning state, and the learning part of the
+// breakdown. Both are nil without the learning deps. The share is the mean of
+// the recorded daily shares of the last seven days, or the 24 hour share of the
+// engine while none is recorded. The target follows the resolved level, and
+// per_run_ms is the mean compute time of one round in the window.
+func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap performance.Snapshot, now time.Time) (*performanceLearning, *performanceLearningBreakdown) {
 	if deps == nil || deps.Learning == nil || deps.Learning.Load == nil {
-		return nil
+		return nil, nil
 	}
 	setting := settings.LearningLevelAuto
 	if store != nil {
@@ -327,11 +357,15 @@ func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap 
 	}
 	level := learnrec.ResolveLevel(setting, snap.Cores, state.AutoLevel)
 	stats := deps.Learning.Load()
+	share := stats.Share
+	if recorded, ok := learnrec.RecentShare(state, now, performanceLearningDays); ok {
+		share = recorded
+	}
 
 	body := &performanceLearning{
 		Setting: setting,
 		Level:   string(level),
-		Share:   stats.Share,
+		Share:   share,
 		Target:  learnrec.TargetShare(level),
 		Top:     []performanceLearningEntry{},
 	}
@@ -350,6 +384,7 @@ func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap 
 		}
 		return entries[i].Detector < entries[j].Detector
 	})
+	parts := performanceLearningParts(entries, total)
 	if len(entries) > performanceLearningTop {
 		entries = entries[:performanceLearningTop]
 	}
@@ -357,7 +392,41 @@ func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap 
 	if next, ok := learnrec.SuggestUp(state, level, now); ok {
 		body.Suggest = string(next)
 	}
-	return body
+	return body, parts
+}
+
+// performanceLearningParts lists the detectors of the learning breakdown from
+// the sorted entries, each with its fraction of total. It is nil without any
+// compute time. At most performanceLearningPartLimit parts are kept.
+func performanceLearningParts(entries []performanceLearningEntry, total time.Duration) *performanceLearningBreakdown {
+	totalMs := total.Milliseconds()
+	if totalMs <= 0 || len(entries) == 0 {
+		return nil
+	}
+	if len(entries) > performanceLearningPartLimit {
+		entries = entries[:performanceLearningPartLimit]
+	}
+	out := &performanceLearningBreakdown{Parts: make([]performanceLearningPart, 0, len(entries))}
+	for _, e := range entries {
+		out.Parts = append(out.Parts, performanceLearningPart{
+			ID:    e.Detector,
+			Share: float64(e.Ms) / float64(totalMs),
+			Ms:    e.Ms,
+		})
+	}
+	return out
+}
+
+// performanceLearningUnit is the learning engine as a unit of the measurements:
+// its share of one core as CPU, and the time of one round as round_s.
+func performanceLearningUnit(l *performanceLearning) performanceUnit {
+	round := float64(l.PerRunMs) / 1000
+	return performanceUnit{
+		ID:     performanceLearningUnitID,
+		CPUPct: l.Share * 100,
+		RoundS: &round,
+		Fixed:  true,
+	}
 }
 
 // performanceBreakdownBody builds the breakdown of GET. The dashboard parts

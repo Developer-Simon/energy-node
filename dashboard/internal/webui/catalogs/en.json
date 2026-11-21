@@ -4099,6 +4099,7 @@
   "performance.js.unit.battery_soc": "Battery SoC",
   "performance.js.unit.caddy": "Caddy",
   "performance.js.unit.dashboard": "Dashboard",
+  "performance.js.unit.learning": "Learning functions",
   "performance.js.unit.mosquitto": "Mosquitto",
   "performance.js.unit.rest": "Other",
   "performance.js.unit.shelly": "Shelly",

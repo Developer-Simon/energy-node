@@ -49,6 +49,7 @@
   // directory names apsystems_ez1 and tuya_mqtt stay as aliases.
   const UNIT_LABELS = {
     'energy-node-dashboard': 'performance.js.unit.dashboard',
+    learning: 'performance.js.unit.learning',
     automation: 'performance.js.unit.automation',
     mosquitto: 'performance.js.unit.mosquitto',
     tailscaled: 'performance.js.unit.tailscaled',
@@ -119,9 +120,9 @@
   // Numbers as typed, with a German comma allowed.
   const parseNumber = (raw) => Number(String(raw).replace(',', '.'));
 
-  // Breakdown of the load. Only these two units have one, the others keep
-  // their row as it is.
-  const UNIT_KIND = { 'energy-node-dashboard': 'dashboard', automation: 'automation' };
+  // Breakdown of the load. Only these units have one, the others keep their
+  // row as it is. The learning unit lists its detectors.
+  const UNIT_KIND = { 'energy-node-dashboard': 'dashboard', automation: 'automation', learning: 'learning' };
   // Full keys per entry, so the catalog scanner sees every key literally.
   const PART_KEYS = {
     push: 'performance.js.breakdown.part.push',
@@ -187,9 +188,10 @@
     // Open breakdowns by unit id. Kept across load(), so the 30 s poll does
     // not close them.
     breakdownOpen: {},
-    // Learning row: the top detectors are folded, a level change is in flight.
+    // Learning row: the top detectors are folded. learningSel is the drafted
+    // level, null while the saved one stands. Saved by apply(), not by a pick.
     learningOpen: false,
-    learningSaving: false,
+    learningSel: null,
 
     init() {
       const first = this.load();
@@ -362,8 +364,13 @@
     ratesChanged() {
       return (this.data.rows || []).some((row) => this.selected(row.id) !== this.cur[row.id]);
     },
-    changed() {
+    // Rates or budget differ from the saved ones. Only these need the measuring
+    // confirmation, the learning level is no rate.
+    ratesOrTargetChanged() {
       return this.ratesChanged() || this.targetDraft !== this.savedTarget;
+    },
+    changed() {
+      return this.ratesOrTargetChanged() || this.learningChanged();
     },
     ctx() {
       return {
@@ -444,15 +451,17 @@
       this.sel = { ...this.cur };
       this.custom = {};
       this.targetDraft = this.savedTarget;
+      this.learningSel = null;
       this.confirming = false;
     },
 
     // ---- Apply ----------------------------------------------------------
 
-    // While measuring, the first press only asks for confirmation.
+    // While measuring, the first press only asks for confirmation, but only when
+    // rates or the budget change. A learning level alone is saved at once.
     requestApply() {
       if (!this.changed()) return;
-      if (this.measuring() && !this.confirming) {
+      if (this.measuring() && !this.confirming && this.ratesOrTargetChanged()) {
         this.confirming = true;
         return;
       }
@@ -467,18 +476,28 @@
       });
       const body = { rates };
       if (this.targetDraft !== this.savedTarget) body.target_pct = this.targetDraft;
+      const writesRates = Object.keys(rates).length > 0 || body.target_pct !== undefined;
+      const learningLevel = this.learningChanged() ? this.learningSetting() : '';
 
       this.applying = true;
       try {
         const session = await requestJSON('/api/v1/auth/session').catch(() => null);
         const csrfToken = (session && session.csrf_token) || '';
-        await requestJSON('/api/v1/performance/apply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, // i18n-ignore
-          body: JSON.stringify(body),
-        });
+        if (learningLevel && session && session.edit_setup !== true) {
+          throw new Error(t('performance.js.learning.locked'));
+        }
+        if (writesRates) {
+          await requestJSON('/api/v1/performance/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, // i18n-ignore
+            body: JSON.stringify(body),
+          });
+        }
+        // After the rates, so the settings write reads what the apply saved.
+        if (learningLevel) await this.writeLearning(learningLevel, csrfToken);
         this.$store.toasts.push(t('performance.js.applied'), 'info');
         this.confirming = false;
+        this.learningSel = null;
         if (rates.live_update !== undefined) {
           window.dispatchEvent(new CustomEvent('performance-live-update-changed', { detail: rates.live_update }));
         }
@@ -613,6 +632,17 @@
       if (!kind || !bd || !bd[kind]) return null;
       const unit = (this.data.units || []).find((u) => u.id === unitId);
       const total = Number(unit?.cpu_pct) || 0;
+      if (kind === 'learning') {
+        // The API gives the fraction of the learning total, the page shows it
+        // as a share of the whole load, the bar is the fraction itself.
+        const parts = (bd.learning.parts || []).map((part) => ({
+          ...part,
+          name: this.learningDetector(part.id),
+          pctText: pctText(part.share * total),
+          share: share(part.share, 1),
+        }));
+        return parts.length ? { kind, parts } : null;
+      }
       if (kind === 'dashboard') {
         const parts = (bd.dashboard.parts || []).map((part) => ({
           ...part,
@@ -647,8 +677,10 @@
     toggleLabel(row) {
       return t('performance.js.breakdown.toggle', { name: row.name });
     },
+    // Dashboard and automation parts have their own keys. Any other id is a
+    // learning detector.
     partName(id) {
-      return PART_KEYS[id] ? t(PART_KEYS[id]) : id;
+      return PART_KEYS[id] ? t(PART_KEYS[id]) : this.learningDetector(id);
     },
     groupName(row) {
       return GROUP_KEYS[row] ? t(GROUP_KEYS[row]) : row;
@@ -713,9 +745,22 @@
     learning() {
       return this.data.learning || null;
     },
+    // The drafted level, or the saved one while no draft exists.
     learningSetting() {
+      if (this.learningSel !== null) return this.learningSel;
       const l = this.learning();
       return l ? l.setting : 'auto';
+    },
+    // The draft differs from the saved level, so the apply writes it.
+    learningChanged() {
+      const l = this.learning();
+      return Boolean(l) && this.learningSel !== null && this.learningSel !== l.setting;
+    },
+    // The level a setting stands for: auto is the resolved level of the answer.
+    learningResolved(setting) {
+      const l = this.learning();
+      if (!l) return '';
+      return setting === 'auto' ? l.level : setting;
     },
     learningLevels() {
       return LEARNING_LEVELS.map((id) => ({ id, label: t(`performance.js.learning.level.${id}`) }));
@@ -728,21 +773,30 @@
         share: pct(l.share * 100),
       });
     },
-    // Empty unless the chosen level is above the current one and the projected
-    // share of that level is above its target. The choice itself stays possible.
-    learningOverNote() {
+    // The estimate of the drafted level: the measured share scaled by the ratio
+    // of the budgets of the drafted and the current resolved level. over is true
+    // only for a level above the current one whose estimate is above its target.
+    learningEstimate() {
       const l = this.learning();
-      if (!l || !LEARNING_BUDGET_S[l.setting] || !LEARNING_BUDGET_S[l.level]) return '';
-      const chosen = LEARNING_BUDGET_S[l.setting];
+      if (!l) return null;
+      const selected = this.learningResolved(this.learningSetting());
       const current = LEARNING_BUDGET_S[l.level];
-      if (chosen <= current) return '';
-      const projected = l.share * (chosen / current);
-      const target = LEARNING_TARGET[l.setting];
-      if (projected <= target) return '';
+      const chosen = LEARNING_BUDGET_S[selected];
+      const ratio = current && chosen ? chosen / current : 1;
+      const measured = l.share;
+      const estimate = measured * ratio;
+      const target = LEARNING_TARGET[selected] ?? LEARNING_TARGET.balanced;
+      return { measured, estimate, target, over: ratio > 1 && estimate > target };
+    },
+    // Empty unless the drafted level is above the current one and its estimate
+    // is above its target. The choice itself stays possible.
+    learningOverNote() {
+      const e = this.learningEstimate();
+      if (!e || !e.over) return '';
       return t('performance.js.learning.over', {
-        share: pct(l.share * 100),
-        projected: pct(projected * 100),
-        target: pct(target * 100),
+        share: pct(e.measured * 100),
+        projected: pct(e.estimate * 100),
+        target: pct(e.target * 100),
       });
     },
     learningSuggest() {
@@ -768,31 +822,21 @@
     learningMs(ms) {
       return t('performance.js.learning.ms', { value: window.I18n.formatNumber(ms, 0) });
     },
-    // Writes learning_level like the learning page does: read the document,
-    // set the field, write it back. Without the setup right nothing is written.
-    async pickLearning(level) {
-      if (this.learningSaving || !LEARNING_LEVELS.includes(level)) return;
-      this.learningSaving = true;
-      try {
-        const session = await requestJSON('/api/v1/auth/session').catch(() => null);
-        if (session && session.edit_setup !== true) {
-          this.$store.toasts.push(t('performance.js.learning.locked'), 'critical');
-          return;
-        }
-        const csrfToken = (session && session.csrf_token) || '';
-        const current = await requestJSON('/api/v1/settings');
-        await requestJSON('/api/v1/settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, // i18n-ignore
-          body: JSON.stringify({ ...current, learning_level: level }),
-        });
-        this.$store.toasts.push(t('performance.js.learning.saved'), 'info');
-        await this.load();
-      } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
-      } finally {
-        this.learningSaving = false;
-      }
+    // Drafts a level. Selecting never writes, apply() saves the draft. Also the
+    // suggest button, which only drafts the suggested level.
+    pickLearning(level) {
+      if (!LEARNING_LEVELS.includes(level) || !this.learning()) return;
+      this.learningSel = level;
+    },
+    // Writes learning_level like the learning page does: read the document, set
+    // the field, write it back. apply() calls it once with the rates.
+    async writeLearning(level, csrfToken) {
+      const current = await requestJSON('/api/v1/settings');
+      await requestJSON('/api/v1/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, // i18n-ignore
+        body: JSON.stringify({ ...current, learning_level: level }),
+      });
     },
   });
 
