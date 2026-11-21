@@ -522,3 +522,75 @@ func TestDemoSeedClockAndSunHabitsContrast(t *testing.T) {
 		}
 	}
 }
+
+// demoSolarInput seeds the demo days, adds the demo roof model and raster to the
+// input and a copy of the last demo day as today, which the surplus needs.
+func demoSolarInput(t *testing.T, now time.Time, loc *time.Location) (*Input, *Raster, PVModel) {
+	t.Helper()
+	in := demoSeedInputFor(t, t.TempDir(), now, loc)
+	raster := DemoPVRaster(now, demoLat, demoLon)
+	model := DemoPVModel(raster)
+	in.PV = func() (PVModel, *Raster, bool) { return model, raster, true }
+	return in, raster, model
+}
+
+func TestDemoShadeCyclesAndSurplus(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	in, raster, model := demoSolarInput(t, now, loc)
+	if !model.Safe || len(model.Surfaces) == 0 {
+		t.Fatalf("demo model = %+v, want a safe model with a surface", model)
+	}
+	ctx := context.Background()
+
+	shade := NewShadeDetector(func() *Raster { return raster }, func() (PVModel, bool) { return model, true })
+	var shades []string
+	for _, c := range shade.Run(ctx, in, "") {
+		shades = append(shades, c.Finding.ID)
+	}
+	t.Logf("shade findings: %v", shades)
+	if len(shades) == 0 {
+		t.Fatal("demo shows no shade")
+	}
+
+	cycles := LearnCyclesDetector.Run(ctx, in, demoWasherDevice)
+	cw, ok := learnedValueFor(learnedValues(cycles), "device/"+demoWasherDevice+"/cycle_wh")
+	if !ok {
+		t.Fatal("demo gives no cycle_wh for the washing machine")
+	}
+	if cw.Num < 850 || cw.Num > 950 {
+		t.Errorf("cycle_wh = %v, want 900 +- 50", cw.Num)
+	}
+
+	td := in.Days[len(in.Days)-1]
+	td.Day = now.Format(dayLayout)
+	in.Days = append(in.Days, td)
+	wh, _, ok := SurplusLeft(in, now)
+	t.Logf("cycle_wh %v, surplus left %v Wh", cw.Num, wh)
+	if !ok || wh <= 0 {
+		t.Errorf("surplus left = %v, ok %v, want a positive value", wh, ok)
+	}
+}
+
+func TestSeedDemoPVWritesRasterAndModel(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	dir := t.TempDir()
+	rasterPath := filepath.Join(dir, "pvraster.json")
+	modelPath := filepath.Join(dir, "pvmodel.json")
+	if err := SeedDemoPV(rasterPath, modelPath, now); err != nil {
+		t.Fatalf("SeedDemoPV: %v", err)
+	}
+	state, err := os.ReadFile(rasterPath)
+	if err != nil {
+		t.Fatalf("read raster: %v", err)
+	}
+	r := LoadRaster(state, demoPVAzCellDeg, demoPVElCellDeg)
+	if _, ok := r.Cell(180, 24); !ok {
+		t.Error("loaded raster has no value at the noon sky")
+	}
+	m, ok := NewPVModelStore(modelPath).Model()
+	if !ok || !m.Safe {
+		t.Errorf("stored model = %+v, ok %v, want a safe model", m, ok)
+	}
+}
