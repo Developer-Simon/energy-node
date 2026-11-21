@@ -1039,12 +1039,13 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-learn-tile { box-sizing: border-box; display: grid; gap: 2px; min-width: 0; text-align: left; font: inherit; color: inherit; cursor: pointer;
   background: var(--panel); border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: .6rem .75rem;
   transition: transform 120ms var(--ease-out), border-color 150ms ease, background-color 150ms ease; }
-.auto-learn-tile[aria-expanded="true"] { border-color: var(--accent-line); background: var(--accent-bg); }
 .auto-learn-tile-title { color: var(--text-strong); font-weight: 600; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .auto-learn-tile-line { font-size: .8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .auto-learn-tile:active, .auto-learn-more:active { transform: scale(.97); }
 .auto-learn-tile:focus-visible, .auto-learn-more:focus-visible, .auto-learn-hint-undo:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (hover: hover) and (pointer: fine) { .auto-learn-tile:hover { border-color: var(--border); } }
+/* button-Praefix und :not(:disabled), damit der globale button:hover-Stil nicht gewinnt */
+@media (hover: hover) and (pointer: fine) { button.auto-learn-tile:hover:not(:disabled) { border-color: var(--border); background: var(--panel); color: inherit; } }
+button.auto-learn-tile[aria-expanded="true"]:not(:disabled) { background: var(--accent-bg); }
 .auto-learn-group { justify-self: start; font-size: .7rem; font-weight: 600; letter-spacing: .02em; color: var(--text-faint); }
 .auto-learn-group.is-habit { color: var(--accent-line); }
 .auto-learn-group.is-reliability { color: var(--warn); }
@@ -1058,8 +1059,15 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-learn-detail { display: grid; grid-template-rows: 0fr; opacity: 0;
   transition: grid-template-rows 240ms var(--ease-out), opacity 240ms var(--ease-out); }
 .auto-learn-detail.is-open { grid-template-rows: 1fr; opacity: 1; }
-.auto-learn-detail-clip { overflow: hidden; min-height: 0; }
-.auto-learn-card { box-sizing: border-box; margin-top: .5rem; background: var(--panel); border: 1px solid var(--accent-line); border-radius: var(--radius-md); padding: .9rem 1rem; }
+/* Polster fuer Schatten und Spitze, sonst schneidet overflow sie ab */
+.auto-learn-detail-clip { overflow: hidden; min-height: 0; padding: 0 6px 10px; margin: 0 -6px -10px; }
+/* Die Karte haengt an ihrer Kachel: neutraler Rand, weicher Schatten, Spitze zur Kachelmitte */
+.auto-learn-card { box-sizing: border-box; position: relative; margin-top: 12px; background: var(--panel); border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: .9rem 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 6px 18px rgba(0, 0, 0, .07); }
+.auto-learn-card::before { content: ""; position: absolute; top: -7px; left: var(--auto-learn-caret, 2rem); width: 12px; height: 12px;
+  background: var(--panel); border-left: 1px solid var(--border-soft); border-top: 1px solid var(--border-soft); border-top-left-radius: 2px;
+  transform: translateX(-50%) rotate(45deg); transition: left 240ms var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { .auto-learn-card::before { transition: none; } }
 .auto-learn-card-tags { display: flex; flex-wrap: wrap; gap: .4rem .6rem; align-items: center; }
 .auto-learn-card-device { font-size: .82rem; color: var(--text-muted); flex: 1 1 8rem; min-width: 0; }
 .auto-learn-season { font-size: .74rem; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 999px; padding: .1rem .55rem; white-space: nowrap; }
