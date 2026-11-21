@@ -18,6 +18,15 @@ func (f fakeCandidates) Candidates() []autolearn.Candidate { return f }
 // RecentOutdoorC reports no temperature, so no heating season rests.
 func (f fakeCandidates) RecentOutdoorC() *float64 { return nil }
 
+// HeatingKnee reports no knee, so no finding gets a season limit.
+func (f fakeCandidates) HeatingKnee(string) (float64, bool) { return 0, false }
+
+// Groups of the suggestion gate: only the habit group, and none.
+var (
+	groupsHabit = map[string]bool{"habit": true}
+	groupsNone  = map[string]bool{}
+)
+
 // habitCandidate is a candidate that passes every gate of the habit group.
 func habitCandidate(id, device string, kwh float64) autolearn.Candidate {
 	return autolearn.Candidate{
@@ -41,7 +50,7 @@ func TestGateSuggestionsDropsVanishedDevicesBeforeGate(t *testing.T) {
 	engine := fakeCandidates{habitCandidate("switchtime:gone", "gone", 9), habitCandidate("switchtime:a", "dev-a", 2)}
 	exists := func(device string) bool { return device == "dev-a" }
 
-	gateSuggestions(book, engine, noRules, true, exists, time.Now())
+	gateSuggestions(book, engine, noRules, groupsHabit, exists, time.Now())
 
 	visible := book.Visible(time.Now(), exists)
 	if len(visible) != 1 || visible[0].ID != "switchtime:a" {
@@ -61,7 +70,7 @@ func TestGateSuggestionsHabitOffIsEmpty(t *testing.T) {
 	engine := fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}
 	exists := func(string) bool { return true }
 
-	gateSuggestions(book, engine, noRules, false, exists, time.Now())
+	gateSuggestions(book, engine, noRules, groupsNone, exists, time.Now())
 
 	if got := book.Visible(time.Now(), exists); len(got) != 0 {
 		t.Fatalf("visible with habit off = %+v", got)
@@ -71,7 +80,7 @@ func TestGateSuggestionsHabitOffIsEmpty(t *testing.T) {
 func TestSuggestionBookDismissHidesAndKeepsKnown(t *testing.T) {
 	state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
 	book := &suggestionBook{state: state}
-	gateSuggestions(book, fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, noRules, true, func(string) bool { return true }, time.Now())
+	gateSuggestions(book, fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, noRules, groupsHabit, func(string) bool { return true }, time.Now())
 	exists := func(string) bool { return true }
 
 	if err := book.Dismiss("switchtime:a", time.Now()); err != nil {
@@ -95,7 +104,7 @@ func TestSuggestionUndoWorksAfterRestart(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "suggestions.json")
 	state := autolearn.LoadSuggestionState(path, nil)
 	book := &suggestionBook{state: state}
-	gateSuggestions(book, fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, noRules, true, func(string) bool { return true }, time.Now())
+	gateSuggestions(book, fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, noRules, groupsHabit, func(string) bool { return true }, time.Now())
 	if err := book.Dismiss("switchtime:a", time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +144,7 @@ func TestGateSuggestionsSavesOnlyWhenTheShownSetChanges(t *testing.T) {
 	exists := func(string) bool { return true }
 	now := time.Now()
 
-	gateSuggestions(book, fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, noRules, true, exists, now)
+	gateSuggestions(book, fakeCandidates{habitCandidate("switchtime:a", "dev-a", 2)}, noRules, groupsHabit, exists, now)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("new suggestion not saved: %v", err)
@@ -149,17 +158,73 @@ func TestGateSuggestionsSavesOnlyWhenTheShownSetChanges(t *testing.T) {
 	}
 	changed := habitCandidate("switchtime:a", "dev-a", 2)
 	changed.Lower = 0.9
-	gateSuggestions(book, fakeCandidates{changed}, noRules, true, exists, now)
+	gateSuggestions(book, fakeCandidates{changed}, noRules, groupsHabit, exists, now)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("same IDs with changed numbers were written (stat err %v)", err)
 	}
 
-	gateSuggestions(book, fakeCandidates{changed, habitCandidate("switchtime:b", "dev-b", 1)}, noRules, true, exists, now)
+	gateSuggestions(book, fakeCandidates{changed, habitCandidate("switchtime:b", "dev-b", 1)}, noRules, groupsHabit, exists, now)
 	data, err = os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("appearing suggestion not saved: %v", err)
 	}
 	if !strings.Contains(string(data), "switchtime:a") || !strings.Contains(string(data), "switchtime:b") {
 		t.Fatalf("saved file lacks a shown suggestion: %s", data)
+	}
+}
+
+// kneeCandidates answers a heating knee for dev-a and a fixed mean temperature.
+type kneeCandidates struct {
+	fakeCandidates
+	recent float64
+}
+
+func (k kneeCandidates) HeatingKnee(device string) (float64, bool) { return 15, device == "dev-a" }
+
+func (k kneeCandidates) RecentOutdoorC() *float64 { r := k.recent; return &r }
+
+// energyCandidate is a heating season finding of the energy group on dev-a.
+func energyCandidate() autolearn.Candidate {
+	c := habitCandidate("temp_limit:r1", "dev-a", 2)
+	c.Finding.Group = "energy"
+	c.Finding.Season = &autolearn.Season{FromWeek: 1, ToWeek: 53}
+	return c
+}
+
+func TestGateSuggestionsEnergyGroupSwitch(t *testing.T) {
+	state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
+	book := &suggestionBook{state: state}
+	exists := func(string) bool { return true }
+	src := fakeCandidates{energyCandidate()}
+	gateSuggestions(book, src, noRules, groupsNone, exists, time.Now())
+	if got := book.Visible(time.Now(), exists); len(got) != 0 {
+		t.Fatalf("energy group off: visible = %d, want 0", len(got))
+	}
+	gateSuggestions(book, src, noRules, map[string]bool{"energy": true}, exists, time.Now())
+	if got := book.Visible(time.Now(), exists); len(got) != 1 {
+		t.Fatalf("energy group on: visible = %d, want 1", len(got))
+	}
+}
+
+func TestGateSuggestionsHeatingKneeRestsWarmDays(t *testing.T) {
+	energy := map[string]bool{"energy": true}
+	exists := func(string) bool { return true }
+	for _, tc := range []struct {
+		name   string
+		recent float64
+		want   int
+	}{
+		{"warm three-day mean rests", 18, 0},
+		{"cold three-day mean shows", 10, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			state := autolearn.LoadSuggestionState(filepath.Join(t.TempDir(), "suggestions.json"), nil)
+			book := &suggestionBook{state: state}
+			src := kneeCandidates{fakeCandidates: fakeCandidates{energyCandidate()}, recent: tc.recent}
+			gateSuggestions(book, src, noRules, energy, exists, time.Now())
+			if got := book.Visible(time.Now(), exists); len(got) != tc.want {
+				t.Fatalf("visible = %d, want %d", len(got), tc.want)
+			}
+		})
 	}
 }

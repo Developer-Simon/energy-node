@@ -184,16 +184,21 @@ func WeeksFromStats(hours []energystats.HourRecord, loc *time.Location) []Week {
 
 // seasonFile is the content of season.json.
 type seasonFile struct {
-	Version int    `json:"version"`
-	Weeks   []Week `json:"weeks"`
+	Version      int                `json:"version"`
+	Weeks        []Week             `json:"weeks"`
+	HeatingKnees map[string]float64 `json:"heating_knees,omitempty"`
+	HouseKnee    *float64           `json:"house_knee,omitempty"`
 }
 
-// SeasonStore keeps the weekly figures. It is safe for concurrent use.
+// SeasonStore keeps the weekly figures and the heating knees of the devices
+// and of the house. It is safe for concurrent use.
 type SeasonStore struct {
-	mu    sync.Mutex
-	path  string
-	logf  func(string, ...any)
-	weeks map[string]Week
+	mu           sync.Mutex
+	path         string
+	logf         func(string, ...any)
+	weeks        map[string]Week
+	heatingKnees map[string]float64
+	houseKnee    *float64
 }
 
 // LoadSeasonStore reads the store from path. A missing file means an empty
@@ -202,7 +207,7 @@ func LoadSeasonStore(path string, logf func(string, ...any)) *SeasonStore {
 	if logf == nil {
 		logf = log.Printf
 	}
-	s := &SeasonStore{path: path, logf: logf, weeks: map[string]Week{}}
+	s := &SeasonStore{path: path, logf: logf, weeks: map[string]Week{}, heatingKnees: map[string]float64{}}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -218,7 +223,47 @@ func LoadSeasonStore(path string, logf func(string, ...any)) *SeasonStore {
 	for _, w := range f.Weeks {
 		s.weeks[w.Key] = w
 	}
+	// A file from before the knees has no fields, so both stay empty.
+	for id, k := range f.HeatingKnees {
+		s.heatingKnees[id] = k
+	}
+	s.houseKnee = f.HouseKnee
 	return s
+}
+
+// SetHeatingKnees replaces the heating knees of the devices and the house knee.
+// A nil house is unknown. The knees are kept with the weeks and saved by Save.
+func (s *SeasonStore) SetHeatingKnees(knees map[string]float64, house *float64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.heatingKnees = make(map[string]float64, len(knees))
+	for id, k := range knees {
+		s.heatingKnees[id] = k
+	}
+	s.houseKnee = nil
+	if house != nil {
+		k := *house
+		s.houseKnee = &k
+	}
+}
+
+// HeatingKnee returns the heating knee of a device, false when it has none.
+func (s *SeasonStore) HeatingKnee(device string) (float64, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k, ok := s.heatingKnees[device]
+	return k, ok
+}
+
+// HouseKnee returns the heating knee of the house, nil when unknown.
+func (s *SeasonStore) HouseKnee() *float64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.houseKnee == nil {
+		return nil
+	}
+	k := *s.houseKnee
+	return &k
 }
 
 // Put stores a week. Day files replace statistics, statistics never replace day
@@ -294,7 +339,8 @@ func (s *SeasonStore) Save() error {
 		weeks = append(weeks, w)
 	}
 	sortWeeks(weeks)
-	data, err := json.Marshal(seasonFile{Version: seasonFileVersion, Weeks: weeks})
+	data, err := json.Marshal(seasonFile{Version: seasonFileVersion, Weeks: weeks,
+		HeatingKnees: s.heatingKnees, HouseKnee: s.houseKnee})
 	if err != nil {
 		return err
 	}

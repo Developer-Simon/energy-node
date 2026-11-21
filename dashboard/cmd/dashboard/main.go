@@ -523,6 +523,16 @@ func main() {
 		automationEngine.Register(det)
 	}
 	registerLearnDetectors(automationEngine)
+	registerEnergyDetectors(automationEngine)
+	// Die Aussentemperatur fuer den Heizzeit-Erkenner: die Entitaet aus den
+	// Einstellungen, aufgeloest ueber die Registry wie beim Lernhub.
+	automationEngine.SetOutdoor(func() autolearn.OutdoorSource {
+		value, err := settingsStore.LoadSettings()
+		if err != nil {
+			return autolearn.OutdoorSource{}
+		}
+		return learnOutdoor(reg.Snapshot(), value.AutomationOutdoorEntity)
+	})
 	engineGroups := func() map[string]bool {
 		value, err := settingsStore.LoadSettings()
 		if err != nil {
@@ -749,7 +759,7 @@ func main() {
 		learnedValues = func() []autolearn.Value { return autolearn.WithDemoHouseState(automationEngine.Values()) }
 	}
 	engineLoop.afterRound = func() {
-		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
+		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups(), suggestionExists, time.Now())
 		publishLearned(learnedStore, learnedValues, client, engineGroups()["habit"], learnedExists, time.Now())
 		seasonClose.Run(time.Now())
 	}

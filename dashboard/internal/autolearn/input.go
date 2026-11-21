@@ -31,6 +31,16 @@ type Input struct {
 	Base      Base
 	// Season holds the weekly figures for the detectors, nil without a store.
 	Season *SeasonStore
+	// Outdoor names the outdoor temperature entity, zero when none is chosen.
+	Outdoor OutdoorSource
+}
+
+// OutdoorSource names the outdoor temperature entity: its unique id, its state
+// topic and its value template. The zero value means no entity.
+type OutdoorSource struct {
+	EntityID      string
+	Topic         string
+	ValueTemplate string
 }
 
 // Base holds the day types, the absence and the day bounds derived from the

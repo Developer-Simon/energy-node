@@ -67,6 +67,7 @@ type Engine struct {
 	limits    func() learnrec.Limits
 	loc       *time.Location
 	season    *SeasonStore
+	outdoor   func() OutdoorSource
 	// recentC is the mean outdoor temperature of the last three days as the
 	// last round read it, nil when unknown.
 	recentC *float64
@@ -388,8 +389,30 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 	in.Base = BuildBase(in.Days, e.loc)
 	e.mu.Lock()
 	e.recentC = in.Base.RecentOutdoorC
+	outdoor := e.outdoor
 	e.mu.Unlock()
+	if outdoor != nil {
+		in.Outdoor = outdoor()
+	}
 	return in
+}
+
+// SetOutdoor gives the engine the outdoor temperature entity. It is read on
+// every round into Input.Outdoor. Without it the round has no entity.
+func (e *Engine) SetOutdoor(f func() OutdoorSource) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.outdoor = f
+}
+
+// HeatingKnee returns the heating knee of a device as the season store holds
+// it from the last round, false when there is none.
+func (e *Engine) HeatingKnee(device string) (float64, bool) {
+	s := e.seasonStore()
+	if s == nil {
+		return 0, false
+	}
+	return s.HeatingKnee(device)
 }
 
 // RecentOutdoorC returns the mean outdoor temperature of the last three days

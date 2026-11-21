@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
@@ -140,6 +141,33 @@ func engineGroupsFor(value settings.Settings) map[string]bool {
 		"reliability": patterns && !value.AutomationReliabilityDisabled,
 		"energy":      patterns && !value.AutomationEnergyDisabled,
 	}
+}
+
+// registerEnergyDetectors meldet die Erkenner der Gruppe Energie bei der Engine.
+// Sie laufen nur, wenn der Schalter Energie an ist.
+func registerEnergyDetectors(e *autolearn.Engine) {
+	e.Register(autolearn.TemperatureDetector)
+}
+
+// learnOutdoor finds the outdoor temperature entity by its unique id among the
+// devices, without the dashboard's own device. Its state topic and value
+// template come with it. Without a match the zero value is returned.
+func learnOutdoor(devices []registry.DeviceView, uniqueID string) autolearn.OutdoorSource {
+	uid := strings.TrimSpace(uniqueID)
+	if uid == "" {
+		return autolearn.OutdoorSource{}
+	}
+	for _, dev := range devices {
+		if dev.ID == energydiscovery.DeviceIdentifier {
+			continue
+		}
+		for _, e := range dev.Entities {
+			if e.UniqueID == uid {
+				return autolearn.OutdoorSource{EntityID: uid, Topic: e.StateTopic, ValueTemplate: e.ValueTemplate}
+			}
+		}
+	}
+	return autolearn.OutdoorSource{}
 }
 
 // registerLearnDetectors meldet die Erkenner der Lernwerte bei der Engine. Sie

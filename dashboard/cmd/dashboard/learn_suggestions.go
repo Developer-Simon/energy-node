@@ -12,6 +12,7 @@ import (
 type suggestionCandidates interface {
 	Candidates() []autolearn.Candidate
 	RecentOutdoorC() *float64
+	HeatingKnee(device string) (float64, bool)
 }
 
 // suggestionBook keeps the suggestions of the last engine round and the
@@ -71,22 +72,22 @@ func (b *suggestionBook) Reset() error {
 	return b.state.ResetLearned()
 }
 
-// gateSuggestions runs the habit candidates of the last engine round through
-// the gates and stores the result in book. Candidates of devices that do not
-// exist any more are dropped before the gate, so they cannot take a slot.
-// Without the habit group the list is empty.
-func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc func() ([]byte, error), habitOn bool, exists func(device string) bool, now time.Time) {
+// gateSuggestions runs the habit and energy candidates of the last engine round
+// through the gates and stores the result in book. Only the groups that are on
+// in groups count. Candidates of devices that do not exist any more are dropped
+// before the gate, so they cannot take a slot. A finding on a device with a
+// heating knee and a heating season gets the knee as its season limit.
+func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc func() ([]byte, error), groups map[string]bool, exists func(device string) bool, now time.Time) {
 	var cands []autolearn.Candidate
-	if habitOn {
-		for _, c := range source.Candidates() {
-			if c.Finding.Group != "habit" {
-				continue
-			}
-			if c.Finding.Device != "" && exists != nil && !exists(c.Finding.Device) {
-				continue
-			}
-			cands = append(cands, c)
+	for _, c := range source.Candidates() {
+		g := c.Finding.Group
+		if (g != "habit" && g != "energy") || !groups[g] {
+			continue
 		}
+		if c.Finding.Device != "" && exists != nil && !exists(c.Finding.Device) {
+			continue
+		}
+		cands = append(cands, c)
 	}
 	var doc autolearn.Doc
 	if raw, err := readDoc(); err == nil {
@@ -96,6 +97,20 @@ func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc 
 	}
 	before := shownIDs(book.state.Shown())
 	out, shown := autolearn.Gate(cands, doc, book.state.Shown())
+	for i := range out {
+		f := &out[i]
+		if f.Season == nil || f.Device == "" {
+			continue
+		}
+		knee, ok := source.HeatingKnee(f.Device)
+		if !ok {
+			continue
+		}
+		// A copy, the season of the candidate belongs to the engine.
+		season := *f.Season
+		season.HeatingBelowC = &knee
+		f.Season = &season
+	}
 	book.mu.Lock()
 	book.all = out
 	book.recentC = source.RecentOutdoorC()
