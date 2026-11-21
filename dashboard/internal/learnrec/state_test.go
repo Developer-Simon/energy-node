@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -40,7 +41,7 @@ func TestLoadStateStableOnSecondCall(t *testing.T) {
 	}
 
 	second := LoadState(path, stateT0.Add(72*time.Hour), true, noStateLog)
-	if second != first {
+	if !reflect.DeepEqual(second, first) {
 		t.Fatalf("second LoadState = %+v, want %+v", second, first)
 	}
 	after, err := os.ReadFile(path)
@@ -116,7 +117,7 @@ func TestLowerAutoLevelEcoStaysAndWritesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LowerAutoLevel on one core: %v", err)
 	}
-	if got != st {
+	if !reflect.DeepEqual(got, st) {
 		t.Fatalf("state changed on eco: %+v, want %+v", got, st)
 	}
 	after, err := os.ReadFile(path)

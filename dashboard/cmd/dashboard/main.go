@@ -562,6 +562,8 @@ func main() {
 	}
 	engineLoop := newEngineRunner(automationEngine, engineGroups, engineDowngrade)
 	learnHub.AddMinute("autolearn-engine", engineLoop)
+	// Tagesanteil der Lernlast, stuendlich in den Lernstand.
+	learnHub.AddSaver("daily-share", dailyShareSaver(automationEngine, &learnStateMu, &learnState, learnStatePath, time.Now))
 	// Vorschlaege der Gewohnheiten: nach jeder Runde durch die Gates, gespeichert
 	// stuendlich mit dem Hub. Verworfene und zurueckgestellte bleiben in suggestions.json.
 	suggestionState := autolearn.LoadSuggestionState(filepath.Join(autolearnDir, "suggestions.json"), log.Printf)

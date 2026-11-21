@@ -103,3 +103,80 @@ func TestIsAutoSetting(t *testing.T) {
 		}
 	}
 }
+
+func TestTargetShare(t *testing.T) {
+	if got := TargetShare(LevelEco); got != 0.05 {
+		t.Errorf("TargetShare(eco) = %v, want 0.05", got)
+	}
+	if got := TargetShare(LevelBalanced); got != 0.10 {
+		t.Errorf("TargetShare(balanced) = %v, want 0.10", got)
+	}
+	if got := TargetShare(LevelFull); got != 0.10 {
+		t.Errorf("TargetShare(full) = %v, want 0.10", got)
+	}
+}
+
+// shareWithDays legt je Tag vor suggestNow einen Anteil an, days Tage zurueck.
+func shareWithDays(days int, share float64) State {
+	st := State{DailyShare: map[string]float64{}}
+	for i := 1; i <= days; i++ {
+		st.DailyShare[suggestNow.AddDate(0, 0, -i).Format(dayLayout)] = share
+	}
+	return st
+}
+
+var suggestNow = time.Date(2026, 11, 21, 9, 0, 0, 0, time.UTC)
+
+func TestSuggestUp(t *testing.T) {
+	withDay := func(st State, i int, share float64) State {
+		st.DailyShare[suggestNow.AddDate(0, 0, -i).Format(dayLayout)] = share
+		return st
+	}
+	tests := []struct {
+		name    string
+		st      State
+		current Level
+		want    Level
+		ok      bool
+	}{
+		{"seven days at 0.02 on eco", shareWithDays(7, 0.02), LevelEco, LevelBalanced, true},
+		{"six days only", shareWithDays(6, 0.02), LevelEco, "", false},
+		{"one day at 0.03 in between", withDay(shareWithDays(7, 0.02), 4, 0.03), LevelEco, "", false},
+		{"full never suggests", shareWithDays(7, 0.001), LevelFull, "", false},
+		{"balanced needs 0.05 or less", shareWithDays(7, 0.04), LevelBalanced, LevelFull, true},
+		{"balanced above half of target", shareWithDays(7, 0.06), LevelBalanced, "", false},
+		{"today does not count", withDay(shareWithDays(7, 0.02), 0, 0.5), LevelEco, LevelBalanced, true},
+		{"missing day among seven", func() State {
+			st := shareWithDays(7, 0.02)
+			delete(st.DailyShare, suggestNow.AddDate(0, 0, -2).Format(dayLayout))
+			return st
+		}(), LevelEco, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := SuggestUp(tt.st, tt.current, suggestNow)
+			if !tt.ok {
+				tt.want = tt.current
+			}
+			if ok != tt.ok || got != tt.want {
+				t.Errorf("SuggestUp = (%q, %v), want (%q, %v)", got, ok, tt.want, tt.ok)
+			}
+		})
+	}
+}
+
+func TestRecordShareKeepsFourteenDays(t *testing.T) {
+	st := State{}
+	for i := 20; i >= 0; i-- {
+		st = RecordShare(st, suggestNow.AddDate(0, 0, -i), 0.01*float64(i))
+	}
+	if len(st.DailyShare) != shareDays {
+		t.Fatalf("kept %d days, want %d", len(st.DailyShare), shareDays)
+	}
+	if _, ok := st.DailyShare[suggestNow.AddDate(0, 0, -20).Format(dayLayout)]; ok {
+		t.Errorf("oldest day was not pruned")
+	}
+	if got := st.DailyShare[suggestNow.Format(dayLayout)]; got != 0 {
+		t.Errorf("today = %v, want 0", got)
+	}
+}

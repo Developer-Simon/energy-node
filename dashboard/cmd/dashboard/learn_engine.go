@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
@@ -179,6 +180,25 @@ func registerLearnDetectors(e *autolearn.Engine) {
 		autolearn.LearnDayBoundsDetector, autolearn.LearnHouseStateDetector,
 	} {
 		e.Register(det)
+	}
+}
+
+// saverFunc macht eine Funktion zum Saver des Hubs.
+type saverFunc func() error
+
+// Save ruft die Funktion auf.
+func (f saverFunc) Save() error { return f() }
+
+// dailyShareSaver schreibt den Tagesanteil der Lernlast (Engine.Load, die
+// Last der letzten 24 Stunden) in den Lernstand. Der Hub ruft ihn hoechstens
+// stuendlich auf. mu schuetzt st, weil die Herabstufung denselben Stand aendert.
+func dailyShareSaver(engine *autolearn.Engine, mu *sync.Mutex, st *learnrec.State, path string, now func() time.Time) saverFunc {
+	return func() error {
+		_, share, _ := engine.Load()
+		mu.Lock()
+		defer mu.Unlock()
+		*st = learnrec.RecordShare(*st, now(), share)
+		return learnrec.SaveState(path, *st)
 	}
 }
 

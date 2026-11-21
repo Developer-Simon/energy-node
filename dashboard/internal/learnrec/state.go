@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
@@ -21,6 +22,9 @@ type State struct {
 	FirstStart int64 `json:"first_start"`
 	Fresh      bool  `json:"fresh"`
 	AutoLevel  Level `json:"auto_level,omitempty"`
+	// DailyShare ist der Anteil der Lernlast je Kalendertag (YYYY-MM-DD), die
+	// letzten shareDays Tage. Fehlt das Feld, startet die Liste leer.
+	DailyShare map[string]float64 `json:"daily_share,omitempty"`
 }
 
 // LowerAutoLevel rueckt die automatisch gewaehlte Stufe um eine nach unten
@@ -73,4 +77,39 @@ func writeState(path string, st State) error {
 		return err
 	}
 	return energystats.WriteFileAtomic(filepath.Dir(path), path, data)
+}
+
+// shareDays ist, wie viele Tage Tagesanteile der Lernlast der Stand behaelt.
+const shareDays = 14
+
+// dayLayout ist das Datumsformat der Schluessel in DailyShare.
+const dayLayout = "2006-01-02"
+
+// RecordShare setzt den Tagesanteil fuer den Tag von now und wirft Tage weg,
+// die aelter als die letzten shareDays sind. Der Rueckgabewert ist der neue
+// Stand, persistiert wird er nicht.
+func RecordShare(st State, now time.Time, share float64) State {
+	shares := make(map[string]float64, shareDays)
+	for day, s := range st.DailyShare {
+		shares[day] = s
+	}
+	shares[now.Format(dayLayout)] = share
+	if len(shares) > shareDays {
+		days := make([]string, 0, len(shares))
+		for day := range shares {
+			days = append(days, day)
+		}
+		sort.Strings(days)
+		for _, day := range days[:len(days)-shareDays] {
+			delete(shares, day)
+		}
+	}
+	st.DailyShare = shares
+	return st
+}
+
+// SaveState schreibt den Stand nach path. Fuer Aufrufer ausserhalb des Pakets,
+// etwa den Saver des Hubs.
+func SaveState(path string, st State) error {
+	return writeState(path, st)
 }
