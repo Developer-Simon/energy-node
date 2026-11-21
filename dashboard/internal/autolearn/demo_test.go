@@ -66,6 +66,16 @@ func demoRegistryDevices(t *testing.T) map[string]DeviceInfo {
 	return devices
 }
 
+// demoRulesRaw reads the demo rule document, which carries the demo location.
+func demoRulesRaw(t *testing.T) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(demoFixture("devices", "demo", "automation_rules.json"))
+	if err != nil {
+		t.Fatalf("read demo rules: %v", err)
+	}
+	return raw
+}
+
 // demoSeedInputFor seeds the demo days into dir, reads them back through the day
 // store and builds the detector input from the registry devices and the demo rules.
 func demoSeedInputFor(t *testing.T, dir string, now time.Time, loc *time.Location) *Input {
@@ -81,11 +91,7 @@ func demoSeedInputFor(t *testing.T, dir string, now time.Time, loc *time.Locatio
 	if len(days) != demoSeedDays {
 		t.Fatalf("days = %d, want %d", len(days), demoSeedDays)
 	}
-	raw, err := os.ReadFile(demoFixture("devices", "demo", "automation_rules.json"))
-	if err != nil {
-		t.Fatalf("read demo rules: %v", err)
-	}
-	doc, err := ParseDoc(raw)
+	doc, err := ParseDoc(demoRulesRaw(t))
 	if err != nil {
 		t.Fatalf("parse demo rules: %v", err)
 	}
@@ -138,9 +144,14 @@ func TestDemoSeedYieldsFourFindings(t *testing.T) {
 	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
 	in := demoSeedInputFor(t, t.TempDir(), now, loc)
 
-	sw := demoRunPerDevice(in, SwitchTimeDetector)
-	if len(sw) != 1 || !strings.HasPrefix(sw[0].Finding.ID, "switch_time:"+demoPlugBalkon+":off:") {
-		t.Errorf("switch_time candidates = %v, want one off-time for %s", ids(sw), demoPlugBalkon)
+	var off []Candidate
+	for _, c := range demoRunPerDevice(in, SwitchTimeDetector) {
+		if strings.HasPrefix(c.Finding.ID, "switch_time:"+demoPlugBalkon+":off:") {
+			off = append(off, c)
+		}
+	}
+	if len(off) != 1 {
+		t.Errorf("switch_time off candidates of %s = %v, want one", demoPlugBalkon, ids(off))
 	}
 	rt := demoRunPerDevice(in, RuntimeDetector)
 	if len(rt) != 1 || rt[0].Finding.Device != demoPlugDry {
@@ -164,10 +175,7 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 		t.Fatalf("SeedDemo: %v", err)
 	}
 	days := OpenDayStore(dir, loc, keepAll, noLog)
-	raw, err := os.ReadFile(demoFixture("devices", "demo", "automation_rules.json"))
-	if err != nil {
-		t.Fatalf("read demo rules: %v", err)
-	}
+	raw := demoRulesRaw(t)
 	devices := demoRegistryDevices(t)
 	e := NewEngine(days, NewReactions(),
 		func() ([]byte, error) { return raw, nil },
@@ -175,14 +183,22 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 		func() learnrec.Limits { return learnrec.LimitsFor(learnrec.LevelBalanced, 4) },
 		loc)
 	for _, d := range []Detector{SwitchTimeDetector, RuntimeDetector, CouplingDetector, OverriddenDetector,
-		AwayStandbyDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector} {
+		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector} {
 		e.Register(d)
 	}
-	habit := map[string]bool{"habit": true}
+	season := LoadSeasonStore("", noLog)
+	for _, w := range DemoSeason(now) {
+		season.Put(w)
+	}
+	e.SetSeason(season)
+	e.SetOutdoor(func() OutdoorSource {
+		return OutdoorSource{EntityID: demoOutdoorEntity, Topic: "outstation/outdoor/state", ValueTemplate: "{{ value_json.temp }}"}
+	})
+	groups := map[string]bool{"habit": true, "energy": true}
 	// The first tick only starts the engine, the daily round runs at 03:30.
-	e.Tick(time.Date(now.Year(), now.Month(), now.Day(), 3, 0, 0, 0, loc), habit)
+	e.Tick(time.Date(now.Year(), now.Month(), now.Day(), 3, 0, 0, 0, loc), groups)
 	for i := 0; i < 3; i++ {
-		e.Tick(time.Date(now.Year(), now.Month(), now.Day(), 3, 30, 0, 0, loc), habit)
+		e.Tick(time.Date(now.Year(), now.Month(), now.Day(), 3, 30, 0, 0, loc), groups)
 	}
 	return e
 }
@@ -232,6 +248,40 @@ func TestDemoSeedSuggestsAwayStandbyOnly(t *testing.T) {
 	if len(away) != 1 || away[0] != demoHeatPump {
 		t.Errorf("away_standby devices = %v, want only %s", away, demoHeatPump)
 	}
+}
+
+// demoOutdoorEntity is the unique ID of the outdoor temperature of the demo.
+const demoOutdoorEntity = "aussentemperatur"
+
+// TestDemoSeedSuggestsSunOnHabit checks that the sunset habit of the balcony
+// plug arises as a sun suggestion for the switch-on.
+func TestDemoSeedSuggestsSunOnHabit(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	in := demoSeedInputFor(t, t.TempDir(), now, loc)
+	var codes []string
+	for _, c := range demoRunPerDevice(in, SwitchTimeDetector) {
+		if c.Finding.Device == demoPlugBalkon && c.Finding.Summary.Code == "switch_time.sun_on" {
+			return
+		}
+		codes = append(codes, c.Finding.Summary.Code)
+	}
+	t.Errorf("no switch_time.sun_on for %s, got codes %v", demoPlugBalkon, codes)
+}
+
+// TestDemoSeedSuggestsTemperatureLimit checks that the heat pump rule gets a
+// temperature limit at the demo knee.
+func TestDemoSeedSuggestsTemperatureLimit(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	var codes []string
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		codes = append(codes, c.Finding.Summary.Code)
+		if c.Finding.Summary.Code == "temperature.limit" && c.Finding.Device == demoHeatPump {
+			return
+		}
+	}
+	t.Errorf("no temperature.limit for %s, got codes %v", demoHeatPump, codes)
 }
 
 // valueKeys lists the keys of learned values for failure messages.

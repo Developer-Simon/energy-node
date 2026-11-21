@@ -584,6 +584,12 @@ func main() {
 		}
 	}
 	automationEngine.SetSeason(seasonStore)
+	// Demo: ohne Wochenwerte bekommt das Saisongedaechtnis die acht Demo-Wochen.
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" && len(seasonStore.Weeks("0000-W00", "9999-W99")) == 0 {
+		for _, w := range autolearn.DemoSeason(time.Now()) {
+			seasonStore.Put(w)
+		}
+	}
 	seasonClose := &seasonCloser{store: seasonStore, days: dayStore.Days, learned: learnedClockMinutes(learnedStore), loc: time.Local}
 	suggestions := &suggestionBook{state: suggestionState}
 	suggestionExists := func(device string) bool {

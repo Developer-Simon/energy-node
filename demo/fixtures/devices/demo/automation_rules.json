@@ -4,7 +4,9 @@
     "tick_interval_s": 10,
     "settling_seconds": 60,
     "balance_max_age_s": 30,
-    "publish_allowed_prefixes": ["wallbox/", "waermepumpe/", "outstation/apsystems_dach/", "plug/"]
+    "publish_allowed_prefixes": ["wallbox/", "waermepumpe/", "outstation/apsystems_dach/", "plug/"],
+    "latitude": 48.1,
+    "longitude": 11.6
   },
   "rules": [
     {
@@ -29,7 +31,7 @@
         {"type": "entity_value", "entity_id": "bank_soc", "topic": "bank/soc", "comparison": "below", "value": 10, "hold_seconds": 30}
       ],
       "actions": [
-        {"type": "publish", "topic": "waermepumpe/mode/set", "payload_source": "constant", "payload": "OFF"}
+        {"type": "publish", "topic": "waermepumpe/mode/set", "entity_id": "waermepumpe_mode", "payload_source": "constant", "payload": "OFF"}
       ]
     },
     {
