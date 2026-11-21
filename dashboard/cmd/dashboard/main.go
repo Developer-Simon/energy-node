@@ -1390,7 +1390,7 @@ func main() {
 					chainSuggest.SetEnabled(suggestionsOn)
 					dayStore.SetEnabled(patternsOn)
 					dayStore.SetExcluded(excludedDevices)
-					learnHub.Observe(now, reg.Snapshot(), snapshot, balanceRuleValues(snapshot.Balance))
+					learnHub.Observe(now, reg.Snapshot(), snapshot, learnBalanceValues(snapshot.Balance))
 					// Wie das Pruning oben: ohne lesbare energy.json fehlen
 					// Ketten im Snapshot, und Observe wuerde ihre Summen loeschen.
 					if _, err := settingsStore.LoadEnergy(); err == nil {
@@ -1612,6 +1612,16 @@ func balanceRuleValues(balance energy.Balance) map[string]float64 {
 	}
 	for id, value := range balance.Categories {
 		values["custom:"+id] = value
+	}
+	return values
+}
+
+// learnBalanceValues adds the battery level to the balance values for the
+// learning hub. A level of 0 means no battery level is known, so it is left out.
+func learnBalanceValues(balance energy.Balance) map[string]float64 {
+	values := balanceRuleValues(balance)
+	if balance.BatterySoC > 0 {
+		values["battery_soc"] = balance.BatterySoC
 	}
 	return values
 }
