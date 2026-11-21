@@ -481,7 +481,7 @@
      hat schon einen Bezug. Parameter: field, fixed, aria.
      i18n-keys: automations.condition.time_window.start_aria, automations.condition.time_window.end_aria */}}
 {{define "auto-learn"}}
-                          <span class="auto-lv-control">
+                          <span class="auto-lv-control" data-tour="rule-learned-value">
                             <span class="auto-lv-fixed" x-show="!isLearnedRef(condition, '{{.field}}')">
                               {{if eq .fixed "time"}}<input class="auto-input" type="time" x-model="condition['{{.field}}']" aria-label="{{t .aria}}">{{else}}{{template "auto-stepper"}}{{end}}
                             </span>
