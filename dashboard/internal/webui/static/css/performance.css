@@ -199,3 +199,8 @@
 @media (prefers-reduced-motion: reduce) {
   .pb-panel, .pb-body, .pb-toggle svg, .pb-item-bar i { transition: none; }
 }
+
+.pf-learning-toggle { margin-top: .5rem; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: .85rem; cursor: pointer; }
+.pf-learning-toggle:hover { text-decoration: underline; }
+.pf-learning-top { display: grid; gap: .25rem; margin: .4rem 0 0; padding: 0; list-style: none; font-size: .85rem; }
+.pf-learning-top li { display: flex; justify-content: space-between; gap: 1rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
