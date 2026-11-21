@@ -233,3 +233,14 @@ func TestHistorySamplerValuesSkipsANonNumericOutput(t *testing.T) {
 		t.Fatalf("values = %+v, want no entry for a non-numeric output", got)
 	}
 }
+
+func TestScenarioOutputEntityIDsReadsAFileWithLearnedValues(t *testing.T) {
+	rules := `{"version":1,"settings":{},"rules":[],"scenarios":[` +
+		`{"id":"a","name":"A","enabled":true,` +
+		`"when":{"conditions":[{"type":"learned_state","learned":"site/house_state","equals":"quiet","fallback":"active"}]},` +
+		`"on_start":{"actions":[]},"while":{"mode":"regulate"},"on_end":{"actions":[]}}]}`
+	got := scenarioOutputEntityIDs(writeScenarioRules(t, rules))
+	if !reflect.DeepEqual(got, []string{"automation_scenario_a_output"}) {
+		t.Fatalf("ids = %#v, want [automation_scenario_a_output]", got)
+	}
+}

@@ -9,6 +9,10 @@
   // beim Anlegen einer Entitaetsbedingung fuer den Vergleichswert.
   const STALE_DEFAULT_MAX_AGE_S = 900;
   const COMPARE_VALUE_DEFAULT = 20;
+  // Haltezeit einer neuen Bedingung "Hauszustand": eine halbe Stunde.
+  const LEARNED_STATE_HOLD_S = 1800;
+  // Ein Lernwert ist ein Bezugsobjekt mit learned-Schluessel, ohne Helfer gilt nichts als Lernwert.
+  const isRefValue = (value) => Boolean(window.AutomationLearned && window.AutomationLearned.isRef(value));
 
   // Messketten-Bedingungen: Signale der Auswahl, Arten einer Meldung und der
   // Startwert eines Messwert-Vergleichs beim Wechsel auf ein Messwert-Signal.
@@ -202,6 +206,11 @@
         }
         out.time = time;
       }
+      // Lernschluessel des Lernvorschlags: der Schritt Quelle waehlt dann die gelernte Uhrzeit.
+      if (prefill.learned !== undefined) {
+        if (!isPrefillText(prefill.learned)) return null;
+        out.learned = prefill.learned;
+      }
       return out;
     },
     runtime_off(prefill) {
@@ -214,6 +223,22 @@
       if (prefill.minutes !== undefined) {
         if (!Number.isInteger(prefill.minutes)) return null;
         out.minutes = prefill.minutes;
+      }
+      if (prefill.learned !== undefined) {
+        if (!isPrefillText(prefill.learned)) return null;
+        out.learned = prefill.learned;
+      }
+      if (prefill.offset_s !== undefined) {
+        if (!Number.isInteger(prefill.offset_s)) return null;
+        out.offset_s = prefill.offset_s;
+      }
+      return out;
+    },
+    quiet_off(prefill) {
+      const out = {};
+      if (prefill.device !== undefined) {
+        if (!isPrefillText(prefill.device)) return null;
+        out.device = prefill.device;
       }
       return out;
     },
@@ -249,7 +274,7 @@
   const ASSIST_TILE_ICONS = {
     sun: 'ico-sun', min: 'ico-clock', battery: 'ico-battery', always: 'ico-play', fixed: 'ico-calendar',
     import: 'ico-grid', runtime: 'ico-clock', sunset: 'ico-sun', info: 'ico-info', warning: 'ico-warning', critical: 'ico-bell',
-    calm: 'ico-clock', fast: 'ico-flash', time: 'ico-clock', manual: 'ico-power-on',
+    calm: 'ico-clock', fast: 'ico-flash', time: 'ico-clock', manual: 'ico-power-on', learned: 'ico-learning',
   };
 
   const automationsPanel = () => ({
@@ -259,6 +284,8 @@
     document: emptyDocument(),
     categories: {},
     chains: [],
+    // Gelernte Werte fuer die Bezugsangaben (GET /api/v1/automations/learned).
+    learned: { enabled: false, values: [] },
     entities: [],
     readableEntities: [],
     devices: [],
@@ -365,13 +392,19 @@
     async load() {
       this.loading = true;
       try {
-        const [doc, session, , roles, energy] = await Promise.all([
+        const [doc, session, , roles, energy, learned] = await Promise.all([
           requestJSON('/api/v1/configurations/automation_rules'),
           requestJSON('/api/v1/auth/session').catch(() => null),
           this.loadDeviceCatalog(),
           requestJSON('/api/v1/energy/roles').catch(() => null),
           requestJSON('/api/v1/energy').catch(() => null),
+          // Ohne Antwort (Fehler, 401, 404) gibt es keine gelernten Werte.
+          requestJSON('/api/v1/automations/learned').catch(() => null),
         ]);
+        this.learned = {
+          enabled: Boolean(learned && learned.enabled),
+          values: learned && Array.isArray(learned.values) ? learned.values : [],
+        };
         // Die Messketten aus dem Energie-Snapshot; ohne Antwort gibt es keine Kachel.
         this.chains = (energy && energy.chains) || [];
         this.categories = (roles && roles.categories) || {};
@@ -677,8 +710,13 @@
       return 'automations.rule.cond_state.open';
     },
 
-    describeCondition(condition) {
-      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories, this.chains);
+    // Lernwerte der Regel: der Bericht der Bedingung liefert den aktuellen Wert, sonst der Endpunkt.
+    learnedContext(report = null) {
+      return { report, values: this.learnedList(), devices: this.devices, now: this.nowTick / 1000 };
+    },
+
+    describeCondition(condition, report = null) {
+      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories, this.chains, this.learnedContext(report));
     },
 
     describeAction(action) {
@@ -1143,10 +1181,13 @@
     // Minidiagramm der Regel: die Schwelle als Linie, ohne Toleranzband.
     ruleSparkFor(rule) {
       const condition = this.ruleSparkCondition(rule) || {};
+      const index = (rule.conditions || []).indexOf(condition);
+      const report = index < 0 ? null : this.conditionReport(rule, index);
+      const threshold = window.__automationsView.shownValue(condition, 'threshold', this.learnedContext(report));
       const bounds = window.__automationChart.rangeBounds('30m', this.nowTick);
       return window.__automationChart.sparkline({
         points: this.ruleSparkPoints[rule.id] || [],
-        target: isNumber(condition.threshold) ? condition.threshold : 0,
+        target: isNumber(threshold) ? threshold : 0,
         deadband: 0,
         from: bounds.from,
         to: bounds.to,
@@ -2244,6 +2285,196 @@
                              to: 'sunset', to_offset_min: 0, weekdays: [] });
     },
 
+    // Hauszustand: eine halbe Stunde ruhig, mindestens das Veroeffentlichungs-Minimum,
+    // sonst lehnt der Dienst die Regel mit einer Schalt-Aktion ab.
+    addLearnedStateCondition(rule) {
+      rule.conditions.push({ type: 'learned_state', learned: 'site/house_state', equals: 'quiet',
+                             fallback: 'active', max_age_s: 7200,
+                             hold_seconds: Math.max(LEARNED_STATE_HOLD_S, this.minPublishInterval()) });
+    },
+
+    // Eintrag des Endpunkts zu einem Lernwert-Schluessel, sonst null.
+    learnedEntry(key) {
+      return this.learnedList().find((value) => value && value.key === key) || null;
+    },
+
+    // Ist-Zustand im Editor der Bedingung "Hauszustand": der gelernte Zustand mit Herkunft,
+    // ohne frischen Wert der Hinweis, dass die Ersatzwahl gilt.
+    // i18n-keys: automations.learned.state.now, automations.learned.state.none, automations.learned.state.stale, automations.learned.state.active, automations.learned.state.quiet
+    learnedStateNow(condition) {
+      const word = (state) => t(state === 'active' ? 'automations.learned.state.active' : 'automations.learned.state.quiet');
+      const entry = this.learnedEntry(condition.learned);
+      const fallback = word(condition.fallback);
+      if (!entry) return { tone: 'none', text: t('automations.learned.state.none', { state: fallback }) };
+      const nowS = this.nowTick / 1000;
+      const age = nowS - (isNumber(entry.at) ? entry.at : 0);
+      const maxAge = isNumber(condition.max_age_s) ? condition.max_age_s : 604800;
+      if (age > maxAge) {
+        return { tone: 'stale', text: t('automations.learned.state.stale', { age: formatSeconds(maxAge), state: fallback }) };
+      }
+      const tone = entry.value === condition.equals ? 'met' : 'open';
+      return { tone, text: t('automations.learned.state.now', { state: word(entry.value), n: entry.n, age: formatSeconds(Math.max(0, age)) }) };
+    },
+
+    // Hinweis zur Ersatzwahl mit dem Alter, ab dem ein Wert nicht mehr gilt.
+    // i18n-keys: automations.learned.state.fallback_help
+    learnedStateHelp(condition) {
+      const maxAge = isNumber(condition.max_age_s) ? condition.max_age_s : 604800;
+      return t('automations.learned.state.fallback_help', { age: formatSeconds(maxAge) });
+    },
+
+    // Lernwerte der Art, die das Feld verlangt. Ohne Werte gibt es keinen Schalter.
+    learnedChoices(condition, field) {
+      const AL = window.AutomationLearned;
+      const kind = AL.kindOf(condition.type, field);
+      return kind ? AL.choices(this.learnedList(), kind) : [];
+    },
+
+    learnedList() {
+      return (this.learned && Array.isArray(this.learned.values)) ? this.learned.values : [];
+    },
+
+    // Der Schalter "Fester Wert / Lernwert" erscheint bei passenden Werten oder wenn das Feld schon einen Bezug hat.
+    learnOffered(condition, field) {
+      return this.learnedChoices(condition, field).length > 0 || this.isLearnedRef(condition, field);
+    },
+
+    isLearnedRef(condition, field) {
+      return window.AutomationLearned.isRef(condition[field]);
+    },
+
+    learnKind(condition, field) {
+      return window.AutomationLearned.kindOf(condition.type, field);
+    },
+
+    learnUnit(condition, field) {
+      const kind = this.learnKind(condition, field);
+      if (kind === 'duration') return t('automations.condition.unit_seconds');
+      if (kind === 'number') return this.describeCondition(condition).unit || '';
+      return '';
+    },
+
+    // Wechsel auf Lernwert: der erste gelernte Wert der Art, die Grenzen kommen aus prefill.
+    switchToLearned(condition, field) {
+      const AL = window.AutomationLearned;
+      const [choice] = this.learnedChoices(condition, field);
+      if (!choice || this.isLearnedRef(condition, field)) return false;
+      const bounds = AL.prefill(this.learnKind(condition, field), choice.value);
+      if (!bounds) return false;
+      condition[field] = { learned: choice.key, ...bounds };
+      return true;
+    },
+
+    // Zurueck auf festen Wert: der Ersatzwert wird zur Zahl oder Uhrzeit.
+    switchToFixed(condition, field) {
+      if (!this.isLearnedRef(condition, field)) return;
+      condition[field] = condition[field].fallback;
+    },
+
+    learnedBound(condition, field, bound) {
+      if (!this.isLearnedRef(condition, field)) return '';
+      const value = condition[field][bound];
+      return value === null || value === undefined ? '' : value;
+    },
+
+    // Grenzen und Ersatzwert: Uhrzeit als Text, Zahlen als Zahl, leer wird null.
+    setLearnedBound(condition, field, bound, raw) {
+      if (!this.isLearnedRef(condition, field)) return;
+      const timeText = bound !== 'offset' && this.learnKind(condition, field) === 'time';
+      if (timeText) condition[field][bound] = raw;
+      else condition[field][bound] = raw === '' || raw === null ? null : Number(raw);
+    },
+
+    // Auswahl der Lernwerte; ein Bezug auf einen fehlenden Wert bleibt sichtbar.
+    learnedOptions(condition, field) {
+      const AL = window.AutomationLearned;
+      const options = this.learnedChoices(condition, field)
+        .map((entry) => ({ key: entry.key, label: AL.keyLabel(entry.key, this.devices, t) }));
+      const key = (condition[field] || {}).learned;
+      if (key && !options.some((option) => option.key === key)) {
+        options.push({ key, label: AL.keyLabel(key, this.devices, t) });
+      }
+      return options;
+    },
+
+    // Aktueller Wert des gewaehlten Lernwerts, oder der Hinweis, dass noch nichts gelernt ist.
+    learnedCurrent(condition, field) {
+      const key = (condition[field] || {}).learned;
+      const entry = this.learnedEntry(key);
+      if (!entry) return t('automations.learned.current.none');
+      const text = this.learnKind(condition, field) === 'duration' ? formatSeconds(entry.value) : String(entry.value);
+      return `${t('automations.learned.current')}: ${text}`;
+    },
+
+    // Kurzform im Feld, wenn ein Lernwert gilt: der aufgeloeste Wert, wie ihn die Regel gerade nimmt.
+    learnedPill(condition, field) {
+      if (!this.isLearnedRef(condition, field)) return '';
+      const descriptor = (this.describeCondition(condition).learned || []).find((item) => item.field === field);
+      return descriptor ? descriptor.text : '';
+    },
+
+    // Herkunft des Lernwerts im Editor: gelernt, auf die Grenze gesetzt oder Ersatzwert.
+    learnedOrigin(condition, field) {
+      if (!this.isLearnedRef(condition, field)) return '';
+      const descriptor = (this.describeCondition(condition).learned || []).find((item) => item.field === field);
+      return descriptor ? descriptor.origin : '';
+    },
+
+    // Ziel der Stepper fuer Grenzen, Ersatzwert und Verschiebung. Laufzeiten stehen im Editor in
+    // Minuten, gespeichert bleiben Sekunden. Ein leeres Feld wird null, eine Verschiebung 0 entfaellt.
+    learnedStepTarget(condition, field) {
+      const ref = condition[field];
+      if (!window.AutomationLearned.isRef(ref)) return {};
+      const minutes = this.learnKind(condition, field) === 'duration';
+      const target = {};
+      for (const bound of ['min', 'max', 'fallback', 'offset']) {
+        Object.defineProperty(target, bound, {
+          enumerable: true,
+          get() {
+            const value = ref[bound];
+            if (!isNumber(value)) return bound === 'offset' ? 0 : null;
+            return minutes ? Math.round(value / 60) : value;
+          },
+          set(raw) {
+            const n = Number(raw);
+            const empty = raw === null || raw === undefined || String(raw).trim() === '' || !Number.isFinite(n);
+            if (bound === 'offset') {
+              if (empty || n === 0) delete ref.offset;
+              else ref.offset = minutes ? Math.round(n * 60) : n;
+              return;
+            }
+            ref[bound] = empty ? null : (minutes ? Math.round(n * 60) : n);
+          },
+        });
+      }
+      return target;
+    },
+
+    // Einheit der Stepper im Lernwert-Feld: Minuten bei Laufzeiten, sonst die Einheit der Bedingung.
+    learnedStepUnit(condition, field) {
+      const kind = this.learnKind(condition, field);
+      if (kind === 'duration' || kind === 'time') return t('automations.condition.sun_window.unit_min');
+      return this.describeCondition(condition).unit || '';
+    },
+
+    // Bezugsangaben der Bedingung in der Pruefung vor dem Speichern, mit den Meldungen aus dem Katalog.
+    learnedErrors(condition) {
+      const AL = window.AutomationLearned;
+      if (!AL) return [];
+      const codes = [];
+      for (const field of ['threshold', 'value', 'start', 'end', 'hold_seconds']) {
+        const kind = AL.kindOf(condition.type, field);
+        if (kind && AL.isRef(condition[field])) codes.push(...AL.validate(condition[field], kind));
+      }
+      if (condition.type === 'learned_state') codes.push(...AL.validate({ learned: condition.learned }, 'state'));
+      const keys = {
+        'learned.min_max': 'automations.learned.error.min_max',
+        'learned.fallback_range': 'automations.learned.error.fallback_range',
+        'learned.missing': 'automations.learned.error.missing',
+      };
+      return codes.map((code) => t(keys[code]));
+    },
+
     // Neue Messketten-Bedingung: Meldung auf der ersten Kette. Ohne Kette legt
     // sie nichts an, die Kachel fehlt dann ohnehin.
     addChainCondition(rule) {
@@ -2415,6 +2646,7 @@
       if (key === 'entity') result = this.addEntityValueCondition(rule);
       if (key === 'time') result = this.addTimeWindowCondition(rule);
       if (key === 'sun') result = this.addSunWindowCondition(rule);
+      if (key === 'learned_state') result = this.addLearnedStateCondition(rule);
       if (key === 'chain') result = this.addChainCondition(rule);
       this.loadEditLive(rule);
       return result;
@@ -2683,9 +2915,10 @@
       };
     },
 
-    // Live-Balken fuer jede Zahlen-Bedingung (Bilanz, Entitaet ueber/unter).
+    // Live-Balken fuer jede Zahlen-Bedingung (Bilanz, Entitaet ueber/unter), danach je
+    // Lernwert ein Strahl von der unteren zur oberen Grenze mit der Marke am aktuellen Wert.
     liveBars(rule) {
-      return (rule.conditions || [])
+      const bars = (rule.conditions || [])
         .map((condition, index) => {
           const numeric = condition.type === 'balance_threshold'
             || (condition.type === 'entity_value' && (condition.comparison === 'above' || condition.comparison === 'below'));
@@ -2697,6 +2930,36 @@
           return { ...bar, index, title: this.describeCondition(condition).title, tone: this.liveTone(condition) };
         })
         .filter(Boolean);
+      return bars.concat(this.learnedBars(rule));
+    },
+
+    // Strahlen der Lernwerte einer Regel. Ohne Grenzen (Hauszustand) gibt es keinen Strahl.
+    // i18n-keys: automations.learned.live.caption
+    learnedBars(rule) {
+      const out = [];
+      const seen = new Set();
+      (rule.conditions || []).forEach((condition, index) => {
+        const report = this.conditionReport(rule, index);
+        for (const item of this.describeCondition(condition, report).learned || []) {
+          if (!item.scale) continue;
+          // Start und Ende eines Fensters teilen meist denselben Lernwert, ein Strahl genuegt dann.
+          const key = `${item.name}|${item.scale.range}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const mark = isNumber(item.scale.marker) ? item.scale.marker : 0;
+          out.push({
+            index: `${index}-${item.field}`,
+            learned: true,
+            caption: t('automations.learned.live.caption', { name: item.name }),
+            tone: item.source === 'fallback' ? 'learned-fallback' : 'learned',
+            fraction: mark, mark, band: null,
+            valueText: item.text,
+            rangeText: item.scale.range,
+            label: item.scale.label,
+          });
+        }
+      });
+      return out;
     },
 
     // Ton des Live-Balkens nach der Rolle des Felds, sonst Netz.
@@ -2718,11 +2981,11 @@
     // Balken einer Bedingung. Das Band liegt zwischen Schwelle und
     // Schwelle -/+ Hysterese: bei "above" darunter, bei "below" darueber.
     liveBarOf(condition, report, fallback = null) {
-      const threshold = condition.type === 'entity_value' ? condition.value : condition.threshold;
+      const view = window.__automationsView;
+      const threshold = view.shownValue(condition, condition.type === 'entity_value' ? 'value' : 'threshold', this.learnedContext(report));
       const reported = report && isNumber(report.value) ? report.value : null;
       const value = reported !== null ? reported : (isNumber(fallback) ? fallback : null);
       const target = report && isNumber(report.target) ? report.target : threshold;
-      const view = window.__automationsView;
       const scale = view.meterScale(condition, { value, target }, this.entityForCondition(condition));
       const hysteresis = isNumber(condition.hysteresis) ? condition.hysteresis : 0;
       let band = null;
@@ -2773,7 +3036,8 @@
       }
       if (!wasStale) return;
       delete condition.max_age_s;
-      if (!isNumber(condition.value)) condition.value = COMPARE_VALUE_DEFAULT;
+      // Ein Lernwert im Vergleichswert bleibt beim Rueckwechsel erhalten.
+      if (!isNumber(condition.value) && !isRefValue(condition.value)) condition.value = COMPARE_VALUE_DEFAULT;
     },
 
     // Kachel des Bilanzfelds einer Bedingung mit Rollen-Icon.
@@ -2828,7 +3092,10 @@
       if (hasPublish) {
         if ((rule.cooldown_seconds || 0) < minimum) errors.push(t('automations.validation.cooldown_too_short', { name: rule.name, min: minimum }));
         for (const condition of rule.conditions || []) {
-          if ('hold_seconds' in condition && condition.hold_seconds < minimum) {
+          // Ein Lernwert prueft seine Untergrenze, sonst wuerde der Vergleich mit dem Objekt ins Leere laufen.
+          const hold = isRefValue(condition.hold_seconds) ? condition.hold_seconds.min : condition.hold_seconds;
+          const holdTooShort = isRefValue(condition.hold_seconds) ? isNumber(hold) && hold < minimum : hold < minimum;
+          if ('hold_seconds' in condition && holdTooShort) {
             errors.push(t('automations.validation.hold_seconds_too_short', { name: rule.name, min: minimum }));
           }
         }
@@ -2839,6 +3106,9 @@
         } else if (hasPublish && repeat < minimum) {
           errors.push(t('automations.validation.repeat_too_short', { name: rule.name, min: minimum }));
         }
+      }
+      for (const condition of rule.conditions || []) {
+        errors.push(...this.learnedErrors(condition));
       }
       for (const condition of rule.conditions || []) {
         if (condition.type !== 'sun_window') continue;

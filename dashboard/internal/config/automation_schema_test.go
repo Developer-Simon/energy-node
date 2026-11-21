@@ -223,3 +223,80 @@ func TestAutomationSchemaCoversChainConditions(t *testing.T) {
 		t.Error("unknown field in chain_value: expected rejection")
 	}
 }
+
+// Learned values are references, not numbers. A reference is accepted only
+// where the service resolves it, and a plain number still is.
+const (
+	refNumber = `{"learned":"device/wallbox_1/usual_runtime_s","min":60,"max":14400,"fallback":3600}`
+	refClock  = `{"learned":"site/day_start","min":"23:00","max":"01:00","fallback":"00:00"}`
+	refHold   = `{"learned":"device/wallbox_1/usual_runtime_s","min":0,"max":86400,"fallback":0}`
+	stateCond = `{"type":"learned_state","learned":"site/house_state","equals":"quiet","fallback":"active","max_age_s":7200,"hold_seconds":0}`
+)
+
+// conditionRuleDoc puts one condition into a rule of an otherwise empty document.
+func conditionRuleDoc(cond string) string {
+	return `{"version":1,"settings":` + defaultAutomationSettings + `,"rules":[{"id":"r1","name":"R","enabled":true,"conditions":[` +
+		cond + `],"actions":[{"type":"notification","severity":"info","title":"t","message":"m"}]}],"scenarios":[]}`
+}
+
+// conditionScenarioDoc puts one condition into the when of a scenario.
+func conditionScenarioDoc(cond string) string {
+	return automationDoc(defaultAutomationSettings,
+		`[{"id":"s1","name":"S","enabled":true,"when":{"conditions":[`+cond+`]}}]`)
+}
+
+// conditionUntilDoc puts one condition into the until of a scenario.
+func conditionUntilDoc(cond string) string {
+	return automationDoc(defaultAutomationSettings,
+		`[{"id":"s1","name":"S","enabled":true,"when":{"conditions":[{"type":"sun_window","from":"sunrise","to":"sunset"}]},"until":{"conditions":[`+cond+`]}}]`)
+}
+
+func TestAutomationSchemaAcceptsLearnedValues(t *testing.T) {
+	threshold := `{"type":"balance_threshold","field":"grid_import","comparison":"above","threshold":` + refNumber + `}`
+	cases := []struct {
+		name string
+		doc  string
+		ok   bool
+	}{
+		{"learned threshold on balance_threshold", conditionRuleDoc(threshold), true},
+		{"number threshold still accepted", conditionRuleDoc(`{"type":"balance_threshold","field":"grid_import","comparison":"above","threshold":5}`), true},
+		{"learned threshold without fallback", conditionRuleDoc(`{"type":"balance_threshold","field":"grid_import","comparison":"above","threshold":{"learned":"device/wallbox_1/usual_runtime_s","min":60,"max":14400}}`), false},
+		{"learned threshold with unknown key", conditionRuleDoc(`{"type":"balance_threshold","field":"grid_import","comparison":"above","threshold":{"learned":"device/wallbox_1/usual_runtime_s","min":60,"max":14400,"fallback":3600,"x":1}}`), false},
+		{"learned threshold with a string bound", conditionRuleDoc(`{"type":"balance_threshold","field":"grid_import","comparison":"above","threshold":{"learned":"device/wallbox_1/usual_runtime_s","min":"60","max":14400,"fallback":3600}}`), false},
+		{"learned key in upper case", conditionRuleDoc(`{"type":"balance_threshold","field":"grid_import","comparison":"above","threshold":{"learned":"Device/Wallbox","min":60,"max":14400,"fallback":3600}}`), false},
+		{"learned threshold on topic_value", conditionRuleDoc(`{"type":"topic_value","topic":"werkstatt/bkw/state","json_key":"power","comparison":"above","threshold":` + refNumber + `}`), false},
+		{"learned value on topic_value above", conditionRuleDoc(`{"type":"topic_value","topic":"werkstatt/bkw/state","json_key":"power","comparison":"above","value":` + refNumber + `}`), true},
+		{"learned value on entity_value below", conditionRuleDoc(`{"type":"entity_value","topic":"werkstatt/bkw/state","entity_id":"bkw_power","comparison":"below","value":` + refNumber + `}`), true},
+		{"learned value with comparison equals", conditionRuleDoc(`{"type":"topic_value","topic":"werkstatt/bkw/state","json_key":"power","comparison":"equals","value":` + refNumber + `}`), false},
+		{"learned value on balance_threshold", conditionRuleDoc(`{"type":"balance_threshold","field":"grid_import","comparison":"above","threshold":5,"value":` + refNumber + `}`), false},
+		{"learned start and end on time_window", conditionRuleDoc(`{"type":"time_window","start":` + refClock + `,"end":` + refClock + `}`), true},
+		{"learned clock with a bad time", conditionRuleDoc(`{"type":"time_window","start":{"learned":"site/day_start","min":"7:00","max":"01:00","fallback":"00:00"},"end":"08:00"}`), false},
+		{"learned clock with an offset in minutes", conditionRuleDoc(`{"type":"time_window","start":{"learned":"site/day_start","min":"23:00","max":"01:00","fallback":"00:00","offset":30},"end":"08:00"}`), true},
+		{"learned clock with an offset beyond 720 minutes", conditionRuleDoc(`{"type":"time_window","start":{"learned":"site/day_start","min":"23:00","max":"01:00","fallback":"00:00","offset":1000},"end":"08:00"}`), false},
+		{"learned start on sun_window", conditionRuleDoc(`{"type":"sun_window","from":"sunrise","to":"sunset","start":` + refClock + `}`), false},
+		{"learned hold on time_window", conditionRuleDoc(`{"type":"time_window","start":"07:00","end":"08:00","hold_seconds":` + refHold + `}`), true},
+		{"learned hold on sun_window", conditionRuleDoc(`{"type":"sun_window","from":"sunrise","to":"sunset","hold_seconds":` + refHold + `}`), true},
+		{"learned hold on chain_value", conditionRuleDoc(`{"type":"chain_value","chain_id":"balkon","field":"standby_w","comparison":"above","value":10,"hold_seconds":` + refHold + `}`), false},
+		{"learned hold on chain_finding", conditionRuleDoc(`{"type":"chain_finding","chain_id":"balkon","kind":"frozen","hold_seconds":` + refHold + `}`), false},
+		{"learned value on chain_value", conditionRuleDoc(`{"type":"chain_value","chain_id":"balkon","field":"standby_w","comparison":"above","value":` + refNumber + `}`), false},
+		{"learned_state", conditionRuleDoc(stateCond), true},
+		{"learned_state with a learned hold", conditionRuleDoc(`{"type":"learned_state","learned":"site/house_state","equals":"quiet","fallback":"active","hold_seconds":` + refHold + `}`), true},
+		{"learned_state without equals", conditionRuleDoc(`{"type":"learned_state","learned":"site/house_state","fallback":"active"}`), false},
+		{"learned_state with empty fallback", conditionRuleDoc(`{"type":"learned_state","learned":"site/house_state","equals":"quiet","fallback":""}`), false},
+		{"learned_state with upper case key", conditionRuleDoc(`{"type":"learned_state","learned":"site/House","equals":"quiet","fallback":"active"}`), false},
+		{"learned_state with zero max_age_s", conditionRuleDoc(`{"type":"learned_state","learned":"site/house_state","equals":"quiet","fallback":"active","max_age_s":0}`), false},
+		{"learned_state with a threshold", conditionRuleDoc(`{"type":"learned_state","learned":"site/house_state","equals":"quiet","fallback":"active","threshold":5}`), false},
+		{"learned threshold in scenario when", conditionScenarioDoc(threshold), true},
+		{"learned_state in scenario when", conditionScenarioDoc(stateCond), true},
+		{"learned start in scenario until", conditionUntilDoc(`{"type":"time_window","start":` + refClock + `,"end":"08:00"}`), true},
+	}
+	for _, tc := range cases {
+		err := ValidateDocument([]byte(tc.doc), automationSchema(t))
+		if tc.ok && err != nil {
+			t.Errorf("%s: expected acceptance, got %v", tc.name, err)
+		}
+		if !tc.ok && err == nil {
+			t.Errorf("%s: expected rejection", tc.name)
+		}
+	}
+}

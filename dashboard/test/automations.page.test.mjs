@@ -26,6 +26,7 @@ const pickerSource = fs.readFileSync(path.join(jsDir, 'device-picker.js'), 'utf8
 const rollupSource = fs.readFileSync(path.join(jsDir, 'history-rollup.js'), 'utf8');
 const wizardSource = fs.readFileSync(path.join(jsDir, 'automation-wizard.js'), 'utf8');
 const templatesSource = fs.readFileSync(path.join(jsDir, 'automation-templates.js'), 'utf8');
+const learnedSource = fs.readFileSync(path.join(jsDir, 'automation-learned.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -47,6 +48,7 @@ function createAutomationsPanel(setup) {
   vm.runInContext(rollupSource, context);
   vm.runInContext(wizardSource, context);
   vm.runInContext(templatesSource, context);
+  vm.runInContext(learnedSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -1230,12 +1232,12 @@ test('save frischt den Geraetekatalog auf, bevor es die Auto-Praefixe bildet', a
 
 // --- Typ-Kacheln und Hilfetexte -------------------------------------------
 
-test('CONDITION_TYPES liefert genau die vier anbietbaren Bedingungstypen', () => {
+test('CONDITION_TYPES liefert genau die fuenf anbietbaren Bedingungstypen', () => {
   const { component } = createAutomationsPanel();
   const types = component.conditionTypes();
   // Spread statt direktem .map()-Vergleich: das Array kommt aus dem vm-Sandbox-
   // Realm der Komponente, deepEqual vergleicht sonst auch das Array-Prototyp.
-  assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun']);
+  assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state']);
   assert.equal(types[0].label, 'Energiewert');
   for (const entry of types) {
     assert.ok(entry.icon.startsWith('ico-'), `${entry.key} hat kein Sprite-Icon`);
@@ -1366,6 +1368,27 @@ test('liveBars has one bar per numeric condition', () => {
     { type: 'entity_value', entity_id: '', comparison: 'equals', text: 'ON' },
   ], actions: [] };
   assert.deepEqual(component.liveBars(rule).map((bar) => bar.index), [0, 2]);
+});
+
+test('liveBars adds one beam per learned value from min to max, start and end of one window share it', () => {
+  const { component } = createAutomationsPanel();
+  component.nowTick = 1794000000 * 1000;
+  component.learned = { enabled: true, values: [
+    { key: 'device/plug/usual_off', kind: 'time', value: '22:30', n: 12, at: 1794000000 - 60, changed_at: 1794000000 - 60 },
+  ] };
+  const ref = { learned: 'device/plug/usual_off', min: '21:30', max: '23:30', fallback: '22:00' };
+  const rule = { id: 'r1', conditions: [
+    { type: 'time_window', start: ref, end: { ...ref, offset: 5 }, weekdays: [] },
+    { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 1800 },
+  ], actions: [] };
+  const bars = component.liveBars(rule);
+  assert.equal(bars.length, 1);
+  assert.equal(bars[0].learned, true);
+  assert.equal(bars[0].index, '0-start');
+  assert.equal(bars[0].valueText, '22:30');
+  assert.equal(bars[0].rangeText, '21:30 bis 23:30');
+  assert.equal(bars[0].mark, 0.5);
+  assert.equal(bars[0].tone, 'learned');
 });
 
 test('setComparison allows equals only outside balance conditions', () => {
@@ -3100,10 +3123,10 @@ const testChains = [{
 
 test('the chain tile is hidden without chains and shows with one', () => {
   const { component } = createAutomationsPanel();
-  assert.deepEqual([...component.conditionTypes().map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun']);
+  assert.deepEqual([...component.conditionTypes().map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state']);
   component.chains = [...testChains];
   const keys = [...component.conditionTypes().map((entry) => entry.key)];
-  assert.deepEqual(keys, ['balance', 'entity', 'time', 'sun', 'chain']);
+  assert.deepEqual(keys, ['balance', 'entity', 'time', 'sun', 'chain', 'learned_state']);
   const tile = component.conditionTypes().find((entry) => entry.key === 'chain');
   assert.equal(tile.icon, 'ico-chain');
   assert.equal(tile.label, 'Messkette');
@@ -3673,4 +3696,224 @@ test('openAssistantWith clears a switch entity that is not in the list', async (
   assert.equal(component.assistant.templateId, 'time_point');
   assert.equal(component.assistant.answers.device, '', 'an unknown entity is not taken over, not even via the device');
   assert.equal(component.assistantStep().id, 'device');
+});
+
+test('prefillToAnswers carries the learned key of a time point into the answers', () => {
+  const { window } = createAutomationsPanel();
+  const answers = window.__automationsPrefill.prefillToAnswers('time_point', {
+    device: 'lamp_switch', on: true, time: '07:00', days: [0, 1, 2, 3, 4, 5, 6], learned: 'device/lamp/usual_on',
+  });
+  assert.equal(answers.learned, 'device/lamp/usual_on');
+  assert.equal(answers.device, 'lamp_switch');
+  assert.equal(answers.action, 'on');
+  assert.equal(answers.source, undefined);
+  assert.equal(window.__automationsPrefill.prefillToAnswers('time_point', { device: 'lamp_switch', learned: 7 }), null);
+});
+
+test('prefillToAnswers carries the learned runtime and its offset into the answers', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = prefillToAnswers('runtime_off', {
+    device: 'lamp_switch', minutes: 60, learned: 'device/lamp/usual_runtime_s', offset_s: 300,
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(answers)), {
+    device: 'lamp_switch', minutes: 60, learned: 'device/lamp/usual_runtime_s', offset_s: 300,
+  });
+  assert.equal(prefillToAnswers('runtime_off', { device: 'lamp_switch', offset_s: 1.5 }), null);
+  assert.equal(prefillToAnswers('runtime_off', { device: 'lamp_switch', learned: '' }), null);
+});
+
+test('prefillToAnswers maps the device of a quiet switch-off', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.deepEqual(JSON.parse(JSON.stringify(prefillToAnswers('quiet_off', { device: 'lamp_switch' }))), { device: 'lamp_switch' });
+  assert.equal(prefillToAnswers('quiet_off', { device: 3 }), null);
+});
+
+// --- Lernwerte im Editor ----------------------------------------------------
+
+const LEARNED_VALUES = [
+  { key: 'site/day_start', kind: 'time', value: '23:30', n: 4, at: 1794000000 },
+  { key: 'device/pump_1/usual_runtime_s', device: 'pump_1', kind: 'duration', value: 300, n: 4, at: 1794000000 },
+];
+
+function withLearned(component, values = LEARNED_VALUES) {
+  component.learned = { enabled: true, values };
+  return component;
+}
+
+test('switching a time field to learned sets a valid reference and back sets the fallback', () => {
+  const { component } = createAutomationsPanel();
+  withLearned(component);
+  const condition = { type: 'time_window', start: '08:00', end: '18:00', weekdays: [] };
+  assert.equal(component.switchToLearned(condition, 'start'), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(condition.start)),
+    { learned: 'site/day_start', min: '22:30', max: '00:30', fallback: '23:30' });
+  assert.equal(component.isLearnedRef(condition, 'start'), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.validateRuleBeforeSave({
+    id: 'r1', name: 'R', conditions: [condition], actions: [{ type: 'notification', title: 'x' }],
+  }))), []);
+  component.switchToFixed(condition, 'start');
+  assert.equal(condition.start, '23:30');
+  assert.equal(component.isLearnedRef(condition, 'start'), false);
+});
+
+test('switching a duration to learned prefills the bounds and back sets a number', () => {
+  const { component } = createAutomationsPanel();
+  withLearned(component);
+  const condition = { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 60 };
+  assert.equal(component.switchToLearned(condition, 'hold_seconds'), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(condition.hold_seconds)),
+    { learned: 'device/pump_1/usual_runtime_s', min: 180, max: 900, fallback: 300 });
+  component.switchToFixed(condition, 'hold_seconds');
+  assert.equal(condition.hold_seconds, 300);
+});
+
+test('saving a reference with min above max shows learned.min_max and does not save', async () => {
+  const { component, window, stores } = createAutomationsPanel();
+  withLearned(component);
+  const condition = { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 0 };
+  component.switchToLearned(condition, 'hold_seconds');
+  condition.hold_seconds.min = 1000;
+  component.document = { version: 1, settings: { publish_allowed_prefixes: ['x/'] }, rules: [{
+    id: 'r1', name: 'R', enabled: true, conditions: [condition], actions: [{ type: 'notification', title: 'x' }],
+  }] };
+  const captured = saveCapturingBody(component, window);
+  await component.save();
+  assert.equal(captured.body, undefined);
+  assert.match(stores.toasts.last('critical'), /Mindestwert darf nicht/);
+});
+
+test('without learned values no switch is offered and nothing changes', () => {
+  const { component } = createAutomationsPanel();
+  withLearned(component, []);
+  const condition = { type: 'time_window', start: '08:00', end: '18:00', weekdays: [] };
+  assert.equal(component.learnOffered(condition, 'start'), false);
+  assert.equal(component.switchToLearned(condition, 'start'), false);
+  assert.equal(condition.start, '08:00');
+  // Ein Feld mit schon gesetztem Bezug zeigt den Schalter auch ohne Werte.
+  const kept = { type: 'time_window', start: { learned: 'site/day_start', min: '22:30', max: '00:30', fallback: '23:30' }, end: '18:00' };
+  assert.equal(component.learnOffered(kept, 'start'), true);
+});
+
+test('a learned value of another kind does not reach a field', () => {
+  const { component } = createAutomationsPanel();
+  withLearned(component);
+  const condition = { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 0 };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.learnedChoices(condition, 'hold_seconds'))).map((v) => v.key),
+    ['device/pump_1/usual_runtime_s']);
+  assert.equal(component.learnedChoices(condition, 'threshold').length, 0);
+  assert.equal(component.learnedChoices({ type: 'chain_value' }, 'hold_seconds').length, 0);
+});
+
+test('learned_state is offered as a condition type and gets the default reference fields', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', name: 'R', conditions: [], actions: [] };
+  component.addCondition(rule, 'learned_state');
+  // Eine halbe Stunde ruhig: mit 0 lehnt die Pruefung eine Regel mit Schalt-Aktion ab (hold_seconds >= 30).
+  assert.deepEqual(JSON.parse(JSON.stringify(rule.conditions)), [
+    { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 1800 },
+  ]);
+});
+
+test('learned_state editor shows the learned state, the fallback without data and a stale value', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 1800 };
+  component.nowTick = 1794000000 * 1000;
+  component.learned = { enabled: true, values: [] };
+  const none = component.learnedStateNow(condition);
+  assert.equal(none.tone, 'none');
+  assert.match(none.text, /Noch nichts gelernt\. Bis dahin gilt: Haus ist aktiv\./);
+  component.learned = { enabled: true, values: [{ key: 'site/house_state', kind: 'state', value: 'quiet', n: 14, at: 1794000000 - 600 }] };
+  const now = component.learnedStateNow(condition);
+  assert.equal(now.tone, 'met');
+  assert.match(now.text, /Jetzt Haus ist ruhig\. Gelernt aus 14 Tagen/);
+  component.learned = { enabled: true, values: [{ key: 'site/house_state', kind: 'state', value: 'quiet', n: 14, at: 1794000000 - 9000 }] };
+  const stale = component.learnedStateNow(condition);
+  assert.equal(stale.tone, 'stale');
+  assert.match(stale.text, /Es gilt: Haus ist aktiv\./);
+});
+
+test('learned bounds of a runtime are edited in minutes and stored in seconds', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0,
+    hold_seconds: { learned: 'device/x/usual_runtime_s', min: 600, max: 3600, fallback: 1800 } };
+  const target = component.learnedStepTarget(condition, 'hold_seconds');
+  assert.equal(target.min, 10);
+  assert.equal(target.offset, 0);
+  target.max = 90;
+  target.offset = 5;
+  assert.equal(condition.hold_seconds.max, 5400);
+  assert.equal(condition.hold_seconds.offset, 300);
+  target.offset = 0;
+  assert.equal('offset' in condition.hold_seconds, false);
+  target.fallback = '';
+  assert.equal(condition.hold_seconds.fallback, null);
+  assert.equal(Object.keys(component.learnedStepTarget({ type: 'balance_threshold', hold_seconds: 30 }, 'hold_seconds')).length, 0);
+});
+
+test('leaving the stale comparison keeps a learned reference in the value', () => {
+  const { component } = createAutomationsPanel();
+  withLearned(component);
+  const ref = { learned: 'device/pump_1/usual_runtime_s', min: 100, max: 900, fallback: 300 };
+  const condition = { type: 'entity_value', entity_id: 'e', topic: 't', comparison: 'below', value: ref, hold_seconds: 0 };
+  component.setComparison(condition, 'stale');
+  component.setComparison(condition, 'below');
+  assert.deepEqual(JSON.parse(JSON.stringify(condition.value)), ref);
+  // Ohne Lernwert gilt weiter der Standard fuer den Vergleichswert.
+  const plain = { type: 'entity_value', topic: 't', comparison: 'stale', max_age_s: 900, hold_seconds: 0 };
+  component.setComparison(plain, 'below');
+  assert.equal(plain.value, 20);
+});
+
+test('a cleared learned bound blocks saving with the missing message', async () => {
+  const { component, window, stores } = createAutomationsPanel();
+  withLearned(component);
+  const condition = { type: 'time_window', start: { learned: 'site/day_start', min: '22:30', max: '00:30', fallback: '23:30' }, end: '18:00', weekdays: [] };
+  component.setLearnedBound(condition, 'start', 'min', '');
+  component.document = { version: 1, settings: { publish_allowed_prefixes: ['x/'] }, rules: [{
+    id: 'r1', name: 'R', enabled: true, conditions: [condition], actions: [{ type: 'notification', title: 'x' }],
+  }] };
+  const captured = saveCapturingBody(component, window);
+  await component.save();
+  assert.equal(captured.body, undefined);
+  assert.match(stores.toasts.last('critical'), /Bitte einen Lernwert/);
+});
+
+test('the learned accessors do not throw for a condition without the field keys', () => {
+  const { component } = createAutomationsPanel();
+  withLearned(component, []);
+  const condition = { type: 'entity_value', topic: 't', comparison: 'equals', text: 'ON' };
+  assert.equal(component.learnOffered(condition, 'value'), false);
+  assert.equal(component.learnedBound(condition, 'value', 'min'), '');
+  assert.equal(component.learnedOptions(condition, 'hold_seconds').length, 0);
+  assert.equal(typeof component.learnedCurrent(condition, 'hold_seconds'), 'string');
+  // Ohne Listen im Zustand bleibt die Pruefung stumm statt zu werfen.
+  component.learned = { enabled: false, values: null };
+  assert.equal(component.learnedChoices(condition, 'hold_seconds').length, 0);
+  assert.deepEqual([...component.validateRuleBeforeSave({ id: 'r1', name: 'R', conditions: [condition], actions: [{ type: 'notification', title: 'x' }] })], []);
+});
+
+test('a reference hold is checked against its minimum for publish rules', () => {
+  const { component } = createAutomationsPanel();
+  const publish = { type: 'publish', topic: 'werkstatt/x/set', retain: false, payload_source: 'constant', payload: '1' };
+  component.document.settings.publish_min_interval_s = 60;
+  const holdRef = (min) => ({ learned: 'device/pump_1/usual_runtime_s', min, max: 900, fallback: 300 });
+  const rule = (min) => ({
+    id: 'r1', name: 'A', enabled: true, cooldown_seconds: 60,
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: holdRef(min) }],
+    actions: [publish],
+  });
+  assert.equal(component.validateRuleBeforeSave(rule(120)).length, 0);
+  assert.equal(component.validateRuleBeforeSave(rule(30)).length, 1);
+});
+
+// Der Editor rendert das Bezugs-Formular nur bei einem Bezug; sonst wuerde die Auswahl ohne Feld lesen.
+test('the learned picker reads an absent field null safe and writes only into a reference', () => {
+  const rows = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'automations-rows.html'), 'utf8');
+  const start = rows.indexOf('{{define "auto-learn"}}');
+  const body = rows.slice(start, rows.indexOf('{{end}}\n', rows.indexOf('<p class="auto-lv-help">', start)));
+  assert.equal(body.includes(`x-model="condition['{{.field}}'].learned"`), false, 'no x-model on a field that may be absent');
+  assert.ok(body.includes(`x-bind:value="(condition['{{.field}}'] || {}).learned"`), 'picker reads null safe');
+  assert.ok(body.includes(`isLearnedRef(condition, '{{.field}}') && (condition['{{.field}}'].learned = $event.target.value)`), 'picker writes only into a reference');
 });

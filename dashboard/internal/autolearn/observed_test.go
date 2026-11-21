@@ -234,3 +234,20 @@ func TestObservedFindingsWithFastThresholds(t *testing.T) {
 		t.Fatalf("fast frequent findings = %d, want 1: %+v", len(got), findings)
 	}
 }
+
+// A learned threshold has no fixed number, so no hysteresis fix is proposed
+// for it, only the cooldown fix.
+func TestObservedFrequentWithLearnedThresholdHasNoHysteresisFix(t *testing.T) {
+	doc := staticDoc(t, `{"rules": [{"id": "heat", "name": "Heater", "enabled": true,
+	  "cooldown_seconds": 0,
+	  "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above",
+	    "threshold": {"learned": "device/wallbox_1/usual_runtime_s", "min": 60, "max": 14400, "fallback": 3600}, "hysteresis": 0}],
+	  "actions": [{"type": "publish", "topic": "heater/set", "payload_source": "constant", "payload": "1"}]}]}`)
+	got := findKind(ObservedFindings(doc, frequentState(15), nil, testNow), "frequent")
+	if len(got) != 1 {
+		t.Fatalf("frequent findings = %d, want 1", len(got))
+	}
+	if len(got[0].Apply) != 1 || got[0].Apply[0].Code != "set_cooldown" {
+		t.Errorf("fixes = %+v, want only set_cooldown", got[0].Apply)
+	}
+}

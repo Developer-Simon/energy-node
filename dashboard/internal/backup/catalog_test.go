@@ -109,6 +109,7 @@ func TestLookupClassifies(t *testing.T) {
 		{RootData, "energystats/2026-11.json", ClassRuntime, AreaStats},
 		{RootData, "energystats/chains/learned.json", ClassRuntime, AreaStats},
 		{RootData, "energystats/chains/house.json", ClassRuntime, AreaStats},
+		{RootData, "autolearn/learned.json", ClassRuntime, AreaHistory},
 		{RootData, "sessions.json", ClassDisposable, ""},
 	}
 	for _, tc := range tests {

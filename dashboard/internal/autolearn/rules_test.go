@@ -299,3 +299,89 @@ func assertKeys(t *testing.T, name string, got map[string]json.RawMessage, want 
 		t.Errorf("%s keys = %v, want %v", name, gotKeys, want)
 	}
 }
+
+// learnedRuleDocument has a fixed rule and a rule whose threshold, start and
+// hold_seconds are learned, plus a learned_state condition.
+const learnedRuleDocument = `{
+  "version": 1,
+  "settings": {},
+  "rules": [
+    {"id": "fixed", "name": "Fixed", "enabled": true,
+     "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 500}],
+     "actions": [{"type": "publish", "topic": "x/set", "payload_source": "constant", "payload": "on"}]},
+    {"id": "learned", "name": "Learned", "enabled": true,
+     "conditions": [
+       {"type": "balance_threshold", "field": "grid_export", "comparison": "above",
+        "threshold": {"learned": "device/wallbox_1/usual_runtime_s", "min": 60, "max": 14400, "fallback": 3600, "offset": 120, "max_age_s": 7200}},
+       {"type": "time_window", "start": {"learned": "site/day_start", "min": "23:00", "max": "01:00", "fallback": "00:00"}, "end": "08:00",
+        "hold_seconds": {"learned": "device/wallbox_1/usual_runtime_s", "min": 0, "max": 86400, "fallback": 0}},
+       {"type": "learned_state", "learned": "site/house_state", "equals": "quiet", "fallback": "active"}],
+     "actions": [{"type": "publish", "topic": "x/set", "payload_source": "constant", "payload": "off"}]}
+  ],
+  "scenarios": []
+}`
+
+func TestParseDocReadsLearnedValues(t *testing.T) {
+	doc, err := ParseDoc([]byte(learnedRuleDocument))
+	if err != nil {
+		t.Fatalf("ParseDoc: %v", err)
+	}
+	if len(doc.Rules) != 2 {
+		t.Fatalf("got %d rules, want 2", len(doc.Rules))
+	}
+
+	fixed := doc.Rules[0].Conditions[0]
+	if fixed.Threshold != 500 || fixed.Learned != nil {
+		t.Errorf("fixed condition = %+v, want threshold 500 and no learned values", fixed)
+	}
+
+	conditions := doc.Rules[1].Conditions
+	threshold := conditions[0]
+	if threshold.Threshold != 0 || threshold.Learned["threshold"].Key != "device/wallbox_1/usual_runtime_s" {
+		t.Fatalf("threshold condition = %+v", threshold)
+	}
+	ref := threshold.Learned["threshold"]
+	if ref.Min != float64(60) || ref.Max != float64(14400) || ref.Fallback != float64(3600) || ref.Offset != 120 || ref.MaxAgeS != 7200 {
+		t.Errorf("threshold reference = %+v", ref)
+	}
+
+	window := conditions[1]
+	if window.Learned["start"].Key != "site/day_start" || window.Learned["start"].Min != "23:00" || window.Learned["start"].Fallback != "00:00" {
+		t.Errorf("start reference = %+v", window.Learned["start"])
+	}
+	if window.Learned["hold_seconds"].Key != "device/wallbox_1/usual_runtime_s" || window.HoldSeconds != nil {
+		t.Errorf("hold_seconds = %v, learned %+v", window.HoldSeconds, window.Learned["hold_seconds"])
+	}
+
+	state := conditions[2]
+	if state.Type != "learned_state" || state.Learned != nil {
+		t.Errorf("learned_state condition = %+v", state)
+	}
+}
+
+func TestParseDocRejectsAThresholdThatIsNeitherNumberNorReference(t *testing.T) {
+	_, err := ParseDoc([]byte(`{"rules":[{"id":"r","name":"R","enabled":true,` +
+		`"conditions":[{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":"500"}],"actions":[]}]}`))
+	if err == nil {
+		t.Fatal("ParseDoc accepted a text threshold")
+	}
+}
+
+// An object without a non empty learned text is not a reference. A numeric
+// field rejects it, and start ignores it without storing anything.
+func TestParseDocDoesNotTakeAnObjectWithoutLearnedKeyAsReference(t *testing.T) {
+	_, err := ParseDoc([]byte(`{"rules":[{"id":"r","name":"R","enabled":true,` +
+		`"conditions":[{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":{"min":1}}],"actions":[]}]}`))
+	if err == nil {
+		t.Fatal("ParseDoc accepted a threshold object without learned")
+	}
+
+	doc, err := ParseDoc([]byte(`{"rules":[{"id":"r","name":"R","enabled":true,` +
+		`"conditions":[{"type":"time_window","start":{"min":1},"end":"08:00"}],"actions":[]}]}`))
+	if err != nil {
+		t.Fatalf("ParseDoc: %v", err)
+	}
+	if c := doc.Rules[0].Conditions[0]; c.Learned != nil {
+		t.Errorf("Learned = %+v, want none", c.Learned)
+	}
+}

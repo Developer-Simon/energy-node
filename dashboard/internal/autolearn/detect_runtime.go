@@ -29,6 +29,8 @@ const (
 	runtimeSuggestSigma = 2.0
 	// runtimeRoundMin rounds the suggested switch-off up to whole steps of minutes.
 	runtimeRoundMin = 5.0
+	// runtimeOffsetStepSec rounds the offset of the learned switch-off in seconds.
+	runtimeOffsetStepSec = 300.0
 	// runtimeMinOrdinary and runtimeMinForgotten are the counts for a sure finding.
 	runtimeMinOrdinary  = 8
 	runtimeMinForgotten = 2
@@ -58,24 +60,17 @@ func runtimeRun(ctx context.Context, in *Input, device string) []Candidate {
 	if loc == nil {
 		loc = time.Local
 	}
-	var runs []Run
-	for _, r := range runsIn(in.Days, loc) {
-		if r.Device == device && r.End.After(r.Start) {
-			runs = append(runs, r)
-		}
-	}
+	runs := runtimeRunsOf(in, device)
 	if len(runs) < runtimeMinOrdinary+runtimeMinForgotten {
 		return nil
 	}
 
-	logs := make([]float64, len(runs))
 	first, last := runs[0].Start, runs[0].End
-	for i, r := range runs {
-		logs[i] = math.Log(runtimeMinutes(r))
+	for _, r := range runs {
 		first = minTime(first, r.Start)
 		last = maxTime(last, r.End)
 	}
-	member, stats := runtimeClusters(logs)
+	member, stats := runtimeSplit(runs)
 
 	tallies := make([]runtimeTally, len(stats))
 	entities := make([][]string, len(stats))
@@ -85,7 +80,7 @@ func runtimeRun(ctx context.Context, in *Input, device string) []Candidate {
 		st := stats[g]
 		t := &tallies[g]
 		entities[g] = append(entities[g], r.Entity)
-		if r.EndOrigin == OriginRule || dur <= math.Exp(st.m+runtimeForgetSigma*st.s) {
+		if runtimeOrdinary(r, st) {
 			t.ordinary++
 			continue
 		}
@@ -111,6 +106,36 @@ func runtimeRun(ctx context.Context, in *Input, device string) []Candidate {
 		return nil
 	}
 	return []Candidate{runtimeCandidate(device, dominantEntity(entities[best]), stats[best], tallies[best], weeks)}
+}
+
+// runtimeRunsOf returns the finished runs of one device.
+func runtimeRunsOf(in *Input, device string) []Run {
+	loc := in.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	var runs []Run
+	for _, r := range runsIn(in.Days, loc) {
+		if r.Device == device && r.End.After(r.Start) {
+			runs = append(runs, r)
+		}
+	}
+	return runs
+}
+
+// runtimeSplit clusters the log durations of the runs, see runtimeClusters.
+func runtimeSplit(runs []Run) (member []int, stats []runtimeStat) {
+	logs := make([]float64, len(runs))
+	for i, r := range runs {
+		logs[i] = math.Log(runtimeMinutes(r))
+	}
+	return runtimeClusters(logs)
+}
+
+// runtimeOrdinary reports whether a run is not forgotten: it ended by a rule, or
+// it lasted no longer than the forget limit of its cluster.
+func runtimeOrdinary(r Run, st runtimeStat) bool {
+	return r.EndOrigin == OriginRule || runtimeMinutes(r) <= math.Exp(st.m+runtimeForgetSigma*st.s)
 }
 
 // runtimeMinutes is the length of a run in minutes.
@@ -203,6 +228,12 @@ func runtimeCandidate(device, entity string, st runtimeStat, t runtimeTally, wee
 	suggest := math.Ceil(math.Exp(st.m+runtimeSuggestSigma*st.s)/runtimeRoundMin) * runtimeRoundMin
 	longest := t.longest
 	benefit := Benefit{Unit: "kwh_week", Value: extraKWh / weeks}
+	minutes := int(suggest)
+	// The offset is the suggested switch-off minus the usual runtime, in
+	// seconds and rounded to runtimeOffsetStepSec. The learned runtime plus
+	// the offset gives the suggested switch-off again.
+	offset := int(math.Round((suggest-usual)*60/runtimeOffsetStepSec) * runtimeOffsetStepSec)
+	entityPrefill := func(prefill map[string]any) map[string]any { return withEntity(prefill, "entity", entity) }
 	finding := Finding{
 		ID:         "runtime:" + device,
 		Kind:       "runtime",
@@ -217,8 +248,13 @@ func runtimeCandidate(device, entity string, st runtimeStat, t runtimeTally, wee
 		}},
 		Evidence: Evidence{Shape: "scale", Unit: "min", IstValue: &longest, SollValue: &suggest},
 		Facts:    []Fact{{Code: "overnight", Value: t.overnight}},
-		Apply: []Fix{{Code: "runtime_off", Template: "runtime_off",
-			Prefill: withEntity(map[string]any{"device": device, "minutes": int(suggest)}, "entity", entity)}},
+		Apply: []Fix{
+			{Code: "runtime_off", Template: "runtime_off",
+				Prefill: entityPrefill(map[string]any{"device": device, "minutes": minutes})},
+			{Code: "runtime_off_learned", Template: "runtime_off",
+				Prefill: entityPrefill(map[string]any{"device": device, "minutes": minutes,
+					"learned": "device/" + device + "/usual_runtime_s", "offset_s": offset})},
+		},
 		Device:  device,
 		Benefit: &benefit,
 	}
@@ -246,4 +282,61 @@ func maxTime(a, b time.Time) time.Time {
 		return b
 	}
 	return a
+}
+
+// LearnRuntimeDetector learns the usual runtime of a device. It is the cluster
+// with the most ordinary runs, from runtimeMinOrdinary runs on.
+var LearnRuntimeDetector = Detector{
+	Name:      "learn_runtime",
+	Group:     "habit",
+	Light:     false,
+	PerDevice: true,
+	Run:       learnRuntimeRun,
+}
+
+// runtimeLearnRoundSec is the step in seconds of the learned usual runtime.
+const runtimeLearnRoundSec = 60.0
+
+// learnRuntimeRun returns usual_runtime_s, the median of the cluster with the
+// most ordinary runs, rounded to 60 seconds.
+func learnRuntimeRun(ctx context.Context, in *Input, device string) []Candidate {
+	if ctx.Err() != nil {
+		return nil
+	}
+	runs := runtimeRunsOf(in, device)
+	if len(runs) < runtimeMinOrdinary {
+		return nil
+	}
+	member, stats := runtimeSplit(runs)
+	ordinary := make([]int, len(stats))
+	for i, r := range runs {
+		g := member[i]
+		if runtimeOrdinary(r, stats[g]) {
+			ordinary[g]++
+		}
+	}
+	best := 0
+	for g := range ordinary {
+		if ordinary[g] > ordinary[best] {
+			best = g
+		}
+	}
+	if ordinary[best] < runtimeMinOrdinary {
+		return nil
+	}
+	// The log durations are in minutes, the value is in seconds.
+	sec := math.Round(math.Exp(stats[best].m)*60/runtimeLearnRoundSec) * runtimeLearnRoundSec
+	return []Candidate{{
+		Detector: "learn_runtime",
+		NEff:     float64(ordinary[best]),
+		MinNEff:  runtimeMinOrdinary,
+		Value: &Value{
+			Key:    "device/" + device + "/usual_runtime_s",
+			Device: device,
+			Kind:   ValueDuration,
+			Group:  "habit",
+			Num:    sec,
+			N:      ordinary[best],
+		},
+	}}
 }

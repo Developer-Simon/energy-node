@@ -270,6 +270,25 @@ func TestEngineCatchUpFiveMinutesAfterStart(t *testing.T) {
 	}
 }
 
+func TestEngineCatchUpAfterSetToZeroRunsOnFirstTick(t *testing.T) {
+	e := newTestEngine(t, learnrec.LimitsFor(learnrec.LevelBalanced, 4))
+	e.SetCatchUpAfter(0)
+	var runs atomic.Int32
+	e.Register(Detector{Name: "daily", Group: "habit", Light: false, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+		runs.Add(1)
+		return nil
+	}})
+
+	e.Tick(at(t, "2026-11-20", "10:00"), habitOnly)
+	if got := runs.Load(); got != 1 {
+		t.Fatalf("catch-up runs on the first tick = %d, want 1", got)
+	}
+	e.Tick(at(t, "2026-11-20", "10:01"), habitOnly)
+	if got := runs.Load(); got != 1 {
+		t.Fatalf("second tick ran again: runs = %d", got)
+	}
+}
+
 func TestEngineCatchUpAgeRule(t *testing.T) {
 	cases := []struct {
 		name     string

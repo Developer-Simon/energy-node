@@ -503,13 +503,20 @@ func main() {
 		func() ([]byte, error) { return configManager.Read("automation_rules") },
 		func() map[string]autolearn.DeviceInfo { return learnDevices(reg.Snapshot(), energyResolver) },
 		learnLimits, time.Local)
+	// Demo: die Nachhol-Runde laeuft beim ersten Minutentakt statt nach fuenf
+	// Minuten, damit Vorschlaege gleich nach dem Start erscheinen.
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" {
+		automationEngine.SetCatchUpAfter(0)
+	}
 	// Erkenner: Gewohnheiten (habit) und Zuverlaessigkeit (reliability).
 	for _, det := range []autolearn.Detector{
 		autolearn.SwitchTimeDetector, autolearn.RuntimeDetector, autolearn.CouplingDetector,
 		autolearn.FlappingDetector, autolearn.NoEffectDetector, autolearn.OverriddenDetector, autolearn.OfflineDetector,
+		autolearn.AwayStandbyDetector,
 	} {
 		automationEngine.Register(det)
 	}
+	registerLearnDetectors(automationEngine)
 	engineGroups := func() map[string]bool {
 		value, err := settingsStore.LoadSettings()
 		if err != nil {
@@ -543,6 +550,10 @@ func main() {
 	// stuendlich mit dem Hub. Verworfene und zurueckgestellte bleiben in suggestions.json.
 	suggestionState := autolearn.LoadSuggestionState(filepath.Join(autolearnDir, "suggestions.json"), log.Printf)
 	learnHub.AddSaver("suggestions", suggestionState)
+	// Gelernte Werte fuer die Regeln, veroeffentlicht nach jeder Runde. Die
+	// Datei liegt unter autolearn/ und wird mit dem Hub gespeichert.
+	learnedStore := autolearn.LoadLearnedStore(filepath.Join(autolearnDir, "learned.json"), log.Printf)
+	learnHub.AddSaver("learned", learnedStore)
 	suggestions := &suggestionBook{state: suggestionState}
 	suggestionExists := func(device string) bool {
 		if deviceFilterStore.IsIgnored(device) {
@@ -551,10 +562,6 @@ func main() {
 		_, ok := reg.Get(device)
 		return ok
 	}
-	engineLoop.afterRound = func() {
-		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
-	}
-	go engineLoop.Run(ctx)
 
 	origin := newOriginLearner(originTracker, dayStore, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
 	origin.rebuild()
@@ -711,6 +718,22 @@ func main() {
 		log.Printf("energy-node-dashboard: mqtt not connected, retrying in the background: see the MQTT tab")
 	}
 	defer client.Close()
+	// Nach jeder Engine-Runde: Vorschlaege durch die Gates, dann die gelernten
+	// Werte veroeffentlichen. Erst hier, weil die Veroeffentlichung den MQTT-Client braucht.
+	learnedExists := func(device string) bool {
+		_, ok := reg.Get(device)
+		return ok
+	}
+	// In der Demo kommt ein ruhiger Hauszustand dazu, die Demo-Tage tragen kein Heute.
+	learnedValues := automationEngine.Values
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" {
+		learnedValues = func() []autolearn.Value { return autolearn.WithDemoHouseState(automationEngine.Values()) }
+	}
+	engineLoop.afterRound = func() {
+		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
+		publishLearned(learnedStore, learnedValues, client, engineGroups()["habit"], learnedExists, time.Now())
+	}
+	go engineLoop.Run(ctx)
 
 	// nodeagent publiziert den Pi-Knoten selbst als HA-Geraet "energy_node"
 	// (Systemdiagnose ueber MQTT). Das Dashboard ist ab hier alleiniger
@@ -1203,6 +1226,7 @@ func main() {
 			ChainLearnInfo:   chainMonitor.LearnedSpan,
 			SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
 			Reset: func() error {
+				resetLearned(learnedStore, client)
 				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset())
 			},
 		},
@@ -1228,6 +1252,7 @@ func main() {
 		ChainSuggest:          chainSuggest,
 		AutomationFindings:    automationChecker,
 		AutomationSuggestions: suggestions,
+		LearnedValues:         learnedStore,
 		CommandObserver:       origin.observeCommand,
 		StorageFallback:       storageFallback,
 		HistorySampler:        historySampler,

@@ -120,6 +120,10 @@ func frequentFinding(rule Rule, stats RuleStats, now time.Time, minCount int) (F
 
 	var fixes []Fix
 	for i, c := range rule.Conditions {
+		// A learned threshold has no fixed number to derive a hysteresis from.
+		if _, learned := c.Learned["threshold"]; learned {
+			continue
+		}
 		if c.Type == "balance_threshold" && c.Hysteresis == 0 {
 			fixes = append(fixes, Fix{Code: "set_hysteresis", RuleID: rule.ID, Ops: []Op{
 				{Path: []any{"conditions", i, "hysteresis"}, Value: hysteresisFor(c.Threshold)}}})

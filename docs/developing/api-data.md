@@ -381,10 +381,36 @@ supplies `1m` and `5m` rows from the HA recorder and never requests anything.
 | POST | `/api/v1/automations/suggestions/{id}/dismiss` | `automations` + CSRF | Hides a suggestion for good. Answers `{ "ok": true }`. Unknown `id`: `404` `suggestion_unknown` |
 | POST | `/api/v1/automations/suggestions/{id}/later` | `automations` + CSRF | Hides a suggestion for seven days. Answers `{ "ok": true }` |
 | POST | `/api/v1/automations/suggestions/{id}/undo` | `automations` + CSRF | Shows a dismissed or postponed suggestion again. Answers `{ "ok": true }` |
+| GET | `/api/v1/automations/learned` | `view_automations` | Learned values as `{ "enabled": true, "values": [...] }`. `enabled` is `false` while "Muster lernen" or the habit group is off, then the values stay in the list. Values of hidden devices and devices that do not exist are left out. Never `null` |
 
 `learning.since` is the Unix time of the oldest learned day, `learning.days`
 the whole days from there to now. Without `automations` the POST answers `403`
 `suggestion_forbidden`. A failed save answers `500` `suggestion_save_failed`.
+
+`GET /api/v1/automations/learned` lists the values that rules use in place of a
+fixed number, a clock time or a state. The keys are `device/<id>/usual_on` and
+`device/<id>/usual_off` (clock times), `device/<id>/usual_runtime_s` (seconds),
+`site/day_start` and `site/night_rest` (clock times) and `site/house_state`
+(`active` or `quiet`). `kind` is `time`, `duration` or `state`. `device` is empty
+for site values. `value` holds the clock text, the seconds or the state, `n` the
+number of observed days, `at` the Unix time of the last publication, `prev` the
+value before the last change and `changed_at` the Unix time of that change:
+
+```json
+{"enabled":true,"values":[{"key":"device/stehlampe/usual_off","device":"stehlampe","kind":"time","value":"22:30","n":12,"at":1794000000,"prev":"22:25","changed_at":1793650000}]}
+```
+
+The same values go out as retained MQTT messages on the topic
+`outstation/energy_node/learned/<key>`, for example
+`outstation/energy_node/learned/device/stehlampe/usual_off`. The payload is
+`{"value":"22:30","n":12,"at":1794000000}`, where `value` is the same as above
+and `at` is Unix seconds. A value is published when its rounded value changes,
+at most every 15 minutes per value. Clock times are rounded to 5 minutes and
+durations to 60 seconds. An unchanged value is sent again with a new `at` at
+least every 60 minutes, so that rules do not treat it as old. Nothing is
+published while the learning is off. An empty retained payload deletes a topic,
+which happens when the device of a value is gone or when the learned values are
+deleted.
 
 `PUT` validates against the schema, creates a revision, writes atomically and
 then sends a reload command over MQTT to the service. If the reload fails, the

@@ -437,6 +437,19 @@ test('toggle closes the tooltip, and closeTip closes it for Escape and for a cli
   close();
 });
 
+test('toggle points the card caret at the middle of the chosen tile', async () => {
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [finding('a:1')], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  const row = { getBoundingClientRect: () => ({ left: 40, width: 900 }) };
+  const tile = { parentElement: row, getBoundingClientRect: () => ({ left: 350, width: 300 }) };
+  band.toggle('a:1', tile);
+  assert.equal(band.caret, '460px');
+  band.toggle('a:1', tile);
+  assert.equal(band.open, '');
+  assert.equal(band.caret, '460px', 'closing keeps the caret, so the card leaves where it came from');
+  close();
+});
+
 // Fact values as the card shows them, for one language.
 function factText(code, value, lang = 'de') {
   const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [], learning: { since: 1, devices: 1, days: 1 } }));

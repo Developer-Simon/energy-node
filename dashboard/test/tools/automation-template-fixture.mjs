@@ -112,6 +112,11 @@ function variants() {
     ['time_point', DEVICES, { action: 'off', time: { from: '23:58', to: '00:03', days: [5, 0] } }],
     ['runtime_off', DEVICES, {}],
     ['runtime_off', DEVICES, { minutes: 120 }],
+    ['time_point', DEVICES, { learned: 'device/wb/usual_on' }],
+    ['time_point', DEVICES, { learned: 'device/wb/usual_off', action: 'off', time: { from: '00:30', to: '00:35', days: [5, 0] } }],
+    ['runtime_off', DEVICES, { learned: 'device/lamp/usual_runtime_s', offset_s: 300 }],
+    ['runtime_off', DEVICES, { learned: 'device/lamp/usual_runtime_s', minutes: 120, offset_s: -600 }],
+    ['quiet_off', DEVICES, {}],
     ['follow_switch', DEVICES, {}],
     ['follow_switch', DEVICES, { source_on: 'off', target: 'wb_switch', target_on: 'on' }],
   ];

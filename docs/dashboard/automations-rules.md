@@ -146,6 +146,80 @@ automatically, so a rule never points at a different device without you
 noticing. If the entity is no longer in the registry at all, the rule keeps
 running with the saved topic.
 
+## Learned values
+
+Some fields of a rule can take a learned value instead of a fixed number or
+time. The node learns the value from your devices and your house, and the rule
+uses it as soon as it is known. A rule still never changes by itself. The rule
+keeps the learned value only because you chose it in the editor.
+
+### Which fields take a learned value
+
+Each of these fields has a switch between **Fixed value** and **Learned value**:
+
+- the threshold of a balance condition,
+- the value of a topic or entity condition, with **above** or **below** only,
+- the start and the end of a time window,
+- the hold time of every condition except the chain conditions.
+
+### Bounds, fallback and shift
+
+A learned value always needs three settings:
+
+- **At least** and **At most** for numbers, or **Earliest** and **Latest** for
+  times. The learned value is kept between these bounds.
+- **Without a learned value** is the fallback. It applies when nothing has been
+  learned yet, when the stored value cannot be read, or when it is older than 7
+  days. The fallback must lie between the bounds, and the minimum must not be
+  above the maximum. The editor says so if it is not.
+- **Shift** is optional. It is added after the value has been kept within the
+  bounds, in the unit of the field, so minutes for times. A shift lets a time
+  window keep its length, because its end moves with its start.
+
+The age limit is `max_age_s` in the rule file. It defaults to 604800 seconds,
+which is 7 days. Older values count as missing, and the fallback applies.
+
+### What is learned
+
+- the usual switch on time, the usual switch off time and the usual runtime of
+  each device,
+- the start of the day and the night rest of the house,
+- the house state, **House is active** or **House is quiet**, from the
+  consumption of the last hours.
+
+The learned values follow the **Learn patterns** switch and the **Habits**
+switch in the [learning settings](settings.md#learning-features). With
+**Learn patterns** off, the values stay at their last state, and rules that use
+them fall back to their fallback after 7 days.
+
+### The house is quiet
+
+The condition type **House state** is met when the learned house state equals
+**House is quiet** or **House is active**. Without a fresh value, the choice
+**Without a fresh value** applies. The template **Off when the house is quiet**
+switches a device off in that case. It sets its age limit to 2 hours (7200
+seconds) instead of 7 days.
+
+### Away suggestion
+
+The suggestions band can suggest switching off a device while the house is
+away. It only suggests switchable devices whose mean energy on the absence days
+is above 0.2 kWh and below half of their mean on the other days. Devices that
+run all the time, such as fridges, are left out, because switching them off
+would do harm.
+
+### What the rule card shows
+
+A condition that takes a learned value shows three things:
+
+- a chip with the name of the learned value and its current value,
+- a range scale with the bounds and the current value,
+- an origin line that says where the value comes from. It reads **Learned from
+  N days** or **Learned from N runs**, with the time since the last change. When
+  the value was clamped, it reads **Set to the bound, the learned value is ...**.
+  When the fallback applies, it reads **Fallback value, because nothing has been
+  learned yet or the value is too old**.
+
 ## Where a switch came from
 
 The learning features record where each switching command comes from. The

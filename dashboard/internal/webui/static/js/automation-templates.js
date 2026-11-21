@@ -1734,13 +1734,17 @@
 
   // ---------------------------------------------------------------- Schalter zu einer Uhrzeit
 
-  // Uhrzeit plus Minuten, ueber Mitternacht hinweg.
+  // Uhrzeit plus Minuten, ueber Mitternacht hinweg (auch rueckwaerts).
   const clockAfter = (time, minutes) => {
     const [hours, mins] = time.split(':').map(Number);
-    const total = (hours * 60 + mins + minutes) % (24 * 60);
+    const total = ((hours * 60 + mins + minutes) % (24 * 60) + 24 * 60) % (24 * 60);
     const pad = (value) => String(value).padStart(2, '0');
     return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
   };
+
+  // Lernschluessel der Vorlage, nur wenn die Vorbelegung einen nennt und der
+  // Schritt Quelle nicht auf fest steht. Ohne Schluessel gilt der feste Wert.
+  const learnedKey = (answers) => (answers.learned && answers.source !== 'fixed' ? answers.learned : null);
 
   const timePoint = {
     id: 'time_point',
@@ -1754,29 +1758,43 @@
         options: [{ id: 'on' }, { id: 'off' }],
       },
       { id: 'time', type: 'time', single: true, default: { from: '07:00', to: '07:05', days: ALL_DAYS } },
+      {
+        id: 'source', type: 'tiles', default: 'learned',
+        options: [{ id: 'fixed' }, { id: 'learned' }],
+        when: (answers) => Boolean(answers.learned),
+      },
     ],
     build(answers, ctx) {
       const entry = requireEntry(ctx.switches, answers.device);
       const entity = requireEntity(entry);
       const from = answers.time.from;
+      const learned = learnedKey(answers);
+      // Der gelernte Beginn liegt eine Stunde vor und nach dem Vorschlag, das Ende ist fuenf Minuten nach dem Beginn.
+      const start = learned
+        ? { learned, min: clockAfter(from, -60), max: clockAfter(from, 60), fallback: from }
+        : from;
+      const end = learned ? { ...start, offset: 5 } : clockAfter(from, 5);
       const rule = {
         id: uniqueId('time_point', ctx.usedIds),
         name: t('automations.templates.time_point.title'),
         enabled: true,
         cooldown_seconds: Math.max(600, ctx.publishMinInterval),
         conditions: [{
-          type: 'time_window', start: from, end: clockAfter(from, 5), weekdays: weekdaysOf(answers.time.days),
+          type: 'time_window', start, end, weekdays: weekdaysOf(answers.time.days),
         }],
         actions: [Sw(entity, answers.action === 'on')],
       };
       return { kind: 'rule', entry: rule };
     },
     summary(answers) {
+      const learned = learnedKey(answers);
       return [
         {
           label: phase('when'),
-          text: t('automations.assistant.summary.point.when', { time: answers.time.from }),
-          step: 'time',
+          text: learned
+            ? t('automations.assistant.summary.learned.time', { time: answers.time.from })
+            : t('automations.assistant.summary.point.when', { time: answers.time.from }),
+          step: learned ? 'source' : 'time',
         },
         {
           label: phase('when'),
@@ -1806,10 +1824,20 @@
       {
         id: 'minutes', type: 'number', min: 10, max: 600, step: 5, default: 60,
       },
+      {
+        id: 'source', type: 'tiles', default: 'learned',
+        options: [{ id: 'fixed' }, { id: 'learned' }],
+        when: (answers) => Boolean(answers.learned),
+      },
     ],
     build(answers, ctx) {
       const entry = requireEntry(ctx.switches, answers.device);
       const entity = requireEntity(entry);
+      const learned = learnedKey(answers);
+      // Die gelernte Laufzeit liegt zwischen der Haelfte und dem Dreifachen des ueblichen Laufs.
+      // Der Versatz bringt den Ersatzwert wieder auf die gewaehlten Minuten.
+      const offset = answers.offset_s || 0;
+      const usual = answers.minutes * 60 - offset;
       const rule = {
         id: uniqueId('runtime_off', ctx.usedIds),
         name: t('automations.templates.runtime_off.title'),
@@ -1818,18 +1846,70 @@
         conditions: [{
           type: 'entity_value', topic: entity.state_topic, entity_id: entity.unique_id,
           value_template: entity.value_template || '', comparison: 'equals', text: entity.payload_on,
-          hold_seconds: answers.minutes * 60,
+          hold_seconds: learned
+            ? { learned, min: 0.5 * usual, max: 3 * usual, fallback: usual, offset }
+            : answers.minutes * 60,
         }],
         actions: [Sw(entity, false)],
       };
       return { kind: 'rule', entry: rule };
     },
     summary(answers) {
+      const learned = learnedKey(answers);
       return [
         {
           label: phase('when'),
-          text: t('automations.assistant.summary.runtime.when', { minutes: num(answers.minutes) }),
-          step: 'minutes',
+          text: learned
+            ? t('automations.assistant.summary.learned.runtime', { minutes: num(answers.minutes) })
+            : t('automations.assistant.summary.runtime.when', { minutes: num(answers.minutes) }),
+          step: learned ? 'source' : 'minutes',
+        },
+        { label: phase('then'), text: t('automations.assistant.summary.switch.end_off'), step: 'device' },
+      ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Aus, wenn das Haus ruhig ist
+
+  // Der Hauszustand gilt als ruhig nach 30 Minuten, ein Lernwert darf hoechstens 2 Stunden alt sein.
+  const QUIET_HOLD_S = 1800;
+
+  const quietOff = {
+    id: 'quiet_off',
+    category: 'switching',
+    icon: 'ico-switch',
+    requires: { devices: 'switch_state' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'switch_state' },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.switches, answers.device);
+      const entity = requireEntity(entry);
+      const rule = {
+        id: uniqueId('quiet_off', ctx.usedIds),
+        name: t('automations.templates.quiet_off.title'),
+        enabled: true,
+        cooldown_seconds: Math.max(600, ctx.publishMinInterval),
+        conditions: [
+          {
+            type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active',
+            max_age_s: 7200, hold_seconds: QUIET_HOLD_S,
+          },
+          {
+            type: 'entity_value', topic: entity.state_topic, entity_id: entity.unique_id,
+            value_template: entity.value_template || '', comparison: 'equals', text: entity.payload_on, hold_seconds: ctx.publishMinInterval,
+          },
+        ],
+        actions: [Sw(entity, false)],
+      };
+      return { kind: 'rule', entry: rule };
+    },
+    summary() {
+      return [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.quiet.when', { minutes: num(QUIET_HOLD_S / 60) }),
+          step: 'device',
         },
         { label: phase('then'), text: t('automations.assistant.summary.switch.end_off'), step: 'device' },
       ];
@@ -1893,7 +1973,7 @@
   };
 
   window.__automationTemplates = {
-    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod, chainWatchdog, chainStandby, timePoint, runtimeOff, followSwitch],
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod, chainWatchdog, chainStandby, timePoint, runtimeOff, quietOff, followSwitch],
     chargeFit,
   };
 })();

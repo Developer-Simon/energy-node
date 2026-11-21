@@ -107,6 +107,8 @@
       csrf: '',
       dropped: null,
       hintTimer: 0,
+      // Spitze der Karte: Mitte der gewaehlten Kachel in px ab der linken Kante der Kacheln.
+      caret: '',
       get shown() { return this.loaded && this.enabled; },
       get count() { return this.items.length; },
       get arranged() { return arrange(this.items, this.all ? this.items.length : BAND_MAX); },
@@ -134,13 +136,29 @@
         }
       },
 
-      toggle(id) { this.open = this.open === id ? '' : id; this.fullDay = false; this.tipOpen = false; },
+      toggle(id, tile = null) {
+        this.open = this.open === id ? '' : id;
+        this.fullDay = false;
+        this.tipOpen = false;
+        if (this.open && tile) this.placeCaret(tile);
+      },
+      // Die Karte zeigt mit ihrer Spitze auf die Kachel, aus der sie kommt. Ohne Kachel
+      // (Groessenwechsel, mehr Kacheln) gilt die gerade aufgeklappte.
+      placeCaret(tile = null) {
+        const el = tile || (this.$root ? this.$root.querySelector('.auto-learn-tile[aria-expanded="true"]') : null);
+        const row = el && el.parentElement;
+        if (!el || !row) return;
+        const a = el.getBoundingClientRect();
+        const b = row.getBoundingClientRect();
+        this.caret = `${Math.round(a.left - b.left + a.width / 2)}px`;
+      },
       toggleTip() { this.tipOpen = !this.tipOpen; },
       // Escape und Klick neben den Tooltip
       closeTip() { this.tipOpen = false; },
       expandAll() {
         this.all = !this.all;
         if (!this.all && this.open && !this.visible.some((s) => s.id === this.open)) { this.open = ''; this.tipOpen = false; }
+        if (this.open && this.$nextTick) this.$nextTick(() => this.placeCaret());
       },
 
       titleOf(s, t) { return api.title(s, t); },

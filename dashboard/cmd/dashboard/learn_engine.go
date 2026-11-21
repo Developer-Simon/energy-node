@@ -25,6 +25,18 @@ func engineGroupsFor(value settings.Settings) map[string]bool {
 	}
 }
 
+// registerLearnDetectors meldet die Erkenner der Lernwerte bei der Engine. Sie
+// laufen in der Gruppe Gewohnheiten wie die Vorschlaege und liefern Werte statt
+// Befunde.
+func registerLearnDetectors(e *autolearn.Engine) {
+	for _, det := range []autolearn.Detector{
+		autolearn.LearnSwitchTimeDetector, autolearn.LearnRuntimeDetector,
+		autolearn.LearnDayBoundsDetector, autolearn.LearnHouseStateDetector,
+	} {
+		e.Register(det)
+	}
+}
+
 // engineRunner haengt die Automationen-Engine an den Minutentakt des Hubs.
 // ObserveMinute laeuft im Hub und damit im MQTT-Pfad, also legt es nur einen
 // Tick in einen Kanal der Laenge 1 und kehrt sofort zurueck. Ist der Kanal

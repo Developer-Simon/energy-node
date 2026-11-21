@@ -89,7 +89,7 @@
 
         <div class="auto-learn-tiles" x-show="count > 0" x-bind:class="{ 'is-all': all }">
           <template x-for="(s, i) in visible" x-bind:key="s.id">
-            <button class="auto-learn-tile" type="button" x-on:click="toggle(s.id)" x-bind:data-tour="i === 0 ? 'auto-learn-tile' : null"
+            <button class="auto-learn-tile" type="button" x-on:click="toggle(s.id, $el)" x-bind:data-tour="i === 0 ? 'auto-learn-tile' : null"
                     x-bind:aria-expanded="open === s.id ? 'true' : 'false'" aria-controls="auto-learn-detail">
               <span class="auto-learn-group" x-bind:class="'is-' + s.group" x-text="groupLabel(s, $t)"></span>
               <b class="auto-learn-tile-title" x-text="titleOf(s, $t)"></b>
@@ -101,10 +101,11 @@
                   x-text="all ? $t('automations.learn.band.less') : $t('automations.learn.band.more', { count: rest })"></button>
         </div>
 
-        <div id="auto-learn-detail" class="auto-learn-detail" x-bind:class="{ 'is-open': current }" role="region">
+        <div id="auto-learn-detail" class="auto-learn-detail" x-bind:class="{ 'is-open': current }" role="region"
+             x-on:resize.window.debounce.100ms="placeCaret()">
           <div class="auto-learn-detail-clip">
             <template x-if="current">
-              <article class="auto-learn-card" data-tour="auto-learn-card">
+              <article class="auto-learn-card" data-tour="auto-learn-card" x-bind:style="caret ? '--auto-learn-caret: ' + caret : ''">
                 <div class="auto-learn-card-tags">
                   <span class="auto-learn-group" x-bind:class="'is-' + current.group" x-text="groupLabel(current, $t)"></span>
                   <span class="auto-learn-card-device" x-text="current.device"></span>

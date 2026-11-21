@@ -431,21 +431,120 @@ func baseAway(recs []baseRec, base *Base) {
 
 // baseMetricOf misst die drei Größen der Abwesenheit an einem Tag.
 func baseMetricOf(r *baseRec) baseMetric {
-	floor := basePercentile10(r.load[:])
+	return baseMetricOver(r.load[:], r.hand[:])
+}
+
+// baseMetricOver misst die drei Größen über einer Folge von Viertelstunden,
+// einem Tag oder einem Fenster. Die Grundlast ist das 10-Prozent-Quantil der Folge.
+func baseMetricOver(load, hand []float64) baseMetric {
+	floor := basePercentile10(load)
 	var m baseMetric
-	for _, l := range r.load {
+	for _, l := range load {
 		if l > floor {
 			m.e += l - floor
 		}
 	}
 	m.e *= baseWattQuarterKWh
-	for _, h := range r.hand {
+	for _, h := range hand {
 		m.h += h
 	}
-	for q := 1; q < dayQuarters; q++ {
-		m.u += math.Abs(r.load[q] - r.load[q-1])
+	for q := 1; q < len(load); q++ {
+		m.u += math.Abs(load[q] - load[q-1])
 	}
 	return m
+}
+
+// houseWindowQuarters is the window of HouseState, the last three hours.
+const houseWindowQuarters = 12
+
+// houseMinDays is the number of comparison days HouseState needs before it is ok.
+const houseMinDays = 7
+
+// HouseState tells whether the house was quiet over the last three hours. It
+// measures the three quantities of baseAway over that window and compares them
+// with the same window on the days of the day type of today. The state is
+// quiet when all three lie at least baseQuietSigma spreads below the median
+// and no hand changed a device in the window, otherwise active. ok is false
+// without today's data or with fewer than houseMinDays comparison days.
+func HouseState(in *Input) (state string, n int, ok bool) {
+	loc := in.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	g, has := learnTodayGroup(in)
+	if !has {
+		return "", 0, false
+	}
+	now := in.Now.In(loc)
+	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	q := now.Hour()*4 + now.Minute()/int(baseQuarterMin)
+	byDate := map[string]*DayFile{}
+	for i := range in.Days {
+		byDate[in.Days[i].Day] = &in.Days[i]
+	}
+	cur, ok := houseWindowOf(byDate, day, q)
+	if !ok {
+		return "", 0, false
+	}
+	var es, hs, us []float64
+	for i := range in.Days {
+		f := &in.Days[i]
+		if f.Day == day.Format(dayLayout) {
+			continue
+		}
+		if dg, ok := in.Base.DayType[f.Day]; !ok || dg != g {
+			continue
+		}
+		t, err := time.ParseInLocation(dayLayout, f.Day, loc)
+		if err != nil {
+			continue
+		}
+		m, ok := houseWindowOf(byDate, t, q)
+		if !ok {
+			continue
+		}
+		es = append(es, m.e)
+		hs = append(hs, m.h)
+		us = append(us, m.u)
+	}
+	if len(es) < houseMinDays {
+		return "", len(es), false
+	}
+	below := func(v float64, xs []float64) bool {
+		return v <= Median(xs)-baseQuietSigma*MADScale(xs)
+	}
+	quiet := cur.h == 0 && below(cur.e, es) && below(cur.h, hs) && below(cur.u, us)
+	if quiet {
+		return "quiet", len(es), true
+	}
+	return "active", len(es), true
+}
+
+// houseWindowOf measures the window of HouseState that ends before quarter q of
+// the day. The quarters before midnight come from the day before. ok is false
+// when a quarter of the window was not seen.
+func houseWindowOf(byDate map[string]*DayFile, day time.Time, q int) (baseMetric, bool) {
+	load := make([]float64, 0, houseWindowQuarters)
+	hand := make([]float64, 0, houseWindowQuarters)
+	for k := q - houseWindowQuarters; k < q; k++ {
+		d, idx := day, k
+		if k < 0 {
+			d, idx = day.AddDate(0, 0, -1), k+dayQuarters
+		}
+		f := byDate[d.Format(dayLayout)]
+		if f == nil || f.Site.Seen[idx] == 0 {
+			return baseMetric{}, false
+		}
+		var h float64
+		for _, dd := range f.Devices {
+			if dd != nil {
+				h += float64(dd.Hand[idx])
+			}
+		}
+		load = append(load, float64(f.Site.LoadTotal[idx]))
+		hand = append(hand, h)
+	}
+	return baseMetricOver(load, hand), true
 }
 
 // baseBounds setzt je Tagestyp den Kreismedian von Tagesbeginn und Nachtruhe.

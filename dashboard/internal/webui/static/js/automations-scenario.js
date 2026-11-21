@@ -186,9 +186,12 @@
       const condition = conditions[index];
       const report = reports[index];
       if (condition.type !== 'balance_threshold' || !report || !isNumber(report.value)) continue;
+      // Ein Lernwert zaehlt mit dem aufgeloesten Wert aus dem Bericht, sonst gilt die feste Schwelle.
+      const threshold = isNumber(report.target) ? report.target : condition.threshold;
+      if (!isNumber(threshold)) continue;
       return {
-        fraction: view.meterFraction(report.value, { min: 0, max: condition.threshold }),
-        label: `${report.value} / ${condition.threshold} W`,
+        fraction: view.meterFraction(report.value, { min: 0, max: threshold }),
+        label: `${report.value} / ${threshold} W`,
       };
     }
     return null;

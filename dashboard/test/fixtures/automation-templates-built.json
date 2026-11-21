@@ -265,6 +265,180 @@
           ]
         },
         {
+          "id": "time_point_3",
+          "name": "Schalter zu einer Uhrzeit",
+          "enabled": true,
+          "cooldown_seconds": 600,
+          "conditions": [
+            {
+              "type": "time_window",
+              "start": {
+                "learned": "device/wb/usual_on",
+                "min": "06:00",
+                "max": "08:00",
+                "fallback": "07:00"
+              },
+              "end": {
+                "learned": "device/wb/usual_on",
+                "min": "06:00",
+                "max": "08:00",
+                "fallback": "07:00",
+                "offset": 5
+              },
+              "weekdays": []
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/wb/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "ON",
+              "entity_id": "wb_switch"
+            }
+          ]
+        },
+        {
+          "id": "time_point_4",
+          "name": "Schalter zu einer Uhrzeit",
+          "enabled": true,
+          "cooldown_seconds": 600,
+          "conditions": [
+            {
+              "type": "time_window",
+              "start": {
+                "learned": "device/wb/usual_off",
+                "min": "23:30",
+                "max": "01:30",
+                "fallback": "00:30"
+              },
+              "end": {
+                "learned": "device/wb/usual_off",
+                "min": "23:30",
+                "max": "01:30",
+                "fallback": "00:30",
+                "offset": 5
+              },
+              "weekdays": [
+                0,
+                5
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/wb/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "OFF",
+              "entity_id": "wb_switch"
+            }
+          ]
+        },
+        {
+          "id": "runtime_off_3",
+          "name": "Laufzeit begrenzen",
+          "enabled": true,
+          "cooldown_seconds": 60,
+          "conditions": [
+            {
+              "type": "entity_value",
+              "topic": "werkstatt/lamp/state",
+              "entity_id": "lamp_switch",
+              "value_template": "",
+              "comparison": "equals",
+              "text": "ON",
+              "hold_seconds": {
+                "learned": "device/lamp/usual_runtime_s",
+                "min": 1650,
+                "max": 9900,
+                "fallback": 3300,
+                "offset": 300
+              }
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/lamp/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "OFF",
+              "entity_id": "lamp_switch"
+            }
+          ]
+        },
+        {
+          "id": "runtime_off_4",
+          "name": "Laufzeit begrenzen",
+          "enabled": true,
+          "cooldown_seconds": 60,
+          "conditions": [
+            {
+              "type": "entity_value",
+              "topic": "werkstatt/lamp/state",
+              "entity_id": "lamp_switch",
+              "value_template": "",
+              "comparison": "equals",
+              "text": "ON",
+              "hold_seconds": {
+                "learned": "device/lamp/usual_runtime_s",
+                "min": 3900,
+                "max": 23400,
+                "fallback": 7800,
+                "offset": -600
+              }
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/lamp/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "OFF",
+              "entity_id": "lamp_switch"
+            }
+          ]
+        },
+        {
+          "id": "quiet_off",
+          "name": "Aus, wenn das Haus ruhig ist",
+          "enabled": true,
+          "cooldown_seconds": 600,
+          "conditions": [
+            {
+              "type": "learned_state",
+              "learned": "site/house_state",
+              "equals": "quiet",
+              "fallback": "active",
+              "max_age_s": 7200,
+              "hold_seconds": 1800
+            },
+            {
+              "type": "entity_value",
+              "topic": "werkstatt/lamp/state",
+              "entity_id": "lamp_switch",
+              "value_template": "",
+              "comparison": "equals",
+              "text": "ON",
+              "hold_seconds": 30
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/lamp/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "OFF",
+              "entity_id": "lamp_switch"
+            }
+          ]
+        },
+        {
           "id": "follow_switch",
           "name": "Schalter folgt einem anderen",
           "enabled": true,

@@ -74,6 +74,7 @@ type Engine struct {
 	detectors []Detector
 	queue     []pending
 	startAt   time.Time
+	catchUp   time.Duration
 	lastLight time.Time
 	lastDaily time.Time
 	dailyDay  string
@@ -98,9 +99,22 @@ func NewEngine(days *DayStore, reactions *Reactions, readDoc func() ([]byte, err
 		devices:   devices,
 		limits:    limits,
 		loc:       loc,
+		catchUp:   engineCatchUpAfter,
 		last:      map[string][]Candidate{},
 		streak:    map[string]int{},
 	}
+}
+
+// SetCatchUpAfter changes the delay after the start before the catch-up daily
+// round. The demo sets 0, so suggestions appear on the first minute tick.
+// A negative delay counts as 0.
+func (e *Engine) SetCatchUpAfter(d time.Duration) {
+	if d < 0 {
+		d = 0
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.catchUp = d
 }
 
 // Register adds a detector. A detector without Run is ignored.
@@ -142,9 +156,9 @@ func (e *Engine) Tick(now time.Time, groups map[string]bool) {
 	e.queue = nil
 	lightDue := e.lastLight.IsZero() || now.Sub(e.lastLight) >= limits.LightEvery
 	dailyDue := !local.Before(dailyAt) && e.dailyDay != dayKey
-	// Catch-up: a daily round runs once, five minutes after the start, when the
-	// last one is more than a day old or there was none.
-	if !dailyDue && now.Sub(e.startAt) >= engineCatchUpAfter &&
+	// Catch-up: a daily round runs once, five minutes after the start (or after
+	// SetCatchUpAfter), when the last one is more than a day old or there was none.
+	if !dailyDue && now.Sub(e.startAt) >= e.catchUp &&
 		(e.lastDaily.IsZero() || now.Sub(e.lastDaily) > engineDailyMaxAge) {
 		dailyDue = true
 	}
@@ -269,9 +283,33 @@ func (e *Engine) record(now time.Time, limits learnrec.Limits, work []pending, d
 	}
 }
 
-// Candidates returns the candidates of the last run of every detector, in the
-// order of the detector names.
+// Candidates returns the findings of the last run of every detector, in the
+// order of the detector names. Learned values are left out, see Values.
 func (e *Engine) Candidates() []Candidate {
+	var out []Candidate
+	for _, c := range e.lastInOrder() {
+		if c.Value == nil {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// Values returns the learned values of the last run of every detector, in the
+// order of the detector names.
+func (e *Engine) Values() []Value {
+	var out []Value
+	for _, c := range e.lastInOrder() {
+		if c.Value != nil {
+			out = append(out, *c.Value)
+		}
+	}
+	return out
+}
+
+// lastInOrder returns the candidates of the last run of every detector, in the
+// order of the detector names.
+func (e *Engine) lastInOrder() []Candidate {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	names := make([]string, 0, len(e.last))

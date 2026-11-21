@@ -65,4 +65,7 @@ type Candidate struct {
 	Benefit     Benefit
 	Values      map[string]float64
 	Spread      map[string]float64
+	// Value is set on a learned value. Such a candidate is no finding and
+	// reaches the engine through Values, not Candidates.
+	Value *Value
 }

@@ -1000,3 +1000,12 @@ def test_scenario_without_option_has_no_efficiency_field():
     doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings())
     report = regulate_tick(engine, doc, 1000, grid_export=720)
     assert "efficiency" not in report["nulleinspeisung"]
+
+
+def test_required_topics_includes_the_learned_topics_of_scenarios():
+    learned_cond = {"type": "learned_state", "learned": "site/house_state", "equals": "quiet", "fallback": "active"}
+    scenario = normalized(scenario_def(when={"conditions": [learned_cond]}))
+    doc = automation.RulesDocument(version=1, settings=automation.Settings(), rules=[], scenarios=[scenario])
+    service = automation.AutomationService.__new__(automation.AutomationService)
+    service.test_command_topic = "outstation/automation/test/set"
+    assert "outstation/energy_node/learned/site/house_state" in service.required_topics(doc)

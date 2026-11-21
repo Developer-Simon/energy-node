@@ -184,6 +184,15 @@ test('startProgress reads the first balance condition', () => {
   assert.equal(progress.label, '900 / 1400 W');
 });
 
+test('startProgress uses the resolved learned threshold from the report', () => {
+  const s = load();
+  const threshold = { learned: 'site/power_avg', min: 1000, max: 2000, fallback: 1500 };
+  const scenario = scenarioWith({ when: { conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold, hysteresis: 0, hold_seconds: 0 }] } });
+  const progress = s.startProgress(scenario, { phase: 'idle', conditions: [{ value: 700, target: 1400, raw_met: false, met: false }] });
+  assert.ok(Math.abs(progress.fraction - 0.5) < 0.001);
+  assert.equal(progress.label, '700 / 1400 W');
+});
+
 test('startProgress is null without a balance condition or a value', () => {
   const s = load();
   const scenario = scenarioWith({ when: { conditions: [{ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }] } });

@@ -3,6 +3,7 @@
 package autolearn
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 )
@@ -25,18 +26,36 @@ type Rule struct {
 }
 
 // Condition is one condition of a rule. Threshold is read from threshold of a
-// balance_threshold, Value from value of a topic_value or entity_value. Raw
-// keeps the original JSON of the condition.
+// balance_threshold, Value from value of a topic_value or entity_value,
+// HoldSeconds from hold_seconds. A field that holds a learned value is not a
+// number: it stays 0 or nil here and is listed in Learned under its field name.
+// Raw keeps the original JSON of the condition.
 type Condition struct {
-	Type       string
-	Field      string
-	Comparison string
-	Topic      string
-	EntityID   string
-	Threshold  float64
-	Hysteresis float64
-	Value      *float64
-	Raw        json.RawMessage
+	Type        string
+	Field       string
+	Comparison  string
+	Topic       string
+	EntityID    string
+	Threshold   float64
+	Hysteresis  float64
+	Value       *float64
+	HoldSeconds *float64
+	Learned     map[string]LearnedRef
+	Raw         json.RawMessage
+}
+
+// LearnedRef is a learned value a condition field reads instead of a number.
+// Key is the learned key, such as site/day_start. Min, Max and Fallback are
+// numbers, or "HH:MM" texts for clock times. Offset is added to the resolved
+// value. MaxAgeS is the age in seconds after which the value counts as missing,
+// 0 when the rule does not set it.
+type LearnedRef struct {
+	Key      string
+	Min      any
+	Max      any
+	Fallback any
+	Offset   float64
+	MaxAgeS  float64
 }
 
 // Action is one action of a rule, a publish or a notification.
@@ -74,15 +93,30 @@ type wireRule struct {
 	Actions         []wireAction      `json:"actions"`
 }
 
+// wireCondition keeps the fields that may hold a learned reference as raw
+// JSON, since a reference is an object and not a number.
 type wireCondition struct {
-	Type       string   `json:"type"`
-	Field      string   `json:"field"`
-	Comparison string   `json:"comparison"`
-	Topic      string   `json:"topic"`
-	EntityID   string   `json:"entity_id"`
-	Threshold  float64  `json:"threshold"`
-	Hysteresis float64  `json:"hysteresis"`
-	Value      *float64 `json:"value"`
+	Type        string          `json:"type"`
+	Field       string          `json:"field"`
+	Comparison  string          `json:"comparison"`
+	Topic       string          `json:"topic"`
+	EntityID    string          `json:"entity_id"`
+	Threshold   json.RawMessage `json:"threshold"`
+	Hysteresis  float64         `json:"hysteresis"`
+	Value       json.RawMessage `json:"value"`
+	Start       json.RawMessage `json:"start"`
+	End         json.RawMessage `json:"end"`
+	HoldSeconds json.RawMessage `json:"hold_seconds"`
+}
+
+// wireLearnedRef mirrors the JSON of a learned reference.
+type wireLearnedRef struct {
+	Learned  string  `json:"learned"`
+	Min      any     `json:"min"`
+	Max      any     `json:"max"`
+	Fallback any     `json:"fallback"`
+	Offset   float64 `json:"offset"`
+	MaxAgeS  float64 `json:"max_age_s"`
 }
 
 type wireAction struct {
@@ -126,15 +160,11 @@ func ParseDoc(raw []byte) (Doc, error) {
 		rule := Rule{ID: wr.ID, Name: wr.Name, Enabled: wr.Enabled,
 			CooldownSeconds: wr.CooldownSeconds, RepeatSeconds: wr.RepeatSeconds}
 		for _, rawCond := range wr.Conditions {
-			var wc wireCondition
-			if err := json.Unmarshal(rawCond, &wc); err != nil {
+			condition, err := parseCondition(rawCond)
+			if err != nil {
 				return Doc{}, fmt.Errorf("rule %s condition: %w", wr.ID, err)
 			}
-			rule.Conditions = append(rule.Conditions, Condition{
-				Type: wc.Type, Field: wc.Field, Comparison: wc.Comparison, Topic: wc.Topic,
-				EntityID: wc.EntityID, Threshold: wc.Threshold, Hysteresis: wc.Hysteresis,
-				Value: wc.Value, Raw: append(json.RawMessage(nil), rawCond...),
-			})
+			rule.Conditions = append(rule.Conditions, condition)
 		}
 		for _, wa := range wr.Actions {
 			rule.Actions = append(rule.Actions, toAction(wa))
@@ -158,6 +188,82 @@ func ParseDoc(raw []byte) (Doc, error) {
 		doc.Scenarios = append(doc.Scenarios, scenario)
 	}
 	return doc, nil
+}
+
+// parseCondition reads one condition. A numeric field becomes its number, a
+// learned reference is recorded in Learned.
+func parseCondition(rawCond json.RawMessage) (Condition, error) {
+	var wc wireCondition
+	if err := json.Unmarshal(rawCond, &wc); err != nil {
+		return Condition{}, err
+	}
+	learned := map[string]LearnedRef{}
+	threshold, err := number(wc.Threshold, "threshold", learned)
+	if err != nil {
+		return Condition{}, err
+	}
+	value, err := number(wc.Value, "value", learned)
+	if err != nil {
+		return Condition{}, err
+	}
+	holdSeconds, err := number(wc.HoldSeconds, "hold_seconds", learned)
+	if err != nil {
+		return Condition{}, err
+	}
+	if _, err := learnedRef(wc.Start, "start", learned); err != nil {
+		return Condition{}, err
+	}
+	if _, err := learnedRef(wc.End, "end", learned); err != nil {
+		return Condition{}, err
+	}
+	condition := Condition{
+		Type: wc.Type, Field: wc.Field, Comparison: wc.Comparison, Topic: wc.Topic,
+		EntityID: wc.EntityID, Hysteresis: wc.Hysteresis, Value: value, HoldSeconds: holdSeconds,
+		Raw: append(json.RawMessage(nil), rawCond...),
+	}
+	if threshold != nil {
+		condition.Threshold = *threshold
+	}
+	if len(learned) > 0 {
+		condition.Learned = learned
+	}
+	return condition, nil
+}
+
+// number reads a field that holds a number. It returns nil when the field is
+// absent, null or a learned reference, and then records the reference.
+func number(raw json.RawMessage, name string, learned map[string]LearnedRef) (*float64, error) {
+	if isRef, err := learnedRef(raw, name, learned); err != nil || isRef {
+		return nil, err
+	}
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
+		return nil, nil
+	}
+	var n float64
+	if err := json.Unmarshal(trimmed, &n); err != nil {
+		return nil, fmt.Errorf("%s must be a number or a learned value", name)
+	}
+	return &n, nil
+}
+
+// learnedRef records raw under name when it is a learned reference and reports
+// whether it was one.
+// An object is a reference only with a non empty text under learned, as the
+// service's is_ref reads it. Any other object is not stored, so the numeric
+// fields reject it and start and end ignore it.
+func learnedRef(raw json.RawMessage, name string, learned map[string]LearnedRef) (bool, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return false, nil
+	}
+	var ref wireLearnedRef
+	if err := json.Unmarshal(trimmed, &ref); err != nil || ref.Learned == "" {
+		return false, nil
+	}
+	learned[name] = LearnedRef{Key: ref.Learned, Min: ref.Min, Max: ref.Max, Fallback: ref.Fallback,
+		Offset: ref.Offset, MaxAgeS: ref.MaxAgeS}
+	return true, nil
 }
 
 func toAction(wa wireAction) Action {

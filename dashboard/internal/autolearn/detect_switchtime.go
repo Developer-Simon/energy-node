@@ -69,7 +69,9 @@ func switchTimeRun(ctx context.Context, in *Input, device string) []Candidate {
 			if ctx.Err() != nil {
 				return nil
 			}
-			out = append(out, switchTimeGroup(in, device, g, on, refs)...)
+			for _, p := range switchTimeGroup(in, device, g, on, refs) {
+				out = append(out, p.Candidate)
+			}
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Finding.ID < out[j].Finding.ID })
@@ -119,10 +121,19 @@ func switchTimeRefs(in *Input, device string) []swRef {
 	return refs
 }
 
-// switchTimeGroup finds the candidates of one group and direction. Each peak
-// of the circular density gives at most one candidate. Peaks are visited in
-// time order, and a peak whose ID is already taken by an earlier one is dropped.
-func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []Candidate {
+// switchTimePeak is a peak that passed the gates: the candidate of the
+// suggestion, the counted days, and the centre rounded to 5 minutes.
+type switchTimePeak struct {
+	Candidate
+	Days   int
+	Minute float64
+}
+
+// switchTimeGroup is the cluster search of one group and direction, shared by
+// the suggestion and the learned value. Each peak of the circular density
+// gives at most one peak. Peaks are visited in time order, and a peak whose ID
+// is already taken by an earlier one is dropped.
+func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []switchTimePeak {
 	dir := 0
 	if on {
 		dir = 1
@@ -145,7 +156,7 @@ func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []C
 		return nil
 	}
 	dens := CircKDE(minutes, weights)
-	var out []Candidate
+	var out []switchTimePeak
 	ids := map[string]bool{}
 	for _, peak := range dens.Peaks(switchTimeMinShare) {
 		c, ok := switchTimeCandidate(in, device, g, on, refs, group, minutes, entities, peak)
@@ -158,9 +169,9 @@ func switchTimeGroup(in *Input, device string, g int, on bool, refs []swRef) []C
 	return out
 }
 
-// switchTimeCandidate builds the candidate of one peak, or reports false when
+// switchTimeCandidate builds the peak of one centre, or reports false when
 // the peak fails the gates.
-func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef, group []int, minutes []float64, entities []string, peak float64) (Candidate, bool) {
+func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef, group []int, minutes []float64, entities []string, peak float64) (switchTimePeak, bool) {
 	dir := 0
 	dirName := "off"
 	if on {
@@ -169,7 +180,7 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 	}
 	center, spread, n := switchTimeCluster(minutes, peak)
 	if n < 2 {
-		return Candidate{}, false
+		return switchTimePeak{}, false
 	}
 	window := switchTimeWindow * spread
 	c := wrapMinutes(center)
@@ -203,7 +214,7 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 	}
 	days := len(counted)
 	if days == 0 {
-		return Candidate{}, false
+		return switchTimePeak{}, false
 	}
 	weights := make([]float64, days)
 	for k, i := range counted {
@@ -211,7 +222,7 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 	}
 	neff := NEff(weights)
 	if neff < switchTimeMinNEff {
-		return Candidate{}, false
+		return switchTimePeak{}, false
 	}
 	hits := len(hit)
 	lower := WilsonLower(hits, days)
@@ -222,7 +233,7 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 	case lower >= switchTimeEstLower && spread <= switchTimeEstSpread:
 		conf = "estimate"
 	default:
-		return Candidate{}, false
+		return switchTimePeak{}, false
 	}
 	rate := float64(hits) / float64(days)
 
@@ -258,7 +269,7 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 			{Code: "spread_min", Value: spread},
 			{Code: "hit_rate", Value: rate},
 		},
-		Apply:   []Fix{{Code: "time_point", Template: "time_point", Prefill: switchTimePrefill(device, entities, on, clock, weekdays)}},
+		Apply:   switchTimeApply(device, entities, on, clock, weekdays),
 		Device:  device,
 		Season:  season,
 		Benefit: &benefit,
@@ -276,7 +287,31 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 		// The quiet check never holds the shown time within less than 5 minutes.
 		Spread: map[string]float64{"time": quietSpread(spread)},
 	}
-	return cand, true
+	return switchTimePeak{Candidate: cand, Days: days, Minute: propMin}, true
+}
+
+// switchTimeApply offers the fixed time first and the time that follows the
+// learned usual switch time of the device second.
+func switchTimeApply(device string, entities []string, on bool, clock string, weekdays []int) []Fix {
+	prefill := switchTimePrefill(device, entities, on, clock, weekdays)
+	learned := make(map[string]any, len(prefill)+1)
+	for k, v := range prefill {
+		learned[k] = v
+	}
+	learned["learned"] = learnSwitchKey(device, on)
+	return []Fix{
+		{Code: "time_point", Template: "time_point", Prefill: prefill},
+		{Code: "time_point_learned", Template: "time_point", Prefill: learned},
+	}
+}
+
+// learnSwitchKey is the key of the learned usual switch time of a device in one
+// direction.
+func learnSwitchKey(device string, on bool) string {
+	if on {
+		return "device/" + device + "/usual_on"
+	}
+	return "device/" + device + "/usual_off"
 }
 
 // switchTimePrefill is the prefill of the time_point fix. The entity is the
@@ -397,4 +432,63 @@ func switchTimeClock(m float64) string {
 func switchTimeCompact(m float64) string {
 	v := int(m)
 	return fmt.Sprintf("%02d%02d", v/60, v%60)
+}
+
+// LearnSwitchTimeDetector learns the usual switch times of a device for the
+// day type of today. It runs the same cluster search and gates as
+// SwitchTimeDetector and keeps the earliest on peak and the latest off peak.
+var LearnSwitchTimeDetector = Detector{
+	Name:      "learn_switch_time",
+	Group:     "habit",
+	Light:     false,
+	PerDevice: true,
+	Run:       learnSwitchTimeRun,
+}
+
+// learnSwitchTimeRun returns usual_on and usual_off of a device, each only when
+// a peak of its direction passes the gates in the day type group of today.
+func learnSwitchTimeRun(ctx context.Context, in *Input, device string) []Candidate {
+	g, ok := learnTodayGroup(in)
+	if !ok {
+		return nil
+	}
+	refs := switchTimeRefs(in, device)
+	var out []Candidate
+	for _, on := range []bool{true, false} {
+		if ctx.Err() != nil {
+			return nil
+		}
+		peaks := switchTimeGroup(in, device, g, on, refs)
+		if len(peaks) == 0 {
+			continue
+		}
+		best := peaks[0]
+		for _, p := range peaks[1:] {
+			if (on && p.Minute < best.Minute) || (!on && p.Minute > best.Minute) {
+				best = p
+			}
+		}
+		out = append(out, learnSwitchCandidate(device, on, best))
+	}
+	return out
+}
+
+// learnSwitchCandidate is the learned value of one direction, the peak carries
+// the counted days and the rounded clock time.
+func learnSwitchCandidate(device string, on bool, p switchTimePeak) Candidate {
+	return Candidate{
+		Detector: "learn_switch_time",
+		NEff:     p.NEff,
+		MinNEff:  switchTimeMinNEff,
+		Lower:    p.Lower,
+		Limit:    p.Limit,
+		Value: &Value{
+			Key:    learnSwitchKey(device, on),
+			Device: device,
+			Kind:   ValueTime,
+			Group:  "habit",
+			Text:   switchTimeClock(p.Minute),
+			N:      p.Days,
+		},
+	}
 }
