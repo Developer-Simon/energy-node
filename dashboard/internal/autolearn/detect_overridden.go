@@ -38,6 +38,8 @@ const (
 	overriddenRoundW = 50.0
 	// overriddenRoundMin rounds the proposed start of a time window in minutes.
 	overriddenRoundMin = 5.0
+	// overriddenSunOffsetMax is the largest sun offset in minutes the rule schema accepts.
+	overriddenSunOffsetMax = 240
 	// overriddenMaxEvidence caps the reversal times kept as evidence.
 	overriddenMaxEvidence = 50
 )
@@ -648,6 +650,10 @@ func overriddenAddFix(rule Rule, base Base, s overrideSplit, cases []overrideCas
 			return Fix{}, nil, false
 		}
 		off := int(math.Round(-d/overriddenRoundMin) * overriddenRoundMin)
+		// The schema accepts sun offsets only within -240..240 minutes.
+		if off < -overriddenSunOffsetMax || off > overriddenSunOffsetMax {
+			return Fix{}, nil, false
+		}
 		if s.acceptedLeft {
 			cond = map[string]any{"type": "sun_window", "from": "sunset", "to": "sunrise", "from_offset_min": off, "to_offset_min": 0}
 		} else {

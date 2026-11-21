@@ -354,3 +354,33 @@ func TestOverriddenElevationFixStartsWhereSunStandsAtCut(t *testing.T) {
 		t.Errorf("from_offset_min = %d, want about -20", off)
 	}
 }
+
+// A sun cut outside the schema range of the sun offsets (-240..240 minutes)
+// gives no fix, the range edge itself is kept. The offset is rounded to five
+// minutes first.
+func TestOverriddenSunFixDropsOffsetOutOfRange(t *testing.T) {
+	site := &sun.Location{Lat: 48, Lon: 13.4}
+	rule := Rule{ID: "heat"}
+	for _, tc := range []struct {
+		name string
+		cut  float64
+		ok   bool
+	}{
+		{"600 minutes before sunset", 600, false},
+		{"243 minutes before sunset rounds to -245", 243, false},
+		{"240 minutes before sunset is kept", 240, true},
+	} {
+		split := overrideSplit{feature: overriddenToSunset, cut: tc.cut, acceptedLeft: true}
+		fix, _, ok := overriddenAddFix(rule, Base{}, split, nil, site)
+		if ok != tc.ok {
+			t.Errorf("%s: ok = %v, want %v (fix %+v)", tc.name, ok, tc.ok, fix)
+		}
+		if !ok {
+			continue
+		}
+		cond, _ := fix.Ops[0].Value.(map[string]any)
+		if off, _ := cond["from_offset_min"].(int); off != -240 {
+			t.Errorf("%s: from_offset_min = %d, want -240", tc.name, off)
+		}
+	}
+}
