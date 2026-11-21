@@ -385,3 +385,34 @@ func TestParseDocDoesNotTakeAnObjectWithoutLearnedKeyAsReference(t *testing.T) {
 		t.Errorf("Learned = %+v, want none", c.Learned)
 	}
 }
+
+func TestParseDocReadsRegulatorSpec(t *testing.T) {
+	doc, err := ParseDoc([]byte(`{"scenarios": [
+	  {"id": "export_regulator", "enabled": true, "while": {"regulator": {
+	    "output": {"topic": "inv/limit/set", "min": 0, "max": 800},
+	    "direction": "producer", "deadband_w": 30,
+	    "base": {"source": "balance", "field": "grid_export"}}}},
+	  {"id": "default_deadband", "enabled": true, "while": {"regulator": {
+	    "output": {"topic": "wb/set", "min": 0, "max": 11000},
+	    "direction": "consumer",
+	    "base": {"source": "entity", "entity_id": "wb_power"}}}},
+	  {"id": "no_regulator", "enabled": true, "while": {"actions": []}}
+	]}`))
+	if err != nil {
+		t.Fatalf("ParseDoc: %v", err)
+	}
+	if len(doc.Scenarios) != 3 {
+		t.Fatalf("scenarios = %d, want 3", len(doc.Scenarios))
+	}
+	want := &RegulatorSpec{Target: "grid_export", DeadbandW: 30, MaxW: 800}
+	if got := doc.Scenarios[0].Regulator; got == nil || *got != *want {
+		t.Errorf("Regulator = %+v, want %+v", got, want)
+	}
+	wantDefault := &RegulatorSpec{Target: "", DeadbandW: 20, MaxW: 11000}
+	if got := doc.Scenarios[1].Regulator; got == nil || *got != *wantDefault {
+		t.Errorf("entity base Regulator = %+v, want %+v", got, wantDefault)
+	}
+	if doc.Scenarios[2].Regulator != nil {
+		t.Errorf("scenario without regulator = %+v, want nil", doc.Scenarios[2].Regulator)
+	}
+}

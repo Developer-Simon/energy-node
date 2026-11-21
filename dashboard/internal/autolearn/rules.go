@@ -78,7 +78,19 @@ type Scenario struct {
 	Name           string
 	Enabled        bool
 	RegulatorTopic string
-	ActionTopics   []string
+	// Regulator is nil when the scenario has no regulator block.
+	Regulator    *RegulatorSpec
+	ActionTopics []string
+}
+
+// RegulatorSpec is the part of a scenario regulator that the learning steps
+// read. Target is the balance field the regulator reads (base.field), empty
+// when the base is not a balance field. DeadbandW is the regulator deadband
+// (deadband_w, default 20). MaxW is the upper end of the output range (output.max).
+type RegulatorSpec struct {
+	Target    string
+	DeadbandW float64
+	MaxW      float64
 }
 
 // wireDoc mirrors the JSON of the rule document. Unknown fields are ignored.
@@ -164,12 +176,22 @@ type wirePhase struct {
 }
 
 type wireWhile struct {
-	Actions   []wireAction `json:"actions"`
-	Regulator *struct {
-		Output struct {
-			Topic string `json:"topic"`
-		} `json:"output"`
-	} `json:"regulator"`
+	Actions   []wireAction   `json:"actions"`
+	Regulator *wireRegulator `json:"regulator"`
+}
+
+// wireRegulator mirrors the regulator block of a while phase. Only the fields
+// the learning steps read are listed.
+type wireRegulator struct {
+	Output struct {
+		Topic string  `json:"topic"`
+		Max   float64 `json:"max"`
+	} `json:"output"`
+	DeadbandW *float64 `json:"deadband_w"`
+	Base      struct {
+		Source string `json:"source"`
+		Field  string `json:"field"`
+	} `json:"base"`
 }
 
 // ParseDoc parses the rule document. Unknown fields are ignored.
@@ -196,8 +218,9 @@ func ParseDoc(raw []byte) (Doc, error) {
 	}
 	for _, ws := range wire.Scenarios {
 		scenario := Scenario{ID: ws.ID, Name: ws.Name, Enabled: ws.Enabled}
-		if ws.While.Regulator != nil {
-			scenario.RegulatorTopic = ws.While.Regulator.Output.Topic
+		if wr := ws.While.Regulator; wr != nil {
+			scenario.RegulatorTopic = wr.Output.Topic
+			scenario.Regulator = wr.spec()
 		}
 		var actions []wireAction
 		actions = append(actions, ws.OnStart.Actions...)
@@ -211,6 +234,19 @@ func ParseDoc(raw []byte) (Doc, error) {
 		doc.Scenarios = append(doc.Scenarios, scenario)
 	}
 	return doc, nil
+}
+
+// spec returns the learning view of the regulator block. A missing deadband_w
+// takes the schema default of 20 W.
+func (wr *wireRegulator) spec() *RegulatorSpec {
+	spec := &RegulatorSpec{DeadbandW: 20, MaxW: wr.Output.Max}
+	if wr.DeadbandW != nil {
+		spec.DeadbandW = *wr.DeadbandW
+	}
+	if wr.Base.Source == "balance" {
+		spec.Target = wr.Base.Field
+	}
+	return spec
 }
 
 // parseCondition reads one condition. A numeric field becomes its number, a
