@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -550,6 +551,64 @@ func TestDayStoreSocOmittedWithoutValue(t *testing.T) {
 	}
 	if raw := readRawDay(t, dir, "2026-11-19"); strings.Contains(raw, `"soc"`) {
 		t.Error("soc written without any battery value")
+	}
+}
+
+func kMinute(at time.Time, k float64) learnrec.Frame {
+	f := frameWith(at, lampMinute(true, 100))
+	f.Balance = map[string]float64{"k": k}
+	return f
+}
+
+func TestDayStoreKQuarterMean(t *testing.T) {
+	loc := berlinLoc(t)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(kMinute(base, 0.6))
+	s.ObserveMinute(kMinute(base.Add(time.Minute), 0.8))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 || days[0].Site.K[40] == nil {
+		t.Fatalf("days = %+v, want k at quarter 40", days)
+	}
+	if got := *days[0].Site.K[40]; math.Abs(float64(got)-0.7) > 1e-6 {
+		t.Errorf("k = %v, want 0.7", got)
+	}
+}
+
+func TestDayStoreKOmittedWithoutValue(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	s := OpenDayStore(dir, loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(frameWith(base, lampMinute(true, 100)))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if raw := readRawDay(t, dir, "2026-11-19"); strings.Contains(raw, `"k"`) {
+		t.Error("k written without any weather value")
+	}
+}
+
+func TestDayStoreOldFileWithoutKLoads(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	first := OpenDayStore(dir, loc, keepAll, noLog)
+	first.ObserveMinute(frameWith(base, lampMinute(true, 100)))
+	if err := first.Save(); err != nil {
+		t.Fatal(err)
+	}
+	second := OpenDayStore(dir, loc, keepAll, noLog)
+	second.ObserveMinute(kMinute(base.Add(time.Minute), 0.9))
+	days := mustDays(t, second, base, base)
+	if len(days) != 1 || days[0].Devices["lamp"] == nil {
+		t.Fatalf("days = %+v, want the old day with its lamp data", days)
+	}
+	if got := days[0].Site.K[40]; got == nil || math.Abs(float64(*got)-0.9) > 1e-6 {
+		t.Errorf("k = %v, want 0.9 from the minute of this run", got)
 	}
 }
 

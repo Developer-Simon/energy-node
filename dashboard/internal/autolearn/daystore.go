@@ -74,24 +74,31 @@ type SiteDay struct {
 	// SoC ist der Batteriefuellstand in Prozent je Viertelstunde, nil ohne Messwert.
 	// Fehlt das Feld, wenn kein Messwert vorliegt (siehe MarshalJSON).
 	SoC [dayQuarters]*float32 `json:"soc"`
+	// K ist das Quartalsmittel des Wetterfaktors k, nil ohne Messwert. Fehlt
+	// das Feld, wenn kein Messwert vorliegt (siehe MarshalJSON).
+	K [dayQuarters]*float32 `json:"k"`
 }
 
-// MarshalJSON laesst temp_c und soc weg, solange keine Viertelstunde einen Wert hat.
+// MarshalJSON laesst temp_c, soc und k weg, solange keine Viertelstunde einen Wert hat.
 // Alte Dateien ohne die Felder lesen sich weiter ueber das normale Decodieren.
 func (d SiteDay) MarshalJSON() ([]byte, error) {
 	type plain SiteDay
-	var temps, soc *[dayQuarters]*float32
+	var temps, soc, ks *[dayQuarters]*float32
 	if hasQuarterValue(&d.TempC) {
 		temps = &d.TempC
 	}
 	if hasQuarterValue(&d.SoC) {
 		soc = &d.SoC
 	}
+	if hasQuarterValue(&d.K) {
+		ks = &d.K
+	}
 	return json.Marshal(struct {
 		plain
 		TempC *[dayQuarters]*float32 `json:"temp_c,omitempty"`
 		SoC   *[dayQuarters]*float32 `json:"soc,omitempty"`
-	}{plain: plain(d), TempC: temps, SoC: soc})
+		K     *[dayQuarters]*float32 `json:"k,omitempty"`
+	}{plain: plain(d), TempC: temps, SoC: soc, K: ks})
 }
 
 // hasQuarterValue meldet, ob eine Viertelstunde einen Messwert hat.
@@ -166,6 +173,10 @@ type DayStore struct {
 	// Viertelstunde, wie tempAvg und tempN.
 	socAvg [dayQuarters]float32
 	socN   [dayQuarters]uint16
+	// kAvg und kN sind Mittel und Minutenzahl des Wetterfaktors k je
+	// Viertelstunde, wie socAvg und socN.
+	kAvg [dayQuarters]float32
+	kN   [dayQuarters]uint16
 	// written zaehlt die geschriebenen Bytes je Tag, nur fuer Usage.
 	written map[string]int64
 }
@@ -239,6 +250,7 @@ func (s *DayStore) ObserveMinute(f learnrec.Frame) {
 	}
 	s.observeSiteLocked(f.Balance, q)
 	s.observeSocLocked(f.Balance, q)
+	s.observeKLocked(f.Balance, q)
 	s.observeTempLocked(f.OutdoorC, q)
 	s.dirty = true
 }
@@ -496,6 +508,8 @@ func (s *DayStore) startDayLocked(day string) {
 	s.tempN = [dayQuarters]uint16{}
 	s.socAvg = [dayQuarters]float32{}
 	s.socN = [dayQuarters]uint16{}
+	s.kAvg = [dayQuarters]float32{}
+	s.kN = [dayQuarters]uint16{}
 	s.dirty = false
 	s.blocked = false
 
@@ -563,6 +577,13 @@ func (s *DayStore) adoptLocked(f *DayFile, hasPN bool) {
 		}
 		s.socAvg[q] = *p
 		s.socN[q] = max(uint16(s.file.Site.Seen[q]), 1)
+	}
+	for q, p := range s.file.Site.K {
+		if p == nil {
+			continue
+		}
+		s.kAvg[q] = *p
+		s.kN[q] = max(uint16(s.file.Site.Seen[q]), 1)
 	}
 }
 
@@ -667,6 +688,18 @@ func (s *DayStore) observeSocLocked(balance map[string]float64, q int) {
 	addMean(&s.socAvg[q], &s.socN[q], v)
 	avg := s.socAvg[q]
 	s.file.Site.SoC[q] = &avg
+}
+
+// observeKLocked mittelt den Wetterfaktor k der Viertelstunde aus der Bilanz.
+// Jeder Wert bekommt einen neuen Zeiger, wie bei observeSocLocked.
+func (s *DayStore) observeKLocked(balance map[string]float64, q int) {
+	v, ok := balance["k"]
+	if !ok || !finite(v) {
+		return
+	}
+	addMean(&s.kAvg[q], &s.kN[q], v)
+	avg := s.kAvg[q]
+	s.file.Site.K[q] = &avg
 }
 
 func (s *DayStore) observeSiteLocked(balance map[string]float64, q int) {
