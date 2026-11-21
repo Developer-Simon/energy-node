@@ -194,7 +194,7 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 	e.SetOutdoor(func() OutdoorSource {
 		return OutdoorSource{EntityID: demoOutdoorEntity, Topic: "outstation/outdoor/state", ValueTemplate: "{{ value_json.temp }}"}
 	})
-	groups := map[string]bool{"habit": true, "energy": true}
+	groups := map[string]bool{"habit": true, "energy": true, "reliability": true}
 	// The first tick only starts the engine, the daily round runs at 03:30.
 	e.Tick(time.Date(now.Year(), now.Month(), now.Day(), 3, 0, 0, 0, loc), groups)
 	for i := 0; i < 3; i++ {
@@ -460,5 +460,65 @@ func TestDemoDailyShareSuggestsNextLevel(t *testing.T) {
 	next, ok := learnrec.SuggestUp(st, learnrec.LevelEco, now)
 	if !ok || next != learnrec.LevelBalanced {
 		t.Errorf("SuggestUp(eco) = %q, %v, want balanced", next, ok)
+	}
+}
+
+// TestDemoSeedOverriddenSplitsBySun checks that the overridden check of the
+// heat pump rule splits by the sun, with a sun window as the fix, and not by
+// the clock.
+func TestDemoSeedOverriddenSplitsBySun(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	in := demoSeedInputFor(t, t.TempDir(), now, loc)
+	ov := demoRunPerDevice(in, OverriddenDetector)
+	if len(ov) != 1 || len(ov[0].Finding.Apply) != 1 || len(ov[0].Finding.Apply[0].Ops) != 1 {
+		t.Fatalf("overridden candidates = %v, want one with one add_condition op", ids(ov))
+	}
+	cond, _ := ov[0].Finding.Apply[0].Ops[0].Value.(map[string]any)
+	if cond["type"] != "sun_window" {
+		t.Errorf("overridden condition = %v, want a sun_window", cond)
+	}
+}
+
+// TestDemoSeedHeatingSeasonIsVisible checks that the heat pump has a heating
+// knee and that the recent outdoor temperature lies below it, so a finding of
+// the heat pump carries the heating season and is shown.
+func TestDemoSeedHeatingSeasonIsVisible(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	e := demoEngineRun(t, t.TempDir(), now, loc)
+	knee, ok := e.HeatingKnee(demoHeatPump)
+	if !ok {
+		t.Fatalf("no heating knee for %s", demoHeatPump)
+	}
+	recent := e.RecentOutdoorC()
+	if recent == nil {
+		t.Fatalf("no recent outdoor temperature")
+	}
+	if *recent > knee {
+		t.Errorf("recent outdoor %.1f °C is above the knee %.1f °C, the heating season would rest", *recent, knee)
+	}
+}
+
+// TestDemoSeedClockAndSunHabitsContrast checks that the demo shows a sun off
+// for the relay and a plain clock off for the balcony plug, next to the sun on.
+func TestDemoSeedClockAndSunHabitsContrast(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	codes := map[string]string{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		if c.Finding.Kind == "switch_time" {
+			codes[c.Finding.ID] = c.Finding.Summary.Code
+		}
+	}
+	want := map[string]string{
+		"switch_time:" + demoRelais + ":off:0:1830":     "switch_time.sun_off",
+		"switch_time:" + demoPlugBalkon + ":off:0:2230": "switch_time.off",
+		"switch_time:" + demoPlugBalkon + ":on:0:1700":  "switch_time.sun_on",
+	}
+	for id, code := range want {
+		if codes[id] != code {
+			t.Errorf("%s = %q, want %q (all: %v)", id, codes[id], code, codes)
+		}
 	}
 }

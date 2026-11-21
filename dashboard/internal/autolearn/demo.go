@@ -161,13 +161,27 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 		skip := i%7 == 3
 		weekday := day.Weekday() != time.Saturday && day.Weekday() != time.Sunday
 
-		// Wärmepumpe: die Regel schaltet sie zwischen 10 und 17 Uhr aus. Werktags
-		// schaltet der Nutzer nach einer Minute wieder ein (überstimmt), am Wochenende
-		// erst nach zweieinhalb Stunden (keine Überstimmung).
+		// Wärmepumpe: die Regel schaltet sie aus. Zwei von drei Tagen schaltet sie
+		// nach Sonnenuntergang ab, dann schaltet der Nutzer nach einer Minute wieder
+		// ein (überstimmt). Der dritte Tag schaltet die Regel tagsüber ab, der
+		// Nutzer nimmt das hin und schaltet erst nach zweieinhalb Stunden wieder
+		// ein (keine Überstimmung). So teilt die Überstimmung die Zeit nach der Sonne.
+		// Ohne Sonnenstandort gilt die alte Regel: werktags überstimmt, am Wochenende nicht.
 		off := demoMinute(rng, 600, 1020)
+		override := weekday
+		if _, set, ok := sun.Times(day, demoLat, demoLon); ok {
+			setMin := minuteOfDay(set.Unix(), loc)
+			override = i%3 != 0
+			// Die Uhrzeiten beider Seiten überlappen, nur die Sonne trennt sie sauber.
+			if override {
+				off = setMin + 5 + 35*rng.Float64()
+			} else {
+				off = setMin - 40 + 30*rng.Float64()
+			}
+		}
 		b.emit(off, demoHeatPump, false, OriginRule, demoRuleID)
 		b.action(off, demoHeatPump, false)
-		if weekday {
+		if override {
 			b.emit(off+1, demoHeatPump, true, OriginHand, "")
 		} else {
 			b.emit(off+150+30*rng.Float64(), demoHeatPump, true, OriginHand, "")
@@ -225,6 +239,12 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 func demoOutdoorC(i int) float64 {
 	if i >= demoAwayFrom && i <= demoAwayTo {
 		return demoAwayC
+	}
+	// Die letzten drei Tage sind kalt, 8 bis 10 °C im Mittel 9 °C. Damit liegt
+	// das Mittel der letzten drei Tage unter dem Heizknick, und die Befunde der
+	// Heizsaison der Wärmepumpe sind sichtbar.
+	if i >= demoSeedDays-3 {
+		return float64(8 + i%3)
 	}
 	return float64(13 + (i*5)%7)
 }
