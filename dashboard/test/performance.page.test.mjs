@@ -728,7 +728,22 @@ test('the learning row reads the learning block; without it the row is absent', 
   const none = await loadedPage({ learning: null });
   assert.equal(none.page.learning(), null);
   assert.equal(none.page.learningSummary(), '');
-  assert.equal(none.page.learningTop().length, 0);
+  const idle = none.page.learningMeter();
+  assert.equal(idle.bar, 0);
+  assert.equal(idle.mark, 0);
+  assert.equal(idle.over, false);
+});
+
+test('the learning meter scales the measured share and the estimate to twice the target', async () => {
+  const made = await loadedPage({ learning: LEARNING });
+  const meter = made.page.learningMeter();
+  assert.equal(meter.bar, 0.02 / 0.1, 'measured 2 % on a track of 2 x 5 %');
+  assert.equal(meter.mark, 0.02 / 0.1, 'auto resolves to eco, so the estimate is the measured share');
+  assert.equal(meter.over, false);
+  made.page.pickLearning('full');
+  const up = made.page.learningMeter();
+  assert.equal(up.mark <= 1, true, 'the marker is clamped to the track');
+  assert.equal(up.bar, 0.02 / 0.2, 'the track of full runs to 2 x 10 %, so the bar shrinks');
 });
 
 const SETTINGS_DOC = { latitude: 52.5, longitude: 13.4, learning_level: 'auto', dashboard_title: 'Haus' };

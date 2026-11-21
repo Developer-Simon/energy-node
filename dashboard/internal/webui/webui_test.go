@@ -4691,6 +4691,17 @@ func TestSettingsSubpagePerformanceNeedsDiagnostics(t *testing.T) {
 	if strings.Contains(body, "pf-draft") || strings.Contains(body, "pf-stepper") {
 		t.Fatal("settings-page performance zeigt Entwurf oder den Stepper der spaeteren Teilauftraege")
 	}
+	// Die Lernstufe ist ein Entwurf mit Schaetzung, der Aufklapper der Erkenner ist entfallen.
+	for _, want := range []string{`class="pf-lmeter"`, `role="img"`, `x-bind:aria-label="learningMeterText()"`, `class="pf-pill"`, `learningChanged()`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("settings-page performance lacks learning meter markup %s", want)
+		}
+	}
+	for _, gone := range []string{"pf-learning-top", "pf-learning-toggle", "learningSaving"} {
+		if strings.Contains(body, gone) {
+			t.Fatalf("settings-page performance still renders %s", gone)
+		}
+	}
 
 	for _, tc := range []struct {
 		role string

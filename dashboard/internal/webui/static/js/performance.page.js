@@ -188,9 +188,8 @@
     // Open breakdowns by unit id. Kept across load(), so the 30 s poll does
     // not close them.
     breakdownOpen: {},
-    // Learning row: the top detectors are folded. learningSel is the drafted
-    // level, null while the saved one stands. Saved by apply(), not by a pick.
-    learningOpen: false,
+    // Learning row. learningSel is the drafted level, null while the saved one
+    // stands. Saved by apply(), not by a pick.
     learningSel: null,
 
     init() {
@@ -806,21 +805,31 @@
     learningSuggestText() {
       return t('performance.js.learning.suggest', { level: t(`performance.js.learning.level.${this.learningSuggest()}`) });
     },
-    learningTop() {
-      const l = this.learning();
-      return l && Array.isArray(l.top) ? l.top : [];
+    // The meter runs from 0 to twice the target of the drafted level. bar and
+    // mark are fractions of that track, clamped to it. Without data both are 0.
+    learningMeter() {
+      const e = this.learningEstimate();
+      if (!e || !e.target) return { bar: 0, mark: 0, over: false };
+      const scale = e.target * 2;
+      const clamp = (value) => Math.min(Math.max(value / scale, 0), 1);
+      return { bar: clamp(e.measured), mark: clamp(e.estimate), over: e.over };
     },
-    toggleLearningTop() {
-      this.learningOpen = !this.learningOpen;
+    learningMeterText() {
+      const e = this.learningEstimate();
+      if (!e) return '';
+      const level = this.learningResolved(this.learningSetting());
+      return t('performance.js.learning.meter', {
+        measured: pct(e.measured * 100),
+        level: t(`performance.js.learning.level.${level}`),
+        estimate: pct(e.estimate * 100),
+        target: pct(e.target * 100),
+      });
     },
     // A detector without a label shows its id, so a new detector is still readable.
     learningDetector(id) {
       const key = `performance.js.learning.detector.${id}`;
       const text = t(key);
       return text === key ? id : text;
-    },
-    learningMs(ms) {
-      return t('performance.js.learning.ms', { value: window.I18n.formatNumber(ms, 0) });
     },
     // Drafts a level. Selecting never writes, apply() saves the draft. Also the
     // suggest button, which only drafts the suggested level.
