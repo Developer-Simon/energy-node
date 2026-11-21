@@ -66,6 +66,7 @@ type Engine struct {
 	devices   func() map[string]DeviceInfo
 	limits    func() learnrec.Limits
 	loc       *time.Location
+	season    *SeasonStore
 
 	// tickMu serialises Tick, so one round runs at a time.
 	tickMu sync.Mutex
@@ -363,7 +364,7 @@ func (e *Engine) Downgrade() bool {
 // input builds what one round reads. A missing or broken day store or rule
 // document is logged and replaced by an empty one, so the round still runs.
 func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string]DeviceInfo) *Input {
-	in := &Input{Now: now, Loc: e.loc, Devices: devices, Reactions: e.reactions, Limits: limits}
+	in := &Input{Now: now, Loc: e.loc, Devices: devices, Reactions: e.reactions, Limits: limits, Season: e.seasonStore()}
 	if e.days != nil {
 		days, err := e.days.Days(now.AddDate(0, 0, -engineHistoryDays), now)
 		if err != nil {
@@ -383,6 +384,20 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 	}
 	in.Base = BuildBase(in.Days, e.loc)
 	return in
+}
+
+// SetSeason gives the engine the weekly figures. A round reads them through
+// Input.Season. Set it before the first round.
+func (e *Engine) SetSeason(s *SeasonStore) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.season = s
+}
+
+func (e *Engine) seasonStore() *SeasonStore {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.season
 }
 
 // pruneLocked drops the records older than the window.

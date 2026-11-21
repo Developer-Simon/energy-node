@@ -6,12 +6,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
-// Doc is the parsed automation rule document: the rules and the scenarios.
+// Doc is the parsed automation rule document: the rules, the scenarios and the
+// site location. Location is nil when the document has no coordinates.
 type Doc struct {
 	Rules     []Rule
 	Scenarios []Scenario
+	Location  *sun.Location
 }
 
 // Rule is one automation rule with its conditions and actions.
@@ -81,6 +85,25 @@ type Scenario struct {
 type wireDoc struct {
 	Rules     []wireRule     `json:"rules"`
 	Scenarios []wireScenario `json:"scenarios"`
+	Settings  wireSettings   `json:"settings"`
+}
+
+// wireSettings holds the site coordinates. A nil field is missing.
+type wireSettings struct {
+	Latitude  *float64 `json:"latitude"`
+	Longitude *float64 `json:"longitude"`
+}
+
+// location returns the site location. It is nil when either coordinate is
+// missing or when both are zero, the state of an unset location.
+func (w wireSettings) location() *sun.Location {
+	if w.Latitude == nil || w.Longitude == nil {
+		return nil
+	}
+	if *w.Latitude == 0 && *w.Longitude == 0 {
+		return nil
+	}
+	return &sun.Location{Lat: *w.Latitude, Lon: *w.Longitude}
 }
 
 type wireRule struct {
@@ -155,7 +178,7 @@ func ParseDoc(raw []byte) (Doc, error) {
 	if err := json.Unmarshal(raw, &wire); err != nil {
 		return Doc{}, fmt.Errorf("parse rule document: %w", err)
 	}
-	var doc Doc
+	doc := Doc{Location: wire.Settings.location()}
 	for _, wr := range wire.Rules {
 		rule := Rule{ID: wr.ID, Name: wr.Name, Enabled: wr.Enabled,
 			CooldownSeconds: wr.CooldownSeconds, RepeatSeconds: wr.RepeatSeconds}

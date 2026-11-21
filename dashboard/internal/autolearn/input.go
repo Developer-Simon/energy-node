@@ -29,6 +29,8 @@ type Input struct {
 	Reactions *Reactions
 	Limits    learnrec.Limits
 	Base      Base
+	// Season holds the weekly figures for the detectors, nil without a store.
+	Season *SeasonStore
 }
 
 // Base holds the day types, the absence and the day bounds derived from the

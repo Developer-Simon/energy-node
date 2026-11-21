@@ -98,6 +98,7 @@ var catalog = []Entry{
 	{RootData, "autolearn/ignored.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/suggestions.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/reaction.json", ClassRuntime, AreaHistory},
+	{RootData, "autolearn/season.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/*", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/days/*", ClassRuntime, AreaHistory},
 	// Lernstand ueber Neustarte: erster Start und ob schon etwas gelernt wurde.

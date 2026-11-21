@@ -554,6 +554,19 @@ func main() {
 	// Datei liegt unter autolearn/ und wird mit dem Hub gespeichert.
 	learnedStore := autolearn.LoadLearnedStore(filepath.Join(autolearnDir, "learned.json"), log.Printf)
 	learnHub.AddSaver("learned", learnedStore)
+	// Wochenwerte fuer den Saisonvergleich. Fehlt season.json, fuellt die
+	// Energiestatistik der letzten drei Jahre sie einmal nach.
+	seasonPath := filepath.Join(autolearnDir, "season.json")
+	_, seasonStatErr := os.Stat(seasonPath)
+	seasonStore := autolearn.LoadSeasonStore(seasonPath, log.Printf)
+	learnHub.AddSaver("season", seasonStore)
+	if os.IsNotExist(seasonStatErr) {
+		if err := backfillSeason(seasonStore, energyStatsStore, time.Now(), time.Local); err != nil {
+			log.Printf("autolearn: season backfill: %v", err)
+		}
+	}
+	automationEngine.SetSeason(seasonStore)
+	seasonClose := &seasonCloser{store: seasonStore, days: dayStore.Days, learned: learnedClockMinutes(learnedStore), loc: time.Local}
 	suggestions := &suggestionBook{state: suggestionState}
 	suggestionExists := func(device string) bool {
 		if deviceFilterStore.IsIgnored(device) {
@@ -732,6 +745,7 @@ func main() {
 	engineLoop.afterRound = func() {
 		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
 		publishLearned(learnedStore, learnedValues, client, engineGroups()["habit"], learnedExists, time.Now())
+		seasonClose.Run(time.Now())
 	}
 	go engineLoop.Run(ctx)
 

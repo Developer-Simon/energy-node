@@ -2,16 +2,123 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"math"
 	"sort"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
+
+// seasonBackfillYears is how far back the energy statistics refill the season
+// store the first time, when season.json is missing.
+const seasonBackfillYears = 3
+
+// seasonCloser closes the previous week in the season store on Monday. It runs
+// in the engine round goroutine, so it needs no lock. done is the Monday that
+// was closed last, so each Monday is attempted once.
+type seasonCloser struct {
+	store   *autolearn.SeasonStore
+	days    func(from, to time.Time) ([]autolearn.DayFile, error)
+	learned func() map[string][]float64
+	loc     *time.Location
+	done    string
+}
+
+// Run closes the previous ISO week when now is a Monday. It reads the day files
+// of that week, puts the summary, prunes and saves the store.
+func (c *seasonCloser) Run(now time.Time) {
+	local := now.In(c.loc)
+	if local.Weekday() != time.Monday {
+		return
+	}
+	day := local.Format("2006-01-02")
+	if day == c.done {
+		return
+	}
+	c.done = day
+	thisMonday := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, c.loc)
+	prevMonday := thisMonday.AddDate(0, 0, -7)
+	days, err := c.days(prevMonday, thisMonday.AddDate(0, 0, -1))
+	if err != nil {
+		log.Printf("autolearn: season week day files incomplete: %v", err)
+	}
+	if w, ok := autolearn.WeekOf(days, c.learned(), c.loc); ok {
+		c.store.Put(w)
+	} else {
+		log.Printf("autolearn: season week %s not closed, fewer than four day files", prevMonday.Format("2006-01-02"))
+	}
+	c.store.Prune(now)
+	if err := c.store.Save(); err != nil {
+		log.Printf("autolearn: season store not saved: %v", err)
+	}
+}
+
+// learnedClockMinutes reads the learned clock times of the store as minutes of
+// the day, keyed by the learned key. WeekOf takes the median of each key.
+func learnedClockMinutes(store *autolearn.LearnedStore) func() map[string][]float64 {
+	return func() map[string][]float64 {
+		out := map[string][]float64{}
+		for _, e := range store.Entries() {
+			if e.Kind != autolearn.ValueTime {
+				continue
+			}
+			text, ok := e.Value.(string)
+			if !ok {
+				continue
+			}
+			var h, m int
+			if _, err := fmt.Sscanf(text, "%d:%d", &h, &m); err != nil {
+				continue
+			}
+			out[e.Key] = append(out[e.Key], float64(h*60+m))
+		}
+		return out
+	}
+}
+
+// backfillSeason fills the season store once from the hourly energy statistics
+// of the last seasonBackfillYears years. Day files already in the store win,
+// the store keeps them. The store is saved at the end, so the file exists and
+// the backfill does not run again.
+func backfillSeason(store *autolearn.SeasonStore, stats *energystats.Store, now time.Time, loc *time.Location) error {
+	from := now.AddDate(-seasonBackfillYears, 0, 0)
+	var hours []energystats.HourRecord
+	err := stats.Each(from, now, func(hour time.Time, m *energystats.Month, i int) {
+		if m == nil {
+			return
+		}
+		rec := energystats.HourRecord{Hour: hour, KWh: map[string]float64{}}
+		for _, role := range []string{"grid_export", "pv", "load_total"} {
+			s := m.Roles[role]
+			if s == nil || i >= len(s.KWh) || math.IsNaN(s.KWh[i]) || s.Source[i] == energystats.SourceNone {
+				continue
+			}
+			if s.Source[i] == energystats.SourceOwn && m.Covered[i] < energystats.MinOwnCoverSeconds {
+				continue
+			}
+			rec.KWh[role] = s.KWh[i]
+		}
+		if len(rec.KWh) > 0 {
+			hours = append(hours, rec)
+		}
+	})
+	if err != nil {
+		return err
+	}
+	for _, w := range autolearn.WeeksFromStats(hours, loc) {
+		store.Put(w)
+	}
+	store.Prune(now)
+	return store.Save()
+}
 
 // engineGroupsFor sagt je Gruppe der Engine, ob sie rechnen darf. Gewohnheiten
 // (habit) und Zuverlaessigkeit (reliability) laufen nur bei eingeschaltetem
