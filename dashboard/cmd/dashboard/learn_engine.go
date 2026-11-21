@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
@@ -377,4 +378,87 @@ func deviceRole(resolver *energy.Resolver, entities []registry.EntityView) energ
 		}
 	}
 	return role
+}
+
+// pvSite is the site state the PV tracker reads every minute. It is replaced
+// as a whole by pvSiteCache.refresh, so the minute path never reads a file.
+type pvSite struct {
+	hasLoc   bool
+	lat, lon float64
+	reg      *autolearn.RegulatorView
+}
+
+// pvSiteCache holds the latest pvSite. refresh reads the rule document and
+// runs outside the minute path, from the hub's saver call.
+type pvSiteCache struct {
+	site    atomic.Pointer[pvSite]
+	readDoc func() ([]byte, error)
+	logf    func(string, ...any)
+}
+
+// refresh parses the rule document into a new pvSite. A document that cannot
+// be read or parsed keeps the previous site.
+func (c *pvSiteCache) refresh() {
+	raw, err := c.readDoc()
+	if err != nil {
+		c.logf("autolearn: pv site: rule document unreadable: %v", err)
+		return
+	}
+	doc, err := autolearn.ParseDoc(raw)
+	if err != nil {
+		c.logf("autolearn: pv site: rule document invalid: %v", err)
+		return
+	}
+	site := &pvSite{}
+	if doc.Location != nil {
+		site.hasLoc = true
+		site.lat = doc.Location.Lat
+		site.lon = doc.Location.Lon
+	}
+	// The first enabled scenario with a regulator decides. Only a regulator
+	// that regulates a balance field (grid_export or net) counts as present.
+	for _, sc := range doc.Scenarios {
+		if !sc.Enabled || sc.Regulator == nil {
+			continue
+		}
+		target := sc.Regulator.Target
+		site.reg = &autolearn.RegulatorView{
+			DeadbandW: sc.Regulator.DeadbandW,
+			MaxW:      sc.Regulator.MaxW,
+			Present:   target == "grid_export" || target == "net",
+		}
+		break
+	}
+	c.site.Store(site)
+}
+
+// location returns the site coordinates, ok false when none are set.
+func (c *pvSiteCache) location() (lat, lon float64, ok bool) {
+	site := c.site.Load()
+	if site == nil || !site.hasLoc {
+		return 0, 0, false
+	}
+	return site.lat, site.lon, true
+}
+
+// regulator returns the regulator state of the latest refresh, nil when none.
+func (c *pvSiteCache) regulator() *autolearn.RegulatorView {
+	site := c.site.Load()
+	if site == nil {
+		return nil
+	}
+	return site.reg
+}
+
+// loadPVRaster reads the sky raster from path. A missing or unreadable file
+// starts an empty raster, a size change is handled by LoadRaster.
+func loadPVRaster(path string, limits learnrec.Limits, logf func(string, ...any)) *autolearn.Raster {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		data = nil
+		if !os.IsNotExist(err) {
+			logf("autolearn: %s unreadable, starting empty: %v", path, err)
+		}
+	}
+	return autolearn.LoadRaster(data, limits.PVCellAzDeg, limits.PVCellElDeg)
 }

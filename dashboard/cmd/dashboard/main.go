@@ -514,6 +514,19 @@ func main() {
 	cycles := newCycleRunner(filepath.Join(autolearnDir, "cycles.json"), dayStore, nil, log.Printf)
 	learnHub.AddMinute("cycles", cycles)
 	learnHub.AddSaver("cycles", cycles)
+	// PV-Himmelsraster: nur ungedrosselte PV-Minuten zaehlen. Standort und Regler
+	// kommen aus dem Regelwerk, das pvSite.refresh nur beim Speichern liest.
+	pvSite := &pvSiteCache{readDoc: func() ([]byte, error) { return configManager.Read("automation_rules") }, logf: log.Printf}
+	pvSite.refresh()
+	pvPath := filepath.Join(autolearnDir, "pvraster.json")
+	pvTracker := autolearn.NewPVTracker(loadPVRaster(pvPath, learnLimits(), log.Printf),
+		pvSite.location, pvSite.regulator,
+		func() string { return time.Now().In(time.Local).Format("2006-01-02") }, pvPath)
+	learnHub.AddMinute("pvtracker", pvTracker)
+	learnHub.AddSaver("pvtracker", saverFunc(func() error {
+		pvSite.refresh()
+		return pvTracker.Save()
+	}))
 	// Automationen-Engine: die Erkenner laufen in eigener Goroutine, nie im
 	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen und den beiden
 	// Gruppenschaltern darunter. Ohne lesbare Einstellungen bleibt alles an.
