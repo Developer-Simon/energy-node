@@ -1,0 +1,5 @@
+{
+  "de": {
+    "*": "Das Home-Assistant-Panel meldet HA-Benutzer nach Ablauf der Sitzung wieder selbst an, statt bei der Anmeldeseite zu bleiben."
+  }
+}
