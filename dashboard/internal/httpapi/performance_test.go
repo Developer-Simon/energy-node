@@ -570,119 +570,144 @@ func TestPerformanceLearningFollowsChangedSetting(t *testing.T) {
 	}
 }
 
-// learningUnitBody reads the learning unit and its breakdown of GET /api/v1/performance.
-type learningUnitBody struct {
+// learningPartBody reads the dashboard breakdown of GET /api/v1/performance,
+// with the learning part and its detectors, and the units.
+type learningPartBody struct {
 	Units []struct {
-		ID     string   `json:"id"`
-		CPUPct float64  `json:"cpu_pct"`
-		RoundS *float64 `json:"round_s"`
-		Fixed  bool     `json:"fixed"`
+		ID string `json:"id"`
 	} `json:"units"`
 	Breakdown struct {
-		Learning *struct {
+		Dashboard *struct {
 			Parts []struct {
-				ID    string  `json:"id"`
-				Share float64 `json:"share"`
-				Ms    int64   `json:"ms"`
+				ID        string  `json:"id"`
+				Pct       float64 `json:"pct"`
+				Detectors []struct {
+					ID  string  `json:"id"`
+					Pct float64 `json:"pct"`
+				} `json:"detectors"`
 			} `json:"parts"`
-		} `json:"learning"`
+		} `json:"dashboard"`
 	} `json:"breakdown"`
 }
 
-func TestPerformanceLearningUnitAndBreakdown(t *testing.T) {
+// learningPart returns the learning part of the dashboard breakdown, nil when absent.
+func learningPart(body learningPartBody) *struct {
+	ID        string  `json:"id"`
+	Pct       float64 `json:"pct"`
+	Detectors []struct {
+		ID  string  `json:"id"`
+		Pct float64 `json:"pct"`
+	} `json:"detectors"`
+} {
+	if body.Breakdown.Dashboard == nil {
+		return nil
+	}
+	for i := range body.Breakdown.Dashboard.Parts {
+		if body.Breakdown.Dashboard.Parts[i].ID == "learning" {
+			return &body.Breakdown.Dashboard.Parts[i]
+		}
+	}
+	return nil
+}
+
+func TestPerformanceLearningPartInDashboard(t *testing.T) {
 	stats := performanceLearningStats()
-	router, manager := performanceRouterWithDeps(t, performanceTestSnapshot(), func(deps *PerformanceDeps) {
+	router, manager := performanceRouterWithDeps(t, breakdownSnapshot(), func(deps *PerformanceDeps) {
 		deps.Learning = &PerformanceLearning{
 			Load:  func() autolearn.Stats { return stats },
 			State: func() learnrec.State { return learnrec.State{} },
 		}
 	})
-	var body learningUnitBody
+	var body learningPartBody
 	if err := json.Unmarshal(getPerformance(t, router, manager), &body); err != nil {
 		t.Fatal(err)
 	}
-
-	var unit *struct {
-		ID     string   `json:"id"`
-		CPUPct float64  `json:"cpu_pct"`
-		RoundS *float64 `json:"round_s"`
-		Fixed  bool     `json:"fixed"`
-	}
-	for i := range body.Units {
-		if body.Units[i].ID == "learning" {
-			unit = &body.Units[i]
+	for _, unit := range body.Units {
+		if unit.ID == "learning" {
+			t.Fatal("learning is a unit, it belongs in the dashboard breakdown only")
 		}
 	}
-	if unit == nil {
-		t.Fatal("no learning unit in the measurements")
+
+	part := learningPart(body)
+	if part == nil {
+		t.Fatalf("no learning part in the dashboard parts: %+v", body.Breakdown.Dashboard)
 	}
-	if !unit.Fixed || math.Abs(unit.CPUPct-2.1) > 1e-9 {
-		t.Fatalf("learning unit = %+v, want fixed with cpu 2.1", *unit)
+	// Share 2.1 % of one core on four cores is 0.525 % of the budget.
+	if math.Abs(part.Pct-0.525) > 1e-9 {
+		t.Fatalf("learning pct = %v, want 0.525", part.Pct)
 	}
-	if unit.RoundS == nil || math.Abs(*unit.RoundS-0.38) > 1e-9 {
-		t.Fatalf("learning unit round_s = %v, want 0.38", unit.RoundS)
+	if last := body.Breakdown.Dashboard.Parts[len(body.Breakdown.Dashboard.Parts)-1]; last.ID != "learning" {
+		t.Fatalf("learning part is not last: %+v", body.Breakdown.Dashboard.Parts)
 	}
 
-	if body.Breakdown.Learning == nil {
-		t.Fatal("breakdown.learning missing")
-	}
-	parts := body.Breakdown.Learning.Parts
-	want := []string{"switch_time", "runtime", "coupling", "flapping"}
-	if len(parts) != len(want) {
-		t.Fatalf("%d parts, want %d: %+v", len(parts), len(want), parts)
-	}
+	// The parts still add up to the dashboard unit, 10 % in the snapshot.
 	var sum float64
+	for _, p := range body.Breakdown.Dashboard.Parts {
+		sum += p.Pct
+	}
+	if math.Abs(sum-10) > 1e-9 {
+		t.Fatalf("dashboard parts sum to %v, want the unit 10", sum)
+	}
+
+	want := []string{"switch_time", "runtime", "coupling", "flapping"}
+	if len(part.Detectors) != len(want) {
+		t.Fatalf("%d detectors, want %d: %+v", len(part.Detectors), len(want), part.Detectors)
+	}
+	var detectorSum float64
 	for i, name := range want {
-		if parts[i].ID != name {
-			t.Fatalf("parts[%d] = %q, want %q", i, parts[i].ID, name)
+		if part.Detectors[i].ID != name {
+			t.Fatalf("detectors[%d] = %q, want %q", i, part.Detectors[i].ID, name)
 		}
-		sum += parts[i].Share
+		detectorSum += part.Detectors[i].Pct
 	}
-	if math.Abs(sum-1) > 1e-9 {
-		t.Fatalf("shares sum to %v, want 1", sum)
+	if math.Abs(detectorSum-part.Pct) > 1e-9 {
+		t.Fatalf("detectors sum to %v, the learning part is %v", detectorSum, part.Pct)
 	}
-	if parts[0].Ms != 420 || math.Abs(parts[0].Share-420.0/760.0) > 1e-9 {
-		t.Fatalf("switch_time part = %+v, want 420 ms of 760", parts[0])
+	if want := 0.525 * 420.0 / 760.0; math.Abs(part.Detectors[0].Pct-want) > 1e-9 {
+		t.Fatalf("switch_time pct = %v, want %v", part.Detectors[0].Pct, want)
 	}
 }
 
-func TestPerformanceLearningBreakdownLimitsToEight(t *testing.T) {
-	stats := autolearn.Stats{Rounds: 1, Took: map[string]time.Duration{}}
+func TestPerformanceLearningDetectorsLimitedToEight(t *testing.T) {
+	stats := autolearn.Stats{Rounds: 1, Share: 0.01, Took: map[string]time.Duration{}}
 	for i := 0; i < 10; i++ {
 		stats.Took[string(rune('a'+i))] = time.Duration(i+1) * time.Millisecond
 	}
-	router, manager := performanceRouterWithDeps(t, performanceTestSnapshot(), func(deps *PerformanceDeps) {
+	router, manager := performanceRouterWithDeps(t, breakdownSnapshot(), func(deps *PerformanceDeps) {
 		deps.Learning = &PerformanceLearning{
 			Load:  func() autolearn.Stats { return stats },
 			State: func() learnrec.State { return learnrec.State{} },
 		}
 	})
-	var body learningUnitBody
+	var body learningPartBody
 	if err := json.Unmarshal(getPerformance(t, router, manager), &body); err != nil {
 		t.Fatal(err)
 	}
-	parts := body.Breakdown.Learning.Parts
-	if len(parts) != performanceLearningPartLimit {
-		t.Fatalf("%d parts, want %d", len(parts), performanceLearningPartLimit)
+	part := learningPart(body)
+	if part == nil {
+		t.Fatal("no learning part")
 	}
-	for i := 1; i < len(parts); i++ {
-		if parts[i].Ms > parts[i-1].Ms {
-			t.Fatalf("parts not descending: %+v", parts)
+	if len(part.Detectors) != performanceLearningPartLimit {
+		t.Fatalf("%d detectors, want %d", len(part.Detectors), performanceLearningPartLimit)
+	}
+	for i := 1; i < len(part.Detectors); i++ {
+		if part.Detectors[i].Pct > part.Detectors[i-1].Pct {
+			t.Fatalf("detectors not descending: %+v", part.Detectors)
 		}
 	}
-	if parts[0].ID != "j" {
-		t.Fatalf("first part = %q, want the costliest detector j", parts[0].ID)
+	if part.Detectors[0].ID != "j" {
+		t.Fatalf("first detector = %q, want the costliest j", part.Detectors[0].ID)
 	}
 }
 
-func TestPerformanceLearningBreakdownNullWithoutDeps(t *testing.T) {
-	router, manager := performanceRouter(t)
-	var body learningUnitBody
+func TestPerformanceLearningPartAbsentWithoutDeps(t *testing.T) {
+	router, manager := performanceRouterWithDeps(t, breakdownSnapshot(), nil)
+	var body learningPartBody
 	if err := json.Unmarshal(getPerformance(t, router, manager), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Breakdown.Learning != nil {
-		t.Fatal("breakdown.learning is not null without the learning deps")
+	if learningPart(body) != nil {
+		t.Fatal("learning part present without the learning deps")
 	}
 	for _, unit := range body.Units {
 		if unit.ID == "learning" {
@@ -711,5 +736,25 @@ func TestPerformanceLearningShareAveragesRecordedDays(t *testing.T) {
 	}
 	if body.Learning == nil || math.Abs(body.Learning.Share-0.04) > 1e-9 {
 		t.Fatalf("share = %+v, want the recorded mean 0.04 instead of the live 0.021", body.Learning)
+	}
+}
+
+func TestCarveLearningClampsToTheUnit(t *testing.T) {
+	parts := []performancePart{{ID: "push", Pct: 4}, {ID: "gc", Pct: 1}}
+	learning := &performanceLearningPart{Pct: 9, Detectors: []performanceDetector{{ID: "runtime", Pct: 9}}}
+	out := carveLearning(parts, learning)
+	var sum float64
+	for _, p := range out {
+		sum += p.Pct
+	}
+	if math.Abs(sum-5) > 1e-9 {
+		t.Fatalf("parts sum to %v, want the unit 5: %+v", sum, out)
+	}
+	last := out[len(out)-1]
+	if last.ID != "learning" || math.Abs(last.Pct-5) > 1e-9 || len(out[0:2]) != 2 || out[0].Pct != 0 {
+		t.Fatalf("learning clamped to the unit, other parts gone: %+v", out)
+	}
+	if math.Abs(last.Detectors[0].Pct-5) > 1e-9 {
+		t.Fatalf("detector %+v, want 5", last.Detectors[0])
 	}
 }

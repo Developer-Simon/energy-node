@@ -102,9 +102,9 @@ const performanceLearningPartLimit = 8
 // averages over, once a daily share is recorded.
 const performanceLearningDays = 7
 
-// performanceLearningUnitID is the id of the learning engine in the units and
-// the breakdown of the measurements.
-const performanceLearningUnitID = "learning"
+// performanceLearningPartID is the id of the learning engine in the dashboard
+// breakdown.
+const performanceLearningPartID = "learning"
 
 // performanceLearning is the learning block of GET /api/v1/performance. Suggest
 // is left out when there is no suggestion to move up a level.
@@ -123,16 +123,12 @@ type performanceLearningEntry struct {
 	Ms       int64  `json:"ms"`
 }
 
-// performanceLearningBreakdown is the learning part of the breakdown. Share is
-// the fraction of the learning total, Ms the time in the window.
-type performanceLearningBreakdown struct {
-	Parts []performanceLearningPart `json:"parts"`
-}
-
+// performanceLearningPart is the learning engine as a part of the dashboard
+// breakdown: Pct is its share of the whole budget, Detectors the costliest
+// detectors with their share of the same budget.
 type performanceLearningPart struct {
-	ID    string  `json:"id"`
-	Share float64 `json:"share"`
-	Ms    int64   `json:"ms"`
+	Pct       float64
+	Detectors []performanceDetector
 }
 
 // performanceBreakdown splits the load into the parts of the dashboard and the
@@ -140,7 +136,6 @@ type performanceLearningPart struct {
 type performanceBreakdown struct {
 	Dashboard  *performanceDashboardBreakdown  `json:"dashboard"`
 	Automation *performanceAutomationBreakdown `json:"automation"`
-	Learning   *performanceLearningBreakdown   `json:"learning"`
 }
 
 type performanceDashboardBreakdown struct {
@@ -148,9 +143,17 @@ type performanceDashboardBreakdown struct {
 }
 
 type performancePart struct {
-	ID      string  `json:"id"`
-	Pct     float64 `json:"pct"`
-	Clients *int    `json:"clients,omitempty"` // only the push part, the highest client count
+	ID        string                `json:"id"`
+	Pct       float64               `json:"pct"`
+	Clients   *int                  `json:"clients,omitempty"`   // only the push part, the highest client count
+	Detectors []performanceDetector `json:"detectors,omitempty"` // only the learning part, its detectors
+}
+
+// performanceDetector is one detector of the learning part, Pct its share of
+// the whole budget.
+type performanceDetector struct {
+	ID  string  `json:"id"`
+	Pct float64 `json:"pct"`
 }
 
 type performanceAutomationBreakdown struct {
@@ -262,15 +265,16 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 				RAMFreePct: ramFree,
 				SwapPagesS: snap.SwapPagesPerS,
 			},
-			BasePct:   base,
-			Rows:      []performanceRow{},
-			Units:     []performanceUnit{},
-			Breakdown: performanceBreakdownBody(snap, rows, entries),
+			BasePct: base,
+			Rows:    []performanceRow{},
+			Units:   []performanceUnit{},
 		}
 		if deps.Changes != nil {
 			body.Change = deps.Changes.CurrentChange()
 		}
-		body.Learning, body.Breakdown.Learning = performanceLearningBody(store, deps, snap, now())
+		var learning *performanceLearningPart
+		body.Learning, learning = performanceLearningBody(store, deps, snap, now())
+		body.Breakdown = performanceBreakdownBody(snap, rows, entries, learning)
 
 		for _, row := range rows {
 			editable := true
@@ -307,9 +311,6 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			}
 			body.Units = append(body.Units, unit)
 		}
-		if body.Learning != nil {
-			body.Units = append(body.Units, performanceLearningUnit(body.Learning))
-		}
 		writeJSON(w, body)
 	}
 }
@@ -337,11 +338,12 @@ func performanceTarget(store *settings.Store, snap performance.Snapshot, request
 
 // performanceLearningBody builds the learning block from the engine load, the
 // learning setting and the learning state, and the learning part of the
-// breakdown. Both are nil without the learning deps. The share is the mean of
-// the recorded daily shares of the last seven days, or the 24 hour share of the
-// engine while none is recorded. The target follows the resolved level, and
-// per_run_ms is the mean compute time of one round in the window.
-func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap performance.Snapshot, now time.Time) (*performanceLearning, *performanceLearningBreakdown) {
+// dashboard breakdown. Both are nil without the learning deps, the part also
+// without compute time. The share is the mean of the recorded daily shares of
+// the last seven days, or the 24 hour share of the engine while none is
+// recorded. The target follows the resolved level, and per_run_ms is the mean
+// compute time of one round in the window.
+func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap performance.Snapshot, now time.Time) (*performanceLearning, *performanceLearningPart) {
 	if deps == nil || deps.Learning == nil || deps.Learning.Load == nil {
 		return nil, nil
 	}
@@ -384,7 +386,7 @@ func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap 
 		}
 		return entries[i].Detector < entries[j].Detector
 	})
-	parts := performanceLearningParts(entries, total)
+	part := performanceLearningPartOf(entries, total, share, snap.Cores)
 	if len(entries) > performanceLearningTop {
 		entries = entries[:performanceLearningTop]
 	}
@@ -392,46 +394,67 @@ func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap 
 	if next, ok := learnrec.SuggestUp(state, level, now); ok {
 		body.Suggest = string(next)
 	}
-	return body, parts
+	return body, part
 }
 
-// performanceLearningParts lists the detectors of the learning breakdown from
-// the sorted entries, each with its fraction of total. It is nil without any
-// compute time. At most performanceLearningPartLimit parts are kept.
-func performanceLearningParts(entries []performanceLearningEntry, total time.Duration) *performanceLearningBreakdown {
+// performanceLearningPartOf builds the learning part from the sorted entries.
+// The engine share is one core's fraction, so it is scaled to the whole budget
+// by the core count, the same as the unit CPU of the page. Each detector takes
+// its fraction of the learning total. It is nil without any compute time, and
+// at most performanceLearningPartLimit detectors are kept.
+func performanceLearningPartOf(entries []performanceLearningEntry, total time.Duration, share float64, cores int) *performanceLearningPart {
 	totalMs := total.Milliseconds()
 	if totalMs <= 0 || len(entries) == 0 {
 		return nil
 	}
+	if cores < 1 {
+		cores = 1
+	}
+	pct := share * 100 / float64(cores)
 	if len(entries) > performanceLearningPartLimit {
 		entries = entries[:performanceLearningPartLimit]
 	}
-	out := &performanceLearningBreakdown{Parts: make([]performanceLearningPart, 0, len(entries))}
+	out := &performanceLearningPart{Pct: pct, Detectors: make([]performanceDetector, 0, len(entries))}
 	for _, e := range entries {
-		out.Parts = append(out.Parts, performanceLearningPart{
-			ID:    e.Detector,
-			Share: float64(e.Ms) / float64(totalMs),
-			Ms:    e.Ms,
+		out.Detectors = append(out.Detectors, performanceDetector{
+			ID:  e.Detector,
+			Pct: pct * float64(e.Ms) / float64(totalMs),
 		})
 	}
 	return out
 }
 
-// performanceLearningUnit is the learning engine as a unit of the measurements:
-// its share of one core as CPU, and the time of one round as round_s.
-func performanceLearningUnit(l *performanceLearning) performanceUnit {
-	round := float64(l.PerRunMs) / 1000
-	return performanceUnit{
-		ID:     performanceLearningUnitID,
-		CPUPct: l.Share * 100,
-		RoundS: &round,
-		Fixed:  true,
+// carveLearning moves the learning load out of the dashboard parts. The engine
+// runs in the dashboard process but outside the timed parts, so its load is
+// part of the dashboard unit that the parts split. The other parts shrink pro
+// rata, so the parts still add up to the unit, and the learning part comes last.
+func carveLearning(parts []performancePart, learning *performanceLearningPart) []performancePart {
+	var total float64
+	for _, p := range parts {
+		total += p.Pct
 	}
+	pct := learning.Pct
+	if pct > total {
+		pct = total
+	}
+	if total <= 0 || pct <= 0 || learning.Pct <= 0 {
+		return parts
+	}
+	scale := (total - pct) / total
+	for i := range parts {
+		parts[i].Pct *= scale
+	}
+	detectors := make([]performanceDetector, 0, len(learning.Detectors))
+	for _, d := range learning.Detectors {
+		detectors = append(detectors, performanceDetector{ID: d.ID, Pct: d.Pct * pct / learning.Pct})
+	}
+	return append(parts, performancePart{ID: performanceLearningPartID, Pct: pct, Detectors: detectors})
 }
 
 // performanceBreakdownBody builds the breakdown of GET. The dashboard parts
 // need a split in the window, the automation groups need entries for the rows.
-func performanceBreakdownBody(snap performance.Snapshot, rows []performance.Row, entries []performance.AutomationEntry) performanceBreakdown {
+// The learning part is added to the dashboard parts when both exist.
+func performanceBreakdownBody(snap performance.Snapshot, rows []performance.Row, entries []performance.AutomationEntry, learning *performanceLearningPart) performanceBreakdown {
 	var out performanceBreakdown
 	if parts := performance.DashboardBreakdown(snap); parts != nil {
 		dashboard := &performanceDashboardBreakdown{Parts: make([]performancePart, 0, len(parts))}
@@ -442,6 +465,9 @@ func performanceBreakdownBody(snap performance.Snapshot, rows []performance.Row,
 				part.Clients = &clients
 			}
 			dashboard.Parts = append(dashboard.Parts, part)
+		}
+		if learning != nil {
+			dashboard.Parts = carveLearning(dashboard.Parts, learning)
 		}
 		out.Dashboard = dashboard
 	}

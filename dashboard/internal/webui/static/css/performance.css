@@ -140,7 +140,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pf-meter > i, .pf-limit, .pf-limit-label, .pf-step, .pf-progress i, .pf-mrow-bar i, .pf-lmeter-bar, .pf-lmeter-mark { transition: none; }
+  .pf-meter > i, .pf-limit, .pf-limit-label, .pf-step, .pf-progress i, .pf-mrow-bar i { transition: none; }
   .pf-reveal, .pf-reveal[data-open="true"] { transition: opacity .12s ease, visibility 0s; }
 }
 .pf-custom-sel input::placeholder { color: var(--text-strong); opacity: 1; }
@@ -185,6 +185,12 @@
 .pb-item-pct { grid-area: pct; color: var(--text-muted); font-size: .82rem; font-variant-numeric: tabular-nums; text-align: right; }
 .pb-item--more .pb-item-name { color: var(--text-subtle); font-style: italic; }
 .pb-item--more .pb-item-bar i { opacity: .4; }
+.pb-sub { margin-top: .05rem; }
+.pb-item--sub { padding: .18rem 0; }
+.pb-item--sub .pb-item-name { padding-left: 2.6rem; }
+.pb-item--sub .pb-item-name > span { color: var(--text-muted); font-size: .8rem; }
+.pb-item--sub .pb-item-bar { height: .22rem; }
+.pb-item--sub .pb-item-pct { font-size: .78rem; }
 
 .pb-group + .pb-group { margin-top: .55rem; }
 .pb-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: .15rem 0 .1rem 1.35rem; }
@@ -203,13 +209,8 @@
 .pf-row-head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; min-width: 0; }
 .pf-pill { padding: .05rem .55rem; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: .74rem; font-weight: 600; white-space: nowrap; }
 
-/* Schaetzung der Lernstufe: die Spur reicht von 0 bis zum doppelten Ziel, Balken und Marke wandern per transform */
-.pf-lmeter { margin-top: .6rem; }
-.pf-lmeter-track { position: relative; height: .55rem; border-radius: 999px; background: var(--track); }
-.pf-lmeter-bar, .pf-lmeter-mark { position: absolute; top: 0; bottom: 0; left: 0; right: 0; transform-origin: left center; transition: transform 200ms var(--ease-out); }
-.pf-lmeter-bar { border-radius: inherit; background: color-mix(in srgb, var(--text-subtle) 70%, var(--track)); }
-.pf-lmeter-target { position: absolute; top: -.2rem; bottom: -.2rem; left: 50%; width: 2px; margin-left: -1px; background: var(--text-muted); }
-.pf-lmeter-mark::before { content: ""; position: absolute; top: -.3rem; bottom: -.3rem; left: 0; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--accent); }
-.pf-lmeter-mark[data-tone="warn"]::before { background: var(--warn); }
-.pf-lmeter-text { margin: .45rem 0 0; color: var(--text-muted); font-size: .78rem; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.pf-lmeter-text[data-tone="warn"] { color: var(--warn); }
+/* Lernstufen: eine Gitterreihe, die Beschriftung bricht nicht, der Hinweis "empfohlen" sitzt unter ihr */
+.pf-steps-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
+.pf-step-level { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12rem; min-width: 0; max-width: none; white-space: nowrap; }
+.pf-step-tag { color: var(--accent); font-size: .7rem; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.pf-step-sel .pf-step-tag { color: inherit; }

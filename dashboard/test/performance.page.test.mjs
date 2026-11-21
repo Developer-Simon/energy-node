@@ -728,22 +728,6 @@ test('the learning row reads the learning block; without it the row is absent', 
   const none = await loadedPage({ learning: null });
   assert.equal(none.page.learning(), null);
   assert.equal(none.page.learningSummary(), '');
-  const idle = none.page.learningMeter();
-  assert.equal(idle.bar, 0);
-  assert.equal(idle.mark, 0);
-  assert.equal(idle.over, false);
-});
-
-test('the learning meter scales the measured share and the estimate to twice the target', async () => {
-  const made = await loadedPage({ learning: LEARNING });
-  const meter = made.page.learningMeter();
-  assert.equal(meter.bar, 0.02 / 0.1, 'measured 2 % on a track of 2 x 5 %');
-  assert.equal(meter.mark, 0.02 / 0.1, 'auto resolves to eco, so the estimate is the measured share');
-  assert.equal(meter.over, false);
-  made.page.pickLearning('full');
-  const up = made.page.learningMeter();
-  assert.equal(up.mark <= 1, true, 'the marker is clamped to the track');
-  assert.equal(up.bar, 0.02 / 0.2, 'the track of full runs to 2 x 10 %, so the bar shrinks');
 });
 
 const SETTINGS_DOC = { latitude: 52.5, longitude: 13.4, learning_level: 'auto', dashboard_title: 'Haus' };
@@ -863,32 +847,64 @@ test('learningSetting() shows the saved level until a draft exists', async () =>
   assert.equal(made.page.learningSetting(), 'eco');
 });
 
-test('the measurements list the learning unit in the base group, with its breakdown', async () => {
-  const learningUnit = { id: 'learning', cpu_pct: 2.1, ram_bytes: 0, round_s: 0.38, msg_per_min: 0, fixed: true };
-  const breakdown = { learning: { parts: [{ id: 'switch_time', share: 0.55, ms: 420 }, { id: 'runtime', share: 0.45, ms: 340 }] } };
-  const made = await loadedPage({ learning: LEARNING, breakdown, units: [...performanceBody().units, learningUnit] });
-  const base = made.page.measureGroups()[1];
-  const row = base.rows.find((entry) => entry.id === 'learning');
-  assert.ok(row, 'the learning unit is in the base group');
-  assert.equal(row.name, de['performance.js.unit.learning']);
+test('the dashboard breakdown lists the learning part with its detectors, none of them a unit', async () => {
+  const learningPart = { id: 'learning', pct: 2.1, detectors: [{ id: 'switch_time', pct: 1.1 }, { id: 'runtime', pct: 0.9 }] };
+  const breakdown = { dashboard: { parts: [...BREAKDOWN.dashboard.parts, learningPart] }, automation: BREAKDOWN.automation };
+  const made = await loadedPage({ learning: LEARNING, breakdown });
+  const names = made.page.measureGroups().flatMap((group) => group.rows.map((row) => row.id));
+  assert.equal(names.includes('learning'), false, 'the learning engine is no unit row');
 
-  const bd = made.page.breakdownOf('learning');
-  assert.equal(bd.kind, 'learning');
-  assert.equal(bd.parts.length, 2);
-  assert.equal(bd.parts[0].name, de['performance.js.learning.detector.switch_time']);
-  assert.equal(bd.parts[0].share, 0.55, 'the bar is the fraction of the learning total');
-  assert.ok(bd.parts[0].pctText.endsWith(' %'));
-  assert.equal(made.page.partName('switch_time'), de['performance.js.learning.detector.switch_time']);
+  const bd = made.page.breakdownOf('energy-node-dashboard.service');
+  const part = bd.parts.find((entry) => entry.id === 'learning');
+  assert.equal(part.name, de['performance.js.breakdown.part.learning']);
+  assert.ok(part.pctText.endsWith(' %'));
+  assert.equal(part.detectors.length, 2);
+  assert.equal(part.detectors[0].name, de['performance.js.learning.detector.switch_time']);
+  assert.equal(part.detectors[0].share, Math.min(1, Math.round((1.1 / 14) * 10000) / 10000), 'the bar is the share of the dashboard load');
+  assert.equal(made.page.partName('learning'), de['performance.js.breakdown.part.learning']);
   assert.equal(made.page.partName('push'), de['performance.js.breakdown.part.push']);
+  assert.equal(bd.parts.find((entry) => entry.id === 'push').detectors.length, 0, 'only the learning part has detectors');
 });
 
-test('the suggest row exists only when the API gives a suggestion, and its button sets that level', async () => {
+test('the suggest note shows only while the API gives a suggestion, the level is marked by its id', async () => {
   const without = await loadedPage({ learning: LEARNING });
   assert.equal(without.page.learningSuggest(), '');
 
   const withSuggest = await loadedPage({ learning: { ...LEARNING, suggest: 'balanced' } });
   assert.equal(withSuggest.page.learningSuggest(), 'balanced');
-  assert.equal(withSuggest.page.learningSuggestText(), de['performance.js.learning.suggest'].replace('{level}', de['performance.js.learning.level.balanced']));
+  assert.equal(withSuggest.page.learningLevels().some((level) => level.id === 'balanced'), true);
+});
+
+test('a drafted higher level raises the total, a lower one lowers it, saved state stays as it was', async () => {
+  // Saved eco at 2 % of one core on 4 cores: 0,5 % of the budget. Full projects to 0,6 core, balanced to 0,1 core.
+  const made = await loadedPage({ learning: LEARNING });
+  const saved = made.page.selectedPct();
+  assert.ok(Math.abs(saved - 32.1) < 1e-9, `saved total ${saved}`);
+  assert.equal(made.page.learningDeltaPct(), 0, 'no draft, no delta');
+
+  made.page.pickLearning('full');
+  assert.ok(Math.abs(made.page.learningDeltaPct() - 14.5) < 1e-9);
+  assert.ok(Math.abs(made.page.selectedPct() - (saved + 14.5)) < 1e-9, 'the total moves by the delta');
+  assert.ok(Math.abs(made.page.meterParts()[0].w - (7.7 + 14.5)) < 1e-9, 'the base part of the bar moves too');
+  assert.ok(Math.abs(made.page.free() - (made.page.available() - (saved + 14.5))) < 1e-9);
+
+  made.page.pickLearning('balanced');
+  assert.ok(Math.abs(made.page.selectedPct() - (saved + 2)) < 1e-9);
+
+  made.page.pickLearning('eco');
+  assert.ok(Math.abs(made.page.selectedPct() - saved) < 1e-9, 'the same resolved level adds nothing');
+  assert.equal(made.page.learningChanged(), true, 'it is still a draft');
+});
+
+test('a drafted level over the budget turns the head to bad, the saved level does not', async () => {
+  const made = await loadedPage({ learning: LEARNING, measured_s: 30000 });
+  made.page.setTarget(40);
+  assert.equal(made.page.headTone(), 'ok');
+  made.page.pickLearning('full');
+  assert.equal(made.page.headTone(), 'bad');
+  assert.match(made.page.headTitle(), /.+/);
+  made.page.reset();
+  assert.equal(made.page.headTone(), 'ok');
 });
 
 test('a level above the measurement gets the note with the measured load, a level within it does not', async () => {

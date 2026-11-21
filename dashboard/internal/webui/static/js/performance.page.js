@@ -49,7 +49,6 @@
   // directory names apsystems_ez1 and tuya_mqtt stay as aliases.
   const UNIT_LABELS = {
     'energy-node-dashboard': 'performance.js.unit.dashboard',
-    learning: 'performance.js.unit.learning',
     automation: 'performance.js.unit.automation',
     mosquitto: 'performance.js.unit.mosquitto',
     tailscaled: 'performance.js.unit.tailscaled',
@@ -121,10 +120,11 @@
   const parseNumber = (raw) => Number(String(raw).replace(',', '.'));
 
   // Breakdown of the load. Only these units have one, the others keep their
-  // row as it is. The learning unit lists its detectors.
-  const UNIT_KIND = { 'energy-node-dashboard': 'dashboard', automation: 'automation', learning: 'learning' };
+  // row as it is. The learning engine is a part of the dashboard.
+  const UNIT_KIND = { 'energy-node-dashboard': 'dashboard', automation: 'automation' };
   // Full keys per entry, so the catalog scanner sees every key literally.
   const PART_KEYS = {
+    learning: 'performance.js.breakdown.part.learning',
     push: 'performance.js.breakdown.part.push',
     http: 'performance.js.breakdown.part.http',
     mqtt: 'performance.js.breakdown.part.mqtt',
@@ -250,7 +250,7 @@
     },
     // The model total of the current selection, base load included.
     selectedPct() {
-      return PerformanceCore.total(this.data.base_pct, this.data.rows || [], this.sel);
+      return PerformanceCore.total(this.baseWithLearning(), this.data.rows || [], this.sel);
     },
     free() {
       return this.available() - this.selectedPct();
@@ -301,7 +301,7 @@
 
     // Two parts of the budget bar: the base load, then the polling share on top.
     meterParts() {
-      const fixed = this.data.base_pct;
+      const fixed = this.baseWithLearning();
       const parts = [
         { cls: 'pf-m-fixed', w: fixed },
         { cls: 'pf-m-now', w: this.selectedPct() - fixed },
@@ -376,7 +376,7 @@
         rows: this.data.rows || [],
         sel: this.sel,
         cur: this.cur,
-        base: this.data.base_pct,
+        base: this.baseWithLearning(),
         available: this.available(),
         external: this.data.external,
         measuring: this.measuring(),
@@ -631,22 +631,20 @@
       if (!kind || !bd || !bd[kind]) return null;
       const unit = (this.data.units || []).find((u) => u.id === unitId);
       const total = Number(unit?.cpu_pct) || 0;
-      if (kind === 'learning') {
-        // The API gives the fraction of the learning total, the page shows it
-        // as a share of the whole load, the bar is the fraction itself.
-        const parts = (bd.learning.parts || []).map((part) => ({
-          ...part,
-          name: this.learningDetector(part.id),
-          pctText: pctText(part.share * total),
-          share: share(part.share, 1),
-        }));
-        return parts.length ? { kind, parts } : null;
-      }
       if (kind === 'dashboard') {
+        // The learning part lists its detectors under it, each as a share of the
+        // whole load like the parts.
         const parts = (bd.dashboard.parts || []).map((part) => ({
           ...part,
+          name: this.partName(part.id),
           pctText: pctText(part.pct),
           share: share(part.pct, total),
+          detectors: (part.detectors || []).map((detector) => ({
+            ...detector,
+            name: this.learningDetector(detector.id),
+            pctText: pctText(detector.pct),
+            share: share(detector.pct, total),
+          })),
         }));
         return parts.length ? { kind, parts } : null;
       }
@@ -676,10 +674,9 @@
     toggleLabel(row) {
       return t('performance.js.breakdown.toggle', { name: row.name });
     },
-    // Dashboard and automation parts have their own keys. Any other id is a
-    // learning detector.
+    // Dashboard parts have their own keys, the id is shown as it is otherwise.
     partName(id) {
-      return PART_KEYS[id] ? t(PART_KEYS[id]) : this.learningDetector(id);
+      return PART_KEYS[id] ? t(PART_KEYS[id]) : id;
     },
     groupName(row) {
       return GROUP_KEYS[row] ? t(GROUP_KEYS[row]) : row;
@@ -798,32 +795,22 @@
         target: pct(e.target * 100),
       });
     },
+    // The level the load can carry, marked on its button. Empty when none.
     learningSuggest() {
       const l = this.learning();
       return l && l.suggest ? l.suggest : '';
     },
-    learningSuggestText() {
-      return t('performance.js.learning.suggest', { level: t(`performance.js.learning.level.${this.learningSuggest()}`) });
-    },
-    // The meter runs from 0 to twice the target of the drafted level. bar and
-    // mark are fractions of that track, clamped to it. Without data both are 0.
-    learningMeter() {
+    // The load the drafted level adds or saves, in percent of the budget: the
+    // estimate minus the measured share. The saved base holds the measured
+    // share, so the total moves by this amount. Zero without a draft.
+    learningDeltaPct() {
+      if (!this.learningChanged()) return 0;
       const e = this.learningEstimate();
-      if (!e || !e.target) return { bar: 0, mark: 0, over: false };
-      const scale = e.target * 2;
-      const clamp = (value) => Math.min(Math.max(value / scale, 0), 1);
-      return { bar: clamp(e.measured), mark: clamp(e.estimate), over: e.over };
+      return e ? PerformanceCore.learningDeltaPct(e.measured, e.estimate, this.data.cores) : 0;
     },
-    learningMeterText() {
-      const e = this.learningEstimate();
-      if (!e) return '';
-      const level = this.learningResolved(this.learningSetting());
-      return t('performance.js.learning.meter', {
-        measured: pct(e.measured * 100),
-        level: t(`performance.js.learning.level.${level}`),
-        estimate: pct(e.estimate * 100),
-        target: pct(e.target * 100),
-      });
+    // The base load the total and the budget use: the saved base plus the draft.
+    baseWithLearning() {
+      return (this.data.base_pct || 0) + this.learningDeltaPct();
     },
     // A detector without a label shows its id, so a new detector is still readable.
     learningDetector(id) {
@@ -831,8 +818,7 @@
       const text = t(key);
       return text === key ? id : text;
     },
-    // Drafts a level. Selecting never writes, apply() saves the draft. Also the
-    // suggest button, which only drafts the suggested level.
+    // Drafts a level. Selecting never writes, apply() saves the draft.
     pickLearning(level) {
       if (!LEARNING_LEVELS.includes(level) || !this.learning()) return;
       this.learningSel = level;

@@ -17,6 +17,14 @@
     return row.cost_pct * (row.current + row.round_s) / denom;
   }
 
+  // Lernlast in Prozent der Gesamtleistung, wenn sie von measured auf estimate
+  // steigt oder fällt. Beide Anteile sind Bruchteile eines Kerns, die Gesamtleistung
+  // zählt alle Kerne, also teilt sich die Differenz durch die Kernzahl.
+  function learningDeltaPct(measured, estimate, cores) {
+    if (!(cores > 0)) return 0;
+    return ((estimate - measured) * 100) / cores;
+  }
+
   // Grundlast plus Kosten jeder vorhandenen Zeile.
   function total(base, rows, sel) {
     return rows.reduce((sum, row) => (row.present === false ? sum : sum + cost(row, selOf(row, sel))), base);
@@ -172,7 +180,7 @@
   }
 
   const api = {
-    period, cost, total, fastestSource, floorOf, stepsOf, stepState, aloneMax, budgetNote, distribute,
+    period, cost, total, learningDeltaPct, fastestSource, floorOf, stepsOf, stepState, aloneMax, budgetNote, distribute,
   };
   if (typeof window !== 'undefined') window.PerformanceCore = api;
   if (typeof module !== 'undefined') module.exports = api;

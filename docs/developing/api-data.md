@@ -309,12 +309,15 @@ detectors in descending order with their `ms` in the window. `suggest` is only
 present when the load stayed under half the target for seven days, and names
 the level to move up to. Without the learning dependencies the block is `null`.
 
-The same load appears in the measurements as the unit `learning` (fixed, with
-`cpu_pct` = `share` × 100 and `round_s` = `per_run_ms` / 1000). Its breakdown is
-`breakdown.learning`: `parts` lists up to eight detectors in descending order,
-each with `id`, `share` (its fraction of the learning total, 0 to 1) and `ms` in
-the window. It is `null` without the learning dependencies or without compute
-time in the window.
+The learning engine runs inside the dashboard process, so its load is part of
+the dashboard unit. It is not a unit of its own. In `breakdown.dashboard.parts`
+it is the part `learning` (`pct`, its share of the whole budget: `share` × 100
+divided by the core count), listed last. The other parts shrink by that amount,
+so they still add up to the dashboard unit. Its `detectors` lists up to eight
+detectors in descending order, each with `id` and `pct` (its share of the whole
+budget, the parts of the learning part add up to its `pct`). The learning part is
+absent without the learning dependencies, without compute time in the window, or
+when the dashboard has no split.
 
 ```json
 {"setting":"auto","level":"eco","share":0.021,"target":0.05,"per_run_ms":840,
@@ -323,7 +326,7 @@ time in the window.
 ```
 
 ```json
-"breakdown":{"learning":{"parts":[{"id":"switch_time","share":0.55,"ms":420},{"id":"runtime","share":0.28,"ms":210}]}}
+{"id":"learning","pct":0.525,"detectors":[{"id":"switch_time","pct":0.29},{"id":"runtime","pct":0.14}]}
 ```
 
 **`POST /api/v1/learning/reset`** drops the day profiles, the learned loss values

@@ -156,28 +156,20 @@
             </div>
             <span class="pf-row-sub" x-text="learningSummary()"></span>
           </div>
-          <div class="pf-steps" role="group" x-bind:aria-label="$t('performance.ui.learning.group')">
+          <div class="pf-steps pf-steps-levels" role="group" x-bind:aria-label="$t('performance.ui.learning.group')">
             <template x-for="level in learningLevels()" x-bind:key="level.id">
-              <button type="button" class="pf-step"
+              <button type="button" class="pf-step pf-step-level"
                       x-bind:class="{ 'pf-step-sel': level.id === learningSetting() }"
                       x-bind:aria-pressed="level.id === learningSetting() ? 'true' : 'false'"
-                      x-on:click="pickLearning(level.id)" x-text="level.label"></button>
+                      x-on:click="pickLearning(level.id)">
+                <span x-text="level.label"></span>
+                <small class="pf-step-tag" x-show="level.id === learningSuggest()">{{t "performance.ui.learning.suggested"}}</small>
+              </button>
             </template>
           </div>
-          <div class="pf-lmeter" role="img" x-bind:aria-label="learningMeterText()">
-            <div class="pf-lmeter-track">
-              <i class="pf-lmeter-bar" x-bind:style="{ transform: 'scaleX(' + learningMeter().bar + ')' }"></i>
-              <i class="pf-lmeter-target"></i>
-              <i class="pf-lmeter-mark" x-bind:data-tone="learningMeter().over ? 'warn' : null" x-bind:style="{ transform: 'translateX(' + (learningMeter().mark * 100) + '%)' }"></i>
-            </div>
-          </div>
-          <p class="pf-lmeter-text" x-bind:data-tone="learningMeter().over ? 'warn' : null" x-text="learningMeterText()"></p>
           <div class="pf-notes">
+            <span x-show="learningSuggest()">{{t "performance.js.learning.suggest"}}</span>
             <span data-tone="warn" x-show="learningOverNote()" x-text="learningOverNote()"></span>
-            <span x-show="learningSuggest()">
-              <span x-text="learningSuggestText()"></span>
-              <button type="button" class="icon-button labeled pf-primary" x-on:click="pickLearning(learningSuggest())">{{t "performance.ui.learning.adopt"}}</button>
-            </span>
           </div>
         </div>
       </div>
@@ -245,10 +237,21 @@
                           <div>
                             <ul class="pb-list">
                               <template x-for="p in breakdownOf(r.id).parts" x-bind:key="p.id">
-                                <li class="pb-item">
-                                  <span class="pb-item-name"><span x-text="partName(p.id)"></span><small x-show="p.clients" x-text="clientsText(p.clients)"></small></span>
-                                  <span class="pb-item-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${p.share})`"></i></span>
-                                  <span class="pb-item-pct" x-text="p.pctText"></span>
+                                <li class="pb-part">
+                                  <div class="pb-item">
+                                    <span class="pb-item-name"><span x-text="p.name"></span><small x-show="p.clients" x-text="clientsText(p.clients)"></small></span>
+                                    <span class="pb-item-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${p.share})`"></i></span>
+                                    <span class="pb-item-pct" x-text="p.pctText"></span>
+                                  </div>
+                                  <ul class="pb-list pb-sub" x-show="p.detectors && p.detectors.length">
+                                    <template x-for="d in p.detectors" x-bind:key="d.id">
+                                      <li class="pb-item pb-item--sub">
+                                        <span class="pb-item-name"><span x-text="d.name"></span></span>
+                                        <span class="pb-item-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${d.share})`"></i></span>
+                                        <span class="pb-item-pct" x-text="d.pctText"></span>
+                                      </li>
+                                    </template>
+                                  </ul>
                                 </li>
                               </template>
                             </ul>
