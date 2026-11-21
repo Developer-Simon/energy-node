@@ -154,6 +154,14 @@
   // Bar width of a share, relative to the value of the entry.
   const share = (value, of) => (of > 0 ? Math.min(1, Math.round((value / of) * 10000) / 10000) : 0);
 
+  // Learning row. The selector order, the compute budget per round of each
+  // level in seconds (spec 5.7) and the share of the load each level may take.
+  // A higher level is projected from the measured share by the ratio of the
+  // budgets, the API only gives the share of the current level.
+  const LEARNING_LEVELS = ['auto', 'eco', 'balanced', 'full'];
+  const LEARNING_BUDGET_S = { eco: 2, balanced: 10, full: 60 };
+  const LEARNING_TARGET = { eco: 0.05, balanced: 0.10, full: 0.10 };
+
   const pfPage = () => ({
     // The answer of GET /api/v1/performance, as the page last received it.
     data: { ...EMPTY },
@@ -179,6 +187,9 @@
     // Open breakdowns by unit id. Kept across load(), so the 30 s poll does
     // not close them.
     breakdownOpen: {},
+    // Learning row: the top detectors are folded, a level change is in flight.
+    learningOpen: false,
+    learningSaving: false,
 
     init() {
       const first = this.load();
@@ -695,6 +706,93 @@
       const out = { ...params };
       if (out.seconds !== undefined) out.seconds = seconds(out.seconds);
       return out;
+    },
+
+    // ---- Learning row ----------------------------------------------------
+
+    learning() {
+      return this.data.learning || null;
+    },
+    learningSetting() {
+      const l = this.learning();
+      return l ? l.setting : 'auto';
+    },
+    learningLevels() {
+      return LEARNING_LEVELS.map((id) => ({ id, label: t(`performance.js.learning.level.${id}`) }));
+    },
+    learningSummary() {
+      const l = this.learning();
+      if (!l) return '';
+      return t('performance.js.learning.summary', {
+        duration: seconds(l.per_run_ms / 1000),
+        share: pct(l.share * 100),
+      });
+    },
+    // Empty unless the chosen level is above the current one and the projected
+    // share of that level is above its target. The choice itself stays possible.
+    learningOverNote() {
+      const l = this.learning();
+      if (!l || !LEARNING_BUDGET_S[l.setting] || !LEARNING_BUDGET_S[l.level]) return '';
+      const chosen = LEARNING_BUDGET_S[l.setting];
+      const current = LEARNING_BUDGET_S[l.level];
+      if (chosen <= current) return '';
+      const projected = l.share * (chosen / current);
+      const target = LEARNING_TARGET[l.setting];
+      if (projected <= target) return '';
+      return t('performance.js.learning.over', {
+        share: pct(l.share * 100),
+        projected: pct(projected * 100),
+        target: pct(target * 100),
+      });
+    },
+    learningSuggest() {
+      const l = this.learning();
+      return l && l.suggest ? l.suggest : '';
+    },
+    learningSuggestText() {
+      return t('performance.js.learning.suggest', { level: t(`performance.js.learning.level.${this.learningSuggest()}`) });
+    },
+    learningTop() {
+      const l = this.learning();
+      return l && Array.isArray(l.top) ? l.top : [];
+    },
+    toggleLearningTop() {
+      this.learningOpen = !this.learningOpen;
+    },
+    // A detector without a label shows its id, so a new detector is still readable.
+    learningDetector(id) {
+      const key = `performance.js.learning.detector.${id}`;
+      const text = t(key);
+      return text === key ? id : text;
+    },
+    learningMs(ms) {
+      return t('performance.js.learning.ms', { value: window.I18n.formatNumber(ms, 0) });
+    },
+    // Writes learning_level like the learning page does: read the document,
+    // set the field, write it back. Without the setup right nothing is written.
+    async pickLearning(level) {
+      if (this.learningSaving || !LEARNING_LEVELS.includes(level)) return;
+      this.learningSaving = true;
+      try {
+        const session = await requestJSON('/api/v1/auth/session').catch(() => null);
+        if (session && session.edit_setup !== true) {
+          this.$store.toasts.push(t('performance.js.learning.locked'), 'critical');
+          return;
+        }
+        const csrfToken = (session && session.csrf_token) || '';
+        const current = await requestJSON('/api/v1/settings');
+        await requestJSON('/api/v1/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, // i18n-ignore
+          body: JSON.stringify({ ...current, learning_level: level }),
+        });
+        this.$store.toasts.push(t('performance.js.learning.saved'), 'info');
+        await this.load();
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      } finally {
+        this.learningSaving = false;
+      }
     },
   });
 

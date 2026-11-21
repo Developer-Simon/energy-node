@@ -100,7 +100,7 @@ function createPage({ routes = {}, answer = true } = {}) {
   const toasts = fakeToastStore();
   const modal = fakeModalStore({ answer });
   attachStores(page, { toasts, modal });
-  return { page, calls, toasts, modal };
+  return { page, calls, toasts, modal, window: dom.window };
 }
 
 const statusBody = {
@@ -294,4 +294,41 @@ test('a saved outdoor entity that is gone from the registry shows "nicht mehr vo
   await page.load();
   assert.equal(page.automation_outdoor_entity, 'gone-1');
   assert.equal(page.outdoorLabel(), 'nicht mehr vorhanden');
+});
+
+// The location hint: visible while no location is saved, gone with it.
+const settingsRoutes = (settings) => ({
+  '/api/v1/learning/status': statusBody,
+  '/api/v1/auth/session': { csrf_token: 'tok', roles: [] },
+  '/api/v1/settings': settings,
+});
+
+test('the location hint shows without a saved location and goes away with one', async () => {
+  const missing = createPage({ routes: settingsRoutes({ learning_level: 'auto' }) });
+  await missing.page.load();
+  assert.equal(missing.page.locationMissing, true);
+
+  const half = createPage({ routes: settingsRoutes({ latitude: 52.5 }) });
+  await half.page.load();
+  assert.equal(half.page.locationMissing, true, 'latitude alone is no location');
+
+  const set = createPage({ routes: settingsRoutes({ latitude: 52.5, longitude: 13.4 }) });
+  await set.page.load();
+  assert.equal(set.page.locationMissing, false);
+});
+
+test('the location hint stays hidden while the settings are not loaded', async () => {
+  const { page } = createPage({ routes: { '/api/v1/learning/status': statusBody, '/api/v1/auth/session': { csrf_token: 'tok', roles: [] } } });
+  await page.load();
+  assert.equal(page.locationMissing, false);
+});
+
+test('the location action opens the automations panel', () => {
+  const { page, window } = createPage();
+  const seen = [];
+  const listener = (event) => seen.push(event.detail);
+  window.addEventListener('dashboard-open-panel', listener);
+  page.openLocationSettings();
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].panel, 'automations-panel');
 });

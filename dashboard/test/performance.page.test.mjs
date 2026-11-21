@@ -715,3 +715,86 @@ test('the push part names the number of browsers', async () => {
   assert.equal(page.clientsText(push.clients), 'bei bis zu 3 Browsern');
   assert.equal(page.clientsText(1), 'bei einem Browser');
 });
+
+// ---- Learning row ----------------------------------------------------------
+
+const LEARNING = { setting: 'auto', level: 'eco', share: 0.02, target: 0.05, per_run_ms: 840, top: [{ detector: 'switch_time', ms: 420 }] };
+
+test('the learning row reads the learning block; without it the row is absent', async () => {
+  const made = await loadedPage({ learning: LEARNING });
+  assert.equal(made.page.learningSetting(), 'auto');
+  assert.equal(made.page.learningSummary(), de['performance.js.learning.summary']
+    .replace('{duration}', '0,8 s').replace('{share}', '2,0 %'));
+  const none = await loadedPage({ learning: null });
+  assert.equal(none.page.learning(), null);
+  assert.equal(none.page.learningSummary(), '');
+  assert.equal(none.page.learningTop().length, 0);
+});
+
+test('the selector writes learning_level, keeps the rest of the document and sends the CSRF token', async () => {
+  const calls = [];
+  const settingsDoc = { latitude: 52.5, longitude: 13.4, learning_level: 'auto', dashboard_title: 'Haus' };
+  const { fetchImpl } = router({
+    '/api/v1/performance': reply(200, performanceBody({ learning: LEARNING })),
+    '/api/v1/auth/session': reply(200, { csrf_token: 'tok', edit_setup: true }),
+    '/api/v1/settings': reply(200, settingsDoc),
+    'PUT /api/v1/settings': reply(200, {}),
+  }, calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  await made.page.pickLearning('full');
+  const put = calls.find((call) => call.method === 'PUT');
+  assert.ok(put, 'a PUT is sent');
+  assert.equal(put.headers['X-CSRF-Token'], 'tok');
+  assert.deepEqual(JSON.parse(put.body), { ...settingsDoc, learning_level: 'full' });
+});
+
+test('pickLearning() writes nothing without the setup right', async () => {
+  const calls = [];
+  const { fetchImpl } = router({
+    '/api/v1/performance': reply(200, performanceBody({ learning: LEARNING })),
+    '/api/v1/auth/session': reply(200, { csrf_token: 'tok', edit_setup: false }),
+  }, calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  await made.page.pickLearning('full');
+  assert.equal(calls.filter((call) => call.method === 'PUT').length, 0);
+  assert.equal(made.stores.toasts.items.at(-1).severity, 'critical');
+});
+
+test('the suggest row exists only when the API gives a suggestion, and its button sets that level', async () => {
+  const without = await loadedPage({ learning: LEARNING });
+  assert.equal(without.page.learningSuggest(), '');
+
+  const withSuggest = await loadedPage({ learning: { ...LEARNING, suggest: 'balanced' } });
+  assert.equal(withSuggest.page.learningSuggest(), 'balanced');
+  assert.equal(withSuggest.page.learningSuggestText(), de['performance.js.learning.suggest'].replace('{level}', de['performance.js.learning.level.balanced']));
+});
+
+test('a level above the measurement gets the note with the measured load, a level within it does not', async () => {
+  // eco at 2 % with budget 2 s: balanced (10 s) projects to 10 %, target 10 %, so no note.
+  const within = await loadedPage({ learning: { ...LEARNING, setting: 'balanced', share: 0.01 } });
+  assert.equal(within.page.learningOverNote(), '');
+
+  // full (60 s) projects 2 % * 30 = 60 %, far above the 10 % target.
+  const above = await loadedPage({ learning: { ...LEARNING, setting: 'full' } });
+  const note = above.page.learningOverNote();
+  assert.ok(note.includes('2,0 %'), note);
+  assert.ok(note.includes('60,0 %'), note);
+  assert.ok(note.includes('10,0 %'), note);
+
+  // The choice stays possible: the page still reports the chosen setting.
+  assert.equal(above.page.learningSetting(), 'full');
+
+  // A level at or below the measured one gives no note.
+  const same = await loadedPage({ learning: { ...LEARNING, setting: 'eco' } });
+  assert.equal(same.page.learningOverNote(), '');
+  const auto = await loadedPage({ learning: LEARNING });
+  assert.equal(auto.page.learningOverNote(), '');
+});
+
+test('learningDetector() names a known detector and falls back to its id', () => {
+  const made = createPerformancePage();
+  assert.equal(made.page.learningDetector('switch_time'), de['performance.js.learning.detector.switch_time']);
+  assert.equal(made.page.learningDetector('brand_new'), 'brand_new');
+});

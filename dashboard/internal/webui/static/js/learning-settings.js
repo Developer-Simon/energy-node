@@ -63,6 +63,7 @@
   };
 
   const t = defaultT;
+  const isNumber = value => typeof value === 'number' && Number.isFinite(value);
   const picker = () => (window.DevicePicker ? window.DevicePicker.mixin() : {});
 
   // Einzelwahl der Aussentemperatur: nur Entitaeten mit device_class
@@ -104,6 +105,9 @@
     learning_excluded_devices: [],
     // Aussentemperatur-Entitaet (unique_id) je settings.automation_outdoor_entity, leer wenn keine gewaehlt ist.
     automation_outdoor_entity: '',
+    // Standort (settings.latitude und settings.longitude) ist eingetragen. Solange
+    // der Stand nicht geladen ist, bleibt der Hinweis verborgen.
+    location_set: true,
 
     // Die Auswahl gehoert der Seite (settings.page.js, speichert sie). Diese
     // Seite bekommt den Stand beim Laden und meldet jede Aenderung zurueck.
@@ -182,6 +186,7 @@
         this.csrfToken = (session && session.csrf_token) || '';
         this.learnCanEdit = session ? session.edit_setup === true : true;
         this.automation_outdoor_entity = settings && typeof settings.automation_outdoor_entity === 'string' ? settings.automation_outdoor_entity : '';
+        this.location_set = !settings || (isNumber(settings.latitude) && isNumber(settings.longitude));
         if (Array.isArray(devices)) this.devices = devices;
         // Der Punkt am Reiter Einstellungen in der Seitenleiste folgt dem Hinweis.
         window.dispatchEvent(new CustomEvent('learning-new-changed', {detail: {open: this.newHintVisible}}));
@@ -190,6 +195,17 @@
       } finally {
         this.loading = false;
       }
+    },
+
+    // Hinweis "Standort fehlt" im Bereich der Muster: nur ohne Standort. Ob die
+    // Muster an sind, prueft die Karte selbst (automationPatternsDisabled).
+    get locationMissing() {
+      return !this.location_set;
+    },
+
+    // Oeffnet die Automationen. Dort sitzt das Feld Standort im aufklappbaren Bereich.
+    openLocationSettings() {
+      window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail: {panel: 'automations-panel'}}));
     },
 
     get usage() {

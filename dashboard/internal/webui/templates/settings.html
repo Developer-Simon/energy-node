@@ -186,6 +186,10 @@
       </label>
       <p class="learn-row-note" x-show="!automationPatternsDisabled" x-text="sinceLabel('auto_patterns')"></p>
       <p class="learn-row-note" x-show="automationPatternsDisabled">{{t "settings.learning.auto.patterns_off_note"}}</p>
+      <p class="learn-row-note" x-show="!automationPatternsDisabled && locationMissing" data-learning-location-hint>
+        <span>{{t "settings.learning.location.missing"}}</span>
+        <button type="button" class="learn-link" x-on:click="openLocationSettings()">{{t "settings.learning.location.action"}}</button>
+      </p>
 
       <button type="button" class="learn-fine-toggle" x-show="!automationPatternsDisabled" x-on:click="fine = !fine" x-bind:aria-expanded="fine ? 'true' : 'false'" aria-controls="learning-fine">
         <svg class="automation-icon learn-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>

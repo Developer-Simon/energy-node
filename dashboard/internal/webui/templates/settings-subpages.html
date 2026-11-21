@@ -148,6 +148,34 @@
             </div>
           </div>
         </template>
+        <div class="pf-row pf-row-learning" x-show="learning()" data-tour="performance-learning">
+          <div class="pf-row-name">
+            <span class="pf-row-title">{{t "performance.ui.learning.title"}}</span>
+            <span class="pf-row-sub" x-text="learningSummary()"></span>
+          </div>
+          <div class="pf-steps" role="group" x-bind:aria-label="$t('performance.ui.learning.group')">
+            <template x-for="level in learningLevels()" x-bind:key="level.id">
+              <button type="button" class="pf-step"
+                      x-bind:class="{ 'pf-step-sel': level.id === learningSetting() }"
+                      x-bind:aria-pressed="level.id === learningSetting() ? 'true' : 'false'"
+                      x-bind:aria-disabled="learningSaving ? 'true' : null"
+                      x-on:click="pickLearning(level.id)" x-text="level.label"></button>
+            </template>
+          </div>
+          <div class="pf-notes">
+            <span data-tone="warn" x-show="learningOverNote()" x-text="learningOverNote()"></span>
+            <span x-show="learningSuggest()">
+              <span x-text="learningSuggestText()"></span>
+              <button type="button" class="icon-button labeled pf-primary" x-bind:disabled="learningSaving" x-on:click="pickLearning(learningSuggest())">{{t "performance.ui.learning.adopt"}}</button>
+            </span>
+          </div>
+          <button type="button" class="pf-learning-toggle" aria-controls="pf-learning-top" x-bind:aria-expanded="learningOpen ? 'true' : 'false'" x-on:click="toggleLearningTop()">{{t "performance.ui.learning.top"}}</button>
+          <ul class="pf-learning-top" id="pf-learning-top" x-show="learningOpen">
+            <template x-for="entry in learningTop()" x-bind:key="entry.detector">
+              <li><span x-text="learningDetector(entry.detector)"></span><span x-text="learningMs(entry.ms)"></span></li>
+            </template>
+          </ul>
+        </div>
       </div>
       <p class="pf-foot">{{t "performance.ui.rows.foot"}}</p>
     </section>
