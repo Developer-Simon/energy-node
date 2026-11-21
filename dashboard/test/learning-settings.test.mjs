@@ -100,7 +100,7 @@ function createPage({ routes = {}, answer = true } = {}) {
   const toasts = fakeToastStore();
   const modal = fakeModalStore({ answer });
   attachStores(page, { toasts, modal });
-  return { page, calls, toasts, modal };
+  return { page, calls, toasts, modal, window: dom.window };
 }
 
 const statusBody = {
@@ -242,4 +242,97 @@ test('the pill marks only the new features that are still on', async () => {
   assert.equal(page.isNew('chain_suggestions'), true);
   assert.equal(page.isNew('chain_learning'), false);
   assert.equal(page.isNew('auto_patterns'), true);
+});
+
+// Aussentemperatur: Einzelwahl unter den Temperatur-Entitaeten.
+const outdoorDevices = [
+  { id: 'wetter', name: 'Wetter', entities: [
+    { unique_id: 'temp-1', name: 'Außen', device_class: 'temperature' },
+    { unique_id: 'hum-1', name: 'Feuchte', device_class: 'humidity' },
+  ] },
+  { id: 'heizung', name: 'Heizung', entities: [
+    { unique_id: 'temp-2', name: 'Vorlauf', device_class: 'temperature' },
+  ] },
+];
+const outdoorRoutes = (outdoorEntity) => ({
+  '/api/v1/learning/status': statusBody,
+  '/api/v1/auth/session': { csrf_token: 'tok', edit_setup: true, roles: [] },
+  '/api/v1/settings': { automation_outdoor_entity: outdoorEntity, learning_acknowledged: [] },
+  '/api/v1/devices': outdoorDevices,
+  'PUT /api/v1/settings': { ok: true },
+});
+
+test('the outdoor picker offers only temperature entities, in single choice', async () => {
+  const { page } = createPage({ routes: outdoorRoutes('') });
+  await page.load();
+  let captured = null;
+  page.openPicker = async (options) => { captured = options; return null; };
+  await page.chooseOutdoor();
+  assert.equal(captured.mode, 'single');
+  assert.deepEqual(captured.items.map(item => item.id), ['temp-1', 'temp-2']);
+  assert.deepEqual(captured.items.map(item => item.section), ['Wetter', 'Heizung']);
+  assert.deepEqual([...captured.selected], []);
+});
+
+test('a chosen outdoor entity is saved with the CSRF header and shown by device and entity name', async () => {
+  const { page, calls } = createPage({ routes: outdoorRoutes('') });
+  await page.load();
+  assert.equal(page.outdoorLabel(), 'Keine');
+  page.openPicker = async () => 'temp-1';
+  calls.length = 0;
+  await page.chooseOutdoor();
+  await new Promise(resolve => setImmediate(resolve));
+  const put = calls.find(call => call.method === 'PUT');
+  assert.equal(put.headers['X-CSRF-Token'], 'tok');
+  assert.equal(JSON.parse(put.body).automation_outdoor_entity, 'temp-1');
+  assert.equal(page.automation_outdoor_entity, 'temp-1');
+  assert.equal(page.outdoorLabel(), 'Wetter, Außen');
+});
+
+test('a saved outdoor entity that is gone from the registry shows "nicht mehr vorhanden"', async () => {
+  const { page } = createPage({ routes: outdoorRoutes('gone-1') });
+  await page.load();
+  assert.equal(page.automation_outdoor_entity, 'gone-1');
+  assert.equal(page.outdoorLabel(), 'nicht mehr vorhanden');
+});
+
+// The location hint: visible while no location is saved, gone with it. The
+// state comes from status.location_set, the settings only carry the outdoor entity.
+const statusWithLocation = (location_set) => ({ ...statusBody, location_set });
+const settingsRoutes = (status, settings = { learning_level: 'auto' }) => ({
+  '/api/v1/learning/status': status,
+  '/api/v1/auth/session': { csrf_token: 'tok', roles: [] },
+  '/api/v1/settings': settings,
+});
+
+test('the location hint shows when the status reports no location and goes away with one', async () => {
+  const missing = createPage({ routes: settingsRoutes(statusWithLocation(false)) });
+  await missing.page.load();
+  assert.equal(missing.page.locationMissing, true);
+
+  const set = createPage({ routes: settingsRoutes(statusWithLocation(true)) });
+  await set.page.load();
+  assert.equal(set.page.locationMissing, false);
+});
+
+test('the location hint ignores latitude and longitude in the settings', async () => {
+  const { page } = createPage({ routes: settingsRoutes(statusWithLocation(true), { latitude: 52.5, longitude: 13.4 }) });
+  await page.load();
+  assert.equal(page.locationMissing, false);
+});
+
+test('the location hint stays hidden when the status has no location_set field', async () => {
+  const { page } = createPage({ routes: settingsRoutes(statusBody) });
+  await page.load();
+  assert.equal(page.locationMissing, false);
+});
+
+test('the location action opens the automations panel', () => {
+  const { page, window } = createPage();
+  const seen = [];
+  const listener = (event) => seen.push(event.detail);
+  window.addEventListener('dashboard-open-panel', listener);
+  page.openLocationSettings();
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].panel, 'automations-panel');
 });

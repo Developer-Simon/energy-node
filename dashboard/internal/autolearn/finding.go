@@ -28,6 +28,9 @@ type Finding struct {
 type Season struct {
 	FromWeek int `json:"from_week"`
 	ToWeek   int `json:"to_week"`
+	// HeatingBelowC is the outdoor temperature below which the heating season
+	// holds. Nil when the finding does not depend on the temperature.
+	HeatingBelowC *float64 `json:"heating_below_c,omitempty"`
 }
 
 // Text is a translatable text: a code plus the parameters of the text.

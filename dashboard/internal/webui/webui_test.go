@@ -159,7 +159,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=5,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/device-picker.js?v=2,/static/js/learning-settings.js?v=1,/static/js/settings-field.js?v=1,/static/js/settings.page.js?v=39",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/device-picker.js?v=2,/static/js/learning-settings.js?v=2,/static/js/settings-field.js?v=1,/static/js/settings.page.js?v=40",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -168,7 +168,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=52,/static/css/settings-controls.css?v=20,/static/css/learning-settings.css?v=1"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=52,/static/css/settings-controls.css?v=20,/static/css/learning-settings.css?v=2"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1142,7 +1142,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=52,/node/static/css/settings-controls.css?v=20,/node/static/css/learning-settings.css?v=1"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=52,/node/static/css/settings-controls.css?v=20,/node/static/css/learning-settings.css?v=2"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -1395,7 +1395,7 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	chart := strings.Index(line, "automations-chart.js?v=4")
 	page := strings.Index(line, "automations.page.js?v=")
 	wizard := strings.Index(line, "automation-wizard.js?v=6")
-	templates := strings.Index(line, "automation-templates.js?v=7")
+	templates := strings.Index(line, "automation-templates.js?v=8")
 	sheet := strings.Index(line, "automation-sheet.js?v=1")
 	if scenario < 0 || chart < 0 || page < 0 || wizard < 0 || templates < 0 || sheet < 0 {
 		t.Fatalf("Szenario- oder Assistenten-Module fehlen in der Skriptliste: %s", line)
@@ -4653,8 +4653,8 @@ func TestBackupAssetsAreRegisteredOnTheShell(t *testing.T) {
 	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/backup.css?v=1"`) {
 		t.Fatal("backup.css ist nicht als Stylesheet der Unterseite Backup eingetragen")
 	}
-	if !strings.Contains(page, "static/js/settings.page.js?v=39") {
-		t.Fatal("settings.page.js ist nicht auf v=38 hochgezaehlt")
+	if !strings.Contains(page, "static/js/settings.page.js?v=40") {
+		t.Fatal("settings.page.js ist nicht auf v=40 hochgezaehlt")
 	}
 }
 
@@ -4690,6 +4690,17 @@ func TestSettingsSubpagePerformanceNeedsDiagnostics(t *testing.T) {
 	}
 	if strings.Contains(body, "pf-draft") || strings.Contains(body, "pf-stepper") {
 		t.Fatal("settings-page performance zeigt Entwurf oder den Stepper der spaeteren Teilauftraege")
+	}
+	// Die Lernstufe ist ein Entwurf, die Stufen haben ihre Gitterreihe und die Empfehlung ist ein Punkt am Knopf mit dem Satz als Titel.
+	for _, want := range []string{`pf-steps pf-steps-levels`, `pf-step-level`, `pf-step-dot`, `learningSuggestText()`, `class="pf-pill"`, `learningChanged()`, `learningSuggest()`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("settings-page performance lacks learning level markup %s", want)
+		}
+	}
+	for _, gone := range []string{"pf-learning-top", "pf-learning-toggle", "learningSaving", "pf-lmeter", "learningMeter", "learning.adopt", "pickLearning(learningSuggest())", "pf-step-tag", "performance.ui.learning.suggested"} {
+		if strings.Contains(body, gone) {
+			t.Fatalf("settings-page performance still renders %s", gone)
+		}
 	}
 
 	for _, tc := range []struct {

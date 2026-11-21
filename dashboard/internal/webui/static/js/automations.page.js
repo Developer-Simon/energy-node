@@ -211,6 +211,15 @@
         if (!isPrefillText(prefill.learned)) return null;
         out.learned = prefill.learned;
       }
+      // Sonnenbezug des Lernvorschlags: Ereignis und Abstand in Minuten.
+      if (prefill.anchor !== undefined) {
+        if (prefill.anchor !== 'sunrise' && prefill.anchor !== 'sunset') return null;
+        out.anchor = prefill.anchor;
+      }
+      if (prefill.offset_min !== undefined) {
+        if (!Number.isInteger(prefill.offset_min)) return null;
+        out.offset_min = prefill.offset_min;
+      }
       return out;
     },
     runtime_off(prefill) {
@@ -2128,10 +2137,8 @@
       return this.allFindings().find((finding) => (finding.rule_ids || []).includes(ruleId)) || null;
     },
     findingText(finding) {
-      const code = (finding.summary && finding.summary.code) || '';
-      const params = { ...((finding.summary && finding.summary.params) || {}) };
-      // Der Dienst liefert den Anteil als Bruchteil, die Texte nennen Prozent.
-      if (typeof params.share === 'number') params.share = Math.round(params.share * 100);
+      // Schluessel und Parameter teilen sich Vorschlagsband und Regelmarken (automation-suggestions.js).
+      const { code, params } = window.AutomationSuggestions.resolveSummary(finding.summary, t);
       return {
         title: t(`automations.learn.${code}.title`, params),
         text: t(`automations.learn.${code}.text`, params),
@@ -2189,9 +2196,20 @@
         if (path.length === 0 || !node || typeof node !== 'object') return null;
         return { parent: node, key: path[path.length - 1] };
       };
-      const writes = (fix.ops || []).map((op) => ({ target: targetOf(op.path || []), value: op.value }));
+      // Ein add_condition nennt den Index, den die Bedingung beim Befund hatte.
+      // Seitdem kann eine Bedingung dazugekommen sein, deshalb wird angehaengt.
+      const writes = (fix.ops || []).map((op) => {
+        const target = targetOf(op.path || []);
+        if (fix.code === 'add_condition') {
+          return { target: target && Array.isArray(target.parent) ? { parent: target.parent, append: true } : null, value: op.value };
+        }
+        return { target, value: op.value };
+      });
       if (writes.every((write) => write.target)) {
-        writes.forEach((write) => { write.target.parent[write.target.key] = write.value; });
+        writes.forEach((write) => {
+          if (write.target.append) write.target.parent.push(write.value);
+          else write.target.parent[write.target.key] = write.value;
+        });
       }
       this.startEditing(rule);
       this.expanded[rule.id] = true;
@@ -2953,6 +2971,7 @@
             caption: t('automations.learned.live.caption', { name: item.name }),
             tone: item.source === 'fallback' ? 'learned-fallback' : 'learned',
             fraction: mark, mark, band: null,
+            year: item.scale.year || null,
             valueText: item.text,
             rangeText: item.scale.range,
             label: item.scale.label,

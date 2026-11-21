@@ -2,6 +2,7 @@ package learnrec
 
 import (
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -80,8 +81,12 @@ type Hub struct {
 	minute  time.Time
 	acc     map[string]*devAcc
 	balance map[string]float64
-	hour    time.Time
-	stats   map[string]time.Duration
+	// outdoorID liefert die unique_id der Aussentemperatur-Entitaet. outdoor
+	// sammelt deren Beobachtungen in der laufenden Minute.
+	outdoorID func() string
+	outdoor   sumCount
+	hour      time.Time
+	stats     map[string]time.Duration
 }
 
 // NewHub legt einen Hub an. limits wird bei jeder Beobachtung gelesen.
@@ -93,6 +98,14 @@ func NewHub(loc *time.Location, limits func() Limits, logf func(string, ...any))
 		acc:    map[string]*devAcc{},
 		stats:  map[string]time.Duration{},
 	}
+}
+
+// SetOutdoor legt fest, welche Entitaet die Aussentemperatur liefert. id wird
+// bei jeder Beobachtung gelesen. Leer oder nil heisst: keine Temperatur.
+func (h *Hub) SetOutdoor(id func() string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.outdoorID = id
 }
 
 // AddMinute meldet einen Minutenverbraucher an.
@@ -143,6 +156,7 @@ func (h *Hub) Observe(at time.Time, devices []registry.DeviceView, snap energy.S
 		h.balance = balance
 	}
 	h.accumulateLocked(devices)
+	h.accumulateOutdoorLocked(devices)
 
 	hour := time.Date(y, mo, d, local.Hour(), 0, 0, 0, h.loc)
 	if h.hour.IsZero() {
@@ -208,6 +222,33 @@ func (h *Hub) accumulateLocked(devices []registry.DeviceView) {
 	}
 }
 
+// accumulateOutdoorLocked nimmt den Temperaturwert der gewaehlten Entitaet in
+// den Minutenrahmen auf. Die erste Entitaet mit passender unique_id zaehlt.
+func (h *Hub) accumulateOutdoorLocked(devices []registry.DeviceView) {
+	if h.outdoorID == nil {
+		return
+	}
+	uid := strings.TrimSpace(h.outdoorID())
+	if uid == "" {
+		return
+	}
+	for _, dev := range devices {
+		if dev.ID == energydiscovery.DeviceIdentifier {
+			continue
+		}
+		for _, e := range dev.Entities {
+			if e.UniqueID != uid {
+				continue
+			}
+			if c, ok := TempOf(e); ok {
+				h.outdoor.sum += c
+				h.outdoor.n++
+			}
+			return
+		}
+	}
+}
+
 // closeMinuteLocked baut den Rahmen der laufenden Minute und gibt ihn an die
 // Minutenverbraucher. Danach beginnt der Sammelpuffer neu.
 func (h *Hub) closeMinuteLocked() {
@@ -234,6 +275,11 @@ func (h *Hub) closeMinuteLocked() {
 		f.Devices = append(f.Devices, dm)
 	}
 
+	if h.outdoor.n > 0 {
+		c := h.outdoor.sum / float64(h.outdoor.n)
+		f.OutdoorC = &c
+	}
+	h.outdoor = sumCount{}
 	h.acc = map[string]*devAcc{}
 	h.balance = nil
 	for _, m := range h.minutes {

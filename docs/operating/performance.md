@@ -300,3 +300,24 @@ goes into the cost of each message. Requests and background work stay in the
 base load. The garbage collection is spread over the parts in proportion, so
 the sum of the rows does not change. The split is kept in memory only, like the
 rest of the measurement.
+
+### 7.2 Learning level
+
+The card Polling rates has the row **Learning features**. The level is one of
+Automatic, Economical, Balanced and Full. Automatic lets the node choose. A
+click on a level only changes the draft. **Apply** saves it together with the
+polling rates.
+
+The effort of learning is part of the total load at the top. The measured share
+is already counted there. When the draft level is higher or lower, the total
+moves by the estimated difference, so you see the effect before you save. In the
+card Measurements, learning is listed inside the breakdown of the dashboard,
+with its detectors.
+
+Each level has a target share of the load: 5 percent on Economical and 10
+percent on the others. If the draft level would exceed its target, the page says
+so, and the choice stays possible.
+
+When the share stays below half of the target for 7 days in a row, the page marks
+the next higher level as suggested. Selecting it puts it into the draft like any
+other level.

@@ -22,15 +22,15 @@ const catalogs = {
 // Summary codes the new detectors emit (11a scope). switch_time gets its direction suffix at runtime.
 const SUMMARY_CODES = [
   'switch_time.on', 'switch_time.off', 'runtime.forgotten', 'coupling.follow',
-  'check.flapping', 'check.no_effect', 'check.overridden', 'check.offline_window',
+  'check.flapping', 'check.no_effect', 'check.overridden', 'check.offline_window', 'temperature.limit',
 ];
 const LEGEND_SHAPES = ['day', 'events', 'scale'];
-const FACT_CODES = ['window_s', 'direction_share', 'spread_min', 'hit_rate', 'overnight', 'cause', 'limit_s', 'feature', 'min_runtime', 'per_hour_max', 'season_months'];
+const FACT_CODES = ['window_s', 'direction_share', 'spread_min', 'hit_rate', 'overnight', 'cause', 'limit_s', 'feature', 'min_runtime', 'per_hour_max', 'season_months', 'knee'];
 const CAUSE_VALUES = ['offline_window', 'clustered', 'scattered'];
 const FIX_CODES = ['min_runtime', 'repeat', 'open_rule', 'add_condition', 'shift_time', 'move_before'];
 const BUTTONS = ['open_assistant', 'later', 'never', 'undo'];
 const BAND_KEYS = ['title', 'count_one', 'count_many', 'learning', 'more', 'less'];
-const GROUPS = ['habit', 'check', 'reliability'];
+const GROUPS = ['habit', 'check', 'reliability', 'energy'];
 
 // Every catalog key the band needs, for one language.
 function requiredKeys() {
@@ -46,15 +46,22 @@ function requiredKeys() {
   BAND_KEYS.forEach((name) => keys.push(`automations.learn.band.${name}`));
   GROUPS.forEach((name) => keys.push(`automations.learn.group.${name}`));
   keys.push('automations.learn.hint.dismissed', 'automations.learn.lane.ist', 'automations.learn.lane.soll');
+  keys.push('automations.learn.season.heating', 'automations.learn.unit.kwh_week');
   return keys;
 }
 
-function load() {
+function load(i18n) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  if (i18n) dom.window.I18n = i18n;
   vm.runInContext(suggestionsSource, dom.getInternalVMContext());
   vm.runInContext(evidenceSource, dom.getInternalVMContext());
   return { api: dom.window.AutomationSuggestions, evidence: dom.window.AutomationEvidence, document: dom.window.document };
 }
+
+// Number format of the page: decimal comma, like I18n.formatNumber in German.
+const germanI18n = {
+  formatNumber: (value, decimals = 0) => Number(value).toFixed(decimals).replace('.', ','),
+};
 
 // Translation stub: returns the key and remembers the calls so params can be checked.
 function recorder() {
@@ -168,7 +175,7 @@ test('the summary codes of the backend are the ones the band covers', () => {
         if (code.endsWith('.')) {
           found.add(code + 'on');
           found.add(code + 'off');
-        } else if (/^(switch_time|runtime|coupling|check)\./.test(code)) {
+        } else if (/^(switch_time|runtime|coupling|check|temperature)\./.test(code)) {
           found.add(code);
         }
       }
@@ -353,9 +360,27 @@ test('the assistant button needs a template fix and the editing permission', asy
   const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [unplanned, templ], learning: { since: 1, devices: 1, days: 1 } }));
   await band.load();
   band.canEdit = true;
-  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, later: true, dismiss: true });
-  assert.deepEqual(plain(band.actionsOf(band.items[1])), { assistant: true, later: true, dismiss: true });
+  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, apply: false, later: true, dismiss: true });
+  assert.deepEqual(plain(band.actionsOf(band.items[1])), { assistant: true, apply: false, later: true, dismiss: true });
   assert.equal(band.fixOf(band.items[1]).template, 'follow_switch');
+  close();
+});
+
+function withOpsFix(s) {
+  const fix = { code: 'add_condition', rule_id: 'r1', ops: [{ path: ['conditions', 0], value: { type: 'entity_value' } }] };
+  return { ...s, apply: [fix] };
+}
+
+test('a fix with ops and no template gets the apply button with the fix label', async () => {
+  const limit = withOpsFix(finding('l:1'));
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [limit], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  band.canEdit = true;
+  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, apply: true, later: true, dismiss: true });
+  assert.equal(band.opFixOf(band.items[0]).code, 'add_condition');
+  assert.equal(band.applyLabelOf(band.items[0], catalogT('de')), catalogs.de['automations.learn.fix.add_condition']);
+  band.canEdit = false;
+  assert.equal(band.actionsOf(band.items[0]).apply, false);
   close();
 });
 
@@ -364,7 +389,7 @@ test('without the automations permission there are no buttons at all', async () 
   const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [templ], learning: { since: 1, devices: 1, days: 1 } }));
   await band.load();
   band.canEdit = false;
-  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, later: false, dismiss: false });
+  assert.deepEqual(plain(band.actionsOf(band.items[0])), { assistant: false, apply: false, later: false, dismiss: false });
   close();
 });
 
@@ -485,4 +510,143 @@ test('hit rate and direction share stay percent, season months stay as they are'
 test('any other numeric fact is rounded to at most one decimal', () => {
   assert.equal(factText('unknown_code', 3.14159), '3.1');
   assert.equal(factText('unknown_code', 4), '4');
+});
+
+test('the heating validity reads the knee and is empty without one', () => {
+  const { band, close } = loadBand(listRoutes({ enabled: false, suggestions: [] }));
+  const t = catalogT('de');
+  const withKnee = { season: { from_week: 40, to_week: 16, heating_below_c: 15.04 } };
+  assert.equal(band.heatingOf(withKnee, t), 'Heizzeit unter 15 °C');
+  assert.equal(band.heatingOf({ season: { from_week: 40, to_week: 16 } }, t), '');
+  assert.equal(band.heatingOf({}, t), '');
+  close();
+});
+
+test('a heating only season shows no week range, a dated season shows its weeks', () => {
+  const { band, close } = loadBand(listRoutes({ enabled: false, suggestions: [] }));
+  const t = catalogT('de');
+  assert.equal(band.seasonOf({ season: { heating_below_c: 15 } }, t), '');
+  assert.equal(band.seasonOf({}, t), catalogs.de['automations.learn.season.all']);
+  assert.equal(band.seasonOf({ season: { from_week: 40, to_week: 16 } }, t), 'Gilt von KW 40 bis KW 16');
+  close();
+});
+
+test('a finding with only the heating limit shows the chip and no week range', () => {
+  const { band, close } = loadBand(listRoutes({ enabled: false, suggestions: [] }));
+  const t = catalogT('de');
+  const finding = { season: { from_week: 0, to_week: 0, heating_below_c: 15.04 } };
+  assert.equal(band.seasonOf(finding, t), '');
+  assert.equal(band.heatingOf(finding, t), 'Heizzeit unter 15 °C');
+  close();
+});
+
+test('the temperature limit title and line show the rule, device, knee and weekly kWh', () => {
+  const { api } = load(germanI18n);
+  const t = catalogT('de');
+  const s = suggestion('temperature.limit', { rule: 'Pumpe Nacht', device: 'Wärmepumpe', knee: 15, kwh_warm: 1.2345 }, 'scale');
+  assert.equal(api.title(s, t), 'Pumpe Nacht nur bei Außentemperatur unter 15 °C');
+  assert.equal(api.line(s, t), 'In warmen Wochen verbraucht Wärmepumpe 1,2 kWh pro Woche. Mit der Bedingung schaltet die Regel nur bei Kälte.');
+  assert.equal(api.legend(s, t), catalogs.de['automations.learn.legend.scale']);
+});
+
+test('a scale evidence with the weekly unit shows the catalog unit on the axis', () => {
+  const { evidence } = load();
+  const t = catalogT('de');
+  const html = evidence.render({ shape: 'scale', ist_value: 12, soll_value: 0, unit: 'kwh_week' }, t);
+  assert.ok(html.includes('kWh/Woche'), 'the unit text is shown');
+  assert.ok(!html.includes('kwh_week'), 'the raw unit code is not shown');
+});
+
+test('the temperature limit and the knee fact have catalog texts in both languages', () => {
+  ['de', 'en'].forEach((lang) => {
+    ['automations.learn.temperature.limit.title', 'automations.learn.temperature.limit.line', 'automations.learn.fact.knee', 'automations.learn.group.energy'].forEach((key) => {
+      assert.ok(catalogs[lang][key], `${lang}: ${key}`);
+    });
+  });
+});
+
+test('textOf gives the explanation text with the data of the code', () => {
+  const { api } = load();
+  const { t, calls } = recorder();
+  const s = suggestion('switch_time.off', { device: 'Leiste', time: '22:30', hits: 12, days: 14 });
+  const shown = api.text(s, catalogT());
+  assert.match(shown, /Leiste/);
+  assert.match(shown, /22:30/);
+  api.text(s, t);
+  assert.equal(calls[0].key, 'automations.learn.switch_time.off.text');
+  assert.equal(calls[0].params.time, '22:30');
+});
+
+test('textOf leaves the text empty for a code without a text key', () => {
+  const { api } = load();
+  const s = suggestion('scale.summary', { n: 1 }, 'scale');
+  assert.equal(api.text(s, catalogT()), '');
+});
+
+test('textOf returns a catalog text for the sun variants, and an unknown code gets none', () => {
+  const { api } = load();
+  const before = suggestion('switch_time.sun_on', { device: 'Lampe', hits: 9, days: 14, event: 'sunset', offset_min: -20 });
+  const after = suggestion('switch_time.sun_off', { device: 'Lampe', hits: 9, days: 14, event: 'sunrise', offset_min: 15 });
+  assert.ok(api.text(before, catalogT()).length > 0, 'the before variant has a text');
+  assert.ok(api.text(after, catalogT()).length > 0, 'the after variant has a text');
+  assert.ok(!api.text(before, catalogT()).includes('automations.learn'), 'no raw key shown');
+  assert.equal(api.text(suggestion('unknown.code', {}), catalogT()), '');
+});
+
+test('the sun variants pick before or after by the sign and show minutes and the translated event', () => {
+  const { api } = load();
+  const { t, calls } = recorder();
+  api.title(suggestion('switch_time.sun_on', { device: 'Lampe', hits: 9, days: 14, event: 'sunset', offset_min: -20 }), t);
+  const titleCall = calls.find((c) => c.key.endsWith('.title'));
+  assert.equal(titleCall.key, 'automations.learn.switch_time.sun_on.before.title');
+  assert.equal(titleCall.params.minutes, 20);
+  assert.equal(titleCall.params.event, 'automations.sun_event.sunset');
+  assert.equal('offset_min' in titleCall.params, false);
+
+  const later = recorder();
+  api.line(suggestion('switch_time.sun_off', { device: 'Lampe', hits: 9, days: 14, event: 'sunrise', offset_min: 0 }), later.t);
+  const lineCall = later.calls.find((c) => c.key.endsWith('.line'));
+  assert.equal(lineCall.key, 'automations.learn.switch_time.sun_off.after.line');
+  assert.equal(lineCall.params.minutes, 0);
+});
+
+test('the sun variants show a translated title, not a raw key', () => {
+  const { api } = load();
+  const s = suggestion('switch_time.sun_off', { device: 'Lampe', hits: 9, days: 14, event: 'sunset', offset_min: 15 });
+  const title = api.title(s, catalogT());
+  assert.notEqual(title, 'automations.learn.switch_time.sun_off.after.title');
+  assert.ok(!title.includes('automations.'), title);
+});
+
+test('decimal numbers in the summary are rounded to one decimal in the page format', () => {
+  const { api } = load(germanI18n);
+  const { resolveSummary } = api;
+  const float = resolveSummary({ code: 'runtime.forgotten', params: { extra_kwh: 0.30000000000000004, runs: 12, lag_s: 4 } }, (key) => key);
+  assert.equal(float.params.extra_kwh, '0,3');
+  assert.equal(float.params.runs, 12);
+  assert.equal(float.params.lag_s, 4);
+  const big = resolveSummary({ code: 'away.standby', params: { kwh_day: 1234.5678 } }, (key) => key);
+  assert.equal(big.params.kwh_day, '1234,6');
+  const whole = resolveSummary({ code: 'away.standby', params: { kwh_day: 2.04 } }, (key) => key);
+  assert.equal(whole.params.kwh_day, '2');
+  const knee = resolveSummary({ code: 'temperature.limit', params: { knee: 15.04 } }, (key) => key);
+  assert.equal(knee.params.knee, '15');
+});
+
+test('without a page number format the decimals keep a dot and one place', () => {
+  const { api } = load();
+  const { resolveSummary } = api;
+  assert.equal(resolveSummary({ code: 'away.standby', params: { kwh_day: 0.30000000000000004 } }, (key) => key).params.kwh_day, '0.3');
+  assert.equal(resolveSummary({ code: 'away.standby', params: { kwh_day: 1234.5678 } }, (key) => key).params.kwh_day, '1234.6');
+});
+
+test('the rules texts keep their shape for a share and a sun code', () => {
+  const { api } = load();
+  const { resolveSummary } = api;
+  const share = resolveSummary({ code: 'check.no_effect', params: { share: 0.38 } }, (key) => key);
+  assert.equal(share.code, 'check.no_effect');
+  assert.equal(share.params.share, 38);
+  const sun = resolveSummary({ code: 'switch_time.sun_on', params: { event: 'sunrise', offset_min: -5 } }, (key) => key);
+  assert.equal(sun.code, 'switch_time.sun_on.before');
+  assert.equal(sun.params.minutes, 5);
 });

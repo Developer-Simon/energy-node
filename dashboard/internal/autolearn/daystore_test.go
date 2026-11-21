@@ -1,8 +1,12 @@
 package autolearn
 
 import (
+	"bytes"
+	"compress/gzip"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 	_ "time/tzdata"
@@ -432,5 +436,81 @@ func TestDayStoreUnreadableFileIsNotOverwritten(t *testing.T) {
 	}
 	if string(now) != string(orig) {
 		t.Error("unreadable file was overwritten")
+	}
+}
+
+func outdoorMinute(at time.Time, c float64) learnrec.Frame {
+	f := frameWith(at, lampMinute(true, 100))
+	f.OutdoorC = &c
+	return f
+}
+
+// readRawDay liefert den entpackten JSON-Text der Tagesdatei von day.
+func readRawDay(t *testing.T, dir, day string) string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(dir, day+".json.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	zr, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(zr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+func TestDayStoreTempQuarterMean(t *testing.T) {
+	loc := berlinLoc(t)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(outdoorMinute(base, 21))
+	s.ObserveMinute(outdoorMinute(base.Add(time.Minute), 22))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 || days[0].Site.TempC[40] == nil {
+		t.Fatalf("days = %+v, want TempC at quarter 40", days)
+	}
+	if got := *days[0].Site.TempC[40]; got != 21.5 {
+		t.Errorf("temp_c = %v, want 21.5", got)
+	}
+}
+
+func TestDayStoreTempOmittedWithoutEntity(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	s := OpenDayStore(dir, loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(frameWith(base, lampMinute(true, 100)))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(readRawDay(t, dir, "2026-11-19"), "temp_c") {
+		t.Error("temp_c written without any outdoor value")
+	}
+}
+
+func TestDayStoreOldFileWithoutTempLoads(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	first := OpenDayStore(dir, loc, keepAll, noLog)
+	first.ObserveMinute(frameWith(base, lampMinute(true, 100)))
+	if err := first.Save(); err != nil {
+		t.Fatal(err)
+	}
+	second := OpenDayStore(dir, loc, keepAll, noLog)
+	second.ObserveMinute(outdoorMinute(base.Add(time.Minute), 20))
+	days := mustDays(t, second, base, base)
+	if len(days) != 1 || days[0].Devices["lamp"] == nil {
+		t.Fatalf("days = %+v, want the old day with its lamp data", days)
+	}
+	if got := days[0].Site.TempC[40]; got == nil || *got != 20 {
+		t.Errorf("temp_c = %v, want 20 from the minute of this run", got)
 	}
 }

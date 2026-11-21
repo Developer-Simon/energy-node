@@ -5,6 +5,8 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // OverriddenDetector flags a rule that the user keeps reversing by hand or from
@@ -36,6 +38,8 @@ const (
 	overriddenRoundW = 50.0
 	// overriddenRoundMin rounds the proposed start of a time window in minutes.
 	overriddenRoundMin = 5.0
+	// overriddenSunOffsetMax is the largest sun offset in minutes the rule schema accepts.
+	overriddenSunOffsetMax = 240
 	// overriddenMaxEvidence caps the reversal times kept as evidence.
 	overriddenMaxEvidence = 50
 )
@@ -46,7 +50,13 @@ const (
 	overriddenHour      = "hour"
 	overriddenHouseLoad = "house_load"
 	overriddenSurplus   = "surplus"
+	overriddenToSunset  = "to_sunset"
+	overriddenElevation = "sun_elevation"
 )
+
+// overriddenSunSearchMin is the half width in minutes of the search for the
+// elevation distance around the sunset.
+const overriddenSunSearchMin = 240
 
 // overrideSwitch is a switch of the device caused by a rule.
 type overrideSwitch struct {
@@ -75,6 +85,12 @@ type overrideCase struct {
 	surplus    float64
 	reversed   bool
 	reverseMin float64
+	// sunOK is set when the location gives the sun state of the switch. It is
+	// false without a location and on polar days.
+	sunOK     bool
+	toSunset  float64
+	sunset    time.Time
+	elevation float64
 }
 
 // overridePoint is one case of a numeric feature.
@@ -238,6 +254,11 @@ func overriddenCandidate(device string, in *Input, rule Rule, sw []overrideSwitc
 			c.reverseMin = minuteOfDay(rev, loc)
 			hits++
 		}
+		if in.Doc.Location != nil {
+			if m, set, e, ok := overrideSunState(at, in.Doc.Location); ok {
+				c.sunOK, c.toSunset, c.sunset, c.elevation = true, m, set, e
+			}
+		}
 		cases[j] = c
 	}
 	if hits < overriddenMinCases {
@@ -271,7 +292,8 @@ func overriddenCandidate(device string, in *Input, rule Rule, sw []overrideSwitc
 	var soll []int64
 	var sollSpans [][2]int64
 	if split, ok := overriddenSplit(cases, in.Base); ok {
-		if fix, spans, ok := overriddenAddFix(rule, in.Base, split); ok {
+		// A split the rule already holds is not offered again.
+		if fix, spans, ok := overriddenAddFix(rule, in.Base, split, cases, in.Doc.Location); ok && !FixApplied(fix, in.Doc) {
 			feature = split.feature
 			apply = []Fix{fix}
 			sollSpans = spans
@@ -392,6 +414,8 @@ func overriddenSplit(cases []overrideCase, base Base) (overrideSplit, bool) {
 	considerNumeric(overriddenHour, overridePoints(cases, func(c overrideCase) float64 { return c.hour }))
 	considerNumeric(overriddenHouseLoad, overridePoints(cases, func(c overrideCase) float64 { return c.house }))
 	considerNumeric(overriddenSurplus, overridePoints(cases, func(c overrideCase) float64 { return c.surplus }))
+	considerNumeric(overriddenToSunset, overrideSunPoints(cases, func(c overrideCase) float64 { return c.toSunset }))
+	considerNumeric(overriddenElevation, overrideSunPoints(cases, func(c overrideCase) float64 { return c.elevation }))
 
 	return best, found
 }
@@ -420,6 +444,92 @@ func overridePoints(cases []overrideCase, value func(overrideCase) float64) []ov
 		out = append(out, overridePoint{x: value(c), ov: c.reversed})
 	}
 	return out
+}
+
+// overrideSunPoints returns the cases that have a sun state with their value of
+// one sun feature. Without a location no case has one, and the feature is skipped.
+func overrideSunPoints(cases []overrideCase, value func(overrideCase) float64) []overridePoint {
+	out := make([]overridePoint, 0, len(cases))
+	for _, c := range cases {
+		if c.sunOK {
+			out = append(out, overridePoint{x: value(c), ov: c.reversed})
+		}
+	}
+	return out
+}
+
+// overrideSunState returns the minutes from the switch until the nearest sunset
+// (negative after it), that sunset and the sun elevation in degrees at the
+// switch. The nearest sunset is looked up on the day before, the day and the day
+// after. ok is false when no sunset exists on those days.
+func overrideSunState(at time.Time, site *sun.Location) (toSunset float64, sunset time.Time, elevation float64, ok bool) {
+	best := math.Inf(1)
+	for k := -1; k <= 1; k++ {
+		_, set, has := sun.Times(at.AddDate(0, 0, k), site.Lat, site.Lon)
+		if !has {
+			continue
+		}
+		diff := set.Sub(at).Minutes()
+		if !ok || math.Abs(diff) < math.Abs(best) {
+			best, sunset, ok = diff, set, true
+		}
+	}
+	if !ok {
+		return 0, time.Time{}, 0, false
+	}
+	_, elevation = sun.Position(at, site.Lat, site.Lon)
+	return best, sunset, elevation, true
+}
+
+// overrideElevationDistance returns the minutes before the sunset at which the
+// sun stands at elevation elev, searched within overriddenSunSearchMin minutes of
+// the sunset. The elevation falls through the search window, so a bisection
+// finds the crossing. Negative values lie after the sunset.
+func overrideElevationDistance(sunset time.Time, elev float64, site *sun.Location) (float64, bool) {
+	lo := sunset.Add(-overriddenSunSearchMin * time.Minute)
+	hi := sunset.Add(overriddenSunSearchMin * time.Minute)
+	_, top := sun.Position(lo, site.Lat, site.Lon)
+	_, bottom := sun.Position(hi, site.Lat, site.Lon)
+	if top < elev || bottom > elev {
+		return 0, false
+	}
+	for i := 0; i < 64 && hi.Sub(lo) > time.Second; i++ {
+		mid := lo.Add(hi.Sub(lo) / 2)
+		_, e := sun.Position(mid, site.Lat, site.Lon)
+		if e >= elev {
+			lo = mid
+		} else {
+			hi = mid
+		}
+	}
+	cross := lo.Add(hi.Sub(lo) / 2)
+	return sunset.Sub(cross).Minutes(), true
+}
+
+// overriddenSunDistance returns the distance in minutes before the sunset that
+// the fix of a sun split uses. For the minutes until sunset it is the cut itself.
+// For the elevation it is the median distance at which the sun of each case
+// stands at the cut elevation.
+func overriddenSunDistance(s overrideSplit, cases []overrideCase, site *sun.Location) (float64, bool) {
+	if s.feature == overriddenToSunset {
+		return s.cut, true
+	}
+	if site == nil {
+		return 0, false
+	}
+	var ds []float64
+	for _, c := range cases {
+		if !c.sunOK {
+			continue
+		}
+		if d, ok := overrideElevationDistance(c.sunset, s.cut, site); ok {
+			ds = append(ds, d)
+		}
+	}
+	if len(ds) == 0 {
+		return 0, false
+	}
+	return Median(ds), true
 }
 
 // overriddenNumericSplit sweeps the cut between neighbouring values and keeps
@@ -495,8 +605,9 @@ func overrideEntropy(ov, n float64) float64 {
 
 // overriddenAddFix builds the add_condition fix of a split that keeps the
 // accepted side. It also returns the accepted span of the day in minutes for
-// the hour split.
-func overriddenAddFix(rule Rule, base Base, s overrideSplit) (Fix, [][2]int64, bool) {
+// the hour split. The sun splits keep the window from the sunset, or up to the
+// sunset, offset by the distance of the cut.
+func overriddenAddFix(rule Rule, base Base, s overrideSplit, cases []overrideCase, site *sun.Location) (Fix, [][2]int64, bool) {
 	at := len(rule.Conditions)
 	var cond map[string]any
 	var spans [][2]int64
@@ -532,6 +643,21 @@ func overriddenAddFix(rule Rule, base Base, s overrideSplit) (Fix, [][2]int64, b
 		} else {
 			cond = map[string]any{"type": "time_window", "start": edge, "end": "23:59"}
 			spans = [][2]int64{{int64(h * 60), int64(minutesPerDay)}}
+		}
+	case overriddenToSunset, overriddenElevation:
+		d, ok := overriddenSunDistance(s, cases, site)
+		if !ok {
+			return Fix{}, nil, false
+		}
+		off := int(math.Round(-d/overriddenRoundMin) * overriddenRoundMin)
+		// The schema accepts sun offsets only within -240..240 minutes.
+		if off < -overriddenSunOffsetMax || off > overriddenSunOffsetMax {
+			return Fix{}, nil, false
+		}
+		if s.acceptedLeft {
+			cond = map[string]any{"type": "sun_window", "from": "sunset", "to": "sunrise", "from_offset_min": off, "to_offset_min": 0}
+		} else {
+			cond = map[string]any{"type": "sun_window", "from": "sunrise", "to": "sunset", "from_offset_min": 0, "to_offset_min": off}
 		}
 	case overriddenHouseLoad, overriddenSurplus:
 		field, threshold := "load_total", math.Round(s.cut/overriddenRoundW)*overriddenRoundW

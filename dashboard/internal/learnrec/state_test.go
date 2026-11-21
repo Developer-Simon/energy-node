@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -40,7 +41,7 @@ func TestLoadStateStableOnSecondCall(t *testing.T) {
 	}
 
 	second := LoadState(path, stateT0.Add(72*time.Hour), true, noStateLog)
-	if second != first {
+	if !reflect.DeepEqual(second, first) {
 		t.Fatalf("second LoadState = %+v, want %+v", second, first)
 	}
 	after, err := os.ReadFile(path)
@@ -116,7 +117,7 @@ func TestLowerAutoLevelEcoStaysAndWritesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LowerAutoLevel on one core: %v", err)
 	}
-	if got != st {
+	if !reflect.DeepEqual(got, st) {
 		t.Fatalf("state changed on eco: %+v, want %+v", got, st)
 	}
 	after, err := os.ReadFile(path)
@@ -125,5 +126,31 @@ func TestLowerAutoLevelEcoStaysAndWritesNothing(t *testing.T) {
 	}
 	if !bytes.Equal(before, after) {
 		t.Fatalf("state file rewritten on eco:\n before %s\n after  %s", before, after)
+	}
+}
+
+func TestRecentShareMeansTodayAndSixDaysBefore(t *testing.T) {
+	st := State{DailyShare: map[string]float64{
+		"2026-11-20": 0.02,
+		"2026-11-19": 0.04,
+		"2026-11-14": 0.06,
+		"2026-11-13": 0.9, // outside the seven days
+	}}
+	got, ok := RecentShare(st, stateT0, 7)
+	if !ok {
+		t.Fatal("RecentShare reports no share, want the mean of three days")
+	}
+	if want := (0.02 + 0.04 + 0.06) / 3; got != want {
+		t.Fatalf("RecentShare = %v, want %v", got, want)
+	}
+}
+
+func TestRecentShareWithoutRecordedDay(t *testing.T) {
+	if _, ok := RecentShare(State{}, stateT0, 7); ok {
+		t.Fatal("RecentShare without records reports a share")
+	}
+	st := State{DailyShare: map[string]float64{"2026-11-01": 0.5}}
+	if _, ok := RecentShare(st, stateT0, 7); ok {
+		t.Fatal("RecentShare with only an old day reports a share")
 	}
 }

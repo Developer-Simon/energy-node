@@ -120,6 +120,13 @@
                           <span x-show="bar.rangeText" x-text="bar.rangeText"></span>
                         </span>
                       </div>
+                      <div class="auto-live-year" x-show="bar.year">
+                        <svg class="auto-live-year-plot" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                          <rect class="auto-live-year-band" x="0" y="0" width="100" height="24"></rect>
+                          <polyline class="auto-live-year-line" x-bind:points="bar.year ? bar.year.points : ''"></polyline>
+                        </svg>
+                        <p class="auto-live-year-text" x-text="bar.year ? bar.year.text : ''"></p>
+                      </div>
                     </div>
                   </template>
                 </div>

@@ -112,6 +112,14 @@ test('performance-core: cost und total entsprechen dem Go-Modell', () => {
   assert.ok(Math.abs(C.total(PI3.base, PI3.rows, curOf(PI3.rows)) - 32.1) < 1e-9);
 });
 
+test('performance-core: learningDeltaPct rechnet den Anteil eines Kerns in Prozent der Gesamtleistung', () => {
+  // 0,02 Kern auf 4 Kernen sind 0,5 %, wer 0,6 Kern schätzt, kommt auf 15 % mehr minus 0,5.
+  assert.ok(Math.abs(C.learningDeltaPct(0.02, 0.6, 4) - 14.5) < 1e-9);
+  assert.ok(Math.abs(C.learningDeltaPct(0.02, 0.01, 4) + 0.25) < 1e-9, 'a lower level lowers the total');
+  assert.equal(C.learningDeltaPct(0.02, 0.02, 4), 0, 'the same share is no change');
+  assert.equal(C.learningDeltaPct(0.02, 0.6, 0), 0, 'without cores there is no delta');
+});
+
 // Pi 3 mit Dashboard auf 10 s: die Untergrenze liegt bei 5 s, also gibt es
 // schnellere Stufen. Kosten bei 10 s sind 14 * 3 / 10 = 4,2 %.
 const PI3_LIVE10 = {

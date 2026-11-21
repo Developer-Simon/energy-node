@@ -110,9 +110,11 @@
                   <span class="auto-learn-group" x-bind:class="'is-' + current.group" x-text="groupLabel(current, $t)"></span>
                   <span class="auto-learn-card-device" x-text="current.device"></span>
                   <span class="auto-pill" x-bind:class="confidenceOf(current, $t).tone" x-text="confidenceOf(current, $t).label"></span>
-                  <span class="auto-learn-season" x-text="seasonOf(current, $t)"></span>
+                  <span class="auto-learn-season" x-show="seasonOf(current, $t)" x-text="seasonOf(current, $t)"></span>
+                  <span class="auto-learn-season" x-show="heatingOf(current, $t)" x-text="heatingOf(current, $t)"></span>
                 </div>
                 <h4 class="auto-learn-card-title" x-text="titleOf(current, $t)"></h4>
+                <p class="auto-learn-card-text" x-show="textOf(current, $t)" x-text="textOf(current, $t)"></p>
                 <div class="auto-learn-evidence">
                   <div class="auto-learn-card-evidence" x-html="evidenceOf(current, $t)"></div>
                   <span class="auto-learn-tip-wrap" x-show="legendOf(current, $t)" x-on:click.outside="closeTip()" x-on:keydown.escape="closeTip()">
@@ -134,6 +136,8 @@
                 <div class="auto-learn-actions">
                   <button class="auto-btn-text is-primary" type="button" x-show="actionsOf(current).assistant"
                           x-on:click="openAssistantWith(fixOf(current).template, fixOf(current).prefill)">{{t "automations.learn.button.open_assistant"}}</button>
+                  <button class="auto-btn-text is-primary" type="button" x-show="actionsOf(current).apply"
+                          x-on:click="applyFix(opFixOf(current))" x-text="applyLabelOf(current, $t)"></button>
                   <button class="auto-btn-text" type="button" x-show="actionsOf(current).later" x-on:click="later(current)">{{t "automations.learn.button.later"}}</button>
                   <button class="auto-btn-text is-ghost auto-learn-push" type="button" x-show="actionsOf(current).dismiss" x-on:click="dismiss(current)">{{t "automations.learn.button.never"}}</button>
                 </div>

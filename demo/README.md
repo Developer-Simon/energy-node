@@ -208,3 +208,31 @@ places. The proxy uses the standard library only. Its tests are
 - `real_changelog.py` is not run by the demo. To use the real changelog, run it
   by hand against `demo/.state/installer-state`, for example
   `demo/fakes/real_changelog.py . demo/.state/installer-state`.
+
+## Learning seasons (PR 4a)
+
+The demo seeds the learning data of the season features. A demo that was
+started before this change keeps its old data, so run `demo/demo.sh --reset`
+once to see the new findings.
+
+| Feature | Where to look | Demo status |
+|---|---|---|
+| Sun times for switch times | Automationen, switch time suggestions | Shown: `sun_on` for the balcony plug, `sun_off` for the cellar relay |
+| Clock switch time | Automationen, switch time suggestions | Shown: balcony plug off at 22:30 (`switch_time.off`) |
+| Sun before sunrise | Automationen | Not seeded. It needs weeks of real history |
+| Coupling | Automationen | Shown: the cellar relay switches the balcony plug |
+| Runtime forgotten | Automationen | Shown: the dryer runs for hours on two days |
+| Overridden check with sun window | Regelprüfung | Shown: the heat pump rule is overridden after sunset, the fix is a `sun_window` |
+| Away standby | Automationen | Shown: the heat pump on three away days |
+| Outdoor temperature setting and picker | Einstellungen, outdoor temperature | Shown: the demo outdoor sensor is in the broker. Choose it in the picker by hand |
+| Heating knee and season chip | Automationen, finding of the heat pump | Shown: knee of 15 degrees, the last three days are cold, so the chip is visible. Warm weather hides it |
+| Temperature limit for on rules | Automationen, Übernehmen | Shown: the PV surplus rule gets a limit, the off rule does not |
+| Season memory | Not shown on its own | Seeded for 20 weeks, used by the limit and the year course. Backfill from a running node is not shown |
+| Year course of a learned value | Automationen, learned values | Shown: the usual off time of the balcony plug varies by week |
+| Quiet house state | Automationen, learned values | Shown through the fallback |
+| Learning level row and draft | Leistung page | Partly: the learning share is seeded and the suggested level appears. Übernehmen is a click |
+| Learning breakdown in the dashboard | Dashboard | Partly: the same data, once the learning level is set |
+| Location missing hint | Einstellungen, location | Not seeded. By hand: clear the location in the settings, the hint appears |
+| Clock fallback without location | Automationen | Not seeded. By hand: clear the location in the settings, sun suggestions fall back to clock times |
+| Energy group switch | Einstellungen | By hand: switch the energy group off, its suggestions disappear |
+| Explanation texts on cards | Automationen | Shown on every seeded card |

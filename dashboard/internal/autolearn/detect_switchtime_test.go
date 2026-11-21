@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // switchTimeInput builds the input of the detector over the given days. The
@@ -419,5 +421,173 @@ func TestSwitchTimeCandidateOffersLearnedSecondApply(t *testing.T) {
 	}
 	if second.Prefill["device"] != "lamp" || second.Prefill["time"] != "22:30" || second.Prefill["on"] != false {
 		t.Errorf("second prefill = %+v, want the prefill of the first entry", second.Prefill)
+	}
+}
+
+// sunHabitDays builds one day per date from start for n days. Each day has one
+// switch of device in direction on at the sunrise or sunset of that day plus
+// offset minutes, in local time of loc. Each day is built on its own, so the
+// minute follows the sun.
+func sunHabitDays(t *testing.T, loc *time.Location, start time.Time, n int, lat, lon float64, device string, on, sunrise bool, offset, spread float64) []DayFile {
+	t.Helper()
+	days := make([]DayFile, 0, n)
+	for i := 0; i < n; i++ {
+		day := time.Date(start.Year(), start.Month(), start.Day()+i, 0, 0, 0, 0, loc)
+		rise, set, ok := sun.Times(day, lat, lon)
+		if !ok {
+			t.Fatalf("no sun times on %s", day.Format(dayLayout))
+		}
+		at := set
+		if sunrise {
+			at = rise
+		}
+		lt := at.In(loc)
+		minute := float64(lt.Hour()*60+lt.Minute()) + float64(lt.Second())/60 + offset
+		one := synthDays(day, 1, synthOpts{
+			Seed:    int64(21 + i),
+			Devices: []string{device},
+			Habits:  []synthHabit{{Device: device, On: on, Minute: minute, Spread: spread, Hit: 1}},
+		})
+		days = append(days, one[0])
+	}
+	return days
+}
+
+// switchTimeAt is the input of the detector with the rule document location.
+func switchTimeAt(t *testing.T, days []DayFile, lat, lon float64) *Input {
+	t.Helper()
+	in := switchTimeInput(t, days)
+	in.Doc.Location = &sun.Location{Lat: lat, Lon: lon}
+	return in
+}
+
+func TestSwitchTimeSunHabitAfterSunsetIsSun(t *testing.T) {
+	loc := berlinLoc(t)
+	// September: the sunset drifts about 2 minutes a day. Over three months the
+	// drift leaves the clock cluster, so no candidate forms, see the report.
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, loc)
+	days := sunHabitDays(t, loc, start, 30, 48, 11, "lamp", true, false, 20, 0)
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeAt(t, days, 48, 11), "lamp"), "lamp", "on")
+	if len(got) != 1 {
+		t.Fatalf("on candidates = %d, want 1: %+v", len(got), got)
+	}
+	c := got[0].Finding
+	if c.Summary.Code != "switch_time.sun_on" {
+		t.Fatalf("summary = %s, want switch_time.sun_on", c.Summary.Code)
+	}
+	if c.Summary.Params["event"] != "sunset" || c.Summary.Params["offset_min"] != 20 {
+		t.Errorf("params = %+v, want event sunset and offset 20", c.Summary.Params)
+	}
+	if len(c.Apply) != 1 || c.Apply[0].Template != "time_point" {
+		t.Fatalf("apply = %+v, want one time_point fix", c.Apply)
+	}
+	if c.Apply[0].Prefill["anchor"] != "sunset" || c.Apply[0].Prefill["offset_min"] != 20 {
+		t.Errorf("prefill = %+v, want anchor sunset and offset 20", c.Apply[0].Prefill)
+	}
+}
+
+func TestSwitchTimeClockHabitAcrossDSTStaysClock(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 10, 10, 0, 0, 0, 0, loc)
+	days := synthDays(start, 40, synthOpts{
+		Seed:    31,
+		Devices: []string{"lamp"},
+		Habits: []synthHabit{
+			{Device: "lamp", On: true, Minute: 1140, Spread: 0, Hit: 1},
+			{Device: "lamp", On: false, Minute: 1350, Spread: 8, Hit: 1},
+		},
+	})
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeAt(t, days, 48, 11), "lamp"), "lamp", "off")
+	if len(got) != 1 {
+		t.Fatalf("off candidates = %d, want 1", len(got))
+	}
+	if got[0].Finding.Summary.Code != "switch_time.off" || got[0].Finding.Summary.Params["time"] != "22:30" {
+		t.Errorf("summary = %+v, want clock switch_time.off at 22:30", got[0].Finding.Summary)
+	}
+}
+
+func TestSwitchTimeFourteenDaysAroundSolsticeIsClock(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 6, 14, 0, 0, 0, 0, loc)
+	// The sunset barely moves around the solstice. With the noise of a hand
+	// switch the period cannot tell the sun from the clock, so the clock holds.
+	// Ten days give no candidate at all, the effective days stay below 10.
+	days := sunHabitDays(t, loc, start, 14, 48, 11, "lamp", true, false, 20, 8)
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeAt(t, days, 48, 11), "lamp"), "lamp", "on")
+	if len(got) != 1 {
+		t.Fatalf("on candidates = %d, want 1", len(got))
+	}
+	if got[0].Finding.Summary.Code != "switch_time.on" {
+		t.Errorf("summary = %s, want clock switch_time.on", got[0].Finding.Summary.Code)
+	}
+}
+
+func TestSwitchTimeNorthOf70InDecemberIsClockWithoutCrash(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 12, 1, 0, 0, 0, 0, loc)
+	days := synthDays(start, 14, synthOpts{
+		Seed:    33,
+		Devices: []string{"lamp"},
+		Habits: []synthHabit{
+			{Device: "lamp", On: true, Minute: 1140, Spread: 0, Hit: 1},
+			{Device: "lamp", On: false, Minute: 1350, Spread: 8, Hit: 1},
+		},
+	})
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeAt(t, days, 70, 19), "lamp"), "lamp", "off")
+	if len(got) != 1 {
+		t.Fatalf("off candidates = %d, want 1", len(got))
+	}
+	if got[0].Finding.Summary.Code != "switch_time.off" {
+		t.Errorf("summary = %s, want clock switch_time.off", got[0].Finding.Summary.Code)
+	}
+}
+
+func TestSwitchTimeWithoutLocationIsClockUntilLocationIsSet(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, loc)
+	days := sunHabitDays(t, loc, start, 30, 48, 11, "lamp", true, false, 20, 0)
+
+	first := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeInput(t, days), "lamp"), "lamp", "on")
+	if len(first) != 1 {
+		t.Fatalf("on candidates without location = %d, want 1", len(first))
+	}
+	if first[0].Finding.Summary.Code != "switch_time.on" {
+		t.Errorf("summary without location = %s, want clock switch_time.on", first[0].Finding.Summary.Code)
+	}
+	hasFact := false
+	for _, f := range first[0].Finding.Facts {
+		if f.Code == "no_location" {
+			hasFact = true
+		}
+	}
+	if !hasFact {
+		t.Errorf("facts = %+v, want no_location", first[0].Finding.Facts)
+	}
+
+	second := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeAt(t, days, 48, 11), "lamp"), "lamp", "on")
+	if len(second) != 1 || second[0].Finding.Summary.Code != "switch_time.sun_on" {
+		t.Fatalf("with location = %+v, want switch_time.sun_on", second)
+	}
+	if second[0].Finding.ID != first[0].Finding.ID {
+		t.Errorf("ID changed from %s to %s, dismissing would be lost", first[0].Finding.ID, second[0].Finding.ID)
+	}
+}
+
+// A sun habit five hours before the sunrise lies outside the offsets the
+// assistant offers (-240..235), so the reading falls back to the clock.
+func TestSwitchTimeSunOffsetOutOfRangeIsClock(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, loc)
+	days := sunHabitDays(t, loc, start, 30, 48, 11, "lamp", true, true, -300, 0)
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeAt(t, days, 48, 11), "lamp"), "lamp", "on")
+	if len(got) != 1 {
+		t.Fatalf("on candidates = %d, want 1: %+v", len(got), got)
+	}
+	c := got[0].Finding
+	if c.Summary.Code == "switch_time.sun_on" {
+		t.Fatalf("summary = %s, want the clock reading for an offset of -300 minutes", c.Summary.Code)
+	}
+	if len(c.Apply) == 1 && c.Apply[0].Template == "time_point" && c.Apply[0].Prefill["anchor"] != nil {
+		t.Errorf("prefill = %+v, want no sun anchor", c.Apply[0].Prefill)
 	}
 }

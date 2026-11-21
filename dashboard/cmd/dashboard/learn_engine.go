@@ -2,16 +2,144 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"math"
 	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
+
+// seasonBackfillYears is how far back the energy statistics refill the season
+// store the first time, when season.json is missing.
+const seasonBackfillYears = 3
+
+// seasonCloser closes the previous ISO week in the season store. It runs in the
+// engine round goroutine, so it needs no lock. done is the calendar day of the
+// last attempt, so each day is attempted once. A dashboard that was down on
+// Monday closes that week on the next day it runs.
+type seasonCloser struct {
+	store   *autolearn.SeasonStore
+	days    func(from, to time.Time) ([]autolearn.DayFile, error)
+	learned func() map[string][]float64
+	loc     *time.Location
+	done    string
+}
+
+// Run closes the previous ISO week when the store has no week for it yet, or
+// only a week refilled from the statistics. It runs on every weekday and never
+// closes the current week.
+func (c *seasonCloser) Run(now time.Time) {
+	local := now.In(c.loc)
+	day := local.Format("2006-01-02")
+	if day == c.done {
+		return
+	}
+	thisMonday := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, c.loc)
+	thisMonday = thisMonday.AddDate(0, 0, -((int(local.Weekday()) + 6) % 7))
+	prevMonday := thisMonday.AddDate(0, 0, -7)
+	year, week := prevMonday.ISOWeek()
+	key := fmt.Sprintf("%d-W%02d", year, week)
+	// A week refilled from the statistics is closed again from the day files,
+	// the day files win over the statistics.
+	if ws := c.store.Weeks(key, key); len(ws) == 0 || ws[0].Source != "days" {
+		c.close(now, prevMonday, thisMonday)
+	}
+	c.done = day
+}
+
+// close reads the day files from prevMonday up to thisMonday and puts the week
+// when it has four day files. The store is pruned and saved in any case.
+func (c *seasonCloser) close(now, prevMonday, thisMonday time.Time) {
+	days, err := c.days(prevMonday, thisMonday.AddDate(0, 0, -1))
+	if err != nil {
+		log.Printf("autolearn: season week day files incomplete: %v", err)
+	}
+	if w, ok := autolearn.WeekOf(days, c.learned(), c.loc); ok {
+		c.store.Put(w)
+	} else {
+		log.Printf("autolearn: season week %s not closed, fewer than four day files", prevMonday.Format("2006-01-02"))
+	}
+	c.store.Prune(now)
+	if err := c.store.Save(); err != nil {
+		log.Printf("autolearn: season store not saved: %v", err)
+	}
+}
+
+// learnedClockMinutes reads the learned clock times of the store as minutes of
+// the day, keyed by the learned key. WeekOf takes the median of each key.
+func learnedClockMinutes(store *autolearn.LearnedStore) func() map[string][]float64 {
+	return func() map[string][]float64 {
+		out := map[string][]float64{}
+		for _, e := range store.Entries() {
+			if e.Kind != autolearn.ValueTime {
+				continue
+			}
+			text, ok := e.Value.(string)
+			if !ok {
+				continue
+			}
+			var h, m int
+			if _, err := fmt.Sscanf(text, "%d:%d", &h, &m); err != nil {
+				continue
+			}
+			out[e.Key] = append(out[e.Key], float64(h*60+m))
+		}
+		return out
+	}
+}
+
+// backfillSeason fills the season store once from the hourly energy statistics
+// of the last seasonBackfillYears years. Day files already in the store win,
+// the store keeps them. The store is saved at the end, so the file exists and
+// the backfill does not run again.
+func backfillSeason(store *autolearn.SeasonStore, stats *energystats.Store, now time.Time, loc *time.Location) error {
+	from := now.AddDate(-seasonBackfillYears, 0, 0)
+	var hours []energystats.HourRecord
+	err := stats.Each(from, now, func(hour time.Time, m *energystats.Month, i int) {
+		if m == nil {
+			return
+		}
+		rec := energystats.HourRecord{Hour: hour, KWh: map[string]float64{}}
+		for _, role := range []string{"grid_export", "pv", "load_total"} {
+			s := m.Roles[role]
+			if s == nil || i >= len(s.KWh) || math.IsNaN(s.KWh[i]) || s.Source[i] == energystats.SourceNone {
+				continue
+			}
+			if s.Source[i] == energystats.SourceOwn && m.Covered[i] < energystats.MinOwnCoverSeconds {
+				continue
+			}
+			rec.KWh[role] = s.KWh[i]
+		}
+		if len(rec.KWh) > 0 {
+			hours = append(hours, rec)
+		}
+	})
+	if err != nil {
+		return err
+	}
+	// The current ISO week is still running, its statistics are incomplete.
+	// The season closer writes it once it is over.
+	cy, cw := now.In(loc).ISOWeek()
+	current := fmt.Sprintf("%d-W%02d", cy, cw)
+	for _, w := range autolearn.WeeksFromStats(hours, loc) {
+		if w.Key >= current {
+			continue
+		}
+		store.Put(w)
+	}
+	store.Prune(now)
+	return store.Save()
+}
 
 // engineGroupsFor sagt je Gruppe der Engine, ob sie rechnen darf. Gewohnheiten
 // (habit) und Zuverlaessigkeit (reliability) laufen nur bei eingeschaltetem
@@ -22,7 +150,45 @@ func engineGroupsFor(value settings.Settings) map[string]bool {
 	return map[string]bool{
 		"habit":       patterns && !value.AutomationHabitsDisabled,
 		"reliability": patterns && !value.AutomationReliabilityDisabled,
+		"energy":      patterns && !value.AutomationEnergyDisabled,
 	}
+}
+
+// anyGroupOn reports whether a group of the engine is switched on.
+func anyGroupOn(groups map[string]bool) bool {
+	for _, on := range groups {
+		if on {
+			return true
+		}
+	}
+	return false
+}
+
+// registerEnergyDetectors meldet die Erkenner der Gruppe Energie bei der Engine.
+// Sie laufen nur, wenn der Schalter Energie an ist.
+func registerEnergyDetectors(e *autolearn.Engine) {
+	e.Register(autolearn.TemperatureDetector)
+}
+
+// learnOutdoor finds the outdoor temperature entity by its unique id among the
+// devices, without the dashboard's own device. Its state topic and value
+// template come with it. Without a match the zero value is returned.
+func learnOutdoor(devices []registry.DeviceView, uniqueID string) autolearn.OutdoorSource {
+	uid := strings.TrimSpace(uniqueID)
+	if uid == "" {
+		return autolearn.OutdoorSource{}
+	}
+	for _, dev := range devices {
+		if dev.ID == energydiscovery.DeviceIdentifier {
+			continue
+		}
+		for _, e := range dev.Entities {
+			if e.UniqueID == uid {
+				return autolearn.OutdoorSource{EntityID: uid, Topic: e.StateTopic, ValueTemplate: e.ValueTemplate}
+			}
+		}
+	}
+	return autolearn.OutdoorSource{}
 }
 
 // registerLearnDetectors meldet die Erkenner der Lernwerte bei der Engine. Sie
@@ -34,6 +200,35 @@ func registerLearnDetectors(e *autolearn.Engine) {
 		autolearn.LearnDayBoundsDetector, autolearn.LearnHouseStateDetector,
 	} {
 		e.Register(det)
+	}
+}
+
+// saverFunc macht eine Funktion zum Saver des Hubs.
+type saverFunc func() error
+
+// Save ruft die Funktion auf.
+func (f saverFunc) Save() error { return f() }
+
+// dailyShareWindow is how long the engine must have run in this process before
+// its load share covers a full day. Before that the window is mostly empty.
+const dailyShareWindow = 24 * time.Hour
+
+// dailyShareSaver schreibt den Tagesanteil der Lernlast (Engine.Load, die
+// Last der letzten 24 Stunden) in den Lernstand. Der Hub ruft ihn hoechstens
+// stuendlich auf. Geschrieben wird nur, wenn eine Gruppe der Engine rechnet
+// und sie seit mindestens 24 Stunden in diesem Prozess laeuft, sonst bleibt
+// der Stand unveraendert. mu schuetzt st, weil die Herabstufung denselben Stand aendert.
+func dailyShareSaver(engine *autolearn.Engine, groups func() map[string]bool, mu *sync.Mutex, st *learnrec.State, path string, now func() time.Time) saverFunc {
+	started := now()
+	return func() error {
+		if !anyGroupOn(groups()) || now().Sub(started) < dailyShareWindow {
+			return nil
+		}
+		_, share, _ := engine.Load()
+		mu.Lock()
+		defer mu.Unlock()
+		*st = learnrec.RecordShare(*st, now(), share)
+		return learnrec.SaveState(path, *st)
 	}
 }
 

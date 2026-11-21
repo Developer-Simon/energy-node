@@ -402,10 +402,12 @@
     if (shape && lv.kind !== 'state') {
       const min = formatLearned(lv.ref.min, lv.kind, unit);
       const max = formatLearned(lv.ref.max, lv.kind, unit);
+      const plot = AL.yearPlot(lv.kind, lv.ref.min, lv.ref.max, lv.entry);
       scaleView = {
         ...shape, min, max,
         range: t('automations.learned.scale.range', { min, max }),
         label: t('automations.learned.scale.label', { min, max, value: text }),
+        year: plot ? { points: plot, text: AL.yearLine(lv.entry, t) } : null,
       };
     }
     return {

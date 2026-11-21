@@ -55,6 +55,11 @@
 .auto-live-bar.is-tone-learned .auto-live-mark, .auto-live-bar.is-tone-learned-fallback .auto-live-mark { width: 3px; margin-left: -1.5px; background: var(--accent); }
 .auto-live-bar.is-tone-learned-fallback .auto-live-mark { background: var(--text-muted); }
 .auto-live-bar.is-tone-learned .auto-live-label span:last-child, .auto-live-bar.is-tone-learned-fallback .auto-live-label span:last-child { font-weight: 500; color: var(--text); }
+.auto-live-year { display: grid; gap: 4px; margin-top: 6px; min-width: 0; }
+.auto-live-year-plot { display: block; width: 100%; height: 24px; border-radius: 6px; overflow: hidden; }
+.auto-live-year-band { fill: var(--accent-bg); }
+.auto-live-year-line { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.auto-live-year-text { margin: 0; font-size: .78rem; color: var(--text-muted); }
 @media (prefers-reduced-motion: reduce) { .auto-live-fill { transition: none; } }
 
 /* Schaltflaechen im Kopf der Regel: Testen geistert, Bearbeiten hat einen Rahmen. */
@@ -1050,6 +1055,7 @@ button.auto-learn-tile[aria-expanded="true"]:not(:disabled) { background: var(--
 .auto-learn-group.is-habit { color: var(--accent-line); }
 .auto-learn-group.is-reliability { color: var(--warn); }
 .auto-learn-group.is-check { color: var(--info); }
+.auto-learn-group.is-energy { color: var(--ok); }
 .auto-learn-more { box-sizing: border-box; font: inherit; font-size: .88rem; font-weight: 600; color: var(--text-muted); cursor: pointer; background: transparent;
   border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 0 1rem; min-width: 3.2rem;
   transition: transform 120ms var(--ease-out); }
@@ -1072,6 +1078,7 @@ button.auto-learn-tile[aria-expanded="true"]:not(:disabled) { background: var(--
 .auto-learn-card-device { font-size: .82rem; color: var(--text-muted); flex: 1 1 8rem; min-width: 0; }
 .auto-learn-season { font-size: .74rem; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 999px; padding: .1rem .55rem; white-space: nowrap; }
 .auto-learn-card-title { margin: .45rem 0 0; font-size: 1.02rem; line-height: 1.25; letter-spacing: -.005em; color: var(--text-strong); }
+.auto-learn-card-text { margin: .3rem 0 0; font-size: .86rem; line-height: 1.45; color: var(--text-muted); }
 /* Erklaerung von Ist und Soll: Info-Knopf oben rechts an der Grafik, der Tooltip schwebt darunter.
    Nur opacity und transform animieren. Hover oeffnet mit 150 ms Verzoegerung, Tipp und Fokus sofort. */
 .auto-learn-evidence { position: relative; }

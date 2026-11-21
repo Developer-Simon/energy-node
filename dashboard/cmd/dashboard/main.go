@@ -204,6 +204,14 @@ func main() {
 	}
 	learnStatePath := filepath.Join(dataDir, "learnrec", "state.json")
 	learnState := learnrec.LoadState(learnStatePath, time.Now(), hadLearning, log.Printf)
+	// Demo: ohne Tagesanteile bekommt der Lernstand die Lernlast der letzten
+	// zwei Wochen, damit der Vorschlag der naechsten Stufe erscheint.
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" && len(learnState.DailyShare) == 0 {
+		learnState.DailyShare = autolearn.DemoDailyShare(time.Now())
+		if err := learnrec.SaveState(learnStatePath, learnState); err != nil {
+			log.Printf("autolearn: demo daily share: %v", err)
+		}
+	}
 	// learnState wird bei einer Herabstufung aus der Engine geaendert, daher
 	// nur ueber learnStateNow lesen.
 	var learnStateMu sync.Mutex
@@ -456,6 +464,12 @@ func main() {
 		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores, learnStateNow().AutoLevel), cores)
 	}
 	learnHub := learnrec.NewHub(time.Local, learnLimits, log.Printf)
+	learnHub.SetOutdoor(func() string {
+		if value, err := settingsStore.LoadSettings(); err == nil {
+			return value.AutomationOutdoorEntity
+		}
+		return ""
+	})
 	learnHub.AddMinute("chainsuggest", chainSuggest)
 	learnHub.AddTick("chainwatch", learnrec.TickFunc(chainMonitor.Observe))
 	learnHub.AddTick("autolearn", learnrec.TickFunc(func(at time.Time, snap energy.Snapshot) {
@@ -517,6 +531,16 @@ func main() {
 		automationEngine.Register(det)
 	}
 	registerLearnDetectors(automationEngine)
+	registerEnergyDetectors(automationEngine)
+	// Die Aussentemperatur fuer den Heizzeit-Erkenner: die Entitaet aus den
+	// Einstellungen, aufgeloest ueber die Registry wie beim Lernhub.
+	automationEngine.SetOutdoor(func() autolearn.OutdoorSource {
+		value, err := settingsStore.LoadSettings()
+		if err != nil {
+			return autolearn.OutdoorSource{}
+		}
+		return learnOutdoor(reg.Snapshot(), value.AutomationOutdoorEntity)
+	})
 	engineGroups := func() map[string]bool {
 		value, err := settingsStore.LoadSettings()
 		if err != nil {
@@ -546,6 +570,8 @@ func main() {
 	}
 	engineLoop := newEngineRunner(automationEngine, engineGroups, engineDowngrade)
 	learnHub.AddMinute("autolearn-engine", engineLoop)
+	// Tagesanteil der Lernlast, stuendlich in den Lernstand.
+	learnHub.AddSaver("daily-share", dailyShareSaver(automationEngine, engineGroups, &learnStateMu, &learnState, learnStatePath, time.Now))
 	// Vorschlaege der Gewohnheiten: nach jeder Runde durch die Gates, gespeichert
 	// stuendlich mit dem Hub. Verworfene und zurueckgestellte bleiben in suggestions.json.
 	suggestionState := autolearn.LoadSuggestionState(filepath.Join(autolearnDir, "suggestions.json"), log.Printf)
@@ -554,7 +580,26 @@ func main() {
 	// Datei liegt unter autolearn/ und wird mit dem Hub gespeichert.
 	learnedStore := autolearn.LoadLearnedStore(filepath.Join(autolearnDir, "learned.json"), log.Printf)
 	learnHub.AddSaver("learned", learnedStore)
-	suggestions := &suggestionBook{state: suggestionState}
+	// Wochenwerte fuer den Saisonvergleich. Fehlt season.json, fuellt die
+	// Energiestatistik der letzten drei Jahre sie einmal nach.
+	seasonPath := filepath.Join(autolearnDir, "season.json")
+	_, seasonStatErr := os.Stat(seasonPath)
+	seasonStore := autolearn.LoadSeasonStore(seasonPath, log.Printf)
+	learnHub.AddSaver("season", seasonStore)
+	if os.IsNotExist(seasonStatErr) {
+		if err := backfillSeason(seasonStore, energyStatsStore, time.Now(), time.Local); err != nil {
+			log.Printf("autolearn: season backfill: %v", err)
+		}
+	}
+	automationEngine.SetSeason(seasonStore)
+	// Demo: ohne Wochenwerte bekommt das Saisongedaechtnis die acht Demo-Wochen.
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" && len(seasonStore.Weeks("0000-W00", "9999-W99")) == 0 {
+		for _, w := range autolearn.DemoSeason(time.Now()) {
+			seasonStore.Put(w)
+		}
+	}
+	seasonClose := &seasonCloser{store: seasonStore, days: dayStore.Days, learned: learnedClockMinutes(learnedStore), loc: time.Local}
+	suggestions := &suggestionBook{state: suggestionState, readDoc: func() ([]byte, error) { return configManager.Read("automation_rules") }}
 	suggestionExists := func(device string) bool {
 		if deviceFilterStore.IsIgnored(device) {
 			return false
@@ -730,8 +775,9 @@ func main() {
 		learnedValues = func() []autolearn.Value { return autolearn.WithDemoHouseState(automationEngine.Values()) }
 	}
 	engineLoop.afterRound = func() {
-		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups()["habit"], suggestionExists, time.Now())
+		gateSuggestions(suggestions, automationEngine, func() ([]byte, error) { return configManager.Read("automation_rules") }, engineGroups(), suggestionExists, time.Now())
 		publishLearned(learnedStore, learnedValues, client, engineGroups()["habit"], learnedExists, time.Now())
+		seasonClose.Run(time.Now())
 	}
 	go engineLoop.Run(ctx)
 
@@ -1225,6 +1271,7 @@ func main() {
 			ChainSuggestInfo: chainSuggest.LearnedSpan,
 			ChainLearnInfo:   chainMonitor.LearnedSpan,
 			SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
+			Rules:            func() ([]byte, error) { return configManager.Read("automation_rules") },
 			Reset: func() error {
 				resetLearned(learnedStore, client)
 				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset())
@@ -1253,6 +1300,7 @@ func main() {
 		AutomationFindings:    automationChecker,
 		AutomationSuggestions: suggestions,
 		LearnedValues:         learnedStore,
+		LearnedSeason:         seasonStore,
 		CommandObserver:       origin.observeCommand,
 		StorageFallback:       storageFallback,
 		HistorySampler:        historySampler,
@@ -1286,6 +1334,7 @@ func main() {
 			Provider:   perfProvider,
 			Rates:      performanceRates,
 			Automation: performanceAutomation,
+			Learning:   &httpapi.PerformanceLearning{Load: automationEngine.Stats, State: learnStateNow},
 			Floors:     perfFloors,
 			Changes:    perfMonitor,
 			Auth:       authManager,

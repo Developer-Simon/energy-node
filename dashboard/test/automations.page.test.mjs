@@ -27,6 +27,7 @@ const rollupSource = fs.readFileSync(path.join(jsDir, 'history-rollup.js'), 'utf
 const wizardSource = fs.readFileSync(path.join(jsDir, 'automation-wizard.js'), 'utf8');
 const templatesSource = fs.readFileSync(path.join(jsDir, 'automation-templates.js'), 'utf8');
 const learnedSource = fs.readFileSync(path.join(jsDir, 'automation-learned.js'), 'utf8');
+const suggestionsSource = fs.readFileSync(path.join(jsDir, 'automation-suggestions.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -49,6 +50,7 @@ function createAutomationsPanel(setup) {
   vm.runInContext(wizardSource, context);
   vm.runInContext(templatesSource, context);
   vm.runInContext(learnedSource, context);
+  vm.runInContext(suggestionsSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -3322,6 +3324,29 @@ test('findingText shows the share of a reliability finding as a percentage', () 
   assert.equal(component.findingText(finding).text, 'automations.learn.check.no_effect.text|38');
 });
 
+test('findingText words a sun switch time as after or before with the absolute minutes', () => {
+  const { component, window } = createAutomationsPanel();
+  const calls = [];
+  window.I18n.t = (key, params) => {
+    calls.push({ key, params });
+    return key;
+  };
+  const sunFinding = (offset) => ({ ...sampleFinding, kind: 'switch_time',
+    summary: { code: 'switch_time.sun_on', params: { device: 'Lampe', hits: 9, days: 10, event: 'sunset', offset_min: offset } } });
+  const after = component.findingText(sunFinding(20));
+  assert.equal(after.title, 'automations.learn.switch_time.sun_on.after.title');
+  const afterCall = calls.find((call) => call.key === 'automations.learn.switch_time.sun_on.after.title');
+  assert.equal(afterCall.params.minutes, 20);
+  assert.equal(afterCall.params.event, 'automations.sun_event.sunset');
+  assert.equal('offset_min' in afterCall.params, false);
+
+  calls.length = 0;
+  const before = component.findingText(sunFinding(-20));
+  assert.equal(before.title, 'automations.learn.switch_time.sun_on.before.title');
+  const beforeCall = calls.find((call) => call.key === 'automations.learn.switch_time.sun_on.before.title');
+  assert.equal(beforeCall.params.minutes, 20);
+});
+
 test('applyFix writes only the draft, starts editing and never posts to the rules endpoint', () => {
   const { component, window } = createAutomationsPanel();
   component.document = { version: 1, settings: {}, rules: [
@@ -3395,6 +3420,26 @@ test('placeFinding keeps the popover inside the viewport and below the mark', ()
   assert.match(component.findingStyle, /left:16px;/);
   assert.match(component.findingStyle, /top:238px;/);
   assert.match(component.findingStyle, /width:360px;/);
+});
+
+test('applying a temperature limit suggestion adds the condition to the draft and saves nothing', () => {
+  const { component, window } = createAutomationsPanel();
+  const condition = { type: 'entity_value', topic: 'outstation/aussen', entity_id: 'aussen', value_template: '{{ value_json.t }}', comparison: 'below', value: 15 };
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'regel_pv', name: 'PV-Überschuss, WP an', conditions: [{ type: 'balance_threshold', field: 'grid_export', threshold: 1000 }], actions: [] },
+  ] };
+  const suggestion = { id: 'temp_limit:regel_pv', kind: 'temp_limit', device: 'Wärmepumpe', apply: [
+    { code: 'add_condition', rule_id: 'regel_pv', ops: [{ path: ['conditions', 1], value: condition }] },
+  ] };
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  const posted = [];
+  window.fetch = async (url, options) => { if (options && options.method === 'POST') posted.push(url); return { ok: true, json: async () => ({}) }; };
+  component.applyFix(suggestion.apply[0]);
+  assert.equal(component.document.rules[0].conditions.length, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.document.rules[0].conditions[1])), condition);
+  assert.deepEqual(started, ['regel_pv']);
+  assert.deepEqual(posted, []);
 });
 
 test('applyFix writes nothing and still opens the rule when a path element is missing', () => {
@@ -3591,6 +3636,19 @@ test('prefillToAnswers maps a time point to the action and the five minute windo
   const wrapped = prefillToAnswers('time_point', { device: 'lamp_switch', on: true, time: '23:58', days: [5] });
   assert.equal(wrapped.action, 'on');
   assert.equal(wrapped.time.to, '00:03');
+});
+
+test('prefillToAnswers opens a sun suggestion with the sun anchor and the offset', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const sun = prefillToAnswers('time_point', {
+    device: 'lamp_switch', on: true, anchor: 'sunset', offset_min: -20, days: [0, 1, 2, 3, 4, 5, 6],
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(sun)), {
+    device: 'lamp_switch', action: 'on', anchor: 'sunset', offset_min: -20, time: { days: [0, 1, 2, 3, 4, 5, 6] },
+  });
+  assert.equal(prefillToAnswers('time_point', { device: 'lamp_switch', anchor: 'noon' }), null);
+  assert.equal(prefillToAnswers('time_point', { device: 'lamp_switch', anchor: 'sunrise', offset_min: 2.5 }), null);
 });
 
 test('prefillToAnswers maps a runtime limit to minutes', () => {
@@ -3916,4 +3974,19 @@ test('the learned picker reads an absent field null safe and writes only into a 
   assert.equal(body.includes(`x-model="condition['{{.field}}'].learned"`), false, 'no x-model on a field that may be absent');
   assert.ok(body.includes(`x-bind:value="(condition['{{.field}}'] || {}).learned"`), 'picker reads null safe');
   assert.ok(body.includes(`isLearnedRef(condition, '{{.field}}') && (condition['{{.field}}'].learned = $event.target.value)`), 'picker writes only into a reference');
+});
+
+test('applyFix appends an add_condition even when its index is stale', () => {
+  const { component } = createAutomationsPanel();
+  const existing = { type: 'balance_threshold', threshold: 100, hysteresis: 0 };
+  const extra = { type: 'time_window', start: '06:00', end: '08:00' };
+  const added = { type: 'balance_threshold', threshold: 300, hysteresis: 0 };
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [existing, extra], actions: [] },
+  ] };
+  component.startEditing = () => {};
+  // The finding was made when the rule had one condition, so its index is 1.
+  component.applyFix({ rule_id: 'r1', code: 'add_condition', ops: [{ path: ['conditions', 1], value: added }] });
+  const conditions = JSON.parse(JSON.stringify(component.document.rules[0].conditions));
+  assert.deepEqual(conditions, [existing, extra, added]);
 });

@@ -1746,6 +1746,13 @@
   // Schritt Quelle nicht auf fest steht. Ohne Schluessel gilt der feste Wert.
   const learnedKey = (answers) => (answers.learned && answers.source !== 'fixed' ? answers.learned : null);
 
+  // Sonnenbezug des Zeitpunkts: sunrise oder sunset, sonst null (feste Uhrzeit).
+  const sunAnchor = (answers) => (answers.anchor === 'sunrise' || answers.anchor === 'sunset' ? answers.anchor : null);
+  // Abstand zum Sonnenereignis in Minuten, auf den Bereich begrenzt, den die Regelpruefung kennt (bis 240).
+  const sunOffset = (answers) => (Number.isInteger(answers.offset_min)
+    ? Math.min(235, Math.max(-240, answers.offset_min))
+    : 0);
+
   const timePoint = {
     id: 'time_point',
     category: 'time',
@@ -1757,45 +1764,75 @@
         id: 'action', type: 'tiles', default: 'on',
         options: [{ id: 'on' }, { id: 'off' }],
       },
+      {
+        id: 'anchor', type: 'tiles', default: 'clock',
+        options: [
+          { id: 'clock' },
+          { id: 'sunrise', unavailable: sunUnavailable },
+          { id: 'sunset', unavailable: sunUnavailable },
+        ],
+      },
       { id: 'time', type: 'time', single: true, default: { from: '07:00', to: '07:05', days: ALL_DAYS } },
       {
         id: 'source', type: 'tiles', default: 'learned',
         options: [{ id: 'fixed' }, { id: 'learned' }],
-        when: (answers) => Boolean(answers.learned),
+        when: (answers) => Boolean(answers.learned) && !sunAnchor(answers),
       },
     ],
     build(answers, ctx) {
       const entry = requireEntry(ctx.switches, answers.device);
       const entity = requireEntity(entry);
       const from = answers.time.from;
-      const learned = learnedKey(answers);
+      const anchor = sunAnchor(answers);
+      const learned = anchor ? null : learnedKey(answers);
       // Der gelernte Beginn liegt eine Stunde vor und nach dem Vorschlag, das Ende ist fuenf Minuten nach dem Beginn.
       const start = learned
         ? { learned, min: clockAfter(from, -60), max: clockAfter(from, 60), fallback: from }
         : from;
       const end = learned ? { ...start, offset: 5 } : clockAfter(from, 5);
+      const weekdays = weekdaysOf(answers.time.days);
+      // Mit Sonnenbezug ist das Fenster fuenf Minuten lang, ab dem Abstand zum Ereignis.
+      const condition = anchor
+        ? {
+          type: 'sun_window',
+          from: anchor,
+          from_offset_min: sunOffset(answers),
+          to: anchor,
+          to_offset_min: sunOffset(answers) + 5,
+          weekdays,
+        }
+        : { type: 'time_window', start, end, weekdays };
       const rule = {
         id: uniqueId('time_point', ctx.usedIds),
         name: t('automations.templates.time_point.title'),
         enabled: true,
         cooldown_seconds: Math.max(600, ctx.publishMinInterval),
-        conditions: [{
-          type: 'time_window', start, end, weekdays: weekdaysOf(answers.time.days),
-        }],
+        conditions: [condition],
         actions: [Sw(entity, answers.action === 'on')],
       };
       return { kind: 'rule', entry: rule };
     },
     summary(answers) {
-      const learned = learnedKey(answers);
-      return [
-        {
+      const anchor = sunAnchor(answers);
+      const learned = anchor ? null : learnedKey(answers);
+      const offset = sunOffset(answers);
+      const whenRow = anchor
+        ? {
+          label: phase('when'),
+          text: t(offset < 0 ? 'automations.assistant.summary.point.sun_before' : 'automations.assistant.summary.point.sun_after', {
+            minutes: Math.abs(offset), event: t(`automations.sun_event.${anchor}`),
+          }),
+          step: 'anchor',
+        }
+        : {
           label: phase('when'),
           text: learned
             ? t('automations.assistant.summary.learned.time', { time: answers.time.from })
             : t('automations.assistant.summary.point.when', { time: answers.time.from }),
           step: learned ? 'source' : 'time',
-        },
+        };
+      return [
+        whenRow,
         {
           label: phase('when'),
           text: t('automations.assistant.summary.switch.days', { days: daysText(answers.time.days) }),

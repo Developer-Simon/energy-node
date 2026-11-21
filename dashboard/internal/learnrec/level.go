@@ -103,3 +103,48 @@ func lowerLevel(l Level) Level {
 	}
 	return LevelEco
 }
+
+// TargetShare ist der Zielanteil der Lernlast an einer Kernlast, je Stufe nach
+// Spec 5.7: 0,05 auf eco, 0,10 auf balanced und full. Unbekannte Stufen rechnen
+// wie balanced.
+func TargetShare(l Level) float64 {
+	if l == LevelEco {
+		return 0.05
+	}
+	return 0.10
+}
+
+// nextLevel liefert die naechsthoehere Stufe. Bei full gibt es keine.
+func nextLevel(l Level) (Level, bool) {
+	switch l {
+	case LevelEco:
+		return LevelBalanced, true
+	case LevelBalanced:
+		return LevelFull, true
+	}
+	return "", false
+}
+
+// suggestUpDays ist die Zahl der Tage vor now, die unter der Haelfte des
+// Ziels liegen muessen, bevor eine hoehere Stufe vorgeschlagen wird.
+const suggestUpDays = 7
+
+// SuggestUp schlaegt die naechsthoehere Stufe vor, wenn jeder der letzten
+// sieben Kalendertage vor now einen Tagesanteil hat und jeder unter der
+// Haelfte des Zielanteils der aktuellen Stufe liegt. Bei full und bei
+// weniger Tagen gibt es keinen Vorschlag.
+func SuggestUp(st State, current Level, now time.Time) (Level, bool) {
+	next, ok := nextLevel(current)
+	if !ok {
+		return current, false
+	}
+	half := TargetShare(current) / 2
+	for i := 1; i <= suggestUpDays; i++ {
+		day := now.AddDate(0, 0, -i).Format(dayLayout)
+		share, ok := st.DailyShare[day]
+		if !ok || share >= half {
+			return current, false
+		}
+	}
+	return next, true
+}

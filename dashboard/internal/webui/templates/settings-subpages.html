@@ -148,6 +148,31 @@
             </div>
           </div>
         </template>
+        <div class="pf-row pf-row-learning" x-show="learning()" data-tour="performance-learning">
+          <div class="pf-row-name">
+            <div class="pf-row-head">
+              <span class="pf-row-title">{{t "performance.ui.learning.title"}}</span>
+              <span class="pf-pill" x-show="learningChanged()">{{t "performance.ui.learning.changed"}}</span>
+            </div>
+            <span class="pf-row-sub" x-text="learningSummary()"></span>
+          </div>
+          <div class="pf-steps pf-steps-levels" role="group" x-bind:aria-label="$t('performance.ui.learning.group')">
+            <template x-for="level in learningLevels()" x-bind:key="level.id">
+              <button type="button" class="pf-step pf-step-level"
+                      x-bind:class="{ 'pf-step-sel': level.id === learningSetting() }"
+                      x-bind:aria-pressed="level.id === learningSetting() ? 'true' : 'false'"
+                      x-bind:title="level.id === learningSuggest() ? learningSuggestText() : null"
+                      x-bind:aria-label="level.id === learningSuggest() ? level.label + '. ' + learningSuggestText() : null"
+                      x-on:click="pickLearning(level.id)">
+                <span x-text="level.label"></span>
+                <span class="pf-step-dot" x-show="level.id === learningSuggest()" aria-hidden="true"></span>
+              </button>
+            </template>
+          </div>
+          <div class="pf-notes">
+            <span data-tone="warn" x-show="learningOverNote()" x-text="learningOverNote()"></span>
+          </div>
+        </div>
       </div>
       <p class="pf-foot">{{t "performance.ui.rows.foot"}}</p>
     </section>
@@ -213,10 +238,21 @@
                           <div>
                             <ul class="pb-list">
                               <template x-for="p in breakdownOf(r.id).parts" x-bind:key="p.id">
-                                <li class="pb-item">
-                                  <span class="pb-item-name"><span x-text="partName(p.id)"></span><small x-show="p.clients" x-text="clientsText(p.clients)"></small></span>
-                                  <span class="pb-item-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${p.share})`"></i></span>
-                                  <span class="pb-item-pct" x-text="p.pctText"></span>
+                                <li class="pb-part">
+                                  <div class="pb-item">
+                                    <span class="pb-item-name"><span x-text="p.name"></span><small x-show="p.clients" x-text="clientsText(p.clients)"></small></span>
+                                    <span class="pb-item-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${p.share})`"></i></span>
+                                    <span class="pb-item-pct" x-text="p.pctText"></span>
+                                  </div>
+                                  <ul class="pb-list pb-sub" x-show="p.detectors && p.detectors.length">
+                                    <template x-for="d in p.detectors" x-bind:key="d.id">
+                                      <li class="pb-item pb-item--sub">
+                                        <span class="pb-item-name"><span x-text="d.name"></span></span>
+                                        <span class="pb-item-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${d.share})`"></i></span>
+                                        <span class="pb-item-pct" x-text="d.pctText"></span>
+                                      </li>
+                                    </template>
+                                  </ul>
                                 </li>
                               </template>
                             </ul>

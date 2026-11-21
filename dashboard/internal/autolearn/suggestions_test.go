@@ -29,10 +29,10 @@ func TestSuggestionLaterHidesSevenDays(t *testing.T) {
 	if err := s.Later("a", now); err != nil {
 		t.Fatalf("Later: %v", err)
 	}
-	if got := s.Visible(all, now.Add(6*24*time.Hour+23*time.Hour), nil); len(got) != 0 {
+	if got := s.Visible(all, now.Add(6*24*time.Hour+23*time.Hour), nil, nil); len(got) != 0 {
 		t.Fatalf("visible 6d23h after Later = %d, want 0", len(got))
 	}
-	if got := s.Visible(all, now.Add(7*24*time.Hour), nil); len(got) != 1 {
+	if got := s.Visible(all, now.Add(7*24*time.Hour), nil, nil); len(got) != 1 {
 		t.Fatalf("visible 7d after Later = %d, want 1", len(got))
 	}
 }
@@ -48,7 +48,7 @@ func TestSuggestionUndoRestoresDismissedAndLater(t *testing.T) {
 	if err := s.Later("b", now); err != nil {
 		t.Fatalf("Later: %v", err)
 	}
-	if got := s.Visible(all, now, nil); len(got) != 0 {
+	if got := s.Visible(all, now, nil, nil); len(got) != 0 {
 		t.Fatalf("visible after Dismiss and Later = %d, want 0", len(got))
 	}
 
@@ -58,7 +58,7 @@ func TestSuggestionUndoRestoresDismissedAndLater(t *testing.T) {
 	if err := s.Undo("b"); err != nil {
 		t.Fatalf("Undo b: %v", err)
 	}
-	if got := s.Visible(all, now, nil); len(got) != 2 {
+	if got := s.Visible(all, now, nil, nil); len(got) != 2 {
 		t.Fatalf("visible after Undo = %d, want 2", len(got))
 	}
 }
@@ -69,7 +69,7 @@ func TestSuggestionDisappearedDeviceIsNotVisible(t *testing.T) {
 	all := []Finding{suggestionFinding("gone", "dev-gone"), suggestionFinding("general", "")}
 	gone := func(device string) bool { return device != "dev-gone" }
 
-	if got := s.Visible(all, now, gone); len(got) != 1 || got[0].ID != "general" {
+	if got := s.Visible(all, now, gone, nil); len(got) != 1 || got[0].ID != "general" {
 		t.Fatalf("visible = %+v, want only the finding without device", got)
 	}
 
@@ -107,7 +107,7 @@ func TestSuggestionResetLearnedKeepsDismissed(t *testing.T) {
 	}
 
 	reloaded := LoadSuggestionState(path, nil)
-	if got := reloaded.Visible([]Finding{suggestionFinding("a", ""), suggestionFinding("b", "")}, now, nil); len(got) != 0 {
+	if got := reloaded.Visible([]Finding{suggestionFinding("a", ""), suggestionFinding("b", "")}, now, nil, nil); len(got) != 0 {
 		t.Fatalf("dismissed or postponed findings came back after ResetLearned: %d visible", len(got))
 	}
 	if got := reloaded.Shown(); len(got) != 0 {
@@ -127,13 +127,13 @@ func TestSuggestionDamagedFileStartsEmpty(t *testing.T) {
 	}
 	now := time.Date(2026, 11, 20, 10, 0, 0, 0, time.Local)
 	all := []Finding{suggestionFinding("a", "")}
-	if got := s.Visible(all, now, nil); len(got) != 1 {
+	if got := s.Visible(all, now, nil, nil); len(got) != 1 {
 		t.Fatalf("visible with damaged file = %d, want 1", len(got))
 	}
 	if err := s.Dismiss("a", now); err != nil {
 		t.Fatalf("Dismiss after damaged load: %v", err)
 	}
-	if got := LoadSuggestionState(path, nil).Visible(all, now, nil); len(got) != 0 {
+	if got := LoadSuggestionState(path, nil).Visible(all, now, nil, nil); len(got) != 0 {
 		t.Fatalf("dismissed finding visible after rewrite")
 	}
 }
@@ -164,7 +164,7 @@ func TestSuggestionSaveRoundTrip(t *testing.T) {
 
 	reloaded := LoadSuggestionState(path, nil)
 	all := []Finding{suggestionFinding("a", ""), suggestionFinding("b", ""), suggestionFinding("c", "")}
-	if got := reloaded.Visible(all, now, nil); len(got) != 1 || got[0].ID != "c" {
+	if got := reloaded.Visible(all, now, nil, nil); len(got) != 1 || got[0].ID != "c" {
 		t.Fatalf("reloaded visible = %+v, want only c (a dismissed, b postponed)", got)
 	}
 	shown := reloaded.Shown()
@@ -191,5 +191,36 @@ func TestSuggestionSetShownKeepsSinceOfKnownIDs(t *testing.T) {
 	}
 	if shown["b"].Since != later.Unix() {
 		t.Fatalf("Since of new id = %d, want %d", shown["b"].Since, later.Unix())
+	}
+}
+
+// heatingFinding is a finding that holds in the heating season below 15 °C.
+func heatingFinding(id string) Finding {
+	below := 15.0
+	return Finding{ID: id, Season: &Season{FromWeek: 40, ToWeek: 17, HeatingBelowC: &below}}
+}
+
+func TestSuggestionHeatingSeasonRestsAboveLimit(t *testing.T) {
+	s, _, _ := suggestionTestState(t)
+	now := time.Date(2026, 11, 20, 10, 0, 0, 0, time.Local)
+	all := []Finding{heatingFinding("heat")}
+	warm, cold, unknown := 18.0, 10.0, (*float64)(nil)
+	if got := s.Visible(all, now, nil, &warm); len(got) != 0 {
+		t.Fatalf("18 °C mean: visible %d, want the finding to rest", len(got))
+	}
+	if got := s.Visible(all, now, nil, &cold); len(got) != 1 {
+		t.Fatalf("10 °C mean: visible %d, want 1", len(got))
+	}
+	if got := s.Visible(all, now, nil, unknown); len(got) != 1 {
+		t.Fatalf("unknown temperature: visible %d, want 1", len(got))
+	}
+}
+
+func TestSuggestionWithoutHeatingSeasonIgnoresTemperature(t *testing.T) {
+	s, _, _ := suggestionTestState(t)
+	now := time.Date(2026, 11, 20, 10, 0, 0, 0, time.Local)
+	warm := 25.0
+	if got := s.Visible([]Finding{suggestionFinding("plain", "")}, now, nil, &warm); len(got) != 1 {
+		t.Fatalf("finding without heating season: visible %d, want 1", len(got))
 	}
 }

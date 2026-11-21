@@ -22,7 +22,10 @@ type LearningDeps struct {
 	ChainSuggestInfo func() (since int64, devices int)
 	ChainLearnInfo   func() (since int64, devices int)
 	SetupDone        func() bool
-	Reset            func() error
+	// Rules reads the automation rule document. Its site location gives
+	// location_set in the status. Nil or an unreadable document reads as no location.
+	Rules func() ([]byte, error)
+	Reset func() error
 }
 
 // learningStatusBody is the answer of GET /api/v1/learning/status.
@@ -35,6 +38,7 @@ type learningStatusBody struct {
 	Usage        autolearn.Usage      `json:"usage"`
 	Acknowledged []string             `json:"acknowledged"`
 	New          []string             `json:"new"`
+	LocationSet  bool                 `json:"location_set"`
 }
 
 type learningFeaturesBody struct {
@@ -118,6 +122,7 @@ func learningStatus(value settings.Settings, deps *LearningDeps, cores int) lear
 		remembered = st.AutoLevel
 	}
 	setupDone := deps.SetupDone != nil && deps.SetupDone()
+	locationSet := ruleLocationSet(deps.Rules)
 
 	return learningStatusBody{
 		Fresh:        fresh,
@@ -132,7 +137,26 @@ func learningStatus(value settings.Settings, deps *LearningDeps, cores int) lear
 		Usage:        usage,
 		Acknowledged: acknowledged,
 		New:          news,
+		LocationSet:  locationSet,
 	}
+}
+
+// ruleLocationSet reports whether the automation rule document has a site
+// location. It parses the document the way the learning engine does, so both
+// see the same location.
+func ruleLocationSet(read func() ([]byte, error)) bool {
+	if read == nil {
+		return false
+	}
+	raw, err := read()
+	if err != nil {
+		return false
+	}
+	doc, err := autolearn.ParseDoc(raw)
+	if err != nil {
+		return false
+	}
+	return doc.Location != nil
 }
 
 // learningAcknowledged reports whether key is in the acknowledged list.

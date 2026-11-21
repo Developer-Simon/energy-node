@@ -110,15 +110,20 @@ type Settings struct {
 	// Schluessel bleiben stehen, damit ein Downgrade keine Quittung verliert.
 	// LearningLevel waehlt die Lernstufe, leer heisst "auto".
 	AutomationPatternsDisabled bool `json:"automation_patterns_disabled"`
-	// AutomationHabitsDisabled und AutomationReliabilityDisabled schalten die
-	// Gruppen unter dem Muster-Lernen getrennt ab (invertiert benannt wie oben).
-	// Ohne Muster-Lernen laufen sie nicht, egal wie sie stehen.
+	// AutomationHabitsDisabled, AutomationReliabilityDisabled und
+	// AutomationEnergyDisabled schalten die Gruppen unter dem Muster-Lernen
+	// getrennt ab (invertiert benannt wie oben). Ohne Muster-Lernen laufen sie
+	// nicht, egal wie sie stehen.
 	AutomationHabitsDisabled      bool     `json:"automation_habits_disabled"`
 	AutomationReliabilityDisabled bool     `json:"automation_reliability_disabled"`
+	AutomationEnergyDisabled      bool     `json:"automation_energy_disabled"`
 	LearningExcludedDevices       []string `json:"learning_excluded_devices"`
 	LearningProfileDays           int      `json:"learning_profile_days"`
 	LearningAcknowledged          []string `json:"learning_acknowledged"`
 	LearningLevel                 string   `json:"learning_level"`
+	// AutomationOutdoorEntity ist die unique_id der Aussentemperatur-Entitaet
+	// fuers Saisonlernen. Leer heisst: keine Temperatur wird gesammelt.
+	AutomationOutdoorEntity string `json:"automation_outdoor_entity"`
 
 	// ChangelogHistory sagt, wie viele Bundle-Versionen die Versionsseite
 	// aus dem Changelog laedt: "recent" (5), "extended" (20) oder "all".
@@ -2109,6 +2114,7 @@ func normalizeSettings(value Settings) Settings {
 		value.LearningExcludedDevices = []string{}
 	}
 	value.LearningAcknowledged = uniqueStrings(value.LearningAcknowledged)
+	value.AutomationOutdoorEntity = strings.TrimSpace(value.AutomationOutdoorEntity)
 	value.DashboardTitle = strings.TrimSpace(value.DashboardTitle)
 	value.DashboardSubtitle = strings.TrimSpace(value.DashboardSubtitle)
 	if value.HistoryExtraEntities == nil {

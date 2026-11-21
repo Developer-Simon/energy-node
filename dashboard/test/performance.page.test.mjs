@@ -715,3 +715,228 @@ test('the push part names the number of browsers', async () => {
   assert.equal(page.clientsText(push.clients), 'bei bis zu 3 Browsern');
   assert.equal(page.clientsText(1), 'bei einem Browser');
 });
+
+// ---- Learning row ----------------------------------------------------------
+
+const LEARNING = { setting: 'auto', level: 'eco', share: 0.02, target: 0.05, per_run_ms: 840, top: [{ detector: 'switch_time', ms: 420 }] };
+
+test('the learning row reads the learning block; without it the row is absent', async () => {
+  const made = await loadedPage({ learning: LEARNING });
+  assert.equal(made.page.learningSetting(), 'auto');
+  assert.equal(made.page.learningSummary(), de['performance.js.learning.summary']
+    .replace('{duration}', '0,8 s').replace('{share}', '2,0 %'));
+  const none = await loadedPage({ learning: null });
+  assert.equal(none.page.learning(), null);
+  assert.equal(none.page.learningSummary(), '');
+});
+
+const SETTINGS_DOC = { latitude: 52.5, longitude: 13.4, learning_level: 'auto', dashboard_title: 'Haus' };
+
+// A page with the learning draft tests' routes. The apply writes the rates,
+// the settings and the session, all recorded in calls.
+function learningRoutes(calls, session = { csrf_token: 'tok', edit_setup: true }, overrides = {}) {
+  return router({
+    '/api/v1/performance': reply(200, performanceBody({ learning: LEARNING, ...overrides })),
+    'POST /api/v1/performance/apply': reply(200, {}),
+    '/api/v1/auth/session': reply(200, session),
+    '/api/v1/settings': reply(200, SETTINGS_DOC),
+    'PUT /api/v1/settings': reply(200, {}),
+  }, calls);
+}
+
+test('pickLearning() only drafts the level: nothing is sent until apply()', async () => {
+  const calls = [];
+  const { fetchImpl } = learningRoutes(calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  made.page.pickLearning('full');
+  assert.equal(made.page.learningSetting(), 'full');
+  assert.equal(made.page.learningSel, 'full');
+  assert.equal(calls.length, 1, 'only the load was sent');
+});
+
+test('changed() is true for a learning draft only, and false when the draft equals the saved level', async () => {
+  const { fetchImpl } = learningRoutes([]);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  assert.equal(made.page.changed(), false);
+  made.page.pickLearning('eco');
+  assert.equal(made.page.learningChanged(), true);
+  assert.equal(made.page.ratesChanged(), false);
+  assert.equal(made.page.changed(), true);
+  made.page.pickLearning('auto');
+  assert.equal(made.page.learningChanged(), false, 'the saved level is no change');
+  assert.equal(made.page.changed(), false);
+  made.page.pickLearning('full');
+  made.page.reset();
+  assert.equal(made.page.learningSel, null);
+  assert.equal(made.page.changed(), false);
+});
+
+test('apply() writes learning_level once with the rates, keeps the document and sends the CSRF token', async () => {
+  const calls = [];
+  const { fetchImpl } = learningRoutes(calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  made.page.pick('shelly', 10);
+  made.page.pickLearning('full');
+  await made.page.apply();
+
+  const posts = calls.filter((call) => call.method === 'POST');
+  assert.equal(posts.length, 1, 'one rates request');
+  assert.deepEqual(JSON.parse(posts[0].body), { rates: { shelly: 10 } });
+  const puts = calls.filter((call) => call.method === 'PUT');
+  assert.equal(puts.length, 1, 'learning_level is written once');
+  assert.equal(puts[0].headers['X-CSRF-Token'], 'tok');
+  assert.deepEqual(JSON.parse(puts[0].body), { ...SETTINGS_DOC, learning_level: 'full' });
+  assert.ok(calls.indexOf(posts[0]) < calls.indexOf(puts[0]), 'the rates go first');
+  assert.equal(made.page.learningSel, null, 'the draft is cleared after the save');
+});
+
+test('apply() with a learning level alone skips the measuring confirmation and the rates request', async () => {
+  const calls = [];
+  const { fetchImpl } = learningRoutes(calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  assert.equal(made.page.measuring(), true);
+  made.page.pickLearning('balanced');
+  await made.page.requestApply();
+  assert.equal(made.page.confirming, false, 'no confirmation for the learning level');
+  assert.equal(calls.filter((call) => call.method === 'POST').length, 0);
+  const puts = calls.filter((call) => call.method === 'PUT');
+  assert.equal(puts.length, 1);
+  assert.deepEqual(JSON.parse(puts[0].body), { ...SETTINGS_DOC, learning_level: 'balanced' });
+});
+
+test('apply() with a learning draft and no setup right writes nothing and keeps the draft', async () => {
+  const calls = [];
+  const { fetchImpl } = learningRoutes(calls, { csrf_token: 'tok', edit_setup: false });
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  made.page.pick('shelly', 10);
+  made.page.pickLearning('full');
+  await made.page.apply();
+  assert.equal(calls.filter((call) => call.method === 'POST' || call.method === 'PUT').length, 0);
+  assert.equal(made.page.learningSel, 'full', 'the draft stays for a later try');
+  assert.equal(made.stores.toasts.items.at(-1).severity, 'critical');
+});
+
+test('learningEstimate() scales the measured share by the budget ratio of the drafted level', async () => {
+  const made = await loadedPage({ learning: { ...LEARNING, setting: 'eco', level: 'eco', share: 0.01 } });
+  // Budgets 2 s (eco), 10 s (balanced), 60 s (full): ratios 1, 5 and 30.
+  assert.deepEqual({ ...made.page.learningEstimate() }, { measured: 0.01, estimate: 0.01, target: 0.05, over: false });
+  made.page.pickLearning('balanced');
+  let estimate = made.page.learningEstimate();
+  assert.ok(Math.abs(estimate.estimate - 0.05) < 1e-12);
+  assert.equal(estimate.target, 0.10);
+  assert.equal(estimate.over, false);
+  made.page.pickLearning('full');
+  estimate = made.page.learningEstimate();
+  assert.ok(Math.abs(estimate.estimate - 0.3) < 1e-12);
+  assert.equal(estimate.over, true);
+  assert.equal(made.page.learningOverNote() === '', false);
+  made.page.pickLearning('auto');
+  assert.equal(made.page.learningEstimate().target, 0.05, 'auto stays on the resolved level');
+  assert.equal(made.page.learningOverNote(), '');
+});
+
+test('learningSetting() shows the saved level until a draft exists', async () => {
+  const made = await loadedPage({ learning: { ...LEARNING, setting: 'balanced' } });
+  assert.equal(made.page.learningSetting(), 'balanced');
+  made.page.pickLearning('eco');
+  assert.equal(made.page.learningSetting(), 'eco');
+});
+
+test('the dashboard breakdown lists the learning part with its categories, none of them a unit', async () => {
+  const learningPart = { id: 'learning', pct: 2.1, detectors: [{ id: 'habit', pct: 1.1 }, { id: 'other', pct: 0.9 }] };
+  const breakdown = { dashboard: { parts: [...BREAKDOWN.dashboard.parts, learningPart] }, automation: BREAKDOWN.automation };
+  const made = await loadedPage({ learning: LEARNING, breakdown });
+  const names = made.page.measureGroups().flatMap((group) => group.rows.map((row) => row.id));
+  assert.equal(names.includes('learning'), false, 'the learning engine is no unit row');
+
+  const bd = made.page.breakdownOf('energy-node-dashboard.service');
+  const part = bd.parts.find((entry) => entry.id === 'learning');
+  assert.equal(part.name, de['performance.js.breakdown.part.learning']);
+  assert.ok(part.pctText.endsWith(' %'));
+  assert.equal(part.detectors.length, 2);
+  assert.equal(part.detectors[0].name, de['automations.learn.group.habit'], 'habit is the group name of the automations');
+  assert.equal(part.detectors[1].name, de['performance.js.learning.category_other'], 'other is the catch all category');
+  assert.equal(part.detectors[0].share, Math.min(1, Math.round((1.1 / 14) * 10000) / 10000), 'the bar is the share of the dashboard load');
+  assert.equal(made.page.partName('learning'), de['performance.js.breakdown.part.learning']);
+  assert.equal(made.page.partName('push'), de['performance.js.breakdown.part.push']);
+  assert.equal(bd.parts.find((entry) => entry.id === 'push').detectors.length, 0, 'only the learning part has detectors');
+});
+
+test('the suggestion is marked by its id and its sentence is the title, shown only while the API gives one', async () => {
+  const without = await loadedPage({ learning: LEARNING });
+  assert.equal(without.page.learningSuggest(), '');
+  assert.equal(without.page.learningSuggestText(), '');
+
+  const withSuggest = await loadedPage({ learning: { ...LEARNING, suggest: 'balanced' } });
+  assert.equal(withSuggest.page.learningSuggest(), 'balanced');
+  assert.equal(withSuggest.page.learningSuggestText(), de['performance.js.learning.suggest']);
+  assert.equal(withSuggest.page.learningLevels().some((level) => level.id === 'balanced'), true);
+});
+
+test('a drafted higher level raises the total, a lower one lowers it, saved state stays as it was', async () => {
+  // Saved eco at 2 % of one core on 4 cores: 0,5 % of the budget. Full projects to 0,6 core, balanced to 0,1 core.
+  const made = await loadedPage({ learning: LEARNING });
+  const saved = made.page.selectedPct();
+  assert.ok(Math.abs(saved - 32.1) < 1e-9, `saved total ${saved}`);
+  assert.equal(made.page.learningDeltaPct(), 0, 'no draft, no delta');
+
+  made.page.pickLearning('full');
+  assert.ok(Math.abs(made.page.learningDeltaPct() - 14.5) < 1e-9);
+  assert.ok(Math.abs(made.page.selectedPct() - (saved + 14.5)) < 1e-9, 'the total moves by the delta');
+  assert.ok(Math.abs(made.page.meterParts()[0].w - (7.7 + 14.5)) < 1e-9, 'the base part of the bar moves too');
+  assert.ok(Math.abs(made.page.free() - (made.page.available() - (saved + 14.5))) < 1e-9);
+
+  made.page.pickLearning('balanced');
+  assert.ok(Math.abs(made.page.selectedPct() - (saved + 2)) < 1e-9);
+
+  made.page.pickLearning('eco');
+  assert.ok(Math.abs(made.page.selectedPct() - saved) < 1e-9, 'the same resolved level adds nothing');
+  assert.equal(made.page.learningChanged(), true, 'it is still a draft');
+});
+
+test('a drafted level over the budget turns the head to bad, the saved level does not', async () => {
+  const made = await loadedPage({ learning: LEARNING, measured_s: 30000 });
+  made.page.setTarget(40);
+  assert.equal(made.page.headTone(), 'ok');
+  made.page.pickLearning('full');
+  assert.equal(made.page.headTone(), 'bad');
+  assert.match(made.page.headTitle(), /.+/);
+  made.page.reset();
+  assert.equal(made.page.headTone(), 'ok');
+});
+
+test('a level above the measurement gets the note with the measured load, a level within it does not', async () => {
+  // eco at 2 % with budget 2 s: balanced (10 s) projects to 10 %, target 10 %, so no note.
+  const within = await loadedPage({ learning: { ...LEARNING, setting: 'balanced', share: 0.01 } });
+  assert.equal(within.page.learningOverNote(), '');
+
+  // full (60 s) projects 2 % * 30 = 60 %, far above the 10 % target.
+  const above = await loadedPage({ learning: { ...LEARNING, setting: 'full' } });
+  const note = above.page.learningOverNote();
+  assert.ok(note.includes('2,0 %'), note);
+  assert.ok(note.includes('60,0 %'), note);
+  assert.ok(note.includes('10,0 %'), note);
+
+  // The choice stays possible: the page still reports the chosen setting.
+  assert.equal(above.page.learningSetting(), 'full');
+
+  // A level at or below the measured one gives no note.
+  const same = await loadedPage({ learning: { ...LEARNING, setting: 'eco' } });
+  assert.equal(same.page.learningOverNote(), '');
+  const auto = await loadedPage({ learning: LEARNING });
+  assert.equal(auto.page.learningOverNote(), '');
+});
+
+test('learningCategory() names habit, energy and reliability by the group names, every other id is other', () => {
+  const made = createPerformancePage();
+  assert.equal(made.page.learningCategory('habit'), de['automations.learn.group.habit']);
+  assert.equal(made.page.learningCategory('energy'), de['automations.learn.group.energy']);
+  assert.equal(made.page.learningCategory('reliability'), de['automations.learn.group.reliability']);
+  assert.equal(made.page.learningCategory('switch_time'), de['performance.js.learning.category_other']);
+  assert.equal(made.page.learningCategory('brand_new'), de['performance.js.learning.category_other']);
+});

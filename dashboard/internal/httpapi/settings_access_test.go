@@ -28,7 +28,7 @@ func TestSettingsAccessLearningFieldsNeedEditSetup(t *testing.T) {
 }
 
 func TestSettingsAccessAutomationGroupSwitchesNeedEditSetup(t *testing.T) {
-	for _, key := range []string{"automation_habits_disabled", "automation_reliability_disabled"} {
+	for _, key := range []string{"automation_habits_disabled", "automation_reliability_disabled", "automation_energy_disabled", "automation_outdoor_entity"} {
 		if role := settingsFieldRoles[key]; role != auth.RoleEditSetup {
 			t.Fatalf("%s role = %q, want %q", key, role, auth.RoleEditSetup)
 		}

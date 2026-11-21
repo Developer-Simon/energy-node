@@ -23,26 +23,62 @@
     return pad2(Math.floor(total / 60)) + ':' + pad2(total % 60);
   }
 
-  // Parameter fuer den Katalog: Zeiten als Uhrzeit, Anteile als ganze Prozent.
-  function paramsOf(s) {
-    const src = (s && s.summary && s.summary.params) || {};
-    const out = Object.assign({}, src);
-    if ('window_from' in src) out.window_from = clockOf(src.window_from);
-    if ('window_to' in src) out.window_to = clockOf(src.window_to);
-    if ('share' in src) out.share = Math.round(Number(src.share) * 100);
-    return out;
+  // Schluessel und Parameter eines Befunds, gemeinsam fuer Vorschlagsband und Regelmarken.
+  // Der Dienst liefert den Anteil als Bruchteil, die Texte nennen Prozent.
+  // Sonnenzeit: der Dienst nennt das Ereignis als Kennung und den Abstand mit Vorzeichen.
+  // Ab 0 steht "nach", darunter "vor" mit dem Betrag, damit kein "-20 Minuten nach" entsteht.
+  function resolveSummary(summary, t) {
+    let code = (summary && summary.code) || '';
+    const params = Object.assign({}, (summary && summary.params) || {});
+    if (typeof params.share === 'number') params.share = Math.round(params.share * 100);
+    if (/^switch_time\.sun_(on|off)$/.test(code)) {
+      const offset = Number(params.offset_min) || 0;
+      params.minutes = Math.abs(offset);
+      params.event = t(`automations.sun_event.${params.event}`);
+      delete params.offset_min;
+      code = code + (offset < 0 ? '.before' : '.after');
+    }
+    // Jede Dezimalzahl wird mit einer Nachkommastelle in der Sprache der Seite gezeigt.
+    Object.keys(params).forEach((key) => {
+      const v = params[key];
+      if (typeof v === 'number' && isFinite(v) && !Number.isInteger(v)) params[key] = roundedText(v);
+    });
+    return { code, params };
   }
 
-  function codeOf(s) {
-    return (s && s.summary && s.summary.code) || '';
+  // Zahl mit hoechstens einer Nachkommastelle, im Dezimalformat der Seite (1,2 auf Deutsch).
+  function roundedText(v) {
+    const r = Math.round(v * 10) / 10;
+    const format = window.I18n && window.I18n.formatNumber;
+    if (!format) return String(r);
+    return format(r, Number.isInteger(r) ? 0 : 1);
+  }
+
+  // Schluessel und Parameter des Bandes: zusaetzlich Zeiten als Uhrzeit.
+  function bandOf(s, t) {
+    const r = resolveSummary(s && s.summary, t);
+    const src = r.params;
+    if ('window_from' in src) src.window_from = clockOf(src.window_from);
+    if ('window_to' in src) src.window_to = clockOf(src.window_to);
+    return r;
   }
 
   function title(s, t) {
-    return t(CAT + codeOf(s) + '.title', paramsOf(s));
+    const r = bandOf(s, t);
+    return t(CAT + r.code + '.title', r.params);
   }
 
   function line(s, t) {
-    return t(CAT + codeOf(s) + '.line', paramsOf(s));
+    const r = bandOf(s, t);
+    return t(CAT + r.code + '.line', r.params);
+  }
+
+  // Erklaerungstext der Karte. Ohne Katalogtext (t liefert den Schluessel) bleibt er leer.
+  function text(s, t) {
+    const r = bandOf(s, t);
+    const key = CAT + r.code + '.text';
+    const out = t(key, r.params);
+    return out === key ? '' : out;
   }
 
   // Die Legende hangt an der Form der Grafik. Ohne bekannte Form gibt es keine.
@@ -52,7 +88,7 @@
     return t(CAT + 'legend.' + shape, {});
   }
 
-  const api = { arrange, title, line, legend };
+  const api = { arrange, title, line, text, legend, resolveSummary };
   window.AutomationSuggestions = api;
 
   // Vorschlagsband oberhalb der Regeln. Laedt einmal beim Oeffnen der Seite. Die
@@ -163,6 +199,7 @@
 
       titleOf(s, t) { return api.title(s, t); },
       lineOf(s, t) { return api.line(s, t); },
+      textOf(s, t) { return api.text(s, t); },
       legendOf(s, t) { return api.legend(s, t); },
       groupLabel(s, t) { return t(CAT + 'group.' + s.group, {}); },
       evidenceOf(s, t) { return window.AutomationEvidence ? window.AutomationEvidence.render(s.evidence, t, { full: this.fullDay }) : ''; },
@@ -175,10 +212,17 @@
         const sure = s.confidence === 'high';
         return { tone: sure ? 'ok' : 'wait', label: t(CAT + (sure ? 'confidence.sure' : 'confidence.estimate'), {}) };
       },
+      // Die Wochen gelten nur mit Zeitraum. Ein Befund nur mit Heizzeit zeigt die Heizzeit daneben.
       seasonOf(s, t) {
         const season = s.season;
         if (!season) return t(CAT + 'season.all', {});
+        if (!season.from_week || !season.to_week) return '';
         return t(CAT + 'season', { from: season.from_week, to: season.to_week });
+      },
+      heatingOf(s, t) {
+        const below = s.season ? s.season.heating_below_c : null;
+        if (typeof below !== 'number' || !isFinite(below)) return '';
+        return t(CAT + 'season.heating', { below: Math.round(below * 10) / 10 });
       },
       factsOf(s, t) {
         return (s.facts || []).map((f) => ({ label: t(CAT + 'fact.' + f.code, {}), value: valueOf(f, t) }));
@@ -186,9 +230,15 @@
 
       // Der erste Befehl mit Vorlage oeffnet den Assistenten, sonst gibt es den Knopf nicht.
       fixOf(s) { return (s.apply || []).find((f) => f && f.template) || null; },
+      // Ein Befehl mit Ops schreibt seine Pfade direkt in den Regelentwurf (applyFix der Seite).
+      opFixOf(s) { return (s.apply || []).find((f) => f && !f.template && Array.isArray(f.ops) && f.ops.length > 0) || null; },
+      applyLabelOf(s, t) {
+        const fix = this.opFixOf(s);
+        return fix ? t(CAT + 'fix.' + fix.code, {}) : '';
+      },
       actionsOf(s) {
         const edit = Boolean(this.canEdit) && Boolean(s);
-        return { assistant: edit && Boolean(this.fixOf(s)), later: edit, dismiss: edit };
+        return { assistant: edit && Boolean(this.fixOf(s)), apply: edit && Boolean(this.opFixOf(s)), later: edit, dismiss: edit };
       },
 
       async send(s, action) {

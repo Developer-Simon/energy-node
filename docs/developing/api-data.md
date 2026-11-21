@@ -283,7 +283,9 @@ node had nothing learned at its first start. `setup_done` tells whether the
 onboarding is complete. `level` is the resolved level (`eco`, `balanced` or
 `full`), `level_setting` the setting as saved (`auto` when empty).
 `acknowledged` lists the features the user has confirmed, `new` the features
-that are switched on and not yet confirmed. Example:
+that are switched on and not yet confirmed. `location_set` is true when the
+automation rule document has a site location (latitude and longitude, both not
+zero). It comes from the automation rules, not from `GET /api/v1/settings`. Example:
 
 ```json
 {"fresh":false,"setup_done":true,"level":"eco","level_setting":"auto",
@@ -291,7 +293,42 @@ that are switched on and not yet confirmed. Example:
              "chain_learning":{"on":true,"since":1794000000,"devices":4},
              "auto_patterns":{"on":true,"since":1794000000,"devices":14}},
  "usage":{"bytes":412000,"written_per_day":96000,"since":1794000000,"devices":14},
- "acknowledged":["chain_learning"],"new":["chain_suggestions","auto_patterns"]}
+ "acknowledged":["chain_learning"],"new":["chain_suggestions","auto_patterns"],
+ "location_set":true}
+```
+
+**The `learning` block of `GET /api/v1/performance`** shows the compute load of
+the learning engine on the performance page. `setting` is the saved level
+(`auto` when empty), `level` the resolved level. `share` is the compute share
+of one core: the mean of the daily shares recorded for the last seven days, or
+the engine's share over the last 24 hours while no daily share is recorded.
+`target` the target share of that level
+(0.05 on `eco`, 0.10 on `balanced` and `full`). `per_run_ms` is the mean compute
+time of one round in the window, and `top` lists the three most expensive
+detectors in descending order with their `ms` in the window. `suggest` is only
+present when the load stayed under half the target for seven days, and names
+the level to move up to. Without the learning dependencies the block is `null`.
+
+The learning engine runs inside the dashboard process, so its load is part of
+the dashboard unit. It is not a unit of its own. In `breakdown.dashboard.parts`
+it is the part `learning` (`pct`, its share of the whole budget: `share` × 100
+divided by the core count), listed last. The other parts shrink by that amount,
+so they still add up to the dashboard unit. Its `detectors` lists the categories
+of the learning load in descending order, each with `id` and `pct` (its share of
+the whole budget, the categories add up to the learning part's `pct`). The ids
+are `habit`, `energy`, `reliability` (also the rule check) and `other` (saving,
+the base computation and unknown groups). Categories without a share are left out. The learning part is
+absent without the learning dependencies, without compute time in the window, or
+when the dashboard has no split.
+
+```json
+{"setting":"auto","level":"eco","share":0.021,"target":0.05,"per_run_ms":840,
+ "top":[{"detector":"switch_time","ms":420},{"detector":"runtime","ms":210}],
+ "suggest":"balanced"}
+```
+
+```json
+{"id":"learning","pct":0.525,"detectors":[{"id":"habit","pct":0.29},{"id":"energy","pct":0.14},{"id":"reliability","pct":0.095}]}
 ```
 
 **`POST /api/v1/learning/reset`** drops the day profiles, the learned loss values
@@ -399,6 +436,14 @@ value before the last change and `changed_at` the Unix time of that change:
 ```json
 {"enabled":true,"values":[{"key":"device/stehlampe/usual_off","device":"stehlampe","kind":"time","value":"22:30","n":12,"at":1794000000,"prev":"22:25","changed_at":1793650000}]}
 ```
+
+Each value has a `year` list when the season store knows the value. It holds
+one entry per week of the last twelve months in which the value was learned,
+oldest first, at most 53 entries: `{"week":"2026-W30","value":"22:30"}`. `week`
+is the ISO week as `YYYY-Www`. A clock time is text `HH:MM` (the weekly median,
+rounded to the minute), any other kind is a number. `year` is left out when no
+week has the value. The field is not stored in `learned.json` and not published
+over MQTT.
 
 The same values go out as retained MQTT messages on the topic
 `outstation/energy_node/learned/<key>`, for example

@@ -1776,6 +1776,61 @@ test('time_point shows the source step only with a learned key', () => {
   assert.equal(plain(wizard.defaultAnswers(template, ctx)).source, 'learned');
 });
 
+test('time_point with anchor sunset builds a sun_window that passes the rule check', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'time_point');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    anchor: 'sunset', offset_min: 20, time: { from: '07:00', to: '07:05', days: [0, 1, 2, 3, 4, 5, 6] },
+  }), ctx).entry);
+  assert.deepEqual(entry.conditions, [{
+    type: 'sun_window', from: 'sunset', from_offset_min: 20, to: 'sunset', to_offset_min: 25, weekdays: [],
+  }]);
+  // Regelpruefung der Oberflaeche: Abstaende sind ganze Minuten im Bereich von plus/minus 240.
+  for (const condition of entry.conditions) {
+    assert.equal(condition.type, 'sun_window');
+    assert.ok(['sunrise', 'sunset'].includes(condition.from) && ['sunrise', 'sunset'].includes(condition.to));
+    for (const offset of [condition.from_offset_min, condition.to_offset_min]) {
+      assert.ok(Number.isInteger(offset) && Math.abs(offset) <= 240, `offset ${offset}`);
+    }
+  }
+  assert.equal(entry.actions[0].payload, 'ON');
+  const summary = plain(template.summary(answersFor(wizard, template, ctx, {
+    anchor: 'sunset', offset_min: 20,
+  }), ctx));
+  assert.equal(summary[0].text, t('automations.assistant.summary.point.sun_after', {
+    minutes: 20, event: t('automations.sun_event.sunset'),
+  }));
+  assert.equal(summary[0].step, 'anchor');
+});
+
+test('time_point with anchor sunrise and no offset starts at sunrise and ends five minutes later', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'time_point');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    anchor: 'sunrise', learned: 'device/wb/usual_on',
+  }), ctx).entry);
+  assert.deepEqual(entry.conditions[0], {
+    type: 'sun_window', from: 'sunrise', from_offset_min: 0, to: 'sunrise', to_offset_min: 5, weekdays: [],
+  });
+});
+
+test('time_point with a clock anchor keeps the time window and hides the source step with a sun anchor', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'time_point');
+  const ctx = plain(contextFor(wizard));
+  const clock = plain(template.build(answersFor(wizard, template, ctx, {
+    anchor: 'clock', time: { from: '07:00', to: '07:05', days: [0, 1, 2, 3, 4, 5, 6] },
+  }), ctx).entry);
+  assert.equal(clock.conditions[0].type, 'time_window');
+  const sunVisible = plain(wizard.visibleSteps(template, answersFor(wizard, template, ctx, {
+    learned: 'device/wb/usual_on', anchor: 'sunset',
+  }), ctx).map((step) => step.id));
+  assert.equal(sunVisible.includes('source'), false);
+  assert.equal(sunVisible.includes('anchor'), true);
+});
+
 test('runtime_off with a learned runtime bounds the hold by half and three times the usual runtime', () => {
   const { wizard, templates } = load();
   const template = templateById(templates, 'runtime_off');

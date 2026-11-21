@@ -107,7 +107,9 @@ func (s *SuggestionState) Undo(id string) error {
 // Visible returns the findings that may be shown now: not dismissed, not
 // postponed past now, and not on a device that does not exist any more. A
 // finding without device stays. exists may be nil, which keeps every device.
-func (s *SuggestionState) Visible(all []Finding, now time.Time, exists func(device string) bool) []Finding {
+// A finding with a heating season rests while the mean outdoor temperature
+// recentC is above the season limit. Nil recentC is unknown and keeps it.
+func (s *SuggestionState) Visible(all []Finding, now time.Time, exists func(device string) bool, recentC *float64) []Finding {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var out []Finding
@@ -119,6 +121,9 @@ func (s *SuggestionState) Visible(all []Finding, now time.Time, exists func(devi
 			continue
 		}
 		if f.Device != "" && exists != nil && !exists(f.Device) {
+			continue
+		}
+		if f.Season != nil && f.Season.HeatingBelowC != nil && recentC != nil && *recentC > *f.Season.HeatingBelowC {
 			continue
 		}
 		out = append(out, f)

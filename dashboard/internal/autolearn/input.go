@@ -29,6 +29,18 @@ type Input struct {
 	Reactions *Reactions
 	Limits    learnrec.Limits
 	Base      Base
+	// Season holds the weekly figures for the detectors, nil without a store.
+	Season *SeasonStore
+	// Outdoor names the outdoor temperature entity, zero when none is chosen.
+	Outdoor OutdoorSource
+}
+
+// OutdoorSource names the outdoor temperature entity: its unique id, its state
+// topic and its value template. The zero value means no entity.
+type OutdoorSource struct {
+	EntityID      string
+	Topic         string
+	ValueTemplate string
 }
 
 // Base holds the day types, the absence and the day bounds derived from the
@@ -40,6 +52,9 @@ type Base struct {
 	Away      map[string]bool
 	DayStart  map[int]float64
 	NightRest map[int]float64
+	// RecentOutdoorC is the mean outdoor temperature of the last three days,
+	// nil when no day has a temperature.
+	RecentOutdoorC *float64
 }
 
 // Benefit is the gain of a candidate in its unit: kWh per week, actions per

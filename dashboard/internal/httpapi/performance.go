@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/performance"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -51,6 +53,17 @@ type PerformanceDeps struct {
 	// Automation gives the active rules and scenarios for the breakdown and the
 	// regulator row. Nil means no entries, the regulator row stays as it was.
 	Automation func() []performance.AutomationEntry
+
+	// Learning gives the compute load of the learning engine and the learning
+	// state for the block learning. Nil answers the block as null.
+	Learning *PerformanceLearning
+}
+
+// PerformanceLearning wires the learning block of the performance page. Both
+// fields are functions, so httpapi does not depend on the engine itself.
+type PerformanceLearning struct {
+	Load  func() autolearn.Stats
+	State func() learnrec.State
 }
 
 // performanceBreakdownLimit is the number of items shown per automation group.
@@ -75,6 +88,44 @@ type performanceBody struct {
 	Units            []performanceUnit    `json:"units"`
 	Change           *performance.Change  `json:"change"`
 	Breakdown        performanceBreakdown `json:"breakdown"`
+	Learning         *performanceLearning `json:"learning"`
+}
+
+// performanceLearningTop is the number of detectors listed in the learning block.
+const performanceLearningTop = 3
+
+// performanceLearningDays is the number of days the share of the learning block
+// averages over, once a daily share is recorded.
+const performanceLearningDays = 7
+
+// performanceLearningPartID is the id of the learning engine in the dashboard
+// breakdown.
+const performanceLearningPartID = "learning"
+
+// performanceLearning is the learning block of GET /api/v1/performance. Suggest
+// is left out when there is no suggestion to move up a level.
+type performanceLearning struct {
+	Setting  string                     `json:"setting"`
+	Level    string                     `json:"level"`
+	Share    float64                    `json:"share"`
+	Target   float64                    `json:"target"`
+	PerRunMs int64                      `json:"per_run_ms"`
+	Top      []performanceLearningEntry `json:"top"`
+	Suggest  string                     `json:"suggest,omitempty"`
+}
+
+type performanceLearningEntry struct {
+	Detector string `json:"detector"`
+	Ms       int64  `json:"ms"`
+}
+
+// performanceLearningPart is the learning engine as a part of the dashboard
+// breakdown: Pct is its share of the whole budget, Detectors the categories of
+// the learning load (habit, energy, reliability, other) with their share of the
+// same budget, the largest first.
+type performanceLearningPart struct {
+	Pct       float64
+	Detectors []performanceDetector
 }
 
 // performanceBreakdown splits the load into the parts of the dashboard and the
@@ -89,9 +140,17 @@ type performanceDashboardBreakdown struct {
 }
 
 type performancePart struct {
-	ID      string  `json:"id"`
-	Pct     float64 `json:"pct"`
-	Clients *int    `json:"clients,omitempty"` // only the push part, the highest client count
+	ID        string                `json:"id"`
+	Pct       float64               `json:"pct"`
+	Clients   *int                  `json:"clients,omitempty"`   // only the push part, the highest client count
+	Detectors []performanceDetector `json:"detectors,omitempty"` // only the learning part, its detectors
+}
+
+// performanceDetector is one detector of the learning part, Pct its share of
+// the whole budget.
+type performanceDetector struct {
+	ID  string  `json:"id"`
+	Pct float64 `json:"pct"`
 }
 
 type performanceAutomationBreakdown struct {
@@ -203,14 +262,16 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 				RAMFreePct: ramFree,
 				SwapPagesS: snap.SwapPagesPerS,
 			},
-			BasePct:   base,
-			Rows:      []performanceRow{},
-			Units:     []performanceUnit{},
-			Breakdown: performanceBreakdownBody(snap, rows, entries),
+			BasePct: base,
+			Rows:    []performanceRow{},
+			Units:   []performanceUnit{},
 		}
 		if deps.Changes != nil {
 			body.Change = deps.Changes.CurrentChange()
 		}
+		var learning *performanceLearningPart
+		body.Learning, learning = performanceLearningBody(store, deps, snap, now())
+		body.Breakdown = performanceBreakdownBody(snap, rows, entries, learning)
 
 		for _, row := range rows {
 			editable := true
@@ -272,9 +333,146 @@ func performanceTarget(store *settings.Store, snap performance.Snapshot, request
 	return target
 }
 
+// performanceLearningBody builds the learning block from the engine load, the
+// learning setting and the learning state, and the learning part of the
+// dashboard breakdown. Both are nil without the learning deps, the part also
+// without compute time. The share is the mean of the recorded daily shares of
+// the last seven days, or the 24 hour share of the engine while none is
+// recorded. The target follows the resolved level, and per_run_ms is the mean
+// compute time of one round in the window.
+func performanceLearningBody(store *settings.Store, deps *PerformanceDeps, snap performance.Snapshot, now time.Time) (*performanceLearning, *performanceLearningPart) {
+	if deps == nil || deps.Learning == nil || deps.Learning.Load == nil {
+		return nil, nil
+	}
+	setting := settings.LearningLevelAuto
+	if store != nil {
+		if value, err := store.LoadSettings(); err == nil && value.LearningLevel != "" {
+			setting = value.LearningLevel
+		}
+	}
+	var state learnrec.State
+	if deps.Learning.State != nil {
+		state = deps.Learning.State()
+	}
+	level := learnrec.ResolveLevel(setting, snap.Cores, state.AutoLevel)
+	stats := deps.Learning.Load()
+	share := stats.Share
+	if recorded, ok := learnrec.RecentShare(state, now, performanceLearningDays); ok {
+		share = recorded
+	}
+
+	body := &performanceLearning{
+		Setting: setting,
+		Level:   string(level),
+		Share:   share,
+		Target:  learnrec.TargetShare(level),
+		Top:     []performanceLearningEntry{},
+	}
+	var total time.Duration
+	entries := make([]performanceLearningEntry, 0, len(stats.Took))
+	for name, d := range stats.Took {
+		total += d
+		entries = append(entries, performanceLearningEntry{Detector: name, Ms: d.Milliseconds()})
+	}
+	if stats.Rounds > 0 {
+		body.PerRunMs = total.Milliseconds() / int64(stats.Rounds)
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Ms != entries[j].Ms {
+			return entries[i].Ms > entries[j].Ms
+		}
+		return entries[i].Detector < entries[j].Detector
+	})
+	part := performanceLearningPartOf(entries, stats.Groups, total, share, snap.Cores)
+	if len(entries) > performanceLearningTop {
+		entries = entries[:performanceLearningTop]
+	}
+	body.Top = append(body.Top, entries...)
+	if next, ok := learnrec.SuggestUp(state, level, now); ok {
+		body.Suggest = string(next)
+	}
+	return body, part
+}
+
+// performanceLearningPartOf builds the learning part. The engine share is one
+// core's fraction, so it is scaled to the whole budget by the core count, the
+// same as the unit CPU of the page. The compute time is summed per category
+// (performanceLearningCategory of the detector's group), and each category takes
+// its fraction of the learning total. Categories without a share are left out,
+// the largest first. It is nil without any compute time.
+func performanceLearningPartOf(entries []performanceLearningEntry, groups map[string]string, total time.Duration, share float64, cores int) *performanceLearningPart {
+	totalMs := total.Milliseconds()
+	if totalMs <= 0 || len(entries) == 0 {
+		return nil
+	}
+	if cores < 1 {
+		cores = 1
+	}
+	pct := share * 100 / float64(cores)
+	perCategory := map[string]int64{}
+	for _, e := range entries {
+		perCategory[performanceLearningCategory(groups[e.Detector])] += e.Ms
+	}
+	out := &performanceLearningPart{Pct: pct, Detectors: make([]performanceDetector, 0, len(perCategory))}
+	for id, ms := range perCategory {
+		if ms <= 0 {
+			continue
+		}
+		out.Detectors = append(out.Detectors, performanceDetector{ID: id, Pct: pct * float64(ms) / float64(totalMs)})
+	}
+	sort.Slice(out.Detectors, func(i, j int) bool {
+		if out.Detectors[i].Pct != out.Detectors[j].Pct {
+			return out.Detectors[i].Pct > out.Detectors[j].Pct
+		}
+		return out.Detectors[i].ID < out.Detectors[j].ID
+	})
+	return out
+}
+
+// performanceLearningCategory maps the group of a detector to the category of
+// the learning part. The rule check counts as reliability. Saving, the base
+// computation and unknown groups are other.
+func performanceLearningCategory(group string) string {
+	switch group {
+	case "habit", "energy":
+		return group
+	case "reliability", "check":
+		return "reliability"
+	}
+	return "other"
+}
+
+// carveLearning moves the learning load out of the dashboard parts. The engine
+// runs in the dashboard process but outside the timed parts, so its load is
+// part of the dashboard unit that the parts split. The other parts shrink pro
+// rata, so the parts still add up to the unit, and the learning part comes last.
+func carveLearning(parts []performancePart, learning *performanceLearningPart) []performancePart {
+	var total float64
+	for _, p := range parts {
+		total += p.Pct
+	}
+	pct := learning.Pct
+	if pct > total {
+		pct = total
+	}
+	if total <= 0 || pct <= 0 || learning.Pct <= 0 {
+		return parts
+	}
+	scale := (total - pct) / total
+	for i := range parts {
+		parts[i].Pct *= scale
+	}
+	detectors := make([]performanceDetector, 0, len(learning.Detectors))
+	for _, d := range learning.Detectors {
+		detectors = append(detectors, performanceDetector{ID: d.ID, Pct: d.Pct * pct / learning.Pct})
+	}
+	return append(parts, performancePart{ID: performanceLearningPartID, Pct: pct, Detectors: detectors})
+}
+
 // performanceBreakdownBody builds the breakdown of GET. The dashboard parts
 // need a split in the window, the automation groups need entries for the rows.
-func performanceBreakdownBody(snap performance.Snapshot, rows []performance.Row, entries []performance.AutomationEntry) performanceBreakdown {
+// The learning part is added to the dashboard parts when both exist.
+func performanceBreakdownBody(snap performance.Snapshot, rows []performance.Row, entries []performance.AutomationEntry, learning *performanceLearningPart) performanceBreakdown {
 	var out performanceBreakdown
 	if parts := performance.DashboardBreakdown(snap); parts != nil {
 		dashboard := &performanceDashboardBreakdown{Parts: make([]performancePart, 0, len(parts))}
@@ -285,6 +483,9 @@ func performanceBreakdownBody(snap performance.Snapshot, rows []performance.Row,
 				part.Clients = &clients
 			}
 			dashboard.Parts = append(dashboard.Parts, part)
+		}
+		if learning != nil {
+			dashboard.Parts = carveLearning(dashboard.Parts, learning)
 		}
 		out.Dashboard = dashboard
 	}

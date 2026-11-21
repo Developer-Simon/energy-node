@@ -1,6 +1,7 @@
 package learnrec
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -248,3 +249,78 @@ var errSave = errTest("disk full")
 type errTest string
 
 func (e errTest) Error() string { return string(e) }
+
+func tempDev(id, uid, value, unit string) registry.DeviceView {
+	return registry.DeviceView{ID: id, Entities: []registry.EntityView{{
+		UniqueID: uid, Component: "sensor", Value: value, HasValue: true, UnitOfMeasurement: unit,
+		DeviceClass: "temperature",
+	}}}
+}
+
+// outdoorFrame schliesst eine Minute mit der Aussentemperatur uid ab und liefert den Rahmen.
+func outdoorFrame(t *testing.T, uid string, devs ...registry.DeviceView) Frame {
+	t.Helper()
+	h := newTestHub(t, Limits{MaxDevices: 128})
+	h.SetOutdoor(func() string { return uid })
+	mc := &fakeMinute{}
+	h.AddMinute("m", mc)
+	h.Observe(hubDay(10, 0, 0), devs, energy.Snapshot{}, nil)
+	h.Observe(hubDay(10, 1, 0), devs, energy.Snapshot{}, nil)
+	if len(mc.frames) != 1 {
+		t.Fatalf("frames = %d, want 1", len(mc.frames))
+	}
+	return mc.frames[0]
+}
+
+func TestOutdoorMinuteMean(t *testing.T) {
+	h := newTestHub(t, Limits{MaxDevices: 128})
+	h.SetOutdoor(func() string { return "out" })
+	mc := &fakeMinute{}
+	h.AddMinute("m", mc)
+	h.Observe(hubDay(10, 0, 0), []registry.DeviceView{tempDev("w", "out", "21", "°C")}, energy.Snapshot{}, nil)
+	h.Observe(hubDay(10, 0, 30), []registry.DeviceView{tempDev("w", "out", "22", "°C")}, energy.Snapshot{}, nil)
+	h.Observe(hubDay(10, 1, 0), nil, energy.Snapshot{}, nil)
+	if len(mc.frames) != 1 || mc.frames[0].OutdoorC == nil {
+		t.Fatalf("frames = %+v, want OutdoorC set", mc.frames)
+	}
+	if got := *mc.frames[0].OutdoorC; got != 21.5 {
+		t.Errorf("OutdoorC = %v, want 21.5", got)
+	}
+}
+
+func TestOutdoorUnavailableIsNil(t *testing.T) {
+	f := outdoorFrame(t, "out", tempDev("w", "out", "unavailable", "°C"))
+	if f.OutdoorC != nil {
+		t.Errorf("OutdoorC = %v, want nil", *f.OutdoorC)
+	}
+}
+
+func TestOutdoorStaleIsNil(t *testing.T) {
+	dev := tempDev("w", "out", "15", "°C")
+	dev.Entities[0].Stale = true
+	if f := outdoorFrame(t, "out", dev); f.OutdoorC != nil {
+		t.Errorf("OutdoorC = %v, want nil for a stale entity", *f.OutdoorC)
+	}
+}
+
+func TestOutdoorFahrenheitIsConverted(t *testing.T) {
+	f := outdoorFrame(t, "out", tempDev("w", "out", "70.7", "°F"))
+	if f.OutdoorC == nil {
+		t.Fatal("OutdoorC = nil, want a value")
+	}
+	if got := *f.OutdoorC; math.Abs(got-21.5) > 0.01 {
+		t.Errorf("OutdoorC = %v, want about 21.5", got)
+	}
+}
+
+func TestOutdoorNoChoiceIsNil(t *testing.T) {
+	h := newTestHub(t, Limits{MaxDevices: 128})
+	mc := &fakeMinute{}
+	h.AddMinute("m", mc)
+	devs := []registry.DeviceView{tempDev("w", "out", "21.5", "°C")}
+	h.Observe(hubDay(10, 0, 0), devs, energy.Snapshot{}, nil)
+	h.Observe(hubDay(10, 1, 0), devs, energy.Snapshot{}, nil)
+	if len(mc.frames) != 1 || mc.frames[0].OutdoorC != nil {
+		t.Fatalf("frames = %+v, want one frame without OutdoorC", mc.frames)
+	}
+}

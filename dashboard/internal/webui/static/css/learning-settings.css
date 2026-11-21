@@ -70,3 +70,29 @@
   .learn-pick-chevron { transition: none; }
   .learn-pick-row:not(:disabled):hover .learn-pick-chevron { transform: none; }
 }
+
+/* Schalterzeilen der Feineinstellung: gleicher Abstand ueber und unter dem
+   Schalter, die Trennlinie liegt damit mittig zwischen zwei Zeilen. */
+.learn-fine .switch-row,
+.learn-fine .switch-row + .switch-row { margin-top: 0; padding: .6rem 0; }
+.learn-fine .switch-row + .switch-row { border-top: 1px solid var(--border-soft); }
+
+/* Hinweis "Standort fehlt": dieselbe tippbare Flaeche wie die Auswahlzeilen, damit
+   Hinweis und Aktion eine Einheit sind. Beim Erscheinen steigt sie 6 px auf und
+   blendet ein (transform und opacity, 220 ms), bei reduzierter Bewegung nur ein. */
+.learn-hint { margin: .5rem 0 .7rem; border-color: color-mix(in srgb, var(--warn) 45%, var(--border-soft)); background: color-mix(in srgb, var(--warn) 7%, var(--panel-alt));
+  animation: learn-hint-in 220ms var(--ease-out) both; }
+.learn-hint-icon { flex: none; width: 1.05rem; height: 1.05rem; color: var(--warn); }
+@media (hover: hover) and (pointer: fine) {
+  .learn-hint:not(:disabled):hover { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--panel-alt)); }
+}
+.learn-hint:not(:disabled):active { background: color-mix(in srgb, var(--warn) 16%, var(--panel-alt)); }
+.learn-hint .learn-pick-text small { white-space: normal; }
+@keyframes learn-hint-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .learn-hint { animation-name: learn-hint-fade; }
+  @keyframes learn-hint-fade { from { opacity: 0; } to { opacity: 1; } }
+}
+@media (max-width: 30rem) {
+  .learn-hint .learn-pick-action { display: none; }
+}

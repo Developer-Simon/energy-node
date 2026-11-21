@@ -185,6 +185,12 @@
 .pb-item-pct { grid-area: pct; color: var(--text-muted); font-size: .82rem; font-variant-numeric: tabular-nums; text-align: right; }
 .pb-item--more .pb-item-name { color: var(--text-subtle); font-style: italic; }
 .pb-item--more .pb-item-bar i { opacity: .4; }
+.pb-sub { margin-top: .05rem; }
+.pb-item--sub { padding: .18rem 0; }
+.pb-item--sub .pb-item-name { padding-left: 2.6rem; }
+.pb-item--sub .pb-item-name > span { color: var(--text-muted); font-size: .8rem; }
+.pb-item--sub .pb-item-bar { height: .22rem; }
+.pb-item--sub .pb-item-pct { font-size: .78rem; }
 
 .pb-group + .pb-group { margin-top: .55rem; }
 .pb-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: .15rem 0 .1rem 1.35rem; }
@@ -199,3 +205,12 @@
 @media (prefers-reduced-motion: reduce) {
   .pb-panel, .pb-body, .pb-toggle svg, .pb-item-bar i { transition: none; }
 }
+
+.pf-row-head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; min-width: 0; }
+.pf-pill { padding: .05rem .55rem; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: .74rem; font-weight: 600; white-space: nowrap; }
+
+/* Lernstufen: eine Gitterreihe mit der Höhe der Raten-Stufen, die Beschriftung bricht nicht, der Punkt markiert die empfohlene Stufe */
+.pf-steps-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
+.pf-step-level { min-width: 0; max-width: none; white-space: nowrap; }
+.pf-step-dot { position: absolute; top: .3rem; right: .3rem; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.pf-step-sel .pf-step-dot { background: var(--accent-ink); }

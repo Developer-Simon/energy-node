@@ -65,6 +65,30 @@
   const t = defaultT;
   const picker = () => (window.DevicePicker ? window.DevicePicker.mixin() : {});
 
+  // Einzelwahl der Aussentemperatur: nur Entitaeten mit device_class
+  // temperature. Der Abschnitt ist das Geraet, damit gleich benannte
+  // Sensoren zu unterscheiden sind.
+  const temperatureItems = devices => devices.flatMap(device => (device.entities || [])
+    .filter(entity => entity.device_class === 'temperature' && entity.unique_id)
+    .map(entity => ({
+      id: entity.unique_id,
+      name: entity.name || entity.unique_id,
+      kind: 'device',
+      section: device.name || '',
+      valueText: '',
+      iconMarkup: '',
+      memberOf: '',
+    })));
+
+  // Geraet und Entitaet zu einer unique_id, null wenn die Entitaet fehlt.
+  const findEntity = (devices, uniqueId) => {
+    for (const device of devices || []) {
+      const entity = (device.entities || []).find(item => item.unique_id === uniqueId);
+      if (entity) return {device, entity};
+    }
+    return null;
+  };
+
   const learningPage = () => ({
     ...picker(),
     status: null,
@@ -78,6 +102,11 @@
     devices: null,
     // Ausgenommene Geraete (IDs) je settings.learning_excluded_devices.
     learning_excluded_devices: [],
+    // Aussentemperatur-Entitaet (unique_id) je settings.automation_outdoor_entity, leer wenn keine gewaehlt ist.
+    automation_outdoor_entity: '',
+    // Standort ist in den Automationen eingetragen (status.location_set). Solange
+    // der Stand nicht geladen ist, bleibt der Hinweis verborgen.
+    location_set: true,
 
     // Die Auswahl gehoert der Seite (settings.page.js, speichert sie). Diese
     // Seite bekommt den Stand beim Laden und meldet jede Aenderung zurueck.
@@ -118,14 +147,18 @@
     // Quittiert die Schluessel: sie bleiben in learning_acknowledged stehen und
     // gelten danach nicht mehr als neu. Die Liste der Quittungen kommt aus dem
     // Status, damit keine frueher quittierte Funktion verloren geht.
-    async acknowledge(keys) {
-      const acknowledged = [...new Set([...((this.status && this.status.acknowledged) || []), ...keys])];
-      const fetchWithCsrf = (url, options) => requestJSON(url, {
+    // Anfrage mit dem CSRF-Token der Sitzung, so schreiben alle Aktionen der Seite.
+    csrfRequest(url, options) {
+      return requestJSON(url, {
         ...options,
         headers: {...((options && options.headers) || {}), 'X-CSRF-Token': this.csrfToken},
       });
+    },
+
+    async acknowledge(keys) {
+      const acknowledged = [...new Set([...((this.status && this.status.acknowledged) || []), ...keys])];
       try {
-        await saveSettingsFields({learning_acknowledged: acknowledged}, fetchWithCsrf);
+        await saveSettingsFields({learning_acknowledged: acknowledged}, (url, options) => this.csrfRequest(url, options));
         window.dispatchEvent(new CustomEvent('learning-acknowledged', {detail: {ids: acknowledged}}));
         await this.load();
       } catch (error) {
@@ -142,13 +175,19 @@
       this.loading = true;
       this.error = '';
       try {
-        const [status, session] = await Promise.all([
+        const [status, session, settings, devices] = await Promise.all([
           requestJSON('/api/v1/learning/status'),
           requestJSON('/api/v1/auth/session').catch(() => null),
+          requestJSON('/api/v1/settings').catch(() => null),
+          requestJSON('/api/v1/devices').catch(() => null),
         ]);
         this.status = status;
         this.csrfToken = (session && session.csrf_token) || '';
         this.learnCanEdit = session ? session.edit_setup === true : true;
+        this.automation_outdoor_entity = settings && typeof settings.automation_outdoor_entity === 'string' ? settings.automation_outdoor_entity : '';
+        // Fehlt das Feld (aelterer Server), bleibt der Hinweis verborgen.
+        this.location_set = !(status && status.location_set === false);
+        if (Array.isArray(devices)) this.devices = devices;
         // Der Punkt am Reiter Einstellungen in der Seitenleiste folgt dem Hinweis.
         window.dispatchEvent(new CustomEvent('learning-new-changed', {detail: {open: this.newHintVisible}}));
       } catch (error) {
@@ -156,6 +195,17 @@
       } finally {
         this.loading = false;
       }
+    },
+
+    // Hinweis "Standort fehlt" im Bereich der Muster: nur ohne Standort. Ob die
+    // Muster an sind, prueft die Karte selbst (automationPatternsDisabled).
+    get locationMissing() {
+      return !this.location_set;
+    },
+
+    // Oeffnet die Automationen. Dort sitzt das Feld Standort im aufklappbaren Bereich.
+    openLocationSettings() {
+      window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail: {panel: 'automations-panel'}}));
     },
 
     get usage() {
@@ -214,6 +264,46 @@
     // Hebt die Ausnahmen auf. Der Picker selbst kann nicht auf leer bestaetigen.
     clearExcluded() {
       this.setExcluded([]);
+    },
+
+    // Zeile "Aussentemperatur": Name des Geraets und der Entitaet. Fehlt die
+    // gespeicherte Entitaet in der Registry, steht dort "nicht mehr vorhanden".
+    outdoorLabel() {
+      const uniqueId = this.automation_outdoor_entity;
+      if (!uniqueId) return t('settings.learning.outdoor.none');
+      if (!this.devices) return '';
+      const found = findEntity(this.devices, uniqueId);
+      return found ? `${found.device.name}, ${found.entity.name}` : t('settings.learning.outdoor.missing');
+    },
+
+    // Einzelwahl unter den Temperatur-Entitaeten, eine Auswahl wird sofort gespeichert.
+    async chooseOutdoor() {
+      const devices = await this.loadDevices();
+      if (!devices.length) return;
+      const uniqueId = await this.openPicker({
+        title: t('settings.learning.outdoor.pick_title'),
+        items: temperatureItems(devices),
+        mode: 'single',
+        selected: this.automation_outdoor_entity ? [this.automation_outdoor_entity] : [],
+        confirmLabel: t('settings.learning.outdoor.confirm'),
+      });
+      if (uniqueId) await this.setOutdoor(uniqueId);
+    },
+
+    clearOutdoor() {
+      return this.setOutdoor('');
+    },
+
+    // Speichert die Entitaet ueber saveSettingsFields, bei Fehler kommt der alte Wert zurueck.
+    async setOutdoor(uniqueId) {
+      const previous = this.automation_outdoor_entity;
+      this.automation_outdoor_entity = uniqueId;
+      try {
+        await saveSettingsFields({automation_outdoor_entity: uniqueId}, (url, options) => this.csrfRequest(url, options));
+      } catch (error) {
+        this.automation_outdoor_entity = previous;
+        this.$store.toasts.push(error.message, 'critical');
+      }
     },
 
     async reset() {

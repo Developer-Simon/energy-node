@@ -66,6 +66,11 @@ type Engine struct {
 	devices   func() map[string]DeviceInfo
 	limits    func() learnrec.Limits
 	loc       *time.Location
+	season    *SeasonStore
+	outdoor   func() OutdoorSource
+	// recentC is the mean outdoor temperature of the last three days as the
+	// last round read it, nil when unknown.
+	recentC *float64
 
 	// tickMu serialises Tick, so one round runs at a time.
 	tickMu sync.Mutex
@@ -324,16 +329,32 @@ func (e *Engine) lastInOrder() []Candidate {
 	return out
 }
 
-// Load reports the overruns in the last 24 hours, the compute share of one
-// core over the same window and the compute time per detector.
-func (e *Engine) Load() (overruns int, share float64, took map[string]time.Duration) {
+// Stats is the compute load of the engine over the last 24 hours.
+type Stats struct {
+	// Rounds is the number of rounds that ran in the window.
+	Rounds int
+	// Overruns is the number of detector runs that missed the budget.
+	Overruns int
+	// Share is the compute share of one core over the window.
+	Share float64
+	// Took is the compute time per detector over the window.
+	Took map[string]time.Duration
+	// Groups is the group of each registered detector, by its name.
+	Groups map[string]string
+}
+
+// Stats reports the load of the last 24 hours, see Stats.
+func (e *Engine) Stats() Stats {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	took = map[string]time.Duration{}
+	st := Stats{Took: map[string]time.Duration{}, Groups: map[string]string{}}
+	for _, d := range e.detectors {
+		st.Groups[d.Name] = d.Group
+	}
 	cutoff := e.now.Add(-engineWindow)
 	for _, o := range e.overruns {
 		if !o.Before(cutoff) {
-			overruns++
+			st.Overruns++
 		}
 	}
 	var total time.Duration
@@ -341,12 +362,21 @@ func (e *Engine) Load() (overruns int, share float64, took map[string]time.Durat
 		if s.at.Before(cutoff) {
 			continue
 		}
+		st.Rounds++
 		for name, d := range s.took {
-			took[name] += d
+			st.Took[name] += d
 			total += d
 		}
 	}
-	return overruns, total.Seconds() / engineWindow.Seconds(), took
+	st.Share = total.Seconds() / engineWindow.Seconds()
+	return st
+}
+
+// Load reports the overruns in the last 24 hours, the compute share of one
+// core over the same window and the compute time per detector. See Stats.
+func (e *Engine) Load() (overruns int, share float64, took map[string]time.Duration) {
+	st := e.Stats()
+	return st.Overruns, st.Share, st.Took
 }
 
 // Downgrade reports whether the load asked for a lower level since the last
@@ -363,7 +393,7 @@ func (e *Engine) Downgrade() bool {
 // input builds what one round reads. A missing or broken day store or rule
 // document is logged and replaced by an empty one, so the round still runs.
 func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string]DeviceInfo) *Input {
-	in := &Input{Now: now, Loc: e.loc, Devices: devices, Reactions: e.reactions, Limits: limits}
+	in := &Input{Now: now, Loc: e.loc, Devices: devices, Reactions: e.reactions, Limits: limits, Season: e.seasonStore()}
 	if e.days != nil {
 		days, err := e.days.Days(now.AddDate(0, 0, -engineHistoryDays), now)
 		if err != nil {
@@ -382,7 +412,55 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 		}
 	}
 	in.Base = BuildBase(in.Days, e.loc)
+	e.mu.Lock()
+	e.recentC = in.Base.RecentOutdoorC
+	outdoor := e.outdoor
+	e.mu.Unlock()
+	if outdoor != nil {
+		in.Outdoor = outdoor()
+	}
 	return in
+}
+
+// SetOutdoor gives the engine the outdoor temperature entity. It is read on
+// every round into Input.Outdoor. Without it the round has no entity.
+func (e *Engine) SetOutdoor(f func() OutdoorSource) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.outdoor = f
+}
+
+// HeatingKnee returns the heating knee of a device as the season store holds
+// it from the last round, false when there is none.
+func (e *Engine) HeatingKnee(device string) (float64, bool) {
+	s := e.seasonStore()
+	if s == nil {
+		return 0, false
+	}
+	return s.HeatingKnee(device)
+}
+
+// RecentOutdoorC returns the mean outdoor temperature of the last three days
+// as the last round read it, nil when unknown. The suggestions use it to rest
+// the findings of a heating season.
+func (e *Engine) RecentOutdoorC() *float64 {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.recentC
+}
+
+// SetSeason gives the engine the weekly figures. A round reads them through
+// Input.Season. Set it before the first round.
+func (e *Engine) SetSeason(s *SeasonStore) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.season = s
+}
+
+func (e *Engine) seasonStore() *SeasonStore {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.season
 }
 
 // pruneLocked drops the records older than the window.

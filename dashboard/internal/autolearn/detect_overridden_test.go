@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // ovDays writes one day per entry of reversed. The rule "heat" switches the
@@ -249,5 +251,136 @@ func TestOverriddenSplitWithoutBuildableFixIsNotReported(t *testing.T) {
 	}
 	if f.Summary.Params["feature"] != "none" {
 		t.Errorf("feature = %v, want none for an unbuildable split", f.Summary.Params["feature"])
+	}
+}
+
+// ovSunDays writes one day per entry of reversed on the days from start. The
+// rule switches the device on ten minutes before the sunset of the day when
+// reversed is set, and ten minutes after it otherwise. Reversed switches are
+// switched off again three minutes later.
+func ovSunDays(t *testing.T, start time.Time, reversed []bool, site *sun.Location) []DayFile {
+	t.Helper()
+	var days []DayFile
+	for i, rev := range reversed {
+		day := start.AddDate(0, 0, i)
+		_, set, ok := sun.Times(day, site.Lat, site.Lon)
+		if !ok {
+			t.Fatalf("no sunset on %s", day.Format(dayLayout))
+		}
+		f := relDay(day)
+		at := set.Add(10 * time.Minute).Unix()
+		if rev {
+			at = set.Add(-10 * time.Minute).Unix()
+		}
+		f.Events = append(f.Events, EventRec{At: at, Device: "plug.heater", Entity: "switch.plug.heater",
+			On: true, Origin: string(OriginRule), Rule: "heat"})
+		if rev {
+			f.Events = append(f.Events, EventRec{At: at + 180, Device: "plug.heater", Entity: "switch.plug.heater",
+				On: false, Origin: string(OriginHand)})
+		}
+		days = append(days, f)
+	}
+	return days
+}
+
+func TestOverriddenOnlyInBrightSkyGivesSunWindow(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 6, 14, 0, 0, 0, 0, loc)
+	site := &sun.Location{Lat: 48, Lon: 13.4}
+	n := 24
+	reversed := make([]bool, n)
+	for i := range reversed {
+		reversed[i] = i%4 != 3
+	}
+	in := relInput(loc, ovSunDays(t, start, reversed, site), map[string]DeviceInfo{"plug.heater": relDevice("")}, relRule("heat", "Heizung"))
+	in.Doc.Location = site
+	got := relRun(OverriddenDetector.Run, in, "plug.heater")
+	if len(got) != 1 {
+		t.Fatalf("candidates = %d, want 1: %+v", len(got), got)
+	}
+	f := got[0].Finding
+	if f.Summary.Params["feature"] != overriddenToSunset {
+		t.Fatalf("feature = %v, want %s", f.Summary.Params["feature"], overriddenToSunset)
+	}
+	if len(f.Apply) != 1 || f.Apply[0].Code != "add_condition" {
+		t.Fatalf("apply = %+v, want add_condition", f.Apply)
+	}
+	cond, ok := f.Apply[0].Ops[0].Value.(map[string]any)
+	if !ok {
+		t.Fatalf("op value = %+v", f.Apply[0].Ops[0].Value)
+	}
+	// The dark side is accepted, so the window starts at the sunset and runs to
+	// the sunrise. The cut lies between -10 and +10 minutes, so no offset.
+	if cond["type"] != "sun_window" || cond["from"] != "sunset" || cond["to"] != "sunrise" {
+		t.Errorf("condition = %+v, want sun_window from sunset to sunrise", cond)
+	}
+	if cond["from_offset_min"] != 0 || cond["to_offset_min"] != 0 {
+		t.Errorf("offsets = %v / %v, want 0 / 0", cond["from_offset_min"], cond["to_offset_min"])
+	}
+}
+
+func TestOverriddenElevationFixStartsWhereSunStandsAtCut(t *testing.T) {
+	loc := berlinLoc(t)
+	site := &sun.Location{Lat: 48, Lon: 13.4}
+	day := time.Date(2026, 6, 14, 0, 0, 0, 0, loc)
+	_, set, ok := sun.Times(day, site.Lat, site.Lon)
+	if !ok {
+		t.Fatal("no sunset")
+	}
+	var cases []overrideCase
+	for _, m := range []time.Duration{-30, -20, -10, 0, 10, 20, 30} {
+		to, sunset, elev, ok := overrideSunState(set.Add(m*time.Minute), site)
+		if !ok {
+			t.Fatalf("no sun state at %v", m)
+		}
+		cases = append(cases, overrideCase{sunOK: true, toSunset: to, sunset: sunset, elevation: elev})
+	}
+	split := overrideSplit{feature: overriddenElevation, cut: 5, acceptedLeft: true}
+	fix, _, ok := overriddenAddFix(Rule{ID: "heat"}, Base{}, split, cases, site)
+	if !ok || fix.Code != "add_condition" {
+		t.Fatalf("fix = %+v ok %v, want add_condition", fix, ok)
+	}
+	cond, ok := fix.Ops[0].Value.(map[string]any)
+	if !ok {
+		t.Fatalf("op value = %+v", fix.Ops[0].Value)
+	}
+	off, ok := cond["from_offset_min"].(int)
+	if cond["type"] != "sun_window" || cond["from"] != "sunset" || !ok {
+		t.Fatalf("condition = %+v, want sun_window from sunset", cond)
+	}
+	// Five degrees of elevation lie about 20 minutes before the sunset in June
+	// at 48 degrees north. The window starts that long before the sunset.
+	if off%5 != 0 || off > -10 || off < -40 {
+		t.Errorf("from_offset_min = %d, want about -20", off)
+	}
+}
+
+// A sun cut outside the schema range of the sun offsets (-240..240 minutes)
+// gives no fix, the range edge itself is kept. The offset is rounded to five
+// minutes first.
+func TestOverriddenSunFixDropsOffsetOutOfRange(t *testing.T) {
+	site := &sun.Location{Lat: 48, Lon: 13.4}
+	rule := Rule{ID: "heat"}
+	for _, tc := range []struct {
+		name string
+		cut  float64
+		ok   bool
+	}{
+		{"600 minutes before sunset", 600, false},
+		{"243 minutes before sunset rounds to -245", 243, false},
+		{"240 minutes before sunset is kept", 240, true},
+	} {
+		split := overrideSplit{feature: overriddenToSunset, cut: tc.cut, acceptedLeft: true}
+		fix, _, ok := overriddenAddFix(rule, Base{}, split, nil, site)
+		if ok != tc.ok {
+			t.Errorf("%s: ok = %v, want %v (fix %+v)", tc.name, ok, tc.ok, fix)
+		}
+		if !ok {
+			continue
+		}
+		cond, _ := fix.Ops[0].Value.(map[string]any)
+		if off, _ := cond["from_offset_min"].(int); off != -240 {
+			t.Errorf("%s: from_offset_min = %d, want -240", tc.name, off)
+		}
 	}
 }
