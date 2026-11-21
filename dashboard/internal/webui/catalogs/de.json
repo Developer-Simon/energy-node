@@ -614,6 +614,7 @@
   "automations.learned.state.now": "Jetzt {state}. Gelernt aus {n} Tagen, aktualisiert vor {age}.",
   "automations.learned.state.quiet": "Haus ist ruhig",
   "automations.learned.state.stale": "Der letzte Wert ist älter als {age}. Es gilt: {state}.",
+  "automations.learned.year.line": "Der Wert lag im {high_month} bei {high} und im {low_month} bei {low}",
   "automations.limit.rules": "Höchstens {max} Regeln",
   "automations.limit.scenarios": "Höchstens {max} Szenarien",
   "automations.list.loading": "Regeln werden geladen ...",

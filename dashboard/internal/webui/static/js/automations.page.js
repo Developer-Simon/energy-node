@@ -2971,6 +2971,7 @@
             caption: t('automations.learned.live.caption', { name: item.name }),
             tone: item.source === 'fallback' ? 'learned-fallback' : 'learned',
             fraction: mark, mark, band: null,
+            year: item.scale.year || null,
             valueText: item.text,
             rangeText: item.scale.range,
             label: item.scale.label,

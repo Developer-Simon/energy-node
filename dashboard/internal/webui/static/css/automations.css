@@ -55,6 +55,11 @@
 .auto-live-bar.is-tone-learned .auto-live-mark, .auto-live-bar.is-tone-learned-fallback .auto-live-mark { width: 3px; margin-left: -1.5px; background: var(--accent); }
 .auto-live-bar.is-tone-learned-fallback .auto-live-mark { background: var(--text-muted); }
 .auto-live-bar.is-tone-learned .auto-live-label span:last-child, .auto-live-bar.is-tone-learned-fallback .auto-live-label span:last-child { font-weight: 500; color: var(--text); }
+.auto-live-year { display: grid; gap: 4px; margin-top: 6px; min-width: 0; }
+.auto-live-year-plot { display: block; width: 100%; height: 24px; border-radius: 6px; overflow: hidden; }
+.auto-live-year-band { fill: var(--accent-bg); }
+.auto-live-year-line { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.auto-live-year-text { margin: 0; font-size: .78rem; color: var(--text-muted); }
 @media (prefers-reduced-motion: reduce) { .auto-live-fill { transition: none; } }
 
 /* Schaltflaechen im Kopf der Regel: Testen geistert, Bearbeiten hat einen Rahmen. */

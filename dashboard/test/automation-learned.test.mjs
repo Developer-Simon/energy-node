@@ -19,6 +19,8 @@ const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf
 function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
+  // Monatsnamen des Jahresverlaufs kommen aus der Sprache der Oberflaeche.
+  dom.window.I18n = { locale: 'de-DE', formatDate: (value, options) => new Date(value).toLocaleDateString('de-DE', options) };
   vm.runInContext(source, context);
   // origin formats the age with the view's formatSeconds, so the view loads into the same window.
   vm.runInContext(viewSource, context);
@@ -206,4 +208,36 @@ test('the device map panel loads the learned helper before the automation view',
   assert.ok(line, 'devicemap panel script list not found');
   assert.ok(line.includes('automation-learned.js?v=1'), 'helper missing in device map panel');
   assert.ok(line.indexOf('automation-learned.js') < line.indexOf('automations-view.js'), 'helper must come before the view');
+});
+
+// Jahresverlauf: 30 Wochen ab 2026-W01, Tiefstwert in Januar (W03), Hoechstwert im Juli (W30).
+const yearWeeks = (count, valueOf) => Array.from({ length: count }, (_, i) => {
+  const week = `2026-W${String(i + 1).padStart(2, '0')}`;
+  return { week, value: valueOf(i + 1) };
+});
+
+test('yearLine names the month of the highest and the lowest week', () => {
+  const year = yearWeeks(30, (w) => (w === 3 ? '05:10' : w === 30 ? '22:30' : '12:00'));
+  assert.equal(L.yearLine({ kind: 'time', year }, t),
+    'automations.learned.year.line {"high_month":"Juli","high":"22:30","low_month":"Januar","low":"05:10"}');
+});
+
+test('yearLine is empty under 8 weeks', () => {
+  const year = yearWeeks(5, (w) => `0${w}:00`);
+  assert.equal(L.yearLine({ kind: 'time', year }, t), '');
+  assert.equal(L.yearLine({ kind: 'time' }, t), '');
+});
+
+test('yearLine formats number values without the clock', () => {
+  const year = yearWeeks(10, (w) => (w === 2 ? 900 : w === 7 ? 1700 : 1200));
+  assert.equal(L.yearLine({ kind: 'number', year }, t),
+    'automations.learned.year.line {"high_month":"Februar","high":"1700","low_month":"Januar","low":"900"}');
+});
+
+test('yearPlot draws one point per week and needs 8 weeks', () => {
+  const year = yearWeeks(30, (w) => 10 + w);
+  const plot = L.yearPlot('number', 0, 100, { year });
+  assert.equal(plot.split(' ').length, 30);
+  assert.equal(L.yearPlot('number', 0, 100, { year: yearWeeks(5, () => 50) }), null);
+  assert.equal(L.yearPlot('number', 0, 100, null), null);
 });

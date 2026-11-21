@@ -226,5 +226,78 @@
     return { marker };
   }
 
-  window.AutomationLearned = { isRef, kindOf, resolve, prefill, choices, keyLabel, validate, origin, scale };
+  // Jahresverlauf eines Lernwerts. entry.year liefert hoechstens 53 Wochen als {week: "2026-W30", value}.
+  // Unter 8 Wochen gibt es weder Zeile noch Linie.
+  const YEAR_MIN_WEEKS = 8;
+  const WEEK_RE = /^(\d{4})-W(\d{2})$/;
+  const DAY_MS = 86400000;
+
+  // Montag der ISO-Woche als UTC-Datum, null bei ungueltiger Woche.
+  function weekMonday(week) {
+    const m = WEEK_RE.exec(String(week || ''));
+    if (!m) return null;
+    const jan4 = new Date(Date.UTC(Number(m[1]), 0, 4));
+    const weekday = jan4.getUTCDay() || 7;
+    return new Date(jan4.getTime() - (weekday - 1) * DAY_MS + (Number(m[2]) - 1) * 7 * DAY_MS);
+  }
+
+  // Monatsname des Montags ueber I18n.formatDate, damit Sprache und Datumsformat der Oberflaeche gelten.
+  function monthName(week) {
+    const monday = weekMonday(week);
+    return monday && window.I18n && window.I18n.formatDate ? window.I18n.formatDate(monday, { month: 'long', timeZone: 'UTC' }) : '';
+  }
+
+  // Wochenpunkte mit Zahlenwert zum Sortieren und Vergleichen. Uhrzeiten als Minuten, Zahlen wie sie sind.
+  function yearPoints(entry) {
+    const list = entry && Array.isArray(entry.year) ? entry.year : [];
+    const out = [];
+    for (const p of list) {
+      if (!p || typeof p.week !== 'string') continue;
+      const num = typeof p.value === 'string' ? clockMinutes(p.value) : (isNumber(p.value) ? p.value : null);
+      if (num !== null) out.push({ week: p.week, value: p.value, num });
+    }
+    return out;
+  }
+
+  function yearValueText(point) {
+    if (typeof point.value === 'string') return clockText(point.num);
+    return window.I18n && window.I18n.formatNumber ? window.I18n.formatNumber(point.value) : String(point.value);
+  }
+
+  // Satz zum Jahresverlauf: hoechster und tiefster Wochenwert mit ihrem Monat. Leer unter 8 Wochen.
+  // i18n-keys: automations.learned.year.line
+  function yearLine(entry, t) {
+    const points = yearPoints(entry);
+    if (points.length < YEAR_MIN_WEEKS) return '';
+    let high = points[0];
+    let low = points[0];
+    for (const p of points) {
+      if (p.num > high.num) high = p;
+      if (p.num < low.num) low = p;
+    }
+    return t('automations.learned.year.line', {
+      high_month: monthName(high.week),
+      high: yearValueText(high),
+      low_month: monthName(low.week),
+      low: yearValueText(low),
+    });
+  }
+
+  // Linie des Jahresverlaufs als SVG-Punkte im Kasten 100 x 24. Die Grenzen sind die volle Hoehe des Kastens.
+  // Null unter 8 Wochen oder ohne Skala. Werte ausserhalb der Grenzen liegen auf der naeheren Kante.
+  function yearPlot(kind, min, max, entry) {
+    const points = yearPoints(entry);
+    if (points.length < YEAR_MIN_WEEKS) return null;
+    const coords = [];
+    points.forEach((p, i) => {
+      const s = scale(kind, min, max, p.value);
+      if (!s || !isNumber(s.marker)) return;
+      const x = (i / (points.length - 1)) * 100;
+      const y = 2 + (1 - s.marker) * 20;
+      coords.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    });
+    return coords.length >= YEAR_MIN_WEEKS ? coords.join(' ') : null;
+  }
+
+  window.AutomationLearned = { isRef, kindOf, resolve, prefill, choices, keyLabel, validate, origin, scale, yearLine, yearPlot };
 })();
