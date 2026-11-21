@@ -456,6 +456,12 @@ func main() {
 		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores, learnStateNow().AutoLevel), cores)
 	}
 	learnHub := learnrec.NewHub(time.Local, learnLimits, log.Printf)
+	learnHub.SetOutdoor(func() string {
+		if value, err := settingsStore.LoadSettings(); err == nil {
+			return value.AutomationOutdoorEntity
+		}
+		return ""
+	})
 	learnHub.AddMinute("chainsuggest", chainSuggest)
 	learnHub.AddTick("chainwatch", learnrec.TickFunc(chainMonitor.Observe))
 	learnHub.AddTick("autolearn", learnrec.TickFunc(func(at time.Time, snap energy.Snapshot) {
