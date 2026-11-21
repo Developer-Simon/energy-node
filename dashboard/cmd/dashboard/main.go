@@ -503,6 +503,11 @@ func main() {
 		func() ([]byte, error) { return configManager.Read("automation_rules") },
 		func() map[string]autolearn.DeviceInfo { return learnDevices(reg.Snapshot(), energyResolver) },
 		learnLimits, time.Local)
+	// Demo: die Nachhol-Runde laeuft beim ersten Minutentakt statt nach fuenf
+	// Minuten, damit Vorschlaege gleich nach dem Start erscheinen.
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" {
+		automationEngine.SetCatchUpAfter(0)
+	}
 	// Erkenner: Gewohnheiten (habit) und Zuverlaessigkeit (reliability).
 	for _, det := range []autolearn.Detector{
 		autolearn.SwitchTimeDetector, autolearn.RuntimeDetector, autolearn.CouplingDetector,

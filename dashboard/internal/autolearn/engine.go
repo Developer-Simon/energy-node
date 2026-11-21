@@ -74,6 +74,7 @@ type Engine struct {
 	detectors []Detector
 	queue     []pending
 	startAt   time.Time
+	catchUp   time.Duration
 	lastLight time.Time
 	lastDaily time.Time
 	dailyDay  string
@@ -98,9 +99,22 @@ func NewEngine(days *DayStore, reactions *Reactions, readDoc func() ([]byte, err
 		devices:   devices,
 		limits:    limits,
 		loc:       loc,
+		catchUp:   engineCatchUpAfter,
 		last:      map[string][]Candidate{},
 		streak:    map[string]int{},
 	}
+}
+
+// SetCatchUpAfter changes the delay after the start before the catch-up daily
+// round. The demo sets 0, so suggestions appear on the first minute tick.
+// A negative delay counts as 0.
+func (e *Engine) SetCatchUpAfter(d time.Duration) {
+	if d < 0 {
+		d = 0
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.catchUp = d
 }
 
 // Register adds a detector. A detector without Run is ignored.
@@ -142,9 +156,9 @@ func (e *Engine) Tick(now time.Time, groups map[string]bool) {
 	e.queue = nil
 	lightDue := e.lastLight.IsZero() || now.Sub(e.lastLight) >= limits.LightEvery
 	dailyDue := !local.Before(dailyAt) && e.dailyDay != dayKey
-	// Catch-up: a daily round runs once, five minutes after the start, when the
-	// last one is more than a day old or there was none.
-	if !dailyDue && now.Sub(e.startAt) >= engineCatchUpAfter &&
+	// Catch-up: a daily round runs once, five minutes after the start (or after
+	// SetCatchUpAfter), when the last one is more than a day old or there was none.
+	if !dailyDue && now.Sub(e.startAt) >= e.catchUp &&
 		(e.lastDaily.IsZero() || now.Sub(e.lastDaily) > engineDailyMaxAge) {
 		dailyDue = true
 	}
