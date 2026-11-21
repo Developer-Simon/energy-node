@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4-pre.8 (2026-11-06)
+## v0.3.4-pre.9 (2026-11-06)
 
 ### Features
 
@@ -12,6 +12,7 @@
 - **onboarding:** start empty and offer an example to try out (#274) (35490ab)
 - **installer:** The configure screen of the installer shows its services and tuning as modules (#280) (f85e2a6)
 - **installer:** apply a changed service selection without a full update (#282) (ab11a7a)
+- **installer:** highlight that the Debian stick needs a network cable (#286)
 - **installer:** prepare from the package stored on the node (f5b1c87)
 - **installer:** accept the apply-selection run mode (5dc8abe)
 - **installer:** offer the package stored on the node as a source (1ac4e7a)

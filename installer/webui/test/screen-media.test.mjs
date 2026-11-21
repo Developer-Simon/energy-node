@@ -877,6 +877,7 @@ test('Debian: kein WLAN in der Oberflaeche und auch im Abschicken', async () => 
   assert.equal(wifi.getAttribute('x-if'), '!isDebian', 'der Schalter erscheint nur bei Pi');
   const hint = templateNodes(doc).find((node) => node.getAttribute('x-if') === 'isDebian');
   assert.ok(hint.content.querySelector('[x-text="t(\'media.settings.debian_network\')"]'), 'der Hinweis zur Netzwerkkarte');
+  assert.ok(hint.content.querySelector('.media-warn [x-text="t(\'media.settings.debian_network_title\')"]'), 'die Warnbox zum Netzwerkkabel');
 
   assert.equal(window.MediaModel.toRequest(screen.form, screen.group).wifi, null);
 });

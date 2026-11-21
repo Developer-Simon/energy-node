@@ -213,7 +213,12 @@
 
       <section class="card">
         <h2 class="card-h" x-text="t('media.settings.network')"></h2>
-        <template x-if="isDebian"><div class="media-hint" x-text="t('media.settings.debian_network')"></div></template>
+        <template x-if="isDebian">
+          <div class="media-warn" role="note">
+            <span class="media-warn-t" x-text="t('media.settings.debian_network_title')"></span>
+            <span class="media-warn-s" x-text="t('media.settings.debian_network')"></span>
+          </div>
+        </template>
         <template x-if="!isDebian">
           <label class="media-toggle">
             <span class="settings-toggle">
