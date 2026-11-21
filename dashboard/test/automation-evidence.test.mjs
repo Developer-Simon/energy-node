@@ -330,10 +330,59 @@ test('zoomed axis labels are HH:MM with minor ticks', () => {
 
 test('unknown shape or missing evidence renders an empty string', () => {
   const { api } = load();
-  assert.equal(api.render({ shape: 'curve' }, t), '');
   assert.equal(api.render({ shape: 'unknown' }, t), '');
   assert.equal(api.render(null, t), '');
   assert.equal(api.render(undefined, t), '');
+});
+
+const quarters = (fn) => Array.from({ length: 96 }, (_, i) => fn(i));
+
+test('curve shape draws exactly one dashed line, the best curve, in the Soll lane', () => {
+  const { api, document } = load();
+  const html = api.render({
+    shape: 'curve',
+    ist_q: quarters((i) => (i < 40 ? 0 : 900)),
+    soll_q: quarters((i) => Math.sin((i / 96) * Math.PI) * 1000),
+    best_q: quarters((i) => Math.sin((i / 96) * Math.PI) * 1000),
+  }, t);
+  const host = mount(document, html);
+  const dashed = host.querySelectorAll('polyline[stroke-dasharray]');
+  assert.equal(dashed.length, 1);
+  assert.equal(dashed[0].classList.contains('auto-learn-best'), true);
+  assert.equal(dashed[0].closest('.auto-learn-lane.is-soll') !== null, true);
+  assert.equal(dashed[0].getAttribute('points').trim().split(/\s+/).length, 96);
+  assert.equal(host.querySelectorAll('polyline.auto-learn-ist').length, 1);
+});
+
+test('curve shape axis runs from 0 to 24 h with 0, 6, 12, 18 and 24 as labels', () => {
+  const { api, document } = load();
+  const host = mount(document, api.render({ shape: 'curve', ist_q: quarters(() => 500) }, t));
+  assert.deepEqual(axisLabels(host), ['00:00', '06:00', '12:00', '18:00', '24:00']);
+  assert.ok(host.querySelector('.auto-learn-axis-label.is-start'));
+  assert.ok(host.querySelector('.auto-learn-axis-label.is-end'));
+});
+
+test('curve shape fills only where the best curve lies above the Ist curve', () => {
+  const { api, document } = load();
+  const html = api.render({
+    shape: 'curve',
+    ist_q: quarters((i) => (i >= 10 && i < 20 ? 100 : 500)),
+    best_q: quarters(() => 500),
+  }, t);
+  const host = mount(document, html);
+  const areas = host.querySelectorAll('polygon.auto-learn-throttled');
+  assert.equal(areas.length, 1, 'one run of ten quarters');
+  assert.equal(areas[0].getAttribute('points').trim().split(/\s+/).length, 20, 'best forward, Ist back');
+  assert.ok(!html.includes('NaN'));
+});
+
+test('curve shape with missing or empty arrays renders nothing and does not throw', () => {
+  const { api } = load();
+  assert.equal(api.render({ shape: 'curve' }, t), '');
+  assert.equal(api.render({ shape: 'curve', ist_q: null, soll_q: 'x', best_q: [] }, t), '');
+  const html = api.render({ shape: 'curve', ist_q: [1, 'x', NaN, 300], best_q: null }, t);
+  assert.ok(!html.includes('NaN'));
+  assert.ok(html.length > 0);
 });
 
 test('prototype keys are not shapes', () => {
