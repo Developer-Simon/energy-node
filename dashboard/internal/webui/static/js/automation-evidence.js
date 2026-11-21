@@ -294,10 +294,16 @@
       + axisHtml(ticks, labels);
   }
 
+  // Einheiten mit Katalogtext, sonst die Einheit wie geliefert.
+  const UNIT_KEYS = { kwh_week: 'automations.learn.unit.kwh_week' };
+  function unitOf(ev, t) {
+    return UNIT_KEYS[ev.unit] ? t(UNIT_KEYS[ev.unit]) : ev.unit;
+  }
+
   function scaleShape(ev, t) {
     const max = scaleMaxOf(ev);
     const toX = (v) => pct(v, max);
-    const unit = ev.unit ? ' ' + ev.unit : '';
+    const unit = ev.unit ? ' ' + unitOf(ev, t) : '';
     const majors = [0, max / 2, max];
     const grid = gridLines(majors.map(toX));
     const seen = Array.isArray(ev.seen) && ev.seen[1] > 0

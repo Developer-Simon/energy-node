@@ -22,15 +22,15 @@ const catalogs = {
 // Summary codes the new detectors emit (11a scope). switch_time gets its direction suffix at runtime.
 const SUMMARY_CODES = [
   'switch_time.on', 'switch_time.off', 'runtime.forgotten', 'coupling.follow',
-  'check.flapping', 'check.no_effect', 'check.overridden', 'check.offline_window',
+  'check.flapping', 'check.no_effect', 'check.overridden', 'check.offline_window', 'temperature.limit',
 ];
 const LEGEND_SHAPES = ['day', 'events', 'scale'];
-const FACT_CODES = ['window_s', 'direction_share', 'spread_min', 'hit_rate', 'overnight', 'cause', 'limit_s', 'feature', 'min_runtime', 'per_hour_max', 'season_months'];
+const FACT_CODES = ['window_s', 'direction_share', 'spread_min', 'hit_rate', 'overnight', 'cause', 'limit_s', 'feature', 'min_runtime', 'per_hour_max', 'season_months', 'knee'];
 const CAUSE_VALUES = ['offline_window', 'clustered', 'scattered'];
 const FIX_CODES = ['min_runtime', 'repeat', 'open_rule', 'add_condition', 'shift_time', 'move_before'];
 const BUTTONS = ['open_assistant', 'later', 'never', 'undo'];
 const BAND_KEYS = ['title', 'count_one', 'count_many', 'learning', 'more', 'less'];
-const GROUPS = ['habit', 'check', 'reliability'];
+const GROUPS = ['habit', 'check', 'reliability', 'energy'];
 
 // Every catalog key the band needs, for one language.
 function requiredKeys() {
@@ -46,6 +46,7 @@ function requiredKeys() {
   BAND_KEYS.forEach((name) => keys.push(`automations.learn.band.${name}`));
   GROUPS.forEach((name) => keys.push(`automations.learn.group.${name}`));
   keys.push('automations.learn.hint.dismissed', 'automations.learn.lane.ist', 'automations.learn.lane.soll');
+  keys.push('automations.learn.season.heating', 'automations.learn.unit.kwh_week');
   return keys;
 }
 
@@ -168,7 +169,7 @@ test('the summary codes of the backend are the ones the band covers', () => {
         if (code.endsWith('.')) {
           found.add(code + 'on');
           found.add(code + 'off');
-        } else if (/^(switch_time|runtime|coupling|check)\./.test(code)) {
+        } else if (/^(switch_time|runtime|coupling|check|temperature)\./.test(code)) {
           found.add(code);
         }
       }
@@ -485,4 +486,48 @@ test('hit rate and direction share stay percent, season months stay as they are'
 test('any other numeric fact is rounded to at most one decimal', () => {
   assert.equal(factText('unknown_code', 3.14159), '3.1');
   assert.equal(factText('unknown_code', 4), '4');
+});
+
+test('the heating validity reads the knee and is empty without one', () => {
+  const { band, close } = loadBand(listRoutes({ enabled: false, suggestions: [] }));
+  const t = catalogT('de');
+  const withKnee = { season: { from_week: 40, to_week: 16, heating_below_c: 15.04 } };
+  assert.equal(band.heatingOf(withKnee, t), 'Heizzeit unter 15 °C');
+  assert.equal(band.heatingOf({ season: { from_week: 40, to_week: 16 } }, t), '');
+  assert.equal(band.heatingOf({}, t), '');
+  close();
+});
+
+test('a heating only season shows no week range, a dated season shows its weeks', () => {
+  const { band, close } = loadBand(listRoutes({ enabled: false, suggestions: [] }));
+  const t = catalogT('de');
+  assert.equal(band.seasonOf({ season: { heating_below_c: 15 } }, t), '');
+  assert.equal(band.seasonOf({}, t), catalogs.de['automations.learn.season.all']);
+  assert.equal(band.seasonOf({ season: { from_week: 40, to_week: 16 } }, t), 'Gilt von KW 40 bis KW 16');
+  close();
+});
+
+test('the temperature limit title and line show the rule, device, knee and weekly kWh', () => {
+  const { api } = load();
+  const t = catalogT('de');
+  const s = suggestion('temperature.limit', { rule: 'Pumpe Nacht', device: 'Wärmepumpe', knee: 15, kwh_warm: 1.2345 }, 'scale');
+  assert.equal(api.title(s, t), 'Pumpe Nacht nur bei Außentemperatur unter 15 °C');
+  assert.equal(api.line(s, t), 'In warmen Wochen verbraucht Wärmepumpe 1.2 kWh pro Woche. Mit der Bedingung schaltet die Regel nur bei Kälte.');
+  assert.equal(api.legend(s, t), catalogs.de['automations.learn.legend.scale']);
+});
+
+test('a scale evidence with the weekly unit shows the catalog unit on the axis', () => {
+  const { evidence } = load();
+  const t = catalogT('de');
+  const html = evidence.render({ shape: 'scale', ist_value: 12, soll_value: 0, unit: 'kwh_week' }, t);
+  assert.ok(html.includes('kWh/Woche'), 'the unit text is shown');
+  assert.ok(!html.includes('kwh_week'), 'the raw unit code is not shown');
+});
+
+test('the temperature limit and the knee fact have catalog texts in both languages', () => {
+  ['de', 'en'].forEach((lang) => {
+    ['automations.learn.temperature.limit.title', 'automations.learn.temperature.limit.line', 'automations.learn.fact.knee', 'automations.learn.group.energy'].forEach((key) => {
+      assert.ok(catalogs[lang][key], `${lang}: ${key}`);
+    });
+  });
 });

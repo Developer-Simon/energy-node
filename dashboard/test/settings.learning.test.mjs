@@ -148,3 +148,36 @@ test('Die beiden Gruppenschalter liegen in der Feineinstellung vor "Geräte ausn
     assert.ok(label.compareDocumentPosition(excluded) & doc.defaultView.Node.DOCUMENT_POSITION_FOLLOWING, `${id}: steht nicht vor Geräte ausnehmen`);
   }
 });
+
+test('load() liest den Energie-Schalter als Boolean, fehlend heisst an', async () => {
+  const { dom, component } = createPanel(loadFetch({ automation_energy_disabled: true }));
+  await component.load();
+  assert.equal(component.automationEnergyDisabled, true);
+  dom.window.close();
+  const fresh = createPanel(loadFetch({}));
+  await fresh.component.load();
+  assert.equal(fresh.component.automationEnergyDisabled, false);
+  fresh.dom.window.close();
+});
+
+test('payload() schickt den Energie-Schalter als Boolean', async () => {
+  const { dom, component } = createPanel(loadFetch({ automation_energy_disabled: true }));
+  await component.load();
+  const payload = JSON.parse(JSON.stringify(component.payload()));
+  assert.equal(payload.automation_energy_disabled, true);
+  dom.window.close();
+});
+
+test('Der Energie-Schalter liegt in der Feineinstellung nach Zuverlaessigkeit und ist an canEditSetup gebunden', () => {
+  const doc = new JSDOM(templateSource).window.document;
+  const input = doc.getElementById('learning-energy');
+  assert.ok(input, 'learning-energy fehlt');
+  assert.equal(input.getAttribute('type'), 'checkbox');
+  assert.equal(input.getAttribute('role'), 'switch');
+  assert.equal(input.getAttribute('x-bind:disabled'), '!canEditSetup');
+  const fine = doc.getElementById('learning-fine');
+  const reliability = doc.getElementById('learning-reliability');
+  const order = [...fine.querySelectorAll('input')].map(el => el.id);
+  assert.ok(order.indexOf('learning-energy') > order.indexOf('learning-reliability'), 'Energie steht nach Zuverlaessigkeit');
+});
+

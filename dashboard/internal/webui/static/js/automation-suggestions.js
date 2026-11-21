@@ -30,6 +30,7 @@
     if ('window_from' in src) out.window_from = clockOf(src.window_from);
     if ('window_to' in src) out.window_to = clockOf(src.window_to);
     if ('share' in src) out.share = Math.round(Number(src.share) * 100);
+    if ('kwh_warm' in src) out.kwh_warm = Math.round(Number(src.kwh_warm) * 10) / 10;
     return out;
   }
 
@@ -175,10 +176,17 @@
         const sure = s.confidence === 'high';
         return { tone: sure ? 'ok' : 'wait', label: t(CAT + (sure ? 'confidence.sure' : 'confidence.estimate'), {}) };
       },
+      // Die Wochen gelten nur mit Zeitraum. Ein Befund nur mit Heizzeit zeigt die Heizzeit daneben.
       seasonOf(s, t) {
         const season = s.season;
         if (!season) return t(CAT + 'season.all', {});
+        if (!season.from_week || !season.to_week) return '';
         return t(CAT + 'season', { from: season.from_week, to: season.to_week });
+      },
+      heatingOf(s, t) {
+        const below = s.season ? s.season.heating_below_c : null;
+        if (typeof below !== 'number' || !isFinite(below)) return '';
+        return t(CAT + 'season.heating', { below: Math.round(below * 10) / 10 });
       },
       factsOf(s, t) {
         return (s.facts || []).map((f) => ({ label: t(CAT + 'fact.' + f.code, {}), value: valueOf(f, t) }));

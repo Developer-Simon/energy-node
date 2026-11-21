@@ -110,7 +110,8 @@
                   <span class="auto-learn-group" x-bind:class="'is-' + current.group" x-text="groupLabel(current, $t)"></span>
                   <span class="auto-learn-card-device" x-text="current.device"></span>
                   <span class="auto-pill" x-bind:class="confidenceOf(current, $t).tone" x-text="confidenceOf(current, $t).label"></span>
-                  <span class="auto-learn-season" x-text="seasonOf(current, $t)"></span>
+                  <span class="auto-learn-season" x-show="seasonOf(current, $t)" x-text="seasonOf(current, $t)"></span>
+                  <span class="auto-learn-season" x-show="heatingOf(current, $t)" x-text="heatingOf(current, $t)"></span>
                 </div>
                 <h4 class="auto-learn-card-title" x-text="titleOf(current, $t)"></h4>
                 <div class="auto-learn-evidence">
