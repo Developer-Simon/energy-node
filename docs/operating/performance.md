@@ -300,3 +300,19 @@ goes into the cost of each message. Requests and background work stay in the
 base load. The garbage collection is spread over the parts in proportion, so
 the sum of the rows does not change. The split is kept in memory only, like the
 rest of the measurement.
+
+### 7.2 Learning level
+
+The card Measurements has the row **Learning features**. It shows the time of
+one learning run, the share of the load that learning takes and the learning
+level. The level is one of Automatic, Economical, Balanced and Full. Automatic
+lets the node choose. A click on the row shows the three most expensive
+detectors.
+
+Each level has a target share of the load. The page compares the measured share
+with the target of the chosen level. If the share is above the target, the page
+says so, and the choice stays possible.
+
+When the share stays below half of the target for 7 days in a row, the page
+suggests the next higher level in the same row. **Apply** saves the level as the
+learning level.

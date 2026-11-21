@@ -42,6 +42,14 @@ off, the values learned so far stay, and the warnings rely on them alone.
 and the energy flows. When you switch it off, the learned values stay at their
 last state, so a rule falls back to its default value after 7 days.
 
+**Location missing** appears on this page while **Learn patterns** is on and no
+location is set. Without a location the patterns have no sun times. **Enter location** opens the
+automation settings. Learning goes on by calendar week meanwhile.
+
+**Outdoor temperature** takes a temperature sensor. The node stores its value in
+the daily profiles and uses it for the heating season, see
+[Outdoor temperature and heating season](automations-rules.md#outdoor-temperature-and-heating-season).
+
 Under **Fine-tuning**, two switches sit above **Exclude devices**. They only
 appear while **Learn patterns** is on, and each works on its own.
 

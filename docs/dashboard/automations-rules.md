@@ -220,6 +220,54 @@ A condition that takes a learned value shows three things:
   When the fallback applies, it reads **Fallback value, because nothing has been
   learned yet or the value is too old**.
 
+### Seasons and the sun
+
+The node keeps a season memory. It holds weekly figures per calendar week for
+three years, in the data directory and in the backup. When the memory is empty,
+for example after an update to this version, the node fills the past weeks once
+from the energy statistics. A week with fewer than four days of data does not
+count.
+
+The sun needs a location in the automation settings. Without one, the node
+learns by calendar week and shows the hint **Location missing** on the
+[learning features](settings.md#automations) page. The sun times are then not
+used, and every switching time stays a clock time.
+
+**Switch times** can follow the clock or the sun. A habit that follows sunset
+or sunrise is suggested as a sun habit. Its time window starts at the event plus
+the offset and lasts 5 minutes. When the sun times barely moved over the learning
+period, around the solstices for example, the two cannot be told apart, and the
+clock applies. The season check runs again later and then decides. Clock habits
+use local time, so the change to summer time does not move them.
+
+**Overridden** shows two sun features, the sun elevation and the minutes to
+sunset, when they explain why a rule was overridden. The suggested fix adds a
+sun time condition to the rule.
+
+### Outdoor temperature and heating season
+
+Set the outdoor temperature on the [learning features](settings.md#automations)
+page. Only temperature sensors can be chosen. The node writes the average of
+each 15 minutes into the daily profiles. Days without a value are left out of
+the temperature model.
+
+When the energy use of a device rises as the outdoor temperature falls, the node
+finds the temperature below which the rise starts. This is the knee. If the
+knee is found, the season **Heating season, below X °C** applies to the findings
+that depend on it. Such a finding rests while the average outdoor temperature of
+the last 3 days stays above the knee.
+
+The suggestion **only below X °C** adds an outdoor temperature condition to a
+rule. It only runs when the outdoor temperature is below the knee. The
+suggestion appears when the device uses clearly more energy in cold weeks than
+in warm ones.
+
+### Year course of a learned value
+
+The rule card draws the course of a learned value over the year as a small line
+under its scale. A sentence names the month with the highest value and the month
+with the lowest. The line appears from 8 weeks of data on.
+
 ## Where a switch came from
 
 The learning features record where each switching command comes from. The
