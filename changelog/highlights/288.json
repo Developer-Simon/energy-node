@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Eine Wiederherstellung bleibt erhalten, auch wenn der Akkustand nicht geschrieben werden kann. Sie endet dann mit einem Hinweis statt mit einem Rollback."
+  },
+  "en": {
+    "*": "Keep a restore alive without battery state and show its result"
+  }
+}
