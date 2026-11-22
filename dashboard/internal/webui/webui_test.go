@@ -159,7 +159,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=5,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/device-picker.js?v=2,/static/js/learning-settings.js?v=2,/static/js/settings-field.js?v=1,/static/js/settings.page.js?v=40",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/device-picker.js?v=2,/static/js/learning-settings.js?v=2,/static/js/settings-field.js?v=1,/static/js/settings.page.js?v=41",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -1141,7 +1141,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=53"`,
+		`href="/node/static/css/base.css?v=54"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -4657,7 +4657,7 @@ func TestBackupAssetsAreRegisteredOnTheShell(t *testing.T) {
 	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/backup.css?v=2"`) {
 		t.Fatal("backup.css ist nicht als Stylesheet der Unterseite Backup eingetragen")
 	}
-	if !strings.Contains(page, "static/js/settings.page.js?v=40") {
+	if !strings.Contains(page, "static/js/settings.page.js?v=41") {
 		t.Fatal("settings.page.js ist nicht auf v=40 hochgezaehlt")
 	}
 }
