@@ -119,14 +119,15 @@ test('weekRanges joins runs', () => {
 
 const NOW = 1794000000;
 
-test('learnedGroups lists all five site keys and marks missing ones', () => {
+test('learnedGroups lists all eight site keys and marks missing ones', () => {
   const values = [{ key: 'site/day_start', kind: 'time', value: '06:10', n: 4, at: NOW - 60, changed_at: NOW - 300 }];
   const groups = M.learnedGroups(values, NOW, t);
   assert.equal(groups[0].id, 'site');
-  assert.equal(groups[0].total, 5);
+  assert.equal(groups[0].total, 8);
   assert.equal(groups[0].have, 1);
   assert.deepEqual(groups[0].rows.map((r) => r.key), [
     'site/day_start', 'site/night_rest', 'site/house_state', 'site/pv_reserve_w', 'site/surplus_left_wh',
+    'site/base_w', 'site/battery_full_at', 'site/night_wh',
   ]);
   const dayStart = groups[0].rows[0];
   assert.equal(dayStart.have, true);
@@ -136,6 +137,18 @@ test('learnedGroups lists all five site keys and marks missing ones', () => {
   assert.equal(missing.value, 'monitoring.learned.missing');
   assert.equal(missing.meta, 'monitoring.learned.missing_days');
   assert.equal(groups[0].rows[3].meta, 'monitoring.learned.missing_pv');
+});
+
+test('learnedGroups shows the night energy with its unit and the battery time', () => {
+  const values = [
+    { key: 'site/night_wh', kind: 'number', unit: 'Wh', value: 13200, n: 12, at: NOW - 60 },
+    { key: 'site/battery_full_at', kind: 'time', value: '11:15', n: 10, at: NOW - 60 },
+  ];
+  const rows = M.learnedGroups(values, NOW, t)[0].rows;
+  assert.equal(rows[7].key, 'site/night_wh');
+  assert.equal(rows[7].have, true);
+  assert.equal(rows[7].value, '13.200 Wh');
+  assert.equal(rows[6].value, 'monitoring.value.time{"time":"11:15"}');
 });
 
 test('learnedGroups orders device values on, off, runtime, power, cycle', () => {

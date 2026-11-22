@@ -157,7 +157,7 @@
   }
 
   // Lernwerte: Anlage mit festen Schlüsseln, Geräte nach Name, feste Reihenfolge der Gerätewerte.
-  const SITE_KEYS = ['day_start', 'night_rest', 'house_state', 'pv_reserve_w', 'surplus_left_wh'];
+  const SITE_KEYS = ['day_start', 'night_rest', 'house_state', 'pv_reserve_w', 'surplus_left_wh', 'base_w', 'battery_full_at', 'night_wh'];
   const RUN_KEYS = ['usual_runtime_s', 'op_power_w', 'cycle_wh'];
   const ORDER = ['usual_on', 'usual_off', 'usual_runtime_s', 'op_power_w', 'cycle_wh'];
   // Icons aus dem Sprite (base.html), keine neuen Zeichnungen.
@@ -166,6 +166,7 @@
     op_power_w: 'ico-gauge', cycle_wh: 'ico-flash',
     day_start: 'ico-sun', night_rest: 'ico-clock', house_state: 'ico-user',
     pv_reserve_w: 'ico-gauge', surplus_left_wh: 'ico-flash',
+    base_w: 'ico-gauge', battery_full_at: 'ico-clock', night_wh: 'ico-flash',
   };
 
   const isFiniteNumber = (v) => typeof v === 'number' && Number.isFinite(v);
