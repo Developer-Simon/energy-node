@@ -32,6 +32,13 @@ const (
 	// demoPVRuleID ist die Regel „PV-Überschuss, WP an“ der Demo. Sie schaltet die
 	// Wärmepumpe an, der Temperaturvorschlag der Demo gilt für sie.
 	demoPVRuleID = "regel_pv_ueberschuss_wp_an"
+	// demoRuleWashOn ist die Regel „Waschmaschine an bei Überschuss“ der Demo. Sie
+	// steht mit der Wärmepumpenregel auf derselben Schwelle, die Aus-Regel bildet
+	// mit ihr die Rückkopplung.
+	demoRuleWashOn = "regel_wasch_ueberschuss_an"
+	// demoCompetitionMin ist die Minute, zu der die Regeln der Konkurrenz an den
+	// Konkurrenztagen gleichzeitig schalten, 11:00.
+	demoCompetitionMin = 660.0
 
 	// demoPlugOffMin ist die Abschaltzeit der Balkonsteckdose, 22:30 in Minuten.
 	demoPlugOffMin = 1350
@@ -85,14 +92,15 @@ const demoHeatKneeC = 15.0
 
 // demoEntities ist die unique_id der Schalter je Gerät, wie sie die Registry hat.
 var demoEntities = map[string]string{
-	demoPlugBalkon: "plug_balkon_steckdose",
-	demoPlugDry:    "plug_entfeuchter_steckdose",
-	demoRelais:     "relais_keller_switch_1",
-	demoHeatPump:   "waermepumpe_mode",
+	demoPlugBalkon:   "plug_balkon_steckdose",
+	demoPlugDry:      "plug_entfeuchter_steckdose",
+	demoRelais:       "relais_keller_switch_1",
+	demoHeatPump:     "waermepumpe_mode",
+	demoWasherDevice: "waschmaschine_steckdose",
 }
 
 // demoWatts ist die Leistung der Demo-Geräte, wenn sie laufen.
-var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500}
+var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500, demoWasherDevice: 2000}
 
 // SeedDemo schreibt die Tagesdateien der letzten 21 Tage vor now in dir, für die
 // Geräte der Demo. Jede Datei trägt "fake": true, die Konsole der Demo entfernt
@@ -135,6 +143,8 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 	// Die Waschmaschine hat einen eigenen Zufallsstrom, damit die Geräte oben
 	// dieselben Bytes behalten.
 	wash := rand.New(rand.NewSource(demoSeed + 1))
+	// Die Wärmepumpenzyklen haben einen eigenen Zufallsstrom aus demselben Grund.
+	heat := rand.New(rand.NewSource(demoSeed + 3))
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	out := make([]DayFile, 0, demoSeedDays)
 	for i := 0; i < demoSeedDays; i++ {
@@ -232,6 +242,13 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 
 		b.solar(i)
 		b.washer(i, wash)
+		b.battery()
+		if i < demoAwayFrom || i > demoAwayTo {
+			b.heatCycle(heat)
+		}
+		if demoCompetitionDays[i] {
+			b.competition()
+		}
 		b.fill(rng)
 		out = append(out, b.f)
 	}
@@ -262,6 +279,11 @@ const (
 
 // demoCloudyDays sind die Tagesindizes mit bedecktem Himmel.
 var demoCloudyDays = map[int]bool{4: true, 11: true, 18: true}
+
+// demoCompetitionDays sind die Tagesindizes, an denen die Regeln der Wärmepumpe
+// und der Waschmaschine um elf Uhr gleichzeitig auslösen. Sechs Tage in den letzten
+// vierzehn reichen für die Konkurrenz.
+var demoCompetitionDays = map[int]bool{10: true, 12: true, 14: true, 16: true, 18: true, 20: true}
 
 // demoEcoCycleDays und demoShortCycleDays sind die Tagesindizes mit einem
 // Eco-Zyklus (12 Tage) oder einem kurzen Zyklus (4 Tage) der Waschmaschine.
@@ -329,6 +351,53 @@ func (b *demoBuilder) washer(i int, rng *rand.Rand) {
 	rec.DurS = int(float64(rec.Wh) / float64(rec.OpW) * 3600)
 	rec.End = "self"
 	b.f.Cycles = append(b.f.Cycles, rec)
+}
+
+// heatCycle schreibt den Zyklus der Wärmepumpe des Tages, 1400 Wh bei 1500 W, um
+// acht Uhr. Die Konkurrenz lernt daraus die Betriebsleistung der Wärmepumpe.
+func (b *demoBuilder) heatCycle(rng *rand.Rand) {
+	wh := 1400 + 50*rng.NormFloat64()
+	opW := 1500 + 50*rng.NormFloat64()
+	rec := CycleRec{Device: demoHeatPump, Wh: float32(wh), OpW: float32(opW)}
+	rec.Start = b.at(480).Unix()
+	rec.DurS = int(wh / opW * 3600)
+	rec.End = "self"
+	b.f.Cycles = append(b.f.Cycles, rec)
+}
+
+// competition schreibt die Konkurrenz des Tages: die Regel der Wärmepumpe und die
+// Regel der Waschmaschine schalten um elf Uhr im selben Viertel ein, die
+// Waschmaschine läuft dann eine Stunde.
+func (b *demoBuilder) competition() {
+	b.actionFor(demoCompetitionMin, demoPVRuleID, demoHeatPump, true)
+	b.actionFor(demoCompetitionMin, demoRuleWashOn, demoWasherDevice, true)
+	b.emit(demoCompetitionMin, demoWasherDevice, true, OriginRule, demoRuleWashOn)
+	b.emit(demoCompetitionMin+60, demoWasherDevice, false, OriginRule, demoRuleWashOn)
+}
+
+// demoSoC ist der Ladestand des Hausakkus in Prozent zur Minute m ab Mitternacht.
+// Der Akku liegt vor dem Morgen bei 35 Prozent, lädt bis 10:00 auf 97 Prozent,
+// hält sie bis 17:00 und sinkt bis Mitternacht auf 30 Prozent. Der niedrigste
+// Stand des Tages liegt damit am Abend, der Morgen bleibt über der Leergrenze.
+func demoSoC(m float64) float64 {
+	switch {
+	case m < 360:
+		return 35
+	case m < 600:
+		return 35 + 62*(m-360)/240
+	case m < 1020:
+		return 97
+	default:
+		return 97 - 67*(m-1020)/405
+	}
+}
+
+// battery setzt den Ladestand des Tages je Viertelstunde.
+func (b *demoBuilder) battery() {
+	for q := range b.f.Site.SoC {
+		v := float32(demoSoC(float64(q) * baseQuarterMin))
+		b.f.Site.SoC[q] = &v
+	}
 }
 
 // demoTodayC ist die Außentemperatur des angefangenen Demo-Tages, so kalt wie
@@ -492,8 +561,13 @@ func (b *demoBuilder) clear() {
 
 // action schreibt die Regelaktion zu einem Schaltvorgang der Regel demoRuleID.
 func (b *demoBuilder) action(minute float64, device string, on bool) {
+	b.actionFor(minute, demoRuleID, device, on)
+}
+
+// actionFor schreibt die Regelaktion einer Regel zu einem Schaltvorgang.
+func (b *demoBuilder) actionFor(minute float64, rule, device string, on bool) {
 	want := on
-	b.f.Actions = append(b.f.Actions, ActionRec{At: b.at(minute).Unix(), Rule: demoRuleID, Device: device,
+	b.f.Actions = append(b.f.Actions, ActionRec{At: b.at(minute).Unix(), Rule: rule, Device: device,
 		Entity: demoEntities[device], Want: &want, There: false, OK: true, Reaction: 2.4})
 }
 

@@ -167,6 +167,16 @@ func TestDemoSeedYieldsFourFindings(t *testing.T) {
 	}
 }
 
+// learnedEntriesOf gives the learned numbers of the values by key, the way the
+// learned store hands them to the energy checks.
+func learnedEntriesOf(vals []Value) map[string]LearnedEntry {
+	out := make(map[string]LearnedEntry, len(vals))
+	for _, v := range vals {
+		out[v.Key] = LearnedEntry{Key: v.Key, Device: v.Device, Unit: v.Unit, Value: v.Num, N: v.N}
+	}
+	return out
+}
+
 // demoEngineRun seeds the demo days into dir and runs the real engine over them
 // at the daily slot, the way the dashboard does at 03:30.
 func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) *Engine {
@@ -183,9 +193,12 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 		func() learnrec.Limits { return learnrec.LimitsFor(learnrec.LevelBalanced, 4) },
 		loc)
 	for _, d := range []Detector{SwitchTimeDetector, RuntimeDetector, CouplingDetector, OverriddenDetector,
-		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector} {
+		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector,
+		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector} {
 		e.Register(d)
 	}
+	// The energy checks read the operating powers the engine learned before them.
+	e.SetLearned(func() map[string]LearnedEntry { return learnedEntriesOf(e.Values()) })
 	season := LoadSeasonStore("", noLog)
 	for _, w := range DemoSeason(now) {
 		season.Put(w)
@@ -200,6 +213,11 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 	for i := 0; i < 3; i++ {
 		e.Tick(time.Date(now.Year(), now.Month(), now.Day(), 3, 30, 0, 0, loc), groups)
 	}
+	// The energy checks read the learned operating powers of the day before, so
+	// the next day's daily round and a light round after it see them.
+	next := time.Date(now.Year(), now.Month(), now.Day()+1, 3, 30, 0, 0, loc)
+	e.Tick(next, groups)
+	e.Tick(next.Add(time.Hour), groups)
 	return e
 }
 
@@ -663,5 +681,22 @@ func TestDemoShadeCurveSkipsTheRunningDay(t *testing.T) {
 	// 14:00 is quarter 56, after now, so only a past day has PV there.
 	if len(ev.Quarters) != dayQuarters || ev.Quarters[56] <= 0 {
 		t.Fatalf("shade curve has no afternoon PV, it shows the running day: %+v", ev)
+	}
+}
+
+// TestDemoSeedYieldsEnergyFindings checks that the demo pipeline yields the
+// energy findings: a feedback pair, two competing loads and a battery that is
+// full early.
+func TestDemoSeedYieldsEnergyFindings(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	kinds := map[string]bool{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		kinds[c.Finding.Kind] = true
+	}
+	for _, kind := range []string{"feedback", "competition", "battery"} {
+		if !kinds[kind] {
+			t.Errorf("no %s finding in the demo pipeline, kinds %v", kind, kinds)
+		}
 	}
 }
