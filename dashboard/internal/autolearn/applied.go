@@ -106,12 +106,23 @@ func OpsApplied(fix Fix, doc Doc) bool {
 	}
 	seen := false
 	for _, g := range groups {
-		rule := ruleNamed(doc, g.RuleID)
-		if rule == nil {
+		// A regulator fix names a scenario by its ID, a rule fix names a rule.
+		if rule := ruleNamed(doc, g.RuleID); rule != nil {
+			for _, op := range g.Ops {
+				got, ok := ruleValueAt(*rule, op.Path)
+				if !ok || !sameValue(got, op.Value) {
+					return false
+				}
+				seen = true
+			}
+			continue
+		}
+		sc := scenarioNamed(doc, g.RuleID)
+		if sc == nil {
 			return false
 		}
 		for _, op := range g.Ops {
-			got, ok := ruleValueAt(*rule, op.Path)
+			got, ok := scenarioValueAt(*sc, op.Path)
 			if !ok || !sameValue(got, op.Value) {
 				return false
 			}
@@ -129,6 +140,38 @@ func ruleNamed(doc Doc, id string) *Rule {
 		}
 	}
 	return nil
+}
+
+// scenarioNamed returns the scenario with the given ID, nil without one.
+func scenarioNamed(doc Doc, id string) *Scenario {
+	for i := range doc.Scenarios {
+		if doc.Scenarios[i].ID == id {
+			return &doc.Scenarios[i]
+		}
+	}
+	return nil
+}
+
+// scenarioValueAt reads the regulator fields that the regulator fixes write:
+// while.regulator.gain, deadband_w and max_change_w. A scenario without a
+// regulator and any other path report false. Without a max_change_w limit the
+// value is nil, which no fix writes.
+func scenarioValueAt(sc Scenario, path []any) (any, bool) {
+	if sc.Regulator == nil || len(path) != 3 || path[0] != "while" || path[1] != "regulator" {
+		return nil, false
+	}
+	switch path[2] {
+	case "gain":
+		return sc.Regulator.Gain, true
+	case "deadband_w":
+		return sc.Regulator.DeadbandW, true
+	case "max_change_w":
+		if sc.Regulator.MaxChangeW == nil {
+			return nil, true
+		}
+		return *sc.Regulator.MaxChangeW, true
+	}
+	return nil, false
 }
 
 // ruleValueAt reads a rule field or a field of one condition, the paths the

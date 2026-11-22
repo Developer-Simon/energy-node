@@ -3551,6 +3551,55 @@ test('applyFix does not half-apply when only one of two paths resolves', () => {
   assert.equal(component.document.rules[0].conditions[0].hysteresis, 0);
 });
 
+test('applyFix on a regulator finding writes the gain into the scenario draft and opens it', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+  ], scenarios: [
+    { id: 'reg', name: 'Regler', enabled: true, while: { mode: 'regulate', regulator: { gain: 0.8, deadband_w: 20 } } },
+  ] };
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  component.applyFix({ code: 'regulator', rule_id: 'reg', ops: [
+    { path: ['while', 'regulator', 'gain'], value: 0.5 },
+    { path: ['while', 'regulator', 'deadband_w'], value: 40 },
+  ] });
+  assert.equal(component.document.scenarios[0].while.regulator.gain, 0.5);
+  assert.equal(component.document.scenarios[0].while.regulator.deadband_w, 40);
+  assert.deepEqual(started, [], 'a scenario is opened in its own editor, not the rule editor');
+  assert.equal(component.view, 'scenarios');
+  assert.equal(component.scenarioEditing.reg, true);
+  assert.equal(component.scenarioExpanded.reg, true);
+});
+
+test('applyFix with a rule and a scenario group writes both or none', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+  ], scenarios: [
+    { id: 'reg', name: 'Regler', enabled: true, while: { mode: 'regulate', regulator: { gain: 0.8 } } },
+  ] };
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  component.applyFix({ code: 'mixed', rule_id: 'r1', ops: [], rules: [
+    { rule_id: 'r1', ops: [{ path: ['conditions', 0, 'threshold'], value: 120 }] },
+    { rule_id: 'reg', ops: [{ path: ['while', 'regulator', 'gain'], value: 0.5 }] },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].threshold, 120);
+  assert.equal(component.document.scenarios[0].while.regulator.gain, 0.5);
+  assert.deepEqual(started, ['r1']);
+  assert.equal(component.scenarioExpanded.reg, true);
+
+  component.document.rules[0].conditions[0].threshold = 100;
+  component.document.scenarios[0].while.regulator.gain = 0.8;
+  component.applyFix({ code: 'mixed', rule_id: 'r1', ops: [], rules: [
+    { rule_id: 'r1', ops: [{ path: ['conditions', 0, 'threshold'], value: 120 }] },
+    { rule_id: 'reg', ops: [{ path: ['while', 'regulator', 'gain', 'x'], value: 0.5 }] },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].threshold, 100, 'the second group does not resolve, nothing is written');
+  assert.equal(component.document.scenarios[0].while.regulator.gain, 0.8);
+});
+
 test('toggleFinding opens the popover and a second toggle closes it', () => {
   const { component } = createAutomationsPanel();
   component.findings = [sampleFinding];

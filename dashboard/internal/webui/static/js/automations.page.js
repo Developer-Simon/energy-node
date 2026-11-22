@@ -2322,22 +2322,26 @@
         return { parent: node, key: path[path.length - 1] };
       };
       const plans = groups.map((group) => {
+        // Ein Regler-Befund nennt ein Szenario mit derselben Id. Ein Szenario wird nur
+        // gesucht, wenn keine Regel dazu passt.
         const rule = this.document.rules.find((entry) => entry.id === group.rule_id);
-        if (!rule) return { rule: null, writes: [] };
+        const scenario = rule ? null : (this.document.scenarios || []).find((entry) => entry.id === group.rule_id);
+        const entry = rule || scenario || null;
+        if (!entry) return { entry: null, kind: null, writes: [] };
         // Ein add_condition nennt den Index, den die Bedingung beim Befund hatte.
         // Seitdem kann eine Bedingung dazugekommen sein, deshalb wird angehaengt.
         const writes = group.ops.map((op) => {
-          const target = targetOf(rule, op.path || []);
+          const target = targetOf(entry, op.path || []);
           if (group.code === 'add_condition') {
             return { target: target && Array.isArray(target.parent) ? { parent: target.parent, append: true } : null, value: op.value };
           }
           return { target, value: op.value };
         });
-        return { rule, writes };
+        return { entry, kind: rule ? 'rule' : 'scenario', writes };
       });
-      const opened = plans.map((plan) => plan.rule).filter(Boolean);
+      const opened = plans.filter((plan) => plan.entry);
       if (opened.length === 0) return;
-      if (plans.every((plan) => plan.rule && plan.writes.every((write) => write.target))) {
+      if (plans.every((plan) => plan.entry && plan.writes.every((write) => write.target))) {
         plans.forEach((plan) => plan.writes.forEach((write) => {
           if (write.target.append) write.target.parent.push(write.value);
           else write.target.parent[write.target.key] = write.value;
@@ -2346,8 +2350,19 @@
           this.appliedFindingIds = [...this.appliedFindingIds, finding.id];
         }
       }
-      this.startEditing(opened[0]);
-      opened.forEach((rule) => { this.expanded[rule.id] = true; });
+      // Geoeffnet wird der erste gefundene Eintrag: eine Regel im Editor, ein Szenario
+      // im Editor des Szenario-Reiters. Alle gefundenen Eintraege klappen auf.
+      const first = opened[0];
+      if (first.kind === 'rule') {
+        this.startEditing(first.entry);
+      } else {
+        this.view = 'scenarios';
+        this.scenarioEditing[first.entry.id] = true;
+      }
+      opened.forEach((plan) => {
+        if (plan.kind === 'rule') this.expanded[plan.entry.id] = true;
+        else this.scenarioExpanded[plan.entry.id] = true;
+      });
       this.closeFinding();
     },
     postFindingIgnore(id, undo) {
