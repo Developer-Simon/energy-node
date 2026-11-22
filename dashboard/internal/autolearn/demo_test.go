@@ -194,7 +194,7 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 		loc)
 	for _, d := range []Detector{SwitchTimeDetector, RuntimeDetector, CouplingDetector, OverriddenDetector,
 		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector,
-		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector} {
+		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector, BaseLoadDetector} {
 		e.Register(d)
 	}
 	// The energy checks read the operating powers the engine learned before them.
@@ -338,8 +338,8 @@ func TestDemoSeedWritesGzipDayFilesAndIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != demoSeedDays {
-		t.Fatalf("files = %d, want %d", len(entries), demoSeedDays)
+	if len(entries) != 2*demoSeedDays {
+		t.Fatalf("files = %d, want %d", len(entries), 2*demoSeedDays)
 	}
 	for _, e := range entries {
 		a, err := os.ReadFile(filepath.Join(dirA, e.Name()))
@@ -449,8 +449,8 @@ func TestDemoOutdoorSensorIsInBrokerAndSettings(t *testing.T) {
 func TestDemoSeasonYearCourseOfBedtime(t *testing.T) {
 	now := time.Date(2026, 11, 21, 9, 0, 0, 0, berlinLoc(t))
 	weeks := DemoSeason(now)
-	if len(weeks) != demoSeasonWeeks || demoSeasonWeeks < 20 {
-		t.Fatalf("season weeks = %d, want %d (at least 20)", len(weeks), demoSeasonWeeks)
+	if len(weeks) != demoSeasonWeeks+demoPriorWeeks+1 || demoSeasonWeeks < 20 {
+		t.Fatalf("season weeks = %d, want %d (at least 20)", len(weeks), demoSeasonWeeks+demoPriorWeeks+1)
 	}
 	count := 0
 	for _, w := range weeks {
@@ -529,10 +529,11 @@ func TestDemoSeedClockAndSunHabitsContrast(t *testing.T) {
 			codes[c.Finding.ID] = c.Finding.Summary.Code
 		}
 	}
+	// With 42 days the relay carries the sun habit of switching on, the balcony plug follows it by coupling.
 	want := map[string]string{
 		"switch_time:" + demoRelais + ":off:0:1830":     "switch_time.sun_off",
 		"switch_time:" + demoPlugBalkon + ":off:0:2230": "switch_time.off",
-		"switch_time:" + demoPlugBalkon + ":on:0:1700":  "switch_time.sun_on",
+		"switch_time:" + demoRelais + ":on:0:1700":      "switch_time.sun_on",
 	}
 	for id, code := range want {
 		if codes[id] != code {
@@ -685,18 +686,25 @@ func TestDemoShadeCurveSkipsTheRunningDay(t *testing.T) {
 }
 
 // TestDemoSeedYieldsEnergyFindings checks that the demo pipeline yields the
-// energy findings: a feedback pair, two competing loads and a battery that is
-// full early.
+// energy findings: a feedback pair, two competing loads, a battery that is
+// full early and empty before morning, and a rising base load.
 func TestDemoSeedYieldsEnergyFindings(t *testing.T) {
 	loc := berlinLoc(t)
 	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]bool{}
 	kinds := map[string]bool{}
 	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = true
 		kinds[c.Finding.Kind] = true
 	}
-	for _, kind := range []string{"feedback", "competition", "battery"} {
+	for _, kind := range []string{"feedback", "competition", "baseload"} {
 		if !kinds[kind] {
 			t.Errorf("no %s finding in the demo pipeline, kinds %v", kind, kinds)
+		}
+	}
+	for _, id := range []string{"battery:full", "battery:empty"} {
+		if !ids[id] {
+			t.Errorf("no %s finding in the demo pipeline, ids %v", id, ids)
 		}
 	}
 }

@@ -39,6 +39,14 @@ const (
 	// demoCompetitionMin ist die Minute, zu der die Regeln der Konkurrenz an den
 	// Konkurrenztagen gleichzeitig schalten, 11:00.
 	demoCompetitionMin = 660.0
+	// demoRiseFrom ist der Tagesindex, ab dem ein nicht gemessener Verbraucher
+	// die Grundlast um demoRiseW hebt. TUNABLE
+	demoRiseFrom = 12
+	// demoRiseW ist der Anstieg der Grundlast in W. TUNABLE
+	demoRiseW = 80.0
+	// demoPriorWeeks ist die Zahl der Wochen vor now, für die das Vorjahr einen
+	// Anteil leerer Morgen trägt. Sie deckt die 42 Demo-Tage ab.
+	demoPriorWeeks = 8
 
 	// demoPlugOffMin ist die Abschaltzeit der Balkonsteckdose, 22:30 in Minuten.
 	demoPlugOffMin = 1350
@@ -102,8 +110,8 @@ var demoEntities = map[string]string{
 // demoWatts ist die Leistung der Demo-Geräte, wenn sie laufen.
 var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500, demoWasherDevice: 2000}
 
-// SeedDemo schreibt die Tagesdateien der letzten 21 Tage vor now in dir, für die
-// Geräte der Demo. Jede Datei trägt "fake": true, die Konsole der Demo entfernt
+// SeedDemo schreibt die Tagesdateien der letzten 42 Tage vor now in dir (zweimal
+// das 21-Tage-Muster), für die Geräte der Demo. Jede Datei trägt "fake": true, die Konsole der Demo entfernt
 // nur solche. Das Ergebnis ist fest, derselbe Aufruf schreibt dieselben Bytes.
 // Der Aufrufer prüft, ob dir leer ist.
 func SeedDemo(dir string, now time.Time, loc *time.Location) error {
@@ -111,7 +119,11 @@ func SeedDemo(dir string, now time.Time, loc *time.Location) error {
 		loc = time.Local
 	}
 	store := &DayStore{dir: dir}
-	for _, f := range demoDays(now.In(loc), loc) {
+	// Vor den 21 Tagen liegt dasselbe Muster ein zweites Mal, ohne Anstieg. So hat
+	// die Grundlast genug Nächte für ihre Referenz.
+	days := demoDaysWith(now.In(loc).AddDate(0, 0, -demoSeedDays), loc, false)
+	days = append(days, demoDays(now.In(loc), loc)...)
+	for _, f := range days {
 		if err := store.writeFile(f.Day, f); err != nil {
 			return fmt.Errorf("autolearn: demo seed: %w", err)
 		}
@@ -136,9 +148,15 @@ type demoChange struct {
 	on     bool
 }
 
-// demoDays erzeugt die 21 Tage vor dem heutigen Tag. Die Zeiten sind zufällig
-// nur innerhalb ihrer Grenzen, der Zufall hat den festen Seed demoSeed.
+// demoDays erzeugt die 21 Tage vor dem heutigen Tag mit dem Grundlastanstieg.
 func demoDays(now time.Time, loc *time.Location) []DayFile {
+	return demoDaysWith(now, loc, true)
+}
+
+// demoDaysWith erzeugt die 21 Tage vor dem heutigen Tag. rise hebt die Grundlast
+// der letzten Nächte um demoRiseW (demoRiseFrom). Die Zeiten sind zufällig
+// nur innerhalb ihrer Grenzen, der Zufall hat den festen Seed demoSeed.
+func demoDaysWith(now time.Time, loc *time.Location, rise bool) []DayFile {
 	rng := rand.New(rand.NewSource(demoSeed))
 	// Die Waschmaschine hat einen eigenen Zufallsstrom, damit die Geräte oben
 	// dieselben Bytes behalten.
@@ -250,6 +268,9 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 			b.competition()
 		}
 		b.fill(rng)
+		if rise && i >= demoRiseFrom {
+			b.riseBase()
+		}
 		out = append(out, b.f)
 	}
 	return out
@@ -376,19 +397,21 @@ func (b *demoBuilder) competition() {
 }
 
 // demoSoC ist der Ladestand des Hausakkus in Prozent zur Minute m ab Mitternacht.
-// Der Akku liegt vor dem Morgen bei 35 Prozent, lädt bis 10:00 auf 97 Prozent,
-// hält sie bis 17:00 und sinkt bis Mitternacht auf 30 Prozent. Der niedrigste
-// Stand des Tages liegt damit am Abend, der Morgen bleibt über der Leergrenze.
+// Der Akku sinkt bis 05:00 von 30 auf 6 Prozent und bleibt dort bis 08:00, also
+// leer vor Sonnenaufgang. Er lädt bis 10:00 auf 97 Prozent, hält sie bis 17:00
+// und sinkt bis Mitternacht wieder auf 30 Prozent.
 func demoSoC(m float64) float64 {
 	switch {
-	case m < 360:
-		return 35
+	case m < 300:
+		return 30 - 24*m/300
+	case m < 480:
+		return 6
 	case m < 600:
-		return 35 + 62*(m-360)/240
+		return 6 + 91*(m-480)/120
 	case m < 1020:
 		return 97
 	default:
-		return 97 - 67*(m-1020)/405
+		return 97 - 67*(m-1020)/420
 	}
 }
 
@@ -397,6 +420,15 @@ func (b *demoBuilder) battery() {
 	for q := range b.f.Site.SoC {
 		v := float32(demoSoC(float64(q) * baseQuarterMin))
 		b.f.Site.SoC[q] = &v
+	}
+}
+
+// riseBase hebt die Last des ganzen Tages um demoRiseW, ein Verbraucher ohne
+// eigene Messung. Netzbezug folgt der Last.
+func (b *demoBuilder) riseBase() {
+	for q := range b.f.Site.LoadTotal {
+		b.f.Site.LoadTotal[q] += float32(demoRiseW)
+		b.f.Site.GridImport[q] = b.f.Site.LoadTotal[q]
 	}
 }
 
@@ -634,6 +666,14 @@ func DemoSeason(now time.Time) []Week {
 			Triggers: map[string]float64{demoRuleID: 5, demoPVRuleID: 5},
 			Learned:  map[string]float64{demoBedtimeKey: demoBedtimeMin + 6*math.Sin(float64(k))},
 		})
+	}
+	// Dieselben Wochen ein Jahr früher: der Akku war damals selten leer. Damit
+	// meldet die Demo „Akku ist nachts leer“.
+	share := 0.1
+	for k := 0; k <= demoPriorWeeks; k++ {
+		y, w := now.AddDate(0, 0, -7*k).ISOWeek()
+		s := share
+		out = append(out, Week{Key: fmt.Sprintf("%d-W%02d", y-1, w), Source: seasonSourceDays, Days: 7, EmptyShare: &s})
 	}
 	return out
 }
