@@ -269,6 +269,13 @@
       return minutesLocation(choice, this.status);
     },
 
+    // Modus der Zeilen: auto zeigt den aufgeloesten Modus. Mit gekoppeltem Companion
+    // und ohne Laufwerk ist das Pausieren, sonst Immer. Ausdrueckliche Werte bleiben.
+    minutesModeOf(mode) {
+      if (mode !== 'auto') return mode;
+      return this.minutesMeta.companion && !this.minutesDriveConfigured ? 'pause_with_companion' : 'always';
+    },
+
     get minutesMeta() {
       return (this.status && this.status.minutes) || {};
     },
