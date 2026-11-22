@@ -31,6 +31,10 @@ const (
 	// baseloadMinNights is the number of nights for a drift: the reference and
 	// seven more. The spec gives no number, the value is an assumption.
 	baseloadMinNights = 35
+	// baseloadSeasonMinNights is the number of nights for a drift when every
+	// night has its expectation from the earlier years. The reference of the
+	// window is not needed then.
+	baseloadSeasonMinNights = 14
 	// baseloadMinYears is the number of earlier weeks that make the expectation
 	// of a week, the earlier years of the season store.
 	baseloadMinYears = 3
@@ -85,7 +89,7 @@ func baseLoadRun(ctx context.Context, in *Input, _ string) []Candidate {
 			})
 		}
 	}
-	if len(ns) >= baseloadMinNights {
+	if len(ns) >= baseloadMinNights || (len(ns) >= baseloadSeasonMinNights && baseloadSeasonKnown(in, ns)) {
 		if len(ns) > baseloadWindow {
 			ns = ns[len(ns)-baseloadWindow:]
 		}
@@ -270,6 +274,26 @@ func baseloadExpect(in *Input, ns []baseloadNight) []float64 {
 		}
 	}
 	return exp
+}
+
+// baseloadSeasonKnown reports whether every night has its expectation from the
+// same weeks of baseloadMinYears earlier years, as baseloadExpect uses it.
+func baseloadSeasonKnown(in *Input, ns []baseloadNight) bool {
+	if in.Season == nil || len(ns) == 0 {
+		return false
+	}
+	for _, n := range ns {
+		count := 0
+		for _, w := range in.Season.Same(n.week, baseloadMinYears) {
+			if w.BaseW > 0 {
+				count++
+			}
+		}
+		if count < baseloadMinYears {
+			return false
+		}
+	}
+	return true
 }
 
 // baseloadDevice returns the device whose average night power rose by at least

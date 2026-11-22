@@ -2,6 +2,7 @@ package autolearn
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -211,5 +212,37 @@ func TestBaseLoadCUSUMFindsSustainedRiseOnly(t *testing.T) {
 	}
 	if _, ok := baseLoadCUSUM(down); ok {
 		t.Errorf("fall gave a drift")
+	}
+}
+
+// blSeason is a season store with the night base load of the fixture weeks in
+// the three years before the current year.
+func blSeason(baseW float64) *SeasonStore {
+	s := LoadSeasonStore("", func(string, ...any) {})
+	year := time.Now().Year()
+	for k := 1; k <= 3; k++ {
+		for w := 30; w <= 45; w++ {
+			s.Put(Week{Key: fmt.Sprintf("%d-W%02d", year-k, w), Source: seasonSourceDays, Days: 7, BaseW: baseW})
+		}
+	}
+	return s
+}
+
+func TestBaseLoadDriftWithSeasonNeedsOnlyFourteenNights(t *testing.T) {
+	in := blInput(20, func(i int) float64 {
+		if i < 10 {
+			return 180
+		}
+		return 260
+	}, nil)
+	in.Devices = map[string]DeviceInfo{}
+	in.Season = blSeason(180)
+	findings, _ := blSplit(in)
+	if len(findings) != 1 {
+		t.Fatalf("20 nights with a season expectation gave %d findings, want 1", len(findings))
+	}
+	in.Season = nil
+	if findings, _ := blSplit(in); len(findings) != 0 {
+		t.Fatalf("20 nights without a season gave %d findings, want none", len(findings))
 	}
 }
