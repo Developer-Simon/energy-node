@@ -228,6 +228,7 @@ func registerEnergyDetectors(e *autolearn.Engine, reserve func() (float64, bool,
 	e.Register(autolearn.LearnCyclesDetector)
 	e.Register(autolearn.NewLearnSurplusDetector(check))
 	e.Register(autolearn.SurplusDetector)
+	e.Register(autolearn.ShiftDetector)
 	e.Register(autolearn.ThresholdDetector)
 }
 
