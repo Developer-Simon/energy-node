@@ -988,6 +988,11 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-learn-lane-svg .auto-learn-mark-soll { stroke: var(--accent); }
 .auto-learn-lane-svg .auto-learn-mark-wide { stroke-width: 3; }
 .auto-learn-lane-svg .auto-learn-mark-threshold { stroke: var(--text-strong); }
+.auto-learn-lane-svg .auto-learn-curve { fill: none; stroke-width: 2; stroke-linejoin: round; }
+.auto-learn-lane-svg .auto-learn-curve.auto-learn-ist { stroke: var(--flow-rest); }
+.auto-learn-lane-svg .auto-learn-clear { fill: none; stroke: var(--accent); stroke-opacity: .45; stroke-width: 1.5; stroke-linejoin: round; }
+.auto-learn-lane-svg .auto-learn-best { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.auto-learn-lane-svg .auto-learn-throttled { fill: var(--accent-bg); stroke: none; }
 .auto-learn-axis { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: .5rem; }
 .auto-learn-axis-track { position: relative; height: 1.1rem; min-width: 0; }
 .auto-learn-ticks { position: absolute; top: 0; left: 0; width: 100%; height: 5px; overflow: visible; }

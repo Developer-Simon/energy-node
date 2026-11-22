@@ -929,6 +929,66 @@
     "payload": "OFF"
   },
   {
+    "topic": "homeassistant/switch/waschmaschine/steckdose/config",
+    "payload": {
+      "name": "Socket",
+      "unique_id": "waschmaschine_steckdose",
+      "state_topic": "plug/waschmaschine/output",
+      "command_topic": "plug/waschmaschine/output/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "plug/waschmaschine/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "waschmaschine"
+        ],
+        "via_device": "energy_node",
+        "name": "Washing Machine"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/waschmaschine/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "waschmaschine_power",
+      "state_topic": "plug/waschmaschine/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "plug/waschmaschine/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "waschmaschine"
+        ],
+        "via_device": "energy_node",
+        "name": "Washing Machine"
+      }
+    }
+  },
+  {
+    "topic": "plug/waschmaschine/online",
+    "payload": "true"
+  },
+  {
+    "topic": "plug/waschmaschine/status",
+    "payload": {
+      "id": 0,
+      "apower": 0,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "plug/waschmaschine/output",
+    "payload": "OFF"
+  },
+  {
     "topic": "homeassistant/switch/relais_keller/switch_1/config",
     "payload": {
       "name": "Output 1",

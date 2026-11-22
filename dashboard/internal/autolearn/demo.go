@@ -132,6 +132,9 @@ type demoChange struct {
 // nur innerhalb ihrer Grenzen, der Zufall hat den festen Seed demoSeed.
 func demoDays(now time.Time, loc *time.Location) []DayFile {
 	rng := rand.New(rand.NewSource(demoSeed))
+	// Die Waschmaschine hat einen eigenen Zufallsstrom, damit die Geräte oben
+	// dieselben Bytes behalten.
+	wash := rand.New(rand.NewSource(demoSeed + 1))
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	out := make([]DayFile, 0, demoSeedDays)
 	for i := 0; i < demoSeedDays; i++ {
@@ -227,10 +230,203 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 			b.emit(demoStandbyMinutes, demoHeatPump, false, "", "")
 		}
 
+		b.solar(i)
+		b.washer(i, wash)
 		b.fill(rng)
 		out = append(out, b.f)
 	}
 	return out
+}
+
+// Die Sonne der Demo: ein Süddach mit 5 kW unter 30 Grad. Der Mittagsbereich
+// ist gedrosselt, ein Schatten liegt im Westen über dem Horizont. Der
+// Wetterfaktor k ist 0,9 an klaren Tagen und 0,4 an bedeckten.
+const (
+	demoPVPeakW     = 5000.0
+	demoPVTiltDeg   = 30.0
+	demoPVAzDeg     = 180.0
+	demoPVAzCellDeg = 5.0
+	demoPVElCellDeg = 3.0
+	demoKClear      = 0.9
+	demoKCloudy     = 0.4
+	// demoNoonAz0 und demoNoonAz1 begrenzen den gedrosselten Mittagsbereich.
+	demoNoonAz0, demoNoonAz1 = 150.0, 210.0
+	demoNoonFactor           = 0.5
+	// demoShade* begrenzt den Schatten, je zwei Zellen in Azimut und Höhe.
+	demoShadeAz0, demoShadeAz1 = 220.0, 230.0
+	demoShadeEl0, demoShadeEl1 = 12.0, 18.0
+	demoShadeFactor            = 0.4
+	// demoWasherDevice ist die Waschmaschine, deren Zyklen die Demo schreibt.
+	demoWasherDevice = "waschmaschine"
+)
+
+// demoCloudyDays sind die Tagesindizes mit bedecktem Himmel.
+var demoCloudyDays = map[int]bool{4: true, 11: true, 18: true}
+
+// demoEcoCycleDays und demoShortCycleDays sind die Tagesindizes mit einem
+// Eco-Zyklus (12 Tage) oder einem kurzen Zyklus (4 Tage) der Waschmaschine.
+var (
+	demoEcoCycleDays   = map[int]bool{0: true, 1: true, 3: true, 5: true, 6: true, 7: true, 11: true, 12: true, 15: true, 18: true, 19: true, 20: true}
+	demoShortCycleDays = map[int]bool{4: true, 9: true, 13: true, 17: true}
+)
+
+// demoKWeather ist der Wetterfaktor k des Tagesindex i.
+func demoKWeather(i int) float64 {
+	if demoCloudyDays[i] {
+		return demoKCloudy
+	}
+	return demoKClear
+}
+
+// demoPVFactor ist der Faktor der Drosselung und des Schattens an einer Himmelsposition.
+func demoPVFactor(az, el float64) float64 {
+	f := 1.0
+	if az >= demoNoonAz0 && az < demoNoonAz1 {
+		f *= demoNoonFactor
+	}
+	if az >= demoShadeAz0 && az < demoShadeAz1 && el >= demoShadeEl0 && el < demoShadeEl1 {
+		f *= demoShadeFactor
+	}
+	return f
+}
+
+// demoPVW ist die PV-Leistung in W des Demo-Dachs an einer Himmelsposition bei
+// dem Wetterfaktor k. Unter drei Grad Sonnenhöhe ist sie 0.
+func demoPVW(az, el, k float64) float64 {
+	if el < pvRasterMinElDeg {
+		return 0
+	}
+	return k * demoPVPeakW * pvGeom(az, el, demoPVTiltDeg, demoPVAzDeg) * demoPVFactor(az, el)
+}
+
+// solar setzt den Wetterfaktor und die PV-Leistung des Tages je Viertelstunde.
+func (b *demoBuilder) solar(i int) {
+	k := demoKWeather(i)
+	for q := range b.f.Site.K {
+		kv := float32(k)
+		b.f.Site.K[q] = &kv
+		az, el := sun.Position(shadeQuarterTime(b.day, q), demoLat, demoLon)
+		b.f.Site.PV[q] = float32(demoPVW(az, el, k))
+	}
+}
+
+// washer schreibt die Zyklen der Waschmaschine des Tagesindex i: ein Eco-Zyklus
+// an den meisten Tagen, an vier Tagen ein kurzer Zyklus.
+func (b *demoBuilder) washer(i int, rng *rand.Rand) {
+	var rec CycleRec
+	switch {
+	case demoShortCycleDays[i]:
+		wh := 500 + 20*rng.NormFloat64()
+		rec = CycleRec{Wh: float32(wh), OpW: float32(1500 + 50*rng.NormFloat64())}
+	case demoEcoCycleDays[i]:
+		wh := 900 + 30*rng.NormFloat64()
+		rec = CycleRec{Wh: float32(wh), OpW: float32(2000 + 100*rng.NormFloat64())}
+	default:
+		return
+	}
+	rec.Device = demoWasherDevice
+	rec.Start = b.at(540 + float64(i%5)*30).Unix()
+	rec.DurS = int(float64(rec.Wh) / float64(rec.OpW) * 3600)
+	rec.End = "self"
+	b.f.Cycles = append(b.f.Cycles, rec)
+}
+
+// demoTodayC ist die Außentemperatur des angefangenen Demo-Tages, so kalt wie
+// die letzten Demo-Tage.
+const demoTodayC = 9.0
+
+// demoToday baut den angefangenen heutigen Tag bis vor die Viertelstunde von now:
+// nur die Werte des Hauses (Last, PV, Wetterfaktor eines klaren Tages,
+// Außentemperatur), keine Geräte und keine Schaltvorgänge. ok ist false in der
+// ersten Viertelstunde des Tages.
+func demoToday(now time.Time, loc *time.Location) (DayFile, bool) {
+	local := now.In(loc)
+	day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	q0 := (local.Hour()*60 + local.Minute()) / shadeQuarterMin
+	if q0 == 0 {
+		return DayFile{}, false
+	}
+	rng := rand.New(rand.NewSource(demoSeed + 2))
+	f := DayFile{V: dayFileVersion, Day: day.Format(dayLayout), Fake: true,
+		Devices: map[string]*DeviceDay{}, Events: []EventRec{}, Actions: []ActionRec{}}
+	for q := 0; q < q0; q++ {
+		k := float32(demoKClear)
+		temp := float32(demoTodayC)
+		az, el := sun.Position(shadeQuarterTime(day, q), demoLat, demoLon)
+		f.Site.Seen[q] = dayCounterMax
+		f.Site.K[q] = &k
+		f.Site.TempC[q] = &temp
+		f.Site.PV[q] = float32(demoPVW(az, el, demoKClear))
+		f.Site.LoadTotal[q] = float32(300 + 10*rng.NormFloat64())
+		f.Site.GridImport[q] = f.Site.LoadTotal[q]
+	}
+	return f, true
+}
+
+// SeedDemoToday schreibt den angefangenen heutigen Tag nach dir, damit der
+// Rest-Überschuss von heute in der Demo gleich nach dem Start einen Vergleich
+// hat. Der Tagesspeicher übernimmt die Datei beim Start und schreibt live weiter.
+// In der ersten Viertelstunde des Tages schreibt sie nichts.
+func SeedDemoToday(dir string, now time.Time, loc *time.Location) error {
+	if loc == nil {
+		loc = time.Local
+	}
+	f, ok := demoToday(now, loc)
+	if !ok {
+		return nil
+	}
+	store := &DayStore{dir: dir}
+	if err := store.writeFile(f.Day, f); err != nil {
+		return fmt.Errorf("autolearn: demo today: %w", err)
+	}
+	return nil
+}
+
+// DemoPVRaster liefert das Himmelsraster des Demo-Dachs: je Viertelstunde der
+// 21 Demo-Tage mit Sonnenstand die PV-Leistung, die auch die Tagesdateien tragen.
+// now bestimmt die Tage, lat und lon den Standort der Sonne.
+func DemoPVRaster(now time.Time, lat, lon float64) *Raster {
+	r := NewRaster(demoPVAzCellDeg, demoPVElCellDeg)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	for i := 0; i < demoSeedDays; i++ {
+		day := today.AddDate(0, 0, i-demoSeedDays)
+		k := demoKWeather(i)
+		for q := 0; q < dayQuarters; q++ {
+			az, el := sun.Position(shadeQuarterTime(day, q), lat, lon)
+			if el < pvRasterMinElDeg {
+				continue
+			}
+			r.Add(az, el, demoPVW(az, el, k), day.Format(dayLayout))
+		}
+	}
+	return r
+}
+
+// DemoPVModel passt das Dachmodell an das Demo-Raster an, so wie der nächtliche
+// Erkenner es täte.
+func DemoPVModel(r *Raster) PVModel {
+	m, _ := FitPV(r, 5, 2)
+	return m
+}
+
+// SeedDemoPV schreibt das Demo-Raster nach rasterPath und das Dachmodell nach
+// modelPath. Der Aufrufer schreibt sie nur beim ersten Start der Demo, zusammen
+// mit den Tagesdateien.
+func SeedDemoPV(rasterPath, modelPath string, now time.Time) error {
+	r := DemoPVRaster(now, demoLat, demoLon)
+	data := r.State()
+	if data == nil {
+		return fmt.Errorf("autolearn: demo raster could not be encoded")
+	}
+	if err := os.WriteFile(rasterPath, data, 0o644); err != nil {
+		return fmt.Errorf("autolearn: demo raster: %w", err)
+	}
+	store := NewPVModelStore(modelPath)
+	store.Set(DemoPVModel(r))
+	if err := store.Save(); err != nil {
+		return fmt.Errorf("autolearn: demo model: %w", err)
+	}
+	return nil
 }
 
 // demoOutdoorC ist die Tagesmitteltemperatur des Tagesindex i in °C. Die Reihe

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -512,5 +513,207 @@ func TestDayStoreOldFileWithoutTempLoads(t *testing.T) {
 	}
 	if got := days[0].Site.TempC[40]; got == nil || *got != 20 {
 		t.Errorf("temp_c = %v, want 20 from the minute of this run", got)
+	}
+}
+
+func socMinute(at time.Time, pct float64) learnrec.Frame {
+	f := frameWith(at, lampMinute(true, 100))
+	f.Balance = map[string]float64{"battery_soc": pct}
+	return f
+}
+
+func TestDayStoreSocQuarterMean(t *testing.T) {
+	loc := berlinLoc(t)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(socMinute(base, 50))
+	s.ObserveMinute(socMinute(base.Add(time.Minute), 52))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 || days[0].Site.SoC[40] == nil {
+		t.Fatalf("days = %+v, want SoC at quarter 40", days)
+	}
+	if got := *days[0].Site.SoC[40]; got != 51 {
+		t.Errorf("soc = %v, want 51", got)
+	}
+}
+
+func TestDayStoreSocOmittedWithoutValue(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	s := OpenDayStore(dir, loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(frameWith(base, lampMinute(true, 100)))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if raw := readRawDay(t, dir, "2026-11-19"); strings.Contains(raw, `"soc"`) {
+		t.Error("soc written without any battery value")
+	}
+}
+
+func kMinute(at time.Time, k float64) learnrec.Frame {
+	f := frameWith(at, lampMinute(true, 100))
+	f.Balance = map[string]float64{"k": k}
+	return f
+}
+
+func TestDayStoreKQuarterMean(t *testing.T) {
+	loc := berlinLoc(t)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(kMinute(base, 0.6))
+	s.ObserveMinute(kMinute(base.Add(time.Minute), 0.8))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 || days[0].Site.K[40] == nil {
+		t.Fatalf("days = %+v, want k at quarter 40", days)
+	}
+	if got := *days[0].Site.K[40]; math.Abs(float64(got)-0.7) > 1e-6 {
+		t.Errorf("k = %v, want 0.7", got)
+	}
+}
+
+func TestDayStoreKOmittedWithoutValue(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	s := OpenDayStore(dir, loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(frameWith(base, lampMinute(true, 100)))
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if raw := readRawDay(t, dir, "2026-11-19"); strings.Contains(raw, `"k"`) {
+		t.Error("k written without any weather value")
+	}
+}
+
+func TestDayStoreOldFileWithoutKLoads(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	first := OpenDayStore(dir, loc, keepAll, noLog)
+	first.ObserveMinute(frameWith(base, lampMinute(true, 100)))
+	if err := first.Save(); err != nil {
+		t.Fatal(err)
+	}
+	second := OpenDayStore(dir, loc, keepAll, noLog)
+	second.ObserveMinute(kMinute(base.Add(time.Minute), 0.9))
+	days := mustDays(t, second, base, base)
+	if len(days) != 1 || days[0].Devices["lamp"] == nil {
+		t.Fatalf("days = %+v, want the old day with its lamp data", days)
+	}
+	if got := days[0].Site.K[40]; got == nil || math.Abs(float64(*got)-0.9) > 1e-6 {
+		t.Errorf("k = %v, want 0.9 from the minute of this run", got)
+	}
+}
+
+// writeRawDay schreibt rohes JSON als gzip-Tagesdatei, wie eine alte Version es tat.
+func writeRawDay(t *testing.T, dir, day, data string) {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if _, err := zw.Write([]byte(data)); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, day+".json.gz"), buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDayStoreOldFileWithoutCyclesAndSocLoads(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	writeRawDay(t, dir, "2026-11-19", `{"v":1,"day":"2026-11-19","devices":{},"site":{},"events":[],"actions":[]}`)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s := OpenDayStore(dir, loc, keepAll, noLog)
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 {
+		t.Fatalf("days = %+v, want the old day", days)
+	}
+	if len(days[0].Cycles) != 0 || days[0].Site.SoC[40] != nil {
+		t.Errorf("cycles = %v, soc = %v, want none", days[0].Cycles, days[0].Site.SoC[40])
+	}
+}
+
+func TestDayStoreCyclesAndSocRoundTrip(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	s := OpenDayStore(dir, loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	soc := float32(55)
+	f := DayFile{V: dayFileVersion, Day: "2026-11-19", Devices: map[string]*DeviceDay{},
+		Events: []EventRec{}, Actions: []ActionRec{},
+		Cycles: []CycleRec{{Device: "washer", Start: base.Unix(), DurS: 3600, Wh: 1000,
+			OpW: 2000, PeakW: 2100, Grid: 0.5, PV: 0.5, Bat: 0, End: "self"}}}
+	f.Site.SoC[40] = &soc
+	if err := s.writeFile("2026-11-19", f); err != nil {
+		t.Fatal(err)
+	}
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 || len(days[0].Cycles) != 1 {
+		t.Fatalf("days = %+v, want one day with one cycle", days)
+	}
+	c := days[0].Cycles[0]
+	if c.Device != "washer" || c.DurS != 3600 || c.OpW != 2000 || c.End != "self" {
+		t.Errorf("cycle = %+v, want the washer cycle back", c)
+	}
+	if got := days[0].Site.SoC[40]; got == nil || *got != 55 {
+		t.Errorf("soc = %v, want 55", got)
+	}
+	if days[0].Site.SoC[41] != nil {
+		t.Errorf("soc[41] = %v, want nil", days[0].Site.SoC[41])
+	}
+}
+
+func TestDayStoreCyclesSurviveSaveOfLoadedDay(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	first := OpenDayStore(dir, loc, keepAll, noLog)
+	f := DayFile{V: dayFileVersion, Day: base.Format(dayLayout), Devices: map[string]*DeviceDay{},
+		Events: []EventRec{}, Actions: []ActionRec{}, Cycles: []CycleRec{{Device: "dryer", DurS: 90}}}
+	if err := first.writeFile(base.Format(dayLayout), f); err != nil {
+		t.Fatal(err)
+	}
+	second := OpenDayStore(dir, loc, keepAll, noLog)
+	second.ObserveMinute(frameWith(base, lampMinute(true, 100)))
+	if err := second.Save(); err != nil {
+		t.Fatal(err)
+	}
+	days := mustDays(t, second, base, base)
+	if len(days) != 1 || len(days[0].Cycles) != 1 || days[0].Cycles[0].Device != "dryer" {
+		t.Errorf("days = %+v, want the dryer cycle kept after a save", days)
+	}
+}
+
+func TestDayStoreAddCyclesRespectsExcludedAndEnabled(t *testing.T) {
+	loc := berlinLoc(t)
+	s := OpenDayStore(t.TempDir(), loc, keepAll, noLog)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	s.ObserveMinute(frameWith(base, lampMinute(true, 50)))
+
+	s.SetExcluded([]string{"fan"})
+	s.AddCycles([]CycleRec{{Device: "lamp", Start: base.Unix(), DurS: 120, End: "rule"}, {Device: "fan", Start: base.Unix()}})
+	s.SetEnabled(false)
+	s.AddCycles([]CycleRec{{Device: "lamp", Start: base.Unix() + 600}})
+	s.SetEnabled(true)
+
+	days := mustDays(t, s, base, base)
+	if len(days) != 1 {
+		t.Fatalf("days = %d, want 1", len(days))
+	}
+	if got := len(days[0].Cycles); got != 1 {
+		t.Fatalf("cycles = %d, want 1 (excluded and disabled dropped)", got)
+	}
+	if c := days[0].Cycles[0]; c.Device != "lamp" || c.End != "rule" || c.DurS != 120 {
+		t.Errorf("cycle = %+v", c)
 	}
 }

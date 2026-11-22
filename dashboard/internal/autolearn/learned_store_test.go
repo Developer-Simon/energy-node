@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -158,7 +161,7 @@ func TestLearnedStoreSaveAndLoadKeepEntries(t *testing.T) {
 		t.Fatalf("loaded %d entries, want %d", len(got), len(want))
 	}
 	for i := range want {
-		if got[i] != want[i] {
+		if !reflect.DeepEqual(got[i], want[i]) {
 			t.Errorf("entry %d = %+v, want %+v", i, got[i], want[i])
 		}
 	}
@@ -173,5 +176,133 @@ func TestLearnedStoreCorruptFileStartsEmpty(t *testing.T) {
 	s := LoadLearnedStore(path, func(string, ...any) { logged++ })
 	if got := s.Entries(); len(got) != 0 || logged != 1 {
 		t.Errorf("entries = %+v, logged %d, want none and one log line", got, logged)
+	}
+}
+
+func TestLearnedStoreNumberKindPublishesJSONNumber(t *testing.T) {
+	s := LoadLearnedStore(filepath.Join(t.TempDir(), "learned.json"), nil)
+	now := time.Date(2026, 11, 20, 10, 0, 0, 0, time.UTC)
+	msgs := s.Update([]Value{{Key: "site/pv_reserve_w", Kind: ValueNumber, Group: "habit",
+		Unit: "W", Num: 1700, N: 9}}, now, everyDevice)
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %+v, want one", msgs)
+	}
+	want := `{"value":1700,"n":9,"at":` + strconv.FormatInt(now.Unix(), 10) + `}`
+	if msgs[0].Payload != want {
+		t.Errorf("payload = %s, want %s", msgs[0].Payload, want)
+	}
+	if e := s.Entries()[0]; e.Unit != "W" || e.Estimate {
+		t.Errorf("entry = %+v, want unit W and no estimate", e)
+	}
+}
+
+func TestLearnedStoreEstimatePayloadCarriesFlag(t *testing.T) {
+	s := LoadLearnedStore(filepath.Join(t.TempDir(), "learned.json"), nil)
+	now := time.Date(2026, 11, 20, 10, 0, 0, 0, time.UTC)
+	msgs := s.Update([]Value{{Key: "site/pv_reserve_w", Kind: ValueNumber, Unit: "W",
+		Num: 850, N: 4, Estimate: true}}, now, everyDevice)
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %+v, want one", msgs)
+	}
+	want := `{"value":850,"n":4,"at":` + strconv.FormatInt(now.Unix(), 10) + `,"est":true}`
+	if msgs[0].Payload != want {
+		t.Errorf("payload = %s, want %s", msgs[0].Payload, want)
+	}
+	if e := s.Entries()[0]; !e.Estimate || e.Unit != "W" {
+		t.Errorf("entry = %+v, want estimate and unit W", e)
+	}
+}
+
+func TestLearnedStoreEstimateFlipRepublishesAfterChangeGap(t *testing.T) {
+	s := LoadLearnedStore(filepath.Join(t.TempDir(), "learned.json"), nil)
+	now := time.Date(2026, 11, 20, 10, 0, 0, 0, time.UTC)
+	measured := []Value{{Key: "site/pv_reserve_w", Kind: ValueNumber, Unit: "W", Num: 1700, N: 9}}
+	estimated := []Value{{Key: "site/pv_reserve_w", Kind: ValueNumber, Unit: "W", Num: 1700, N: 9, Estimate: true}}
+	s.Update(measured, now, everyDevice)
+	if msgs := s.Update(estimated, now.Add(5*time.Minute), everyDevice); len(msgs) != 0 {
+		t.Fatalf("flip after 5 min: %+v, want nothing", msgs)
+	}
+	msgs := s.Update(estimated, now.Add(16*time.Minute), everyDevice)
+	if len(msgs) != 1 {
+		t.Fatalf("flip after 16 min: %+v, want one message", msgs)
+	}
+	if !strings.Contains(msgs[0].Payload, `"est":true`) {
+		t.Errorf("payload = %s, want est true", msgs[0].Payload)
+	}
+	back := s.Update(measured, now.Add(40*time.Minute), everyDevice)
+	if len(back) != 1 || strings.Contains(back[0].Payload, "est") {
+		t.Fatalf("flip back: %+v, want one message without est", back)
+	}
+}
+
+func TestLearnedStoreOldStateFileLoads(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "learned.json")
+	old := `{"version":1,"entries":[{"key":"device/stehlampe/usual_off","device":"stehlampe",` +
+		`"kind":"time","value":"22:30","n":12,"at":1763632800,"changed_at":1763632800,"published_at":1763632800}]}`
+	if err := os.WriteFile(path, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := LoadLearnedStore(path, nil)
+	got := s.Entries()
+	if len(got) != 1 || got[0].Value != "22:30" || got[0].Unit != "" || got[0].Estimate {
+		t.Fatalf("entries = %+v, want the old entry without unit or estimate", got)
+	}
+	if msgs := s.Update(lampValue("22:30", 12), time.Unix(1763632800, 0).Add(time.Minute), everyDevice); len(msgs) != 0 {
+		t.Errorf("unchanged old entry published: %+v", msgs)
+	}
+}
+
+func TestLearnedStorePrograms(t *testing.T) {
+	s := LoadLearnedStore(filepath.Join(t.TempDir(), "learned.json"), nil)
+	now := time.Date(2026, 3, 20, 3, 30, 0, 0, time.UTC)
+	vals := []Value{{Key: "device/geschirr/cycle_wh", Device: "geschirr", Kind: ValueNumber,
+		Unit: "Wh", Group: "energy", Num: 900, N: 12, Programs: []float64{500}}}
+	msgs := s.Update(vals, now, everyDevice)
+	if len(msgs) != 1 {
+		t.Fatalf("got %d messages, want 1", len(msgs))
+	}
+	if strings.Contains(msgs[0].Payload, "programs") {
+		t.Errorf("payload %s carries programs, want none", msgs[0].Payload)
+	}
+	entries := s.Entries()
+	if len(entries) != 1 || !reflect.DeepEqual(entries[0].Programs, []float64{500}) {
+		t.Errorf("entries = %+v, want programs [500]", entries)
+	}
+}
+
+// A refresh of an unchanged value must still reach the file with the new
+// programs, the unit and the estimate flag, so a restart keeps them.
+func TestLearnedStoreRefreshSavesProgramsUnitAndEstimate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "learned.json")
+	s := LoadLearnedStore(path, nil)
+	now := time.Date(2026, 3, 20, 3, 30, 0, 0, time.UTC)
+	first := []Value{{Key: "device/geschirr/cycle_wh", Device: "geschirr", Kind: ValueNumber,
+		Unit: "Wh", Group: "energy", Num: 900, N: 12, Estimate: true, Programs: []float64{500}}}
+	s.Update(first, now, everyDevice)
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	later := now.Add(learnedRefreshGap + time.Minute)
+	refresh := []Value{{Key: "device/geschirr/cycle_wh", Device: "geschirr", Kind: ValueNumber,
+		Unit: "Wh", Group: "energy", Num: 900, N: 13, Estimate: true, Programs: []float64{420}}}
+	msgs := s.Update(refresh, later, everyDevice)
+	if len(msgs) != 1 {
+		t.Fatalf("refresh sent %d messages, want 1", len(msgs))
+	}
+	if err := s.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	got := LoadLearnedStore(path, nil).Entries()
+	if len(got) != 1 {
+		t.Fatalf("reloaded %d entries, want 1", len(got))
+	}
+	e := got[0]
+	if !reflect.DeepEqual(e.Programs, []float64{420}) {
+		t.Errorf("programs after reload = %v, want [420]", e.Programs)
+	}
+	if e.Unit != "Wh" || !e.Estimate || e.N != 13 {
+		t.Errorf("unit %q estimate %v n %d after reload, want Wh true 13", e.Unit, e.Estimate, e.N)
 	}
 }

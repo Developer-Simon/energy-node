@@ -1432,7 +1432,10 @@
       this.assistant = {
         ...assistantIdle(),
         open: true,
-        context: window.__automationWizard.buildContext({ devices: this.devices, snapshot, document: this.document }),
+        context: {
+          ...window.__automationWizard.buildContext({ devices: this.devices, snapshot, document: this.document }),
+          learned: this.learnedMap(),
+        },
       };
       const dialog = this.$refs.assistantDialog;
       if (dialog && typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
@@ -2345,11 +2348,24 @@
     learnedChoices(condition, field) {
       const AL = window.AutomationLearned;
       const kind = AL.kindOf(condition.type, field);
-      return kind ? AL.choices(this.learnedList(), kind) : [];
+      return kind ? AL.choices(this.learnedList(), kind, this.learnUnitOf(condition, field)) : [];
+    },
+
+    // Einheit der Lernwerte fuer ein Zahlfeld: Schwellen in W, sonst die Einheit der Entitaet.
+    learnUnitOf(condition, field) {
+      if (this.learnKind(condition, field) !== 'number') return undefined;
+      if (field === 'threshold') return 'W';
+      const entity = this.entityForCondition(condition);
+      return (entity && entity.unit_of_measurement) || undefined;
     },
 
     learnedList() {
       return (this.learned && Array.isArray(this.learned.values)) ? this.learned.values : [];
+    },
+
+    // Gelernte Werte als Karte Schluessel zu Wert, so liest sie die Vorlagen (Vorbelegung aus op_power_w).
+    learnedMap() {
+      return new Map(this.learnedList().filter((v) => v && typeof v.key === 'string').map((v) => [v.key, v.value]));
     },
 
     // Der Schalter "Fester Wert / Lernwert" erscheint bei passenden Werten oder wenn das Feld schon einen Bezug hat.
@@ -2420,8 +2436,9 @@
       const key = (condition[field] || {}).learned;
       const entry = this.learnedEntry(key);
       if (!entry) return t('automations.learned.current.none');
-      const text = this.learnKind(condition, field) === 'duration' ? formatSeconds(entry.value) : String(entry.value);
-      return `${t('automations.learned.current')}: ${text}`;
+      const kind = this.learnKind(condition, field);
+      const text = kind === 'duration' ? formatSeconds(entry.value) : String(entry.value);
+      return `${t('automations.learned.current')}: ${text}${window.AutomationLearned.valueSuffix(entry, kind, t)}`;
     },
 
     // Kurzform im Feld, wenn ein Lernwert gilt: der aufgeloeste Wert, wie ihn die Regel gerade nimmt.

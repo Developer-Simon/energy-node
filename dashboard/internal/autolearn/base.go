@@ -59,12 +59,18 @@ type baseSpan struct {
 
 // BuildBase leitet aus den Tagesprofilen die Tagestypen, die Abwesenheit und
 // die Tagesgrenzen je Tagestyp ab. Der heutige Tag zählt für die Gruppen nicht,
-// für Abwesenheit und Tagesgrenzen auch nicht.
+// für Abwesenheit und Tagesgrenzen auch nicht. Heute ist der Tag von time.Now.
 func BuildBase(days []DayFile, loc *time.Location) Base {
+	return BuildBaseAt(days, loc, time.Now())
+}
+
+// BuildBaseAt ist BuildBase zur Zeit now. Die Engine gibt ihre Rundenzeit mit,
+// damit heute und die letzten drei Tage zur Runde passen.
+func BuildBaseAt(days []DayFile, loc *time.Location, now time.Time) Base {
 	if loc == nil {
 		loc = time.Local
 	}
-	now := time.Now().In(loc)
+	now = now.In(loc)
 	recs := baseRecords(days, loc, now.Format(dayLayout))
 	base := Base{
 		DayType:        map[string]int{},

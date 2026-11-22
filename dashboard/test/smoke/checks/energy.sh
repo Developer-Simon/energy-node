@@ -21,28 +21,29 @@ checks_energy_balance() {
 }
 
 checks_live_push() {
-  # --simulate schiebt PV/Netz/Batterie/Last per Sinuskurve ueber echte MQTT-
+  # --simulate schiebt Netz/Batterie/Last per Sinuskurve (die PV folgt der Sonne
+  # und aendert sich zu langsam fuer die Probe) ueber echte MQTT-
   # PUBLISH-Pakete auf der offenen Verbindung - genau der Weg, ueber den auch ein
   # echtes Geraet Live-Updates liefert. Ohne diese Probe wuerde ein Bruch dieses
   # Pfads (z. B. eine vergessene Sperre auf der Verbindung) erst beim manuellen
   # Blick in den Browser auffallen, als scheinbar "hangender" Chart.
-  pv_payload() {
+  load_payload() {
     api "$BASE/api/v1/topics/samples" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
-print(next(s['payload'] for s in data if s['topic'] == 'pv/wechselrichter/status'))
+print(next(s['payload'] for s in data if s['topic'] == 'zaehler/haus/status'))
 "
   }
-  first="$(pv_payload)"
+  first="$(load_payload)"
   changed=0
   for _ in $(seq 1 10); do
     sleep 1
-    [[ "$(pv_payload)" != "$first" ]] && { changed=1; break; }
+    [[ "$(load_payload)" != "$first" ]] && { changed=1; break; }
   done
   if [[ $changed -eq 1 ]]; then
-    echo "  OK   --simulate liefert Live-MQTT-Updates (PV-Leistung aendert sich)"
+    echo "  OK   --simulate liefert Live-MQTT-Updates (Hauslast aendert sich)"
   else
-    echo "  FEHL --simulate: PV-Leistung aendert sich nicht - Broker-Push kommt nicht an"
+    echo "  FEHL --simulate: Hauslast aendert sich nicht - Broker-Push kommt nicht an"
     FAILED=1
   fi
 }

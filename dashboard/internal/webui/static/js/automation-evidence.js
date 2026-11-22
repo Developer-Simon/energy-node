@@ -322,6 +322,67 @@
       + axisHtml(ticks, labels);
   }
 
+  // Tageskurve aus 96 Viertelstunden in W. Ist als Linie, Soll-Spur mit Klarhimmel-Kurve, Bestkurve
+  // gestrichelt und die abgeregelte Flaeche zwischen Best und Ist, wo die Bestkurve darueber liegt.
+  const CURVE_N = 96;
+  const CURVE_HOURS = [0, 6, 12, 18, 24];
+
+  // Werte mit Index, fehlende oder nicht endliche Werte entfallen.
+  function curveSeries(list) {
+    if (!Array.isArray(list)) return [];
+    const out = [];
+    list.slice(0, CURVE_N).forEach((v, i) => {
+      if (Number.isFinite(v)) out.push([i, v]);
+    });
+    return out;
+  }
+
+  const curveX = (i) => round((i / CURVE_N) * 100);
+  const curveY = (v, max) => round(9.5 - (Math.max(0, v) / max) * 9);
+
+  function curveShape(ev, t) {
+    const ist = curveSeries(ev.ist_q);
+    const soll = curveSeries(ev.soll_q);
+    const best = curveSeries(ev.best_q);
+    if (ist.length === 0 && soll.length === 0 && best.length === 0) return '';
+    const max = Math.max(0, ...ist.concat(soll, best).map((p) => p[1]));
+    const scale = max > 0 ? max : 1;
+    const point = (i, v) => curveX(i) + ',' + curveY(v, scale);
+    const line = (series, cls, dashed) => (series.length === 0 ? '' // i18n-ignore
+      : '<polyline class="' + cls + '" points="' + series.map((p) => point(p[0], p[1])).join(' ') + '" vector-effect="non-scaling-stroke"' // i18n-ignore
+      + (dashed ? ' stroke-dasharray="4 3"' : '') + '/>'); // i18n-ignore
+    const istAt = new Map(ist);
+    const bestAt = new Map(best);
+    // Zusammenhaengende Viertelstunden, in denen die Bestkurve ueber der Istkurve liegt.
+    const runs = [];
+    let run = [];
+    for (let i = 0; i < CURVE_N; i++) {
+      const open = bestAt.has(i) && istAt.has(i) && bestAt.get(i) > istAt.get(i);
+      if (open) {
+        run.push(i);
+      } else {
+        if (run.length > 1) runs.push(run);
+        run = [];
+      }
+    }
+    if (run.length > 1) runs.push(run);
+    const throttled = runs.map((r) => '<polygon class="auto-learn-throttled" points="' // i18n-ignore
+      + r.map((i) => point(i, bestAt.get(i))).concat(r.slice().reverse().map((i) => point(i, istAt.get(i)))).join(' ')
+      + '"/>').join(''); // i18n-ignore
+    const hours = CURVE_HOURS.map((h) => h * 60);
+    const grid = gridLines(hours.map((m) => (m / DAY) * 100));
+    const istBody = grid + line(ist, 'auto-learn-ist auto-learn-curve', false); // i18n-ignore
+    const sollBody = grid + throttled + line(soll, 'auto-learn-clear', false) + line(best, 'auto-learn-best', true); // i18n-ignore
+    const ticks = [];
+    for (let h = 0; h <= 24; h++) {
+      ticks.push({ x: (h / 24) * 100, major: CURVE_HOURS.indexOf(h) >= 0 });
+    }
+    const labels = hours.map((m) => ({ x: (m / DAY) * 100, text: clockText(m, true) }));
+    return lane(t('automations.learn.lane.ist'), laneSvg(istBody)) // i18n-ignore
+      + lane(t('automations.learn.lane.soll'), laneSvg(sollBody), true)
+      + axisHtml(ticks, labels);
+  }
+
   function chips(names) {
     return (names || []).map((n) => '<span class="auto-learn-chip">' + esc(n) + '</span>').join('');
   }
@@ -338,14 +399,15 @@
       + '<div class="auto-learn-lane is-soll"><span class="auto-learn-lane-label">' + esc(t('automations.learn.lane.soll')) + '</span><div class="auto-learn-chips">' + sollBody + '</div></div>';
   }
 
-  const SHAPES = { day: dayShape, events: eventsShape, scale: scaleShape, links: linksShape };
+  const SHAPES = { day: dayShape, events: eventsShape, scale: scaleShape, links: linksShape, curve: curveShape };
 
   // render(evidence, t, opts) -> HTML. t(key, params) liefert die Spurmarken.
   // opts.full: true zeigt die Tagesachse 0 bis 24 h statt des Ausschnitts.
   function render(evidence, t, opts) {
     if (!evidence || !Object.prototype.hasOwnProperty.call(SHAPES, evidence.shape)) return '';
     const tr = typeof t === 'function' ? t : (key) => key;
-    return '<div class="auto-learn-is auto-learn-shape-' + evidence.shape + '">' + SHAPES[evidence.shape](evidence, tr, opts || {}) + '</div>';
+    const body = SHAPES[evidence.shape](evidence, tr, opts || {});
+    return body ? '<div class="auto-learn-is auto-learn-shape-' + evidence.shape + '">' + body + '</div>' : '';
   }
 
   window.AutomationEvidence = { render, windowOf, zoomable };

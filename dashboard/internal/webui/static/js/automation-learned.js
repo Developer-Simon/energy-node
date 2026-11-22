@@ -13,6 +13,10 @@
     day_start: 'automations.learned.key.day_start',
     night_rest: 'automations.learned.key.night_rest',
     house_state: 'automations.learned.key.house_state',
+    op_power_w: 'automations.learned.key.op_power_w',
+    cycle_wh: 'automations.learned.key.cycle_wh',
+    pv_reserve_w: 'automations.learned.key.pv_reserve_w',
+    surplus_left_wh: 'automations.learned.key.surplus_left_wh',
   };
   const FIELD_KIND = { start: 'time', end: 'time', hold_seconds: 'duration', threshold: 'number', value: 'number' };
   const LEARNABLE = {
@@ -123,9 +127,10 @@
   }
 
   // Lernwerte der passenden Art. Feldnamen wie hold_seconds werden auf ihre Art abgebildet.
-  function choices(values, kind) {
+  // Optional unit (W, Wh, ...) filters number values, so a threshold in W does not offer energy values.
+  function choices(values, kind, unit) {
     const want = FIELD_KIND[kind] || kind;
-    return (Array.isArray(values) ? values : []).filter((v) => v && v.kind === want);
+    return (Array.isArray(values) ? values : []).filter((v) => v && v.kind === want && (!unit || v.unit === unit));
   }
 
   function deviceName(id, devices) {
@@ -190,7 +195,26 @@
     return String(value);
   }
 
+  // Zusatz zum Wert in der Zeile "Aktuell": Einheit bei Zahlen, dann "Schaetzung" bei geschaetzten Werten.
+  // i18n-keys: automations.learned.estimate
+  function valueSuffix(entry, kind, t) {
+    if (!entry || typeof entry !== 'object') return '';
+    const unit = kind === 'number' && entry.unit ? ` ${entry.unit}` : '';
+    const estimate = entry.estimate ? ` (${t('automations.learned.estimate')})` : '';
+    return unit + estimate;
+  }
+
+  // Die Herkunftszeile endet mit dem Satz zu den anderen Programmen, wenn der Eintrag sie mitbringt (Zyklusenergie).
+  // i18n-keys: automations.learned.origin.programs
   function origin(sourceCode, entry, now, t) {
+    const base = originBase(sourceCode, entry, now, t);
+    const programs = entry && Array.isArray(entry.programs) ? entry.programs.filter(isNumber) : [];
+    if (!programs.length) return base;
+    const list = programs.map((p) => Math.round(p)).join(', ');
+    return [base, t('automations.learned.origin.programs', { programs: list })].filter(Boolean).join(' ');
+  }
+
+  function originBase(sourceCode, entry, now, t) {
     if (sourceCode === 'fallback') return t(ORIGIN_KEYS.fallback);
     if (!entry || typeof entry !== 'object') return '';
     if (sourceCode === 'clamped') return t(ORIGIN_KEYS.clamped, { value: originValue(entry.value, entry.kind, t) });
@@ -299,5 +323,5 @@
     return coords.length >= YEAR_MIN_WEEKS ? coords.join(' ') : null;
   }
 
-  window.AutomationLearned = { isRef, kindOf, resolve, prefill, choices, keyLabel, validate, origin, scale, yearLine, yearPlot };
+  window.AutomationLearned = { isRef, kindOf, resolve, prefill, choices, keyLabel, validate, origin, valueSuffix, scale, yearLine, yearPlot };
 })();

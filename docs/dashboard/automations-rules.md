@@ -185,7 +185,10 @@ which is 7 days. Older values count as missing, and the fallback applies.
   each device,
 - the start of the day and the night rest of the house,
 - the house state, **House is active** or **House is quiet**, from the
-  consumption of the last hours.
+  consumption of the last hours,
+- the typical operating power and the typical cycle energy of a device, once
+  it has run at least 8 cycles,
+- the PV reserve and the surplus left today, from the solar system.
 
 The learned values follow the **Learn patterns** switch and the **Habits**
 switch in the [learning settings](settings.md#learning-features). With
@@ -267,6 +270,52 @@ in warm ones.
 The rule card draws the course of a learned value over the year as a small line
 under its scale. A sentence names the month with the highest value and the month
 with the lowest. The line appears from 8 weeks of data on.
+
+### Energy learned values
+
+The node also learns from the energy side of your house. These values are
+numbers with a unit, and they can be used wherever a number takes a learned
+value.
+
+- **Typical operating power** of a device, in W. The node watches when a device
+  runs a cycle, for example a washing machine. A cycle starts when the power
+  stays above a limit for two minutes and ends after a pause. The value is the
+  usual power while the device works, rounded to 10 W.
+- **Typical cycle energy** of a device, in Wh, rounded to 10 Wh. A device with
+  several programs gets the value of the program it runs most often. The other
+  programs are listed in the origin line of the value.
+- **PV reserve**, in W. It is the power the solar system could deliver right now
+  and does not, for example because a regulator holds it back. The node learns
+  what the system can deliver on a clear sky from the few moments when it ran
+  unthrottled, and scales that with the weather of the day. The value prefers to
+  promise too little. Without an unthrottled moment for two hours it is halved
+  and marked **Estimate**.
+- **Surplus left today**, in Wh. It is the solar energy that the house will not
+  use for the rest of the day. The node looks for the days that behaved like
+  today so far and reports an amount that was reached on three of four of them.
+  A nightly check compares the forecast with what happened. When the forecast is
+  not better than a plain seasonal median over 14 days, the median is published
+  and marked **Estimate**.
+
+A value marked **Estimate** is a guess, not a measurement. The rule editor shows
+the mark next to the current value.
+
+The assistants use the typical operating power too. When you choose a device in
+the template for surplus switching or surplus charging, the switch on threshold
+starts at the operating power plus 100 W, rounded up to 100 W.
+
+### Shade on the PV curve
+
+If the solar system is shaded by a tree or a building at the same place in the
+sky on many clear days, the node reports **A fixed shadow is pulling down PV
+power**. The note names the time of day, the weeks of the year and a rough
+yearly loss in kWh, and it draws the day curve with the best possible curve
+dashed. It is only information and has no fix.
+
+The data for this lives in `autolearn/pvraster.json`, `autolearn/pvmodel.json`,
+`autolearn/pvweather.json`, `autolearn/cycles.json` and
+`autolearn/forecast.json`. The learned PV model needs the location of the
+house, see the learning settings.
 
 ## Where a switch came from
 

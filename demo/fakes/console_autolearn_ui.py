@@ -69,6 +69,21 @@ AUTOLEARN_HTML = """<div id="tab-autolearn">
   <p class="grp-err"></p>
 </div>
 
+<div class="grp" data-group="pv">
+  <h3>PV-Reserve</h3>
+  <div class="list">
+    <div class="row">
+      <span class="v">PV drosseln</span>
+      <span class="end">
+        <button type="button" class="btn btn-primary" data-act="pv_throttle" data-on="1">Drosseln</button>
+        <button type="button" class="btn" data-act="pv_throttle" data-on="0">Drossel aus</button>
+      </span>
+    </div>
+  </div>
+  <p class="note">Die PV der Demo folgt der Sonne über München. Gedrosselt liefert sie die Hälfte, das Netz steht knapp über null und die Akkus laden nicht. Das Dashboard sieht die Minuten dann als gedrosselt, die PV-Reserve im Lernwert-Dialog zeigt nach wenigen Minuten den Rest in W. Nur tagsüber und mit laufender Simulation.</p>
+  <p class="grp-err"></p>
+</div>
+
 <script>
 (function () {
   const root = document.getElementById("tab-autolearn");
@@ -124,6 +139,8 @@ AUTOLEARN_HTML = """<div id="tab-autolearn">
     const action = btn.dataset.act;
     if (action === "insert_all" || action === "remove_all" || action === "day_remove" || action === "ack_reset") {
       window.konsole.post("autolearn", action, {}, btn);
+    } else if (action === "pv_throttle") {
+      window.konsole.post("autolearn", action, { on: btn.dataset.on === "1" }, btn);
     } else if (action === "day_create") {
       const input = root.querySelector("[data-days]");
       window.konsole.post("autolearn", action, { days: Number(input.value) }, btn);

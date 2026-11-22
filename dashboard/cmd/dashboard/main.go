@@ -486,10 +486,9 @@ func main() {
 	originTracker := autolearn.NewTracker(reactions)
 	learnHub.AddMinute("origin", originTracker)
 	learnHub.AddSaver("reactions", reactions)
-	// Tagesdateien: je Minute der Rahmen, je Minute die Ereignisse des Trackers.
-	// Die Aufbewahrung kommt aus den Einstellungen, 0 heisst 56 Tage.
 	// Demo: mit ENERGY_NODE_AUTOLEARN_FAST=1 bekommt ein leeres Tagesverzeichnis
-	// die Demo-Profile. Vorhandene Dateien bleiben unberührt.
+	// die Demo-Profile, dazu Himmelsraster und Dachmodell. Der Block steht vor
+	// den Trackern, die die Dateien beim Start laden. Vorhandene Dateien bleiben unberührt.
 	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" {
 		demoDir := filepath.Join(autolearnDir, "days")
 		if empty, err := autolearn.DaysDirEmpty(demoDir); err != nil {
@@ -497,11 +496,43 @@ func main() {
 		} else if empty {
 			if err := autolearn.SeedDemo(demoDir, time.Now(), time.Local); err != nil {
 				log.Printf("autolearn: demo profiles: %v", err)
+			} else if err := autolearn.SeedDemoPV(filepath.Join(autolearnDir, "pvraster.json"),
+				filepath.Join(autolearnDir, "pvmodel.json"), time.Now()); err != nil {
+				log.Printf("autolearn: demo pv data: %v", err)
+			} else if err := autolearn.SeedDemoToday(demoDir, time.Now(), time.Local); err != nil {
+				log.Printf("autolearn: demo today: %v", err)
 			} else {
 				log.Printf("autolearn: demo profiles written to %s", demoDir)
 			}
 		}
 	}
+	// PV-Himmelsraster: nur ungedrosselte PV-Minuten zaehlen. Standort und Regler
+	// kommen aus dem Regelwerk, das pvSite.refresh nur beim Speichern liest.
+	pvSite := &pvSiteCache{readDoc: func() ([]byte, error) { return configManager.Read("automation_rules") }, logf: log.Printf}
+	pvSite.refresh()
+	pvPath := filepath.Join(autolearnDir, "pvraster.json")
+	pvTracker := autolearn.NewPVTracker(loadPVRaster(pvPath, learnLimits(), log.Printf),
+		pvSite.location, pvSite.regulator,
+		func() string { return time.Now().In(time.Local).Format("2006-01-02") }, pvPath)
+	learnHub.AddMinute("pvtracker", pvTracker)
+	learnHub.AddSaver("pvtracker", saverFunc(func() error {
+		pvSite.refresh()
+		return pvTracker.Save()
+	}))
+	// Geometriemodell der Dachflaechen: nachts aus dem Himmelsraster neu gefittet,
+	// nur bei Aenderung gespeichert.
+	pvModelStore := autolearn.NewPVModelStore(filepath.Join(autolearnDir, "pvmodel.json"))
+	learnHub.AddSaver("pvmodel", pvModelStore)
+	// Wetterfaktor und PV-Reserve: laeuft nach dem Tracker, damit dieselbe Minute
+	// schon im Raster steht. Die Reserve geht ueber den Minutenrahmen in den
+	// Tagesspeicher (Schluessel k).
+	pvWeatherPath := filepath.Join(autolearnDir, "pvweather.json")
+	pvReserve := autolearn.NewPVReserveRunner(pvTracker, pvModelStore, pvSite.location,
+		autolearn.LoadPVWeather(pvWeatherPath, log.Printf), pvWeatherPath)
+	learnHub.AddMinute("pvreserve", pvReserve)
+	learnHub.AddSaver("pvweather", pvReserve)
+	// Tagesdateien: je Minute der Rahmen, je Minute die Ereignisse des Trackers.
+	// Die Aufbewahrung kommt aus den Einstellungen, 0 heisst 56 Tage.
 	dayStore := autolearn.OpenDayStore(filepath.Join(autolearnDir, "days"), time.Local, func() int {
 		if value, err := settingsStore.LoadSettings(); err == nil && value.LearningProfileDays > 0 {
 			return value.LearningProfileDays
@@ -510,6 +541,10 @@ func main() {
 	}, log.Printf)
 	learnHub.AddMinute("daystore", dayStore)
 	learnHub.AddSaver("daystore", dayStore)
+	// Zyklen der Geraete: ohne Herkunftsabfrage enden alle Zyklen als self.
+	cycles := newCycleRunner(filepath.Join(autolearnDir, "cycles.json"), dayStore, nil, log.Printf)
+	learnHub.AddMinute("cycles", cycles)
+	learnHub.AddSaver("cycles", cycles)
 	// Automationen-Engine: die Erkenner laufen in eigener Goroutine, nie im
 	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen und den beiden
 	// Gruppenschaltern darunter. Ohne lesbare Einstellungen bleibt alles an.
@@ -531,7 +566,21 @@ func main() {
 		automationEngine.Register(det)
 	}
 	registerLearnDetectors(automationEngine)
-	registerEnergyDetectors(automationEngine)
+	// Prognose-Selbstpruefung des Rest-Ueberschusses, gespeichert mit dem Hub.
+	forecastCheck := autolearn.LoadForecastCheck(filepath.Join(autolearnDir, "forecast.json"), log.Printf)
+	learnHub.AddSaver("forecast", forecastCheck)
+	registerEnergyDetectors(automationEngine, pvReserve.Current, forecastCheck)
+	automationEngine.Register(autolearn.NewPVModelDetector(pvTracker.Snapshot, pvModelStore))
+	automationEngine.Register(autolearn.NewShadeDetector(pvTracker.Snapshot, pvModelStore.Model))
+	// Modell und Himmelsraster fuer den Rest-Ueberschuss. Der Raster-Schnappschuss
+	// entsteht nur, wenn ein Modell da ist.
+	automationEngine.SetPV(func() (autolearn.PVModel, *autolearn.Raster, bool) {
+		m, ok := pvModelStore.Model()
+		if !ok {
+			return autolearn.PVModel{}, nil, false
+		}
+		return m, pvTracker.Snapshot(), true
+	})
 	// Die Aussentemperatur fuer den Heizzeit-Erkenner: die Entitaet aus den
 	// Einstellungen, aufgeloest ueber die Registry wie beim Lernhub.
 	automationEngine.SetOutdoor(func() autolearn.OutdoorSource {
@@ -1390,7 +1439,7 @@ func main() {
 					chainSuggest.SetEnabled(suggestionsOn)
 					dayStore.SetEnabled(patternsOn)
 					dayStore.SetExcluded(excludedDevices)
-					learnHub.Observe(now, reg.Snapshot(), snapshot, balanceRuleValues(snapshot.Balance))
+					learnHub.Observe(now, reg.Snapshot(), snapshot, learnBalanceValues(snapshot.Balance))
 					// Wie das Pruning oben: ohne lesbare energy.json fehlen
 					// Ketten im Snapshot, und Observe wuerde ihre Summen loeschen.
 					if _, err := settingsStore.LoadEnergy(); err == nil {
@@ -1612,6 +1661,16 @@ func balanceRuleValues(balance energy.Balance) map[string]float64 {
 	}
 	for id, value := range balance.Categories {
 		values["custom:"+id] = value
+	}
+	return values
+}
+
+// learnBalanceValues adds the battery level to the balance values for the
+// learning hub. A level of 0 means no battery level is known, so it is left out.
+func learnBalanceValues(balance energy.Balance) map[string]float64 {
+	values := balanceRuleValues(balance)
+	if balance.BatterySoC > 0 {
+		values["battery_soc"] = balance.BatterySoC
 	}
 	return values
 }

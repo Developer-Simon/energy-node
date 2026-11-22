@@ -68,6 +68,7 @@ type Engine struct {
 	loc       *time.Location
 	season    *SeasonStore
 	outdoor   func() OutdoorSource
+	pv        func() (PVModel, *Raster, bool)
 	// recentC is the mean outdoor temperature of the last three days as the
 	// last round read it, nil when unknown.
 	recentC *float64
@@ -411,15 +412,25 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 			in.Doc = doc
 		}
 	}
-	in.Base = BuildBase(in.Days, e.loc)
+	in.Base = BuildBaseAt(in.Days, e.loc, now)
 	e.mu.Lock()
 	e.recentC = in.Base.RecentOutdoorC
 	outdoor := e.outdoor
+	in.PV = e.pv
 	e.mu.Unlock()
 	if outdoor != nil {
 		in.Outdoor = outdoor()
 	}
 	return in
+}
+
+// SetPV gives the engine the roof model and the sky raster. A round reads them
+// through Input.PV. The function is called by the detectors that need the
+// model, so it should return a copy of the raster. Without it no model exists.
+func (e *Engine) SetPV(f func() (PVModel, *Raster, bool)) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.pv = f
 }
 
 // SetOutdoor gives the engine the outdoor temperature entity. It is read on

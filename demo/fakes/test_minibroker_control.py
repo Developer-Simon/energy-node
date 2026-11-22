@@ -90,14 +90,14 @@ def test_reset_restores_start_flags_and_devices():
 
 
 def test_simulate_tick_writes_no_log_entry():
-    state = make_state({"pv/wechselrichter/status": b'{"apower": 0}'}, simulate=True)
+    state = make_state({"zaehler/haus/status": b'{"apower": 0}'}, simulate=True)
     minibroker.simulate_tick(state, 1.0)
-    assert json.loads(state.messages["pv/wechselrichter/status"])["apower"] != 0
+    assert json.loads(state.messages["zaehler/haus/status"])["apower"] != 0
     assert state.log.since(0)[1] == []
 
 
 def test_simulate_off_skips_tick():
-    state = make_state({"pv/wechselrichter/status": b'{"apower": 0}'}, simulate=True)
+    state = make_state({"zaehler/haus/status": b'{"apower": 0}'}, simulate=True)
     state.set_simulate(False)
     before = dict(state.messages)
     minibroker.simulate_tick(state, 1.0)
@@ -246,3 +246,63 @@ def test_simulate_tick_moves_the_free_garage_pair_together_without_a_chain():
     consumer = json.loads(state.messages["garage/status"])["apower"]
     assert 400 <= plug <= 1000
     assert consumer == round(plug * 0.97)
+
+
+
+# 2026-11-22 12:00 CET, the demo roof over Munich near noon.
+NOON_TS = 1795345200
+# 2026-11-22 03:00 CET, the sun is below the horizon.
+NIGHT_TS = NOON_TS - 9 * 3600
+
+
+def test_sun_position_matches_the_dashboard_at_noon():
+    az, el = minibroker.sun_position(NOON_TS, 48.1, 11.6)
+    assert 179 < az < 181
+    assert 21 < el < 22.5
+
+
+def test_sun_pv_follows_the_day():
+    assert minibroker.sun_pv_w(NIGHT_TS) == 0
+    assert 1700 < minibroker.sun_pv_w(NOON_TS) < 1810
+
+
+def test_sun_tick_splits_the_roof_and_sums_the_total():
+    state = make_state({
+        "pv/wechselrichter/status": b'{"apower": 0}',
+        "outstation/apsystems_dach/pv1/power_w": b"0",
+        "outstation/apsystems_dach/pv2/power_w": b"0",
+        "outstation/apsystems_dach/total/power_w": b"0",
+    }, simulate=True)
+    minibroker.sun_tick(state, NOON_TS)
+    roof = minibroker.sun_pv_w(NOON_TS)
+    assert json.loads(state.messages["pv/wechselrichter/status"])["apower"] == round(roof * 0.5)
+    pv1 = int(state.messages["outstation/apsystems_dach/pv1/power_w"])
+    pv2 = int(state.messages["outstation/apsystems_dach/pv2/power_w"])
+    assert pv1 == round(roof * 0.25)
+    assert int(state.messages["outstation/apsystems_dach/total/power_w"]) == pv1 + pv2
+
+
+def test_throttle_halves_the_pv_and_holds_grid_and_battery():
+    state = make_state({
+        "pv/wechselrichter/status": b'{"apower": 0}',
+        "zaehler/netz/status": b'{"apower": -1250}',
+        "batterie/wr/status": b'{"apower": 900}',
+        "plug/speicher/status": b'{"apower": 320}',
+    }, simulate=True)
+    state.set_pv_throttle(True)
+    minibroker.sun_tick(state, NOON_TS)
+    assert json.loads(state.messages["pv/wechselrichter/status"])["apower"] == round(minibroker.sun_pv_w(NOON_TS) * 0.25)
+    minibroker.simulate_tick(state, 1.0)
+    assert json.loads(state.messages["zaehler/netz/status"])["apower"] == -20
+    assert json.loads(state.messages["batterie/wr/status"])["apower"] == 0
+    assert json.loads(state.messages["plug/speicher/status"])["apower"] == 0
+
+
+def test_control_pv_throttle_and_reset(control):
+    base, state = control
+    status, body = call(base, "POST", "/pv_throttle", {"on": True})
+    assert status == 200
+    assert body["pv_throttle"] is True
+    assert state.pv_throttle is True
+    call(base, "POST", "/reset", {})
+    assert state.pv_throttle is False

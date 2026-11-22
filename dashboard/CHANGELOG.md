@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.22-pre.28 (2026-11-06)
+## v0.11.22-pre.29 (2026-11-06)
 
 ### Features
 
@@ -29,6 +29,29 @@
 - **automations:** suggest rules from learned habits and check rule reliability (#283) (318066c)
 - **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284) (8aae55b)
 - **automations:** Learning knows the seasons, the sun and the outdoor temperature (#287) (8812dc2)
+- **learnrec:** add the energy limits of each learning level (b74b813)
+- **autolearn:** track device cycles from minute power (0e10e79)
+- **autolearn:** store cycles and battery level in the day file (039e639)
+- **autolearn:** collect device cycles in the learning engine (78508c2)
+- **autolearn:** add the PV sky raster (664a439)
+- **autolearn:** decide which PV minutes are unthrottled (361e792)
+- **autolearn:** collect unthrottled PV minutes over the sky (0c6b7d0)
+- **autolearn:** fit a roof model to the PV raster for the clear-sky curve (fc5994d)
+- **autolearn:** refit the roof model at night (af50fe2)
+- **autolearn:** carry unit and estimate flag in learned values (372ea8a)
+- **autolearn:** measure the weather factor and compute the PV reserve (c4e7bef)
+- **autolearn:** publish the unused PV power as a learned value (6da2c94)
+- **autolearn:** find recurring shade on the PV curve (44c2cb2)
+- **webui:** add the shade finding texts (d9b30bb)
+- **webui:** draw the PV curve with the best curve dashed (1e4d37b)
+- **autolearn:** learn operating power and cycle energy per device (bac2353)
+- **autolearn:** learn the remaining surplus of today from similar days (8c4b717)
+- **autolearn:** register the energy learned values and check the surplus forecast (7e9a2f2)
+- **webui:** add the energy learned value texts (a793aaf)
+- **automations:** prefill thresholds from the learned operating power (b5392a5)
+- **autolearn:** seed cycles and PV data in the demo (101e409)
+- **demo:** show the energy learned values in the demo (5807cbe)
+- **automations:** Learning knows device cycles, the PV reserve and the remaining surplus of the day (#289)
 - **sun:** compute sunrise, sunset and the sun position in Go (053ac08)
 - **autolearn:** keep weekly figures for three years and backfill them from the energy statistics (a7b5800)
 - **autolearn:** wire the season store into the learning run (2a532e4)
@@ -225,6 +248,12 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **autolearn:** pass the battery level into the learning frames (be60d22)
+- **autolearn:** harden cycle gap, runs and long cycles (a3b5f6f)
+- **autolearn:** count only the PV the house does not use as surplus (c9b33ff)
+- **autolearn:** build the base at the engine round time (427fc12)
+- **autolearn:** draw the shade curve from a finished day (1eb46f2)
+- **autolearn:** count every scenario regulator for throttled PV (291f1f3)
 - **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** use the median night load and the median learned value in the weekly figures (9d1bac8)
 - **autolearn:** close the previous season week on any weekday and test the closing (0ff36cc)
@@ -323,6 +352,7 @@
 
 ### Tests
 
+- **smoke:** probe the live push on the house load (5382341)
 - **webui:** follow the new cache-bust marks (b06cc13)
 - **automations:** do not pin the cache-bust mark of the learned helper (2fd09ce)
 - **webui:** follow the cache-bust marks of the automation modules (590dd8a)
@@ -342,6 +372,9 @@
 
 ### Chores
 
+- **dashboard:** bump the cache-bust marks for energy learning (8bd6f10)
+- **dashboard:** rebump the cache-bust marks after the rebase (c8480e9)
+- **dashboard:** renumber the cache-bust history rows after the prerelease sync (d325767)
 - **dashboard:** bump the cache-bust marks for seasons (5f8fe25)
 - **dashboard:** bump the learning settings stylesheet mark (c903788)
 - **dashboard:** bump the performance core mark (c1ef9d5)

@@ -38,6 +38,7 @@ type DayFile struct {
 	Site    SiteDay               `json:"site"`
 	Events  []EventRec            `json:"events"`
 	Actions []ActionRec           `json:"actions"`
+	Cycles  []CycleRec            `json:"cycles,omitempty"`
 	// Fake markiert die Demo-Profile. Die Konsole der Demo entfernt nur solche
 	// Dateien. Echte Tage tragen das Feld nicht.
 	Fake bool `json:"fake,omitempty"`
@@ -70,23 +71,44 @@ type SiteDay struct {
 	// TempC ist die Aussentemperatur je Viertelstunde, nil ohne Messwert. Fehlt
 	// das Feld, wenn keine Entitaet gewaehlt ist (siehe MarshalJSON).
 	TempC [dayQuarters]*float32 `json:"temp_c"`
+	// SoC ist der Batteriefuellstand in Prozent je Viertelstunde, nil ohne Messwert.
+	// Fehlt das Feld, wenn kein Messwert vorliegt (siehe MarshalJSON).
+	SoC [dayQuarters]*float32 `json:"soc"`
+	// K ist das Quartalsmittel des Wetterfaktors k, nil ohne Messwert. Fehlt
+	// das Feld, wenn kein Messwert vorliegt (siehe MarshalJSON).
+	K [dayQuarters]*float32 `json:"k"`
 }
 
-// MarshalJSON laesst temp_c weg, solange keine Viertelstunde einen Wert hat.
-// Alte Dateien ohne das Feld lesen sich weiter ueber das normale Decodieren.
+// MarshalJSON laesst temp_c, soc und k weg, solange keine Viertelstunde einen Wert hat.
+// Alte Dateien ohne die Felder lesen sich weiter ueber das normale Decodieren.
 func (d SiteDay) MarshalJSON() ([]byte, error) {
 	type plain SiteDay
-	var temps *[dayQuarters]*float32
-	for _, t := range d.TempC {
-		if t != nil {
-			temps = &d.TempC
-			break
-		}
+	var temps, soc, ks *[dayQuarters]*float32
+	if hasQuarterValue(&d.TempC) {
+		temps = &d.TempC
+	}
+	if hasQuarterValue(&d.SoC) {
+		soc = &d.SoC
+	}
+	if hasQuarterValue(&d.K) {
+		ks = &d.K
 	}
 	return json.Marshal(struct {
 		plain
 		TempC *[dayQuarters]*float32 `json:"temp_c,omitempty"`
-	}{plain: plain(d), TempC: temps})
+		SoC   *[dayQuarters]*float32 `json:"soc,omitempty"`
+		K     *[dayQuarters]*float32 `json:"k,omitempty"`
+	}{plain: plain(d), TempC: temps, SoC: soc, K: ks})
+}
+
+// hasQuarterValue meldet, ob eine Viertelstunde einen Messwert hat.
+func hasQuarterValue(q *[dayQuarters]*float32) bool {
+	for _, v := range q {
+		if v != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // EventRec ist ein Schaltvorgang im Tagesprotokoll.
@@ -147,6 +169,14 @@ type DayStore struct {
 	// Viertelstunde, wie siteN fuer die Haus-Reihen.
 	tempAvg [dayQuarters]float32
 	tempN   [dayQuarters]uint16
+	// socAvg und socN sind Mittel und Minutenzahl des Batteriefuellstands je
+	// Viertelstunde, wie tempAvg und tempN.
+	socAvg [dayQuarters]float32
+	socN   [dayQuarters]uint16
+	// kAvg und kN sind Mittel und Minutenzahl des Wetterfaktors k je
+	// Viertelstunde, wie socAvg und socN.
+	kAvg [dayQuarters]float32
+	kN   [dayQuarters]uint16
 	// written zaehlt die geschriebenen Bytes je Tag, nur fuer Usage.
 	written map[string]int64
 }
@@ -219,6 +249,8 @@ func (s *DayStore) ObserveMinute(f learnrec.Frame) {
 		s.observeDeviceLocked(dm, q)
 	}
 	s.observeSiteLocked(f.Balance, q)
+	s.observeSocLocked(f.Balance, q)
+	s.observeKLocked(f.Balance, q)
 	s.observeTempLocked(f.OutdoorC, q)
 	s.dirty = true
 }
@@ -273,6 +305,23 @@ func (s *DayStore) Add(events []SwitchEvent, actions []RuleAction) {
 			Reaction: math.Round(a.Reaction.Seconds()*10) / 10,
 		}
 		s.file.Actions = append(s.file.Actions, rec)
+		s.dirty = true
+	}
+}
+
+// AddCycles uebernimmt die abgeschlossenen Zyklen in den laufenden Tag. Ausgenommene
+// Geraete fehlen, wie bei Add.
+func (s *DayStore) AddCycles(cs []CycleRec) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.enabled {
+		return
+	}
+	for _, c := range cs {
+		if s.excluded[c.Device] {
+			continue
+		}
+		s.file.Cycles = append(s.file.Cycles, c)
 		s.dirty = true
 	}
 }
@@ -457,6 +506,10 @@ func (s *DayStore) startDayLocked(day string) {
 	s.siteN = [6][dayQuarters]uint16{}
 	s.tempAvg = [dayQuarters]float32{}
 	s.tempN = [dayQuarters]uint16{}
+	s.socAvg = [dayQuarters]float32{}
+	s.socN = [dayQuarters]uint16{}
+	s.kAvg = [dayQuarters]float32{}
+	s.kN = [dayQuarters]uint16{}
 	s.dirty = false
 	s.blocked = false
 
@@ -517,6 +570,20 @@ func (s *DayStore) adoptLocked(f *DayFile, hasPN bool) {
 		}
 		s.tempAvg[q] = *p
 		s.tempN[q] = max(uint16(s.file.Site.Seen[q]), 1)
+	}
+	for q, p := range s.file.Site.SoC {
+		if p == nil {
+			continue
+		}
+		s.socAvg[q] = *p
+		s.socN[q] = max(uint16(s.file.Site.Seen[q]), 1)
+	}
+	for q, p := range s.file.Site.K {
+		if p == nil {
+			continue
+		}
+		s.kAvg[q] = *p
+		s.kN[q] = max(uint16(s.file.Site.Seen[q]), 1)
 	}
 }
 
@@ -611,6 +678,30 @@ func (s *DayStore) observeTempLocked(c *float64, q int) {
 	s.file.Site.TempC[q] = &v
 }
 
+// observeSocLocked mittelt den Batteriefuellstand der Viertelstunde aus der
+// Bilanz. Jeder Wert bekommt einen neuen Zeiger, wie bei observeTempLocked.
+func (s *DayStore) observeSocLocked(balance map[string]float64, q int) {
+	v, ok := balance["battery_soc"]
+	if !ok || !finite(v) {
+		return
+	}
+	addMean(&s.socAvg[q], &s.socN[q], v)
+	avg := s.socAvg[q]
+	s.file.Site.SoC[q] = &avg
+}
+
+// observeKLocked mittelt den Wetterfaktor k der Viertelstunde aus der Bilanz.
+// Jeder Wert bekommt einen neuen Zeiger, wie bei observeSocLocked.
+func (s *DayStore) observeKLocked(balance map[string]float64, q int) {
+	v, ok := balance["k"]
+	if !ok || !finite(v) {
+		return
+	}
+	addMean(&s.kAvg[q], &s.kN[q], v)
+	avg := s.kAvg[q]
+	s.file.Site.K[q] = &avg
+}
+
 func (s *DayStore) observeSiteLocked(balance map[string]float64, q int) {
 	if len(balance) == 0 {
 		return
@@ -659,7 +750,7 @@ func (s *DayStore) writeLocked() error {
 // gerundet.
 func (s *DayStore) snapshotLocked() DayFile {
 	out := DayFile{V: dayFileVersion, Day: s.day, Devices: make(map[string]*DeviceDay, len(s.file.Devices)),
-		Site: s.file.Site, Events: s.file.Events, Actions: s.file.Actions}
+		Site: s.file.Site, Events: s.file.Events, Actions: s.file.Actions, Cycles: s.file.Cycles}
 	for id, dd := range s.file.Devices {
 		c := *dd
 		for q := range c.AvgW {

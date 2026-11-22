@@ -66,6 +66,16 @@
 
   const phase = (name) => t(`automations.assistant.summary.phase.${name}`);
 
+  // Einschaltschwelle aus der gelernten Betriebsleistung: op_power_w plus 100 W, auf 100 W aufgerundet.
+  // Ohne Lernwert null, dann bleibt der feste Standard der Vorlage.
+  const learnedStartW = (entries, ctx, deviceId) => {
+    const entry = (entries || []).find((item) => item.id === deviceId);
+    const learned = ctx.learned;
+    if (!entry || !entry.deviceId || !learned || typeof learned.get !== 'function') return null;
+    const power = learned.get(`device/${entry.deviceId}/op_power_w`);
+    return typeof power === 'number' && Number.isFinite(power) ? Math.ceil((power + 100) / 100) * 100 : null;
+  };
+
   // ---------------------------------------------------------------- Ueberschuss in die Wallbox
 
   const surplusWallbox = {
@@ -85,7 +95,7 @@
       },
       { id: 'soc', type: 'number', min: 10, max: 90, step: 5, default: 40, when: (answers) => answers.mode === 'battery' },
       {
-        id: 'start', type: 'presets', step: 100, default: 1400, effect: 'starts',
+        id: 'start', type: 'presets', step: 100, default: (ctx, answers) => learnedStartW(ctx.wallboxes, ctx, answers.device) ?? 1400, effect: 'starts',
         options: [{ id: 1400 }, { id: 2000 }, { id: 3000 }],
         scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
       },
@@ -350,7 +360,7 @@
     steps: [
       { id: 'device', type: 'device', filter: 'switch' },
       {
-        id: 'on', type: 'presets', step: 100, default: 1500, effect: 'starts',
+        id: 'on', type: 'presets', step: 100, default: (ctx, answers) => learnedStartW(ctx.switches, ctx, answers.device) ?? 1500, effect: 'starts',
         options: [{ id: 1000 }, { id: 1500 }, { id: 2500 }],
         scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
       },

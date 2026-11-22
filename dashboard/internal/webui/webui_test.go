@@ -1394,8 +1394,8 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	scenario := strings.Index(line, "automations-scenario.js?v=6")
 	chart := strings.Index(line, "automations-chart.js?v=4")
 	page := strings.Index(line, "automations.page.js?v=")
-	wizard := strings.Index(line, "automation-wizard.js?v=6")
-	templates := strings.Index(line, "automation-templates.js?v=8")
+	wizard := strings.Index(line, "automation-wizard.js?v=7")
+	templates := strings.Index(line, "automation-templates.js?v=9")
 	sheet := strings.Index(line, "automation-sheet.js?v=1")
 	if scenario < 0 || chart < 0 || page < 0 || wizard < 0 || templates < 0 || sheet < 0 {
 		t.Fatalf("Szenario- oder Assistenten-Module fehlen in der Skriptliste: %s", line)

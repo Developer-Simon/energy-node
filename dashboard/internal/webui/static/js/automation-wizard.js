@@ -89,6 +89,7 @@
     const fallback = actuator || measured || entities[0] || {};
     const entry = {
       id: fallback.unique_id || device.id,
+      deviceId: device.id,
       deviceName: device.name,
       entity: actuator || null,
       live: liveText(measured || actuator),
@@ -127,6 +128,7 @@
         if (!isSwitch(entity)) continue;
         result.push({
           id: entity.unique_id,
+          deviceId: device.id,
           deviceName: device.name,
           entity,
           live: liveText(entity),
@@ -489,8 +491,11 @@
         const usable = new Set(list.filter((item) => !item.disabled).map((item) => item.id));
         return (Array.isArray(step.default) ? step.default : []).filter((id) => usable.has(id));
       }
-      case 'presets':
-        return step.default !== undefined ? step.default : (options[0] || {}).id;
+      case 'presets': {
+        // Der Standard darf eine Funktion der Antworten sein, etwa aus gelernten Werten.
+        const value = typeof step.default === 'function' ? step.default(ctx, answers) : step.default;
+        return value !== undefined ? value : (options[0] || {}).id;
+      }
       case 'number':
         return step.default !== undefined ? step.default : step.min;
       case 'time': {

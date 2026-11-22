@@ -35,7 +35,7 @@ from console_autolearn_ui import AUTOLEARN_HTML
 from fake_console import Log, Tab
 
 ACTIONS = ("insert", "remove", "insert_all", "remove_all", "trigger",
-           "day_create", "day_remove", "ack_reset")
+           "day_create", "day_remove", "ack_reset", "pv_throttle")
 LEARNING_ACTIONS = ("day_create", "day_remove", "ack_reset")
 SOURCE = "autolearn"
 PREFIX = "chk_"
@@ -564,6 +564,16 @@ class AutolearnTab(Tab):
         _write_atomic(path, _dump(data), SETTINGS_UNWRITABLE)
         return ACK_TEXT
 
+    def _pv_throttle(self, body: dict) -> str:
+        """Schaltet die PV-Drossel des Brokers. Ohne Steuer-URL geht das nicht."""
+        on = body.get("on")
+        if type(on) is not bool:
+            raise ValueError("on muss true oder false sein")
+        if self._remote is None:
+            raise ValueError("Steuer-URL des Brokers fehlt, die Demo startet die Konsole mit --broker-control")
+        self._remote.post("pv_throttle", {"on": on})
+        return "PV gedrosselt" if on else "PV-Drossel aus"
+
     # Aktionen
 
     def act(self, action: str, body: dict) -> list:
@@ -575,6 +585,9 @@ class AutolearnTab(Tab):
             text = {"day_create": self._day_create, "day_remove": self._day_remove,
                     "ack_reset": self._ack_reset}[action](body)
             self._log.add(SOURCE, text)
+            return self._scenarios(self._rules_or_none())
+        if action == "pv_throttle":
+            self._log.add(SOURCE, self._pv_throttle(body))
             return self._scenarios(self._rules_or_none())
         with self._lock:
             data = self._rules()

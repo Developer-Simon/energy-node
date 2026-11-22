@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
@@ -165,9 +168,13 @@ func anyGroupOn(groups map[string]bool) bool {
 }
 
 // registerEnergyDetectors meldet die Erkenner der Gruppe Energie bei der Engine.
-// Sie laufen nur, wenn der Schalter Energie an ist.
-func registerEnergyDetectors(e *autolearn.Engine) {
+// Sie laufen nur, wenn der Schalter Energie an ist. reserve liefert die PV-Reserve
+// der letzten Minute, check ist die Selbstpruefung der Prognose des Rest-Ueberschusses.
+func registerEnergyDetectors(e *autolearn.Engine, reserve func() (float64, bool, bool), check *autolearn.ForecastCheck) {
 	e.Register(autolearn.TemperatureDetector)
+	e.Register(autolearn.PVReserveDetector(reserve))
+	e.Register(autolearn.LearnCyclesDetector)
+	e.Register(autolearn.NewLearnSurplusDetector(check))
 }
 
 // learnOutdoor finds the outdoor temperature entity by its unique id among the
@@ -201,6 +208,53 @@ func registerLearnDetectors(e *autolearn.Engine) {
 	} {
 		e.Register(det)
 	}
+}
+
+// cycleRunner findet die Zyklen der Geraete in den Minutenrahmen und gibt sie an
+// den Tagesspeicher weiter. Sein Zustand liegt in cycles.json, damit ein Neustart
+// dort weitermacht. mu schuetzt den Tracker, weil Minute und Save verschiedene
+// Goroutinen nutzen.
+type cycleRunner struct {
+	mu      sync.Mutex
+	tracker *autolearn.CycleTracker
+	days    *autolearn.DayStore
+	origin  func(device string, at time.Time) string
+	path    string
+}
+
+// newCycleRunner liest den Zustand aus path. Fehlt die Datei, startet er leer.
+func newCycleRunner(path string, days *autolearn.DayStore, origin func(device string, at time.Time) string, logf func(string, ...any)) *cycleRunner {
+	var state []byte
+	data, err := os.ReadFile(path)
+	switch {
+	case err == nil:
+		state = data
+	case !os.IsNotExist(err):
+		logf("autolearn: %s unreadable, starting empty: %v", path, err)
+	}
+	return &cycleRunner{tracker: autolearn.NewCycleTracker(state), days: days, origin: origin, path: path}
+}
+
+// ObserveMinute gibt den Minutenrahmen an den Tracker und die beendeten Zyklen an
+// den Tagesspeicher weiter.
+func (c *cycleRunner) ObserveMinute(f learnrec.Frame) {
+	c.mu.Lock()
+	cs := c.tracker.ObserveMinute(f, c.origin)
+	c.mu.Unlock()
+	if len(cs) > 0 {
+		c.days.AddCycles(cs)
+	}
+}
+
+// Save schreibt den Zustand des Trackers atomar nach cycles.json.
+func (c *cycleRunner) Save() error {
+	c.mu.Lock()
+	data := c.tracker.State()
+	c.mu.Unlock()
+	if data == nil {
+		return fmt.Errorf("cycle state could not be encoded")
+	}
+	return energystats.WriteFileAtomic(filepath.Dir(c.path), c.path, data)
 }
 
 // saverFunc macht eine Funktion zum Saver des Hubs.
@@ -328,4 +382,87 @@ func deviceRole(resolver *energy.Resolver, entities []registry.EntityView) energ
 		}
 	}
 	return role
+}
+
+// pvSite is the site state the PV tracker reads every minute. It is replaced
+// as a whole by pvSiteCache.refresh, so the minute path never reads a file.
+type pvSite struct {
+	hasLoc   bool
+	lat, lon float64
+	reg      *autolearn.RegulatorView
+}
+
+// pvSiteCache holds the latest pvSite. refresh reads the rule document and
+// runs outside the minute path, from the hub's saver call.
+type pvSiteCache struct {
+	site    atomic.Pointer[pvSite]
+	readDoc func() ([]byte, error)
+	logf    func(string, ...any)
+}
+
+// refresh parses the rule document into a new pvSite. A document that cannot
+// be read or parsed keeps the previous site.
+func (c *pvSiteCache) refresh() {
+	raw, err := c.readDoc()
+	if err != nil {
+		c.logf("autolearn: pv site: rule document unreadable: %v", err)
+		return
+	}
+	doc, err := autolearn.ParseDoc(raw)
+	if err != nil {
+		c.logf("autolearn: pv site: rule document invalid: %v", err)
+		return
+	}
+	site := &pvSite{}
+	if doc.Location != nil {
+		site.hasLoc = true
+		site.lat = doc.Location.Lat
+		site.lon = doc.Location.Lon
+	}
+	// The first enabled scenario with a regulator decides. The automation
+	// service regulates every regulator on the grid net, base is only the
+	// start value of the output, so each one counts as present.
+	for _, sc := range doc.Scenarios {
+		if !sc.Enabled || sc.Regulator == nil {
+			continue
+		}
+		site.reg = &autolearn.RegulatorView{
+			DeadbandW: sc.Regulator.DeadbandW,
+			MaxW:      sc.Regulator.MaxW,
+			Present:   true,
+		}
+		break
+	}
+	c.site.Store(site)
+}
+
+// location returns the site coordinates, ok false when none are set.
+func (c *pvSiteCache) location() (lat, lon float64, ok bool) {
+	site := c.site.Load()
+	if site == nil || !site.hasLoc {
+		return 0, 0, false
+	}
+	return site.lat, site.lon, true
+}
+
+// regulator returns the regulator state of the latest refresh, nil when none.
+func (c *pvSiteCache) regulator() *autolearn.RegulatorView {
+	site := c.site.Load()
+	if site == nil {
+		return nil
+	}
+	return site.reg
+}
+
+// loadPVRaster reads the sky raster from path. A missing or unreadable file
+// starts an empty raster, a size change is handled by LoadRaster.
+func loadPVRaster(path string, limits learnrec.Limits, logf func(string, ...any)) *autolearn.Raster {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		data = nil
+		if !os.IsNotExist(err) {
+			logf("autolearn: %s unreadable, starting empty: %v", path, err)
+		}
+	}
+	return autolearn.LoadRaster(data, limits.PVCellAzDeg, limits.PVCellElDeg)
 }
