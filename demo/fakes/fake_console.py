@@ -51,6 +51,7 @@ import http.server
 import json
 import os
 import sys
+import threading
 import urllib.parse
 from pathlib import Path
 
@@ -58,6 +59,8 @@ from console_page import PAGE_HTML
 from fakelog import Log
 
 DEFAULT_PORT = 18102
+# Sekunden nach dem Start, bis die Konsole den Zustand der Automationen veröffentlicht.
+AUTOLEARN_STATE_DELAY_S = 5.0
 
 
 class Tab:
@@ -243,9 +246,14 @@ def build_tabs(args: argparse.Namespace, log: Log) -> list[Tab]:
         tabs.append(PerformanceTab(log, Path(args.performance_state)))
     if args.automation_rules or args.data_dir:
         from console_autolearn import AutolearnTab
-        tabs.append(AutolearnTab(log, Path(args.automation_rules) if args.automation_rules else None,
+        autolearn = AutolearnTab(log, Path(args.automation_rules) if args.automation_rules else None,
                                  args.broker_control,
-                                 Path(args.data_dir) if args.data_dir else None))
+                                 Path(args.data_dir) if args.data_dir else None)
+        tabs.append(autolearn)
+        # Die Regelprüfung kennt die Regeln erst mit ihrem Zustand: einmal kurz nach dem Start.
+        timer = threading.Timer(AUTOLEARN_STATE_DELAY_S, autolearn.publish_now)
+        timer.daemon = True
+        timer.start()
     if args.highlights_repo:
         from console_highlights import HighlightsTab
         installer = Path(args.installer_state) if args.installer_state else None
