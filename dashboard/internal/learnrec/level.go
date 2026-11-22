@@ -25,6 +25,7 @@ type Limits struct {
 	LightEvery      time.Duration
 	MaxDevices      int
 	RAMMinuteDays   int
+	RAMMinuteBytes  int64
 	PVCellAzDeg     float64
 	PVCellElDeg     float64
 	GeoStepDeg      float64
@@ -40,13 +41,13 @@ func LimitsFor(l Level, cores int) Limits {
 	workers := max(1, cores-1)
 	switch l {
 	case LevelEco:
-		return Limits{Workers: 1, Budget: 2 * time.Second, LightEvery: 15 * time.Minute, MaxDevices: 64, RAMMinuteDays: 3,
+		return Limits{Workers: 1, Budget: 2 * time.Second, LightEvery: 15 * time.Minute, MaxDevices: 64, RAMMinuteDays: 3, RAMMinuteBytes: 4 << 20,
 			PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 5, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: false}
 	case LevelFull:
-		return Limits{Workers: workers, Budget: 60 * time.Second, LightEvery: 1 * time.Minute, MaxDevices: 256, RAMMinuteDays: 14,
+		return Limits{Workers: workers, Budget: 60 * time.Second, LightEvery: 1 * time.Minute, MaxDevices: 256, RAMMinuteDays: 14, RAMMinuteBytes: 64 << 20,
 			PVCellAzDeg: 2, PVCellElDeg: 1, GeoStepDeg: 1, GeoSurfaces: 3, SimilarDays: 15, SimilarPoolDays: 0, SimilarLastYear: true}
 	default:
-		return Limits{Workers: workers, Budget: 10 * time.Second, LightEvery: 5 * time.Minute, MaxDevices: 128, RAMMinuteDays: 7,
+		return Limits{Workers: workers, Budget: 10 * time.Second, LightEvery: 5 * time.Minute, MaxDevices: 128, RAMMinuteDays: 7, RAMMinuteBytes: 16 << 20,
 			PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 2, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: true}
 	}
 }
