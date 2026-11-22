@@ -392,3 +392,57 @@ func TestStepLogRingIsBoundedWhileFilesKeepTheirDays(t *testing.T) {
 		t.Fatalf("Steps = %d, want 3 (two days from files, today from RAM)", len(got))
 	}
 }
+
+// Nach einem Start ist das RAM leer. Der Ring von 7 Tagen darf dann nicht die
+// letzten Tage verschlucken: sie stehen in den Dateien, und ein Schritt nach dem
+// Start kommt dazu, ohne dass einer doppelt zaehlt.
+func TestStepLogReadsTheRingFromFilesAfterAStart(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, loc)
+	before := NewStepLog(func() int { return 14 }, func() string { return dir })
+	before.now = func() time.Time { return now }
+	var want int
+	for back := 13; back >= 1; back-- {
+		at := now.AddDate(0, 0, -back).Truncate(24 * time.Hour).Add(12 * time.Hour)
+		if err := before.Add("heizung", stepPayload(float64(at.Unix()), -5, -5, fptr(1200), fptr(1200), "unchanged")); err != nil {
+			t.Fatal(err)
+		}
+		want++
+	}
+	for _, hour := range []int{8, 9, 10} {
+		at := time.Date(2026, 11, 22, hour, 0, 0, 0, loc)
+		if err := before.Add("heizung", stepPayload(float64(at.Unix()), -5, -5, fptr(1200), fptr(1200), "unchanged")); err != nil {
+			t.Fatal(err)
+		}
+		want++
+	}
+	if err := before.Flush(now); err != nil {
+		t.Fatal(err)
+	}
+
+	// Der Neustart: Ring 7 Tage, RAM leer.
+	after := NewStepLog(func() int { return 14 }, func() string { return dir }).WithRingDays(func() int { return 7 })
+	after.now = func() time.Time { return now }
+	from := now.AddDate(0, 0, -14)
+	if got := after.Steps("heizung", from, now); len(got) != want {
+		t.Fatalf("after a start Steps = %d, want the %d steps of the files", len(got), want)
+	}
+
+	// Ein Schritt nach dem Start liegt im RAM und zaehlt genau einmal dazu.
+	fresh := time.Date(2026, 11, 22, 11, 0, 0, 0, loc)
+	if err := after.Add("heizung", stepPayload(float64(fresh.Unix()), -5, -5, fptr(1200), fptr(1200), "unchanged")); err != nil {
+		t.Fatal(err)
+	}
+	got := after.Steps("heizung", from, now)
+	if len(got) != want+1 {
+		t.Fatalf("Steps with a fresh step = %d, want %d", len(got), want+1)
+	}
+	seen := map[int64]bool{}
+	for _, st := range got {
+		if seen[st.At] {
+			t.Fatalf("step at %d counted twice", st.At)
+		}
+		seen[st.At] = true
+	}
+}

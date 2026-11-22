@@ -139,17 +139,18 @@ func (l *StepLog) WithRingDays(ring func() int) *StepLog {
 }
 
 // Steps liefert die Schritte des Szenarios mit einem Zeitpunkt von from bis to,
-// beide Enden einschliesslich. Vor dem Ring liest es aus den Dateien am Ort, im
-// Ring aus dem RAM. Ein Schritt vor dem Ring steht im RAM, wenn er noch nicht
-// in der Datei steht oder die Datei schon verfallen ist. Ohne Ort zaehlt nur das RAM.
+// beide Enden einschliesslich. Vor der Grenze des RAM liest es aus den Dateien am
+// Ort, ab der Grenze aus dem RAM. Ein Schritt vor der Grenze steht im RAM, wenn er
+// noch nicht in der Datei steht oder die Datei schon verfallen ist. Ohne Ort zaehlt
+// nur das RAM.
 func (l *StepLog) Steps(scenario string, from, to time.Time) []Step {
 	now := l.now()
-	ringCut := l.ringCutoff(now)
 	fileCut := l.fileCutoff(now)
 	dir := l.dir()
+	cut := l.coverCutoff(scenario, l.ringCutoff(now), now.Unix())
 	var out []Step
-	if dir != "" && from.Unix() < ringCut {
-		out = l.readFiles(dir, scenario, from, to, ringCut)
+	if dir != "" && from.Unix() < cut {
+		out = l.readFiles(dir, scenario, from, to, cut)
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -158,7 +159,7 @@ func (l *StepLog) Steps(scenario string, from, to time.Time) []Step {
 		if st.At < from.Unix() || st.At > to.Unix() {
 			continue
 		}
-		inFile := dir != "" && st.At < ringCut && i < written && st.At >= fileCut
+		inFile := dir != "" && st.At < cut && i < written && st.At >= fileCut
 		if inFile {
 			continue // steht in der Datei, die readFiles liest
 		}
@@ -269,6 +270,24 @@ func (l *StepLog) ringCutoff(now time.Time) int64 {
 	return dayCutoff(now, n)
 }
 
+// coverCutoff ist der Zeitpunkt, ab dem das RAM die Schritte des Szenarios hat.
+// Der Ring reicht bis ringCut. Nach einem Start fuellt sich das RAM aber nur mit
+// den Schritten, die seither kamen, deshalb beginnt die Abdeckung beim frueheste
+// Schritt im RAM, bei leerem RAM bei now. Davor liest Steps die Dateien.
+func (l *StepLog) coverCutoff(scenario string, ringCut, now int64) int64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	list := l.steps[scenario]
+	if len(list) == 0 {
+		return now
+	}
+	earliest := list[0].At
+	for _, st := range list[1:] {
+		earliest = min(earliest, st.At)
+	}
+	return max(ringCut, earliest)
+}
+
 // fileCutoff ist der Anfang des ersten Tages, dessen Datei am Ort bleibt.
 func (l *StepLog) fileCutoff(now time.Time) int64 {
 	return dayCutoff(now, l.days())
@@ -281,8 +300,8 @@ func dayCutoff(now time.Time, n int) int64 {
 	return first.Unix()
 }
 
-// readFiles liest die Schritte des Szenarios aus den Tagesdateien vor dem
-// Anfang des Rings, im Bereich von from bis to.
+// readFiles liest die Schritte des Szenarios aus den Tagesdateien vor cutoff,
+// im Bereich von from bis to.
 func (l *StepLog) readFiles(dir, scenario string, from, to time.Time, cutoff int64) []Step {
 	var out []Step
 	first := time.Unix(from.Unix(), 0).In(time.Local)
