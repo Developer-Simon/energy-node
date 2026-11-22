@@ -171,6 +171,18 @@ select.schema-control {
    Erklaerung ist einen Klick entfernt. */
 #energy-panel .energy-title { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
 
+/* Zeile zur Monitoring-Seite: ersetzt die Meldungen der Energieseite. Ohne
+   offene Meldung bleibt sie ruhig stehen, damit sie nie stillschweigend verschwindet. */
+.energy-monitoring-line { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: 0 0 var(--energy-section-gap); padding: .6rem .8rem;
+  border: 1px solid var(--border-soft); border-radius: var(--radius-md, 10px); background: var(--panel-alt); }
+.energy-monitoring-line-icon { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.energy-monitoring-line-text { flex: 1; min-width: 12rem; color: var(--text); }
+.energy-monitoring-line-new { font-size: .85rem; font-weight: 600; color: var(--accent); }
+.energy-monitoring-line.is-calm { background: none; }
+.energy-monitoring-line.is-calm .energy-monitoring-line-icon { stroke: var(--ok); }
+.energy-monitoring-line.is-calm .energy-monitoring-line-text { color: var(--text-muted); }
+.energy-monitoring-line.is-calm .energy-monitoring-line-open { background: none; color: var(--text-muted); font-weight: 400; }
+
 /* Hinweisstreifen: immer sichtbar, damit Zuklappen der Interpretation nie
    eine Warnung verbirgt. Jede Meldung blendet einzeln ueber x-transition ein. */
 /* Gruppierte Inset-Liste statt gestapelter Einzelkarten: eine Flaeche, Haarlinien

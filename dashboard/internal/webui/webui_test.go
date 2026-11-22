@@ -382,19 +382,23 @@ func TestEnergyPanelConsolidatesSaveIntoStickyBar(t *testing.T) {
 }
 
 // The settings sit in an accordion, so a long role list stays reachable; the
-// conditional warnings are hoisted out so collapsing never hides one.
-func TestEnergyPanelHoistsNoticesAboveCollapsibleInterpretation(t *testing.T) {
+// summary line for the monitoring page sits above it and is never collapsed.
+// The old notices strip and finding tiles are gone: the monitoring page shows them.
+func TestEnergyPanelShowsMonitoringLineAboveCollapsibleInterpretation(t *testing.T) {
 	body := renderEnergyPanel(t)
-	notices := strings.Index(body, `class="energy-notices"`)
+	line := strings.Index(body, `class="energy-monitoring-line"`)
 	interpretation := strings.Index(body, `data-energy-section="interpretation"`)
-	if notices < 0 {
-		t.Fatalf("energy panel is missing the hoisted notices strip: %s", body)
+	if line < 0 {
+		t.Fatalf("energy panel is missing the monitoring summary line: %s", body)
 	}
 	if interpretation < 0 {
 		t.Fatalf("interpretation is not an accordion section: %s", body)
 	}
-	if notices > interpretation {
-		t.Fatal("notices strip must render before the collapsible accordion")
+	if line > interpretation {
+		t.Fatal("monitoring summary line must render before the collapsible accordion")
+	}
+	if strings.Contains(body, `class="energy-notices"`) {
+		t.Fatal("energy panel must not render the notices strip any more")
 	}
 }
 

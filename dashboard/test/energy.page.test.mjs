@@ -1477,21 +1477,93 @@ test('findings of two chains give two tiles', async () => {
   assert.deepEqual(plainJSON(component.findingNotices.map(group => group.key)), ['m', 'n']);
 });
 
-test('the energy template renders one tile per chain with a title toggle and the efficiency link outside it', () => {
+test('the energy template shows the monitoring line in place of the notices and the finding tiles', () => {
   const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'energy.html'), 'utf8');
-  const start = html.indexOf('class="energy-chain-findings"');
-  const end = html.indexOf('</article>', start);
-  const tile = html.slice(start, end);
-  assert.ok(tile.includes('<template x-for="item in findingNotices"'), 'loops over the groups');
-  assert.ok(/<button type="button" class="energy-chain-finding-toggle"[^>]*aria-controls="/.test(tile), 'the toggle carries aria-controls');
-  assert.ok(/aria-expanded="/.test(tile), 'the toggle carries aria-expanded');
-  const toggleStart = tile.indexOf('energy-chain-finding-toggle');
-  const toggleEnd = tile.indexOf('</button>', toggleStart);
-  const toggle = tile.slice(toggleStart, toggleEnd);
-  assert.ok(toggle.includes('x-text="item.title"'), 'the title sits inside the toggle');
-  assert.ok(!toggle.includes('openEfficiency'), 'the efficiency link is not part of the toggle');
-  assert.ok(tile.includes('x-on:click="openEfficiency()"'), 'the link still opens the efficiency tab');
-  assert.ok(tile.includes('x-for="detail in item.items"'), 'the details loop over the findings');
+  assert.ok(html.includes('class="energy-monitoring-line"'), 'the summary line is rendered');
+  assert.ok(html.includes('x-text="monitoringLine.text"'), 'the line reads its text');
+  assert.ok(html.includes('x-on:click="openMonitoring()"'), 'the button opens the monitoring page');
+  assert.ok(!html.includes('class="energy-notices"'), 'the notices strip is gone');
+  assert.ok(!html.includes('class="energy-chain-findings"'), 'the finding tiles are gone');
+});
+
+const monitoringFetch = (notices, urls = []) => async url => {
+  urls.push(url);
+  if (url === '/api/v1/monitoring') return jsonResponse({notices, new_count: 0});
+  if (url === '/api/v1/auth/session') return jsonResponse({edit_energy: true});
+  if (url === '/api/v1/devices') return jsonResponse(devicesResponse);
+  if (url === '/api/v1/energy/roles') return jsonResponse(rolesResponse);
+  if (url === '/api/v1/energy') return jsonResponse(energyResponse);
+  return jsonResponse({});
+};
+
+test('the summary line counts energy and chain notices and the unacknowledged ones as new', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: monitoringFetch([
+    { id: 'a', source: 'energy', ack: null },
+    { id: 'b', source: 'chain', ack: null },
+    { id: 'c', source: 'energy', ack: '2026-11-20T10:00:00Z' },
+    { id: 'd', source: 'learn', ack: null },
+  ]) });
+  window.document.body.innerHTML = '<button id="tab-monitoring" type="button"></button>';
+  component.$nextTick = fn => fn();
+  await component.load();
+  await new Promise(resolve => setImmediate(resolve));
+  const line = component.monitoringLine;
+  assert.equal(line.visible, true);
+  assert.equal(line.count, 3);
+  assert.equal(line.text, '3 Meldungen zur Energie');
+  assert.equal(line.newText, '2 neu');
+});
+
+test('without energy notices the summary line stays calm with the quiet text', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: monitoringFetch([{ id: 'x', source: 'learn', ack: null }]) });
+  window.document.body.innerHTML = '<button id="tab-monitoring" type="button"></button>';
+  component.$nextTick = fn => fn();
+  await component.load();
+  await new Promise(resolve => setImmediate(resolve));
+  const line = component.monitoringLine;
+  assert.equal(line.visible, true);
+  assert.equal(line.count, 0);
+  assert.equal(line.text, 'Keine offenen Meldungen zur Energie');
+  assert.equal(line.newText, '');
+});
+
+test('without the monitoring tab the summary line stays hidden and nothing is asked', async () => {
+  const urls = [];
+  const { component, window } = createEnergyPanel({ fetchImpl: monitoringFetch([], urls) });
+  window.document.body.innerHTML = '';
+  component.$nextTick = fn => fn();
+  await component.load();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(component.monitoringLine.visible, false);
+  assert.equal(urls.includes('/api/v1/monitoring'), false);
+});
+
+test('monitoring-goto focuses the rows and opens the chain, or keeps the request until the page has loaded', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: monitoringFetch([]) });
+  component.$nextTick = fn => fn();
+  component.init();
+  await component.load();
+  const focused = [];
+  const opened = [];
+  component.focusRows = ids => focused.push(ids);
+  component.openChain = id => opened.push(id);
+  window.dispatchEvent(new window.CustomEvent('monitoring-goto', { detail: { panel: 'energy-panel', focus: ['a'], chain: 'm' } }));
+  assert.deepEqual(plainJSON(focused), [['a']]);
+  assert.deepEqual(plainJSON(opened), ['m']);
+
+  component.loading = true;
+  window.dispatchEvent(new window.CustomEvent('monitoring-goto', { detail: { panel: 'energy-panel', focus: ['b'], chain: 'n' } }));
+  assert.deepEqual(plainJSON(focused), [['a']], 'a request during the load waits for load()');
+  assert.deepEqual(plainJSON(window.__energyFocusRequest__), ['b']);
+  assert.equal(window.__energyChainRequest__, 'n');
+});
+
+test('the open button of the summary line sends the monitoring filter for energy', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: monitoringFetch([]) });
+  let detail = null;
+  window.addEventListener('monitoring-open', event => { detail = event.detail; });
+  component.openMonitoring();
+  assert.deepEqual(plainJSON(detail), { filter: 'energy' });
 });
 
 test('a collapsed finding tile has no vertical padding in its fold, the open tile gets it', () => {
