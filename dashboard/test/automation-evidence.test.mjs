@@ -448,3 +448,13 @@ test('scale shape without scales keeps the single pair', () => {
   assert.equal(host.querySelectorAll('.auto-learn-scale-bar').length, 0);
   assert.equal(host.querySelectorAll('rect.auto-learn-ist').length, 1);
 });
+
+test('events shape draws the replayed triggers of the Soll lane as bars', () => {
+  const { api, document } = load();
+  const from = 1_000_000;
+  const html = api.render({ shape: 'events', from, to: from + 14400, ist: [from + 600, from + 620], soll: [from + 3000, from + 3100], soll_spans: [] }, t);
+  const host = mount(document, html);
+  const sollLane = host.querySelector('.auto-learn-lane.is-soll');
+  assert.ok(sollLane, 'a Soll lane exists');
+  assert.ok(sollLane.querySelectorAll('path.auto-learn-bar').length >= 1, 'replayed triggers are drawn');
+});

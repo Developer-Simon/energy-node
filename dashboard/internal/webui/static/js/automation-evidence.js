@@ -278,7 +278,10 @@
     const majors = [from, mid, to];
     const grid = gridLines(majors.map((v) => pos(v, from, to)));
     const ist = grid + histogram(inside, from, (to - from) / EVENT_BINS, EVENT_BINS, xOf);
-    const soll = grid + spans(ev.soll_spans, from, to, 'auto-learn-soll');
+    // Die nachgespielten Auslösungen (soll) zeichnen wie die Ist-Auslösungen, dazu die Spannen.
+    const sollInside = finiteList(ev.soll).filter((u) => u >= from && u <= to);
+    const soll = grid + spans(ev.soll_spans, from, to, 'auto-learn-soll')
+      + histogram(sollInside, from, (to - from) / EVENT_BINS, EVENT_BINS, xOf);
     const step = to - from <= 10800 ? 15 : 60;
     const minors = [];
     if (to > from) {
