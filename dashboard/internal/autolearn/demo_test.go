@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // demoFixture is the path of a demo fixture from this package directory.
@@ -706,5 +707,39 @@ func TestDemoSeedYieldsEnergyFindings(t *testing.T) {
 		if !ids[id] {
 			t.Errorf("no %s finding in the demo pipeline, ids %v", id, ids)
 		}
+	}
+}
+
+// TestDemoPVYearRestsTheFeedInRule checks that the demo year raster knows the
+// summer sun and that the feed-in rule of the demo rests until a spring week.
+func TestDemoPVYearRestsTheFeedInRule(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	r := DemoPVRasterYear(now, demoLat, demoLon)
+	m := DemoPVModel(r)
+	if !m.Safe || !rasterCoversYear(r, sun.Location{Lat: demoLat, Lon: demoLon}, now) {
+		t.Fatalf("model %+v safe %v, raster must cover the year", m, m.Safe)
+	}
+	doc, err := ParseDoc(demoRulesRaw(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := neverFiredStateFor("grid_export", now.Add(-40*24*time.Hour), 900)
+	// The observer knows the feed-in rule for 40 days, it never fired.
+	st.Rules["regel_einspeisung_entfeuchter"] = RuleStats{FirstSeen: now.Add(-40 * 24 * time.Hour), Hours: map[int64]int{}}
+	src := func() (PVModel, *Raster, bool) { return m, r, true }
+	var got *Finding
+	for _, f := range ObservedFindingsWithPV(doc, st, nil, src, now, DefaultThresholds()) {
+		if f.ID == FindingID("never_fired", "regel_einspeisung_entfeuchter") {
+			f := f
+			got = &f
+		}
+	}
+	if got == nil || got.Summary.Code != "check.never_fired_season" {
+		t.Fatalf("feed-in rule finding = %+v, want check.never_fired_season", got)
+	}
+	week, _ := got.Summary.Params["week"].(int)
+	if week < 5 || week > 20 {
+		t.Fatalf("week = %v, want a spring week", got.Summary.Params["week"])
 	}
 }

@@ -503,6 +503,28 @@ func DemoPVRaster(now time.Time, lat, lon float64) *Raster {
 	return r
 }
 
+// demoYearStep ist der Abstand in Tagen der klaren Tage vor den 21 Demo-Tagen. TUNABLE
+const demoYearStep = 3
+
+// DemoPVRasterYear ist DemoPVRaster mit dem Jahr davor: an jedem demoYearStep-ten
+// Tag bis 365 Tage zurück ein klarer Tag. So kennt der Raster die Sommersonne,
+// wie bei einem Node, der ein Jahr gelaufen ist.
+func DemoPVRasterYear(now time.Time, lat, lon float64) *Raster {
+	r := DemoPVRaster(now, lat, lon)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	for back := demoSeedDays + 1; back <= 365; back += demoYearStep {
+		day := today.AddDate(0, 0, -back)
+		for q := 0; q < dayQuarters; q++ {
+			az, el := sun.Position(shadeQuarterTime(day, q), lat, lon)
+			if el < pvRasterMinElDeg {
+				continue
+			}
+			r.Add(az, el, demoPVW(az, el, demoKClear), day.Format(dayLayout))
+		}
+	}
+	return r
+}
+
 // DemoPVModel passt das Dachmodell an das Demo-Raster an, so wie der nächtliche
 // Erkenner es täte.
 func DemoPVModel(r *Raster) PVModel {
@@ -510,11 +532,11 @@ func DemoPVModel(r *Raster) PVModel {
 	return m
 }
 
-// SeedDemoPV schreibt das Demo-Raster nach rasterPath und das Dachmodell nach
-// modelPath. Der Aufrufer schreibt sie nur beim ersten Start der Demo, zusammen
-// mit den Tagesdateien.
+// SeedDemoPV schreibt das Demo-Raster, das ein Jahr Himmel umfasst, nach
+// rasterPath und das Dachmodell nach modelPath. Der Aufrufer schreibt sie nur
+// beim ersten Start der Demo, zusammen mit den Tagesdateien.
 func SeedDemoPV(rasterPath, modelPath string, now time.Time) error {
-	r := DemoPVRaster(now, demoLat, demoLon)
+	r := DemoPVRasterYear(now, demoLat, demoLon)
 	data := r.State()
 	if data == nil {
 		return fmt.Errorf("autolearn: demo raster could not be encoded")
