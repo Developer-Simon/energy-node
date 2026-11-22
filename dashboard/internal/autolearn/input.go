@@ -40,6 +40,10 @@ type Input struct {
 	// Learned holds the learned values by key, such as site/base_w. Nil when
 	// no store is wired.
 	Learned map[string]LearnedEntry
+	// PriorEmptyShare returns the share of the days of an ISO week of the year
+	// before that were empty before sunrise, and whether a record of that week
+	// exists. Nil, or a week without a record, means the empty finding is not made.
+	PriorEmptyShare func(week int) (float64, bool)
 }
 
 // OutdoorSource names the outdoor temperature entity: its unique id, its state

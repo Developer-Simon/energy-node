@@ -559,6 +559,15 @@ test('the baseload drift line names the cause, or an unmeasured consumer without
   assert.ok(api.text(unmeasured, t).endsWith('Verursacher ist ein nicht gemessener Verbraucher.'));
 });
 
+test('the battery empty line names the night consumers, or an unmeasured one without a device', () => {
+  const { api } = load(germanI18n);
+  const t = catalogT('de');
+  const measured = suggestion('battery.empty_early', { time: '00:00', kwh_missing: 12.4, candidates: 'Heizlüfter' }, 'curve');
+  assert.ok(api.text(measured, t).endsWith('Hauptverbraucher in der Nacht: Heizlüfter.'));
+  const unmeasured = suggestion('battery.empty_early', { time: '00:00', kwh_missing: 12.4, candidates: '' }, 'curve');
+  assert.ok(api.text(unmeasured, t).endsWith('Hauptverbraucher in der Nacht: ein nicht gemessener Verbraucher.'));
+});
+
 test('a scale evidence with the weekly unit shows the catalog unit on the axis', () => {
   const { evidence } = load();
   const t = catalogT('de');

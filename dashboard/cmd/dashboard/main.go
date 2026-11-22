@@ -572,6 +572,7 @@ func main() {
 	learnHub.AddSaver("forecast", forecastCheck)
 	registerEnergyDetectors(automationEngine, pvReserve.Current, forecastCheck)
 	automationEngine.Register(autolearn.BaseLoadDetector)
+	automationEngine.Register(autolearn.BatteryDetector)
 	automationEngine.Register(autolearn.NewPVModelDetector(pvTracker.Snapshot, pvModelStore))
 	automationEngine.Register(autolearn.NewShadeDetector(pvTracker.Snapshot, pvModelStore.Model))
 	// Modell und Himmelsraster fuer den Rest-Ueberschuss. Der Raster-Schnappschuss
