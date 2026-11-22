@@ -3,7 +3,7 @@
 
   <!-- Leiste wie auf der Seite Automationen: Umschaltung links, Filter rechts -->
   <div class="monitoring-bar">
-    <div class="auto-segment" role="tablist">
+    <div class="auto-segment" role="tablist" aria-label="{{t "monitoring.view.label"}}">
       <button class="auto-segment-tab" type="button" role="tab" x-bind:aria-selected="view === 'notices' ? 'true' : 'false'" x-bind:class="{ active: view === 'notices' }" x-on:click="setView('notices')">
         <span>{{t "monitoring.view.notices"}}</span>
         <span class="auto-count" x-text="notices.length"></span>
@@ -14,7 +14,7 @@
         <span class="auto-count" x-text="learned.values.length"></span>
       </button>
     </div>
-    <div class="monitoring-filters" x-show="view === 'notices'">
+    <div class="monitoring-filters" role="group" aria-label="{{t "monitoring.filter.label"}}" x-show="view === 'notices'">
       <template x-for="f in filters()" x-bind:key="f.id">
         <button type="button" class="monitoring-chip" x-bind:class="{ 'is-on': filter === f.id }" x-bind:aria-pressed="filter === f.id ? 'true' : 'false'" x-on:click="setFilter(f.id)">
           <span x-text="f.label"></span><span class="monitoring-chip-count" x-text="f.count"></span>
@@ -22,6 +22,8 @@
       </template>
     </div>
   </div>
+
+  <p class="monitoring-error" role="alert" x-show="failed">{{t "monitoring.load_failed"}}</p>
 
   <!-- Meldungen -->
   <div class="monitoring-view" x-show="view === 'notices'">

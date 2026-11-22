@@ -6,6 +6,7 @@
 .monitoring-bar .monitoring-filters { margin: 0; }
 .monitoring-seg-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 .monitoring-muted { color: var(--text-muted); margin: 0; line-height: 1.5; }
+.monitoring-error { color: var(--warn); margin: 0 0 1rem; line-height: 1.5; }
 
 /* Filter */
 .monitoring-filters { display: flex; flex-wrap: wrap; gap: .35rem; }

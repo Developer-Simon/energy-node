@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
-import { installI18n } from './helpers/i18n.mjs';
+import { catalog, installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
@@ -21,7 +21,7 @@ function response(body) {
   return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(body)) };
 }
 
-function createPanel({ roles = ['edit_setup'], notices = null, ackReply = null } = {}) {
+function createPanel({ roles = ['edit_setup'], notices = null, ackReply = null, failMonitoring = false } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
   installI18n(dom.window);
@@ -43,6 +43,9 @@ function createPanel({ roles = ['edit_setup'], notices = null, ackReply = null }
   ];
   dom.window.fetch = async (url, options) => {
     calls.push({ url, options });
+    if (url === '/api/v1/monitoring' && failMonitoring) {
+      return { ok: false, status: 500, json: async () => ({}) };
+    }
     if (url === '/api/v1/monitoring') {
       return response({ notices: list, new_count: list.filter((n) => !n.ack).length, learned: { enabled: true, values: [] } });
     }
@@ -92,4 +95,19 @@ test('without edit_setup the card offers no acknowledge button', async () => {
   assert.equal(html.includes('data-act="ack"'), false);
   assert.equal(html.includes('data-act="unack"'), false);
   assert.ok(html.includes('Quittieren können nur Nutzer mit dem Recht Einrichten.'));
+});
+
+test('a failed monitoring load sets the failed flag and shows no groups', async () => {
+  const { component } = createPanel({ failMonitoring: true });
+  await component.load();
+  assert.equal(component.failed, true);
+  assert.equal(component.loaded, true);
+  assert.equal(component.groups().length, 0);
+});
+
+test('the load error text is in the catalog and the template shows it on failure', () => {
+  assert.equal(catalog('de')['monitoring.load_failed'], 'Monitoring konnte nicht geladen werden.');
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'monitoring.html'), 'utf8');
+  assert.match(template, /x-show="failed"[^>]*>\{\{t "monitoring\.load_failed"\}\}</);
+  assert.match(template, /x-if="loaded && !failed && !list\(\)\.length"/);
 });
