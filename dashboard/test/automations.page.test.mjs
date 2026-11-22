@@ -4063,3 +4063,13 @@ test('applyFix appends an add_condition even when its index is stale', () => {
   const conditions = JSON.parse(JSON.stringify(component.document.rules[0].conditions));
   assert.deepEqual(conditions, [existing, extra, added]);
 });
+
+test('night_off and quiet_off prefer the entity of the prefill over the device', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  for (const id of ['night_off', 'quiet_off']) {
+    assert.deepEqual({ ...prefillToAnswers(id, { device: 'pump', entity: 'pump_switch' }) }, { device: 'pump_switch' });
+    assert.deepEqual({ ...prefillToAnswers(id, { device: 'pump' }) }, { device: 'pump' });
+    assert.equal(prefillToAnswers(id, { entity: 5 }), null);
+  }
+});

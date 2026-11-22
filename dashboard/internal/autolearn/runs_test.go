@@ -135,3 +135,16 @@ func TestDominantEntityPicksMostFrequentThenSmallest(t *testing.T) {
 		t.Errorf("empty = %q, want empty", got)
 	}
 }
+
+func TestSwitchEntityOfTakesTheMostUsedEntity(t *testing.T) {
+	in := &Input{Days: []DayFile{
+		{Events: []EventRec{{Device: "pump", Entity: "pump_switch"}, {Device: "pump", Entity: "pump_switch"}, {Device: "lamp", Entity: "lamp_switch"}}},
+		{Events: []EventRec{{Device: "pump", Entity: "pump_other"}}},
+	}}
+	if got := switchEntityOf(in, "pump"); got != "pump_switch" {
+		t.Fatalf("switchEntityOf(pump) = %q, want pump_switch", got)
+	}
+	if got := switchEntityOf(in, "fridge"); got != "" {
+		t.Fatalf("switchEntityOf(fridge) = %q, want empty", got)
+	}
+}

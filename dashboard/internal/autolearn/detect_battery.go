@@ -486,7 +486,7 @@ func batteryCandidates(in *Input, devSum map[string]float64, devDays map[string]
 		ids = append(ids, r.id)
 		if info, ok := in.Devices[r.id]; ok && info.Switchable && len(apply) < batteryMaxApply {
 			apply = append(apply, Fix{Code: "night_off", Template: "night_off",
-				Prefill: map[string]any{"device": r.id}})
+				Prefill: withEntity(map[string]any{"device": r.id}, "entity", switchEntityOf(in, r.id))})
 		}
 	}
 	return ids, apply

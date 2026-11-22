@@ -111,3 +111,17 @@ func dominantEntity(entities []string) string {
 	}
 	return best
 }
+
+// switchEntityOf is the entity the device was switched by most often in the
+// day files, the one the assistant selects. Empty without a switch event.
+func switchEntityOf(in *Input, device string) string {
+	var entities []string
+	for i := range in.Days {
+		for _, ev := range in.Days[i].Events {
+			if ev.Device == device {
+				entities = append(entities, ev.Entity)
+			}
+		}
+	}
+	return dominantEntity(entities)
+}

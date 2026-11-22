@@ -225,7 +225,7 @@ func baseLoadDrift(in *Input, ns []baseloadNight) []Candidate {
 	}
 	if device != "" && in.Devices[device].Switchable {
 		finding.Apply = []Fix{{Code: "night_off", Template: "night_off",
-			Prefill: map[string]any{"device": device}}}
+			Prefill: withEntity(map[string]any{"device": device}, "entity", switchEntityOf(in, device))}}
 	}
 	return []Candidate{{
 		Finding:     finding,

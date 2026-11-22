@@ -248,17 +248,21 @@
     },
     quiet_off(prefill) {
       const out = {};
-      if (prefill.device !== undefined) {
-        if (!isPrefillText(prefill.device)) return null;
-        out.device = prefill.device;
+      // Der Assistent waehlt den Schalter nach Entitaets-ID. Ohne entity gilt das Geraet.
+      const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
       }
       return out;
     },
     night_off(prefill) {
       const out = {};
-      if (prefill.device !== undefined) {
-        if (!isPrefillText(prefill.device)) return null;
-        out.device = prefill.device;
+      // Der Assistent waehlt den Schalter nach Entitaets-ID. Ohne entity gilt das Geraet.
+      const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
       }
       return out;
     },
