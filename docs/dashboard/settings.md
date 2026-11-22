@@ -71,6 +71,12 @@ days. The default is 56 days. Chains and automations share one recording, and
 each value is written only once. The card shows the memory in use and how much
 is written per day.
 
+**Seasonal data for a whole year** keeps the PV sun course for a year, also
+when the profiles are kept for a shorter time. The rule check needs it to tell
+from which calendar week a PV threshold is reached again. When it is off, the
+sun course stays as long as the profiles. In the first year, while the summer
+sun is still missing, a PV threshold is never reported as **Can never be met**.
+
 **Delete learned data** asks for confirmation first. It deletes the day
 profiles, the reaction times, the sums of the chain suggestions and the learned
 loss values of the chains. Dismissed suggestions, ignored hints and the counters

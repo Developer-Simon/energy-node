@@ -181,3 +181,32 @@ test('Der Energie-Schalter liegt in der Feineinstellung nach Zuverlaessigkeit un
   assert.ok(order.indexOf('learning-energy') > order.indexOf('learning-reliability'), 'Energie steht nach Zuverlaessigkeit');
 });
 
+test('load() liest den Saison-Schalter als Boolean, fehlend heisst ganzes Jahr', async () => {
+  const { dom, component } = createPanel(loadFetch({ learning_season_year_disabled: true }));
+  await component.load();
+  assert.equal(component.learningSeasonYearDisabled, true);
+  dom.window.close();
+  const fresh = createPanel(loadFetch({}));
+  await fresh.component.load();
+  assert.equal(fresh.component.learningSeasonYearDisabled, false);
+  fresh.dom.window.close();
+});
+
+test('payload() schickt den Saison-Schalter als Boolean', async () => {
+  const { dom, component } = createPanel(loadFetch({ learning_season_year_disabled: true }));
+  await component.load();
+  const payload = JSON.parse(JSON.stringify(component.payload()));
+  assert.equal(payload.learning_season_year_disabled, true);
+  dom.window.close();
+});
+
+test('Der Saison-Schalter liegt in der Aufzeichnung, ist ein Label mit for und an canEditSetup gebunden', () => {
+  const doc = new JSDOM(templateSource).window.document;
+  const input = doc.getElementById('learning-season-year');
+  assert.ok(input, 'learning-season-year fehlt');
+  assert.equal(input.getAttribute('role'), 'switch');
+  assert.equal(input.getAttribute('x-bind:disabled'), '!canEditSetup');
+  const label = input.closest('label');
+  assert.ok(label && label.getAttribute('for') === 'learning-season-year');
+  assert.ok(input.closest('[data-tour="learning-record"]'), 'nicht in der Karte Aufzeichnung');
+});

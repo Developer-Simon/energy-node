@@ -89,6 +89,7 @@
     automationHabitsDisabled: false,
     automationReliabilityDisabled: false,
     automationEnergyDisabled: false,
+    learningSeasonYearDisabled: false,
     learningExcludedDevices: [],
     learningProfileDays: 56,
     learningAcknowledged: [],
@@ -225,6 +226,7 @@
         this.automationHabitsDisabled = Boolean(value.automation_habits_disabled);
         this.automationReliabilityDisabled = Boolean(value.automation_reliability_disabled);
         this.automationEnergyDisabled = Boolean(value.automation_energy_disabled);
+        this.learningSeasonYearDisabled = Boolean(value.learning_season_year_disabled);
         this.learningExcludedDevices = Array.isArray(value.learning_excluded_devices) ? [...value.learning_excluded_devices] : [];
         this.learningProfileDays = Number(value.learning_profile_days) || 56;
         this.learningAcknowledged = Array.isArray(value.learning_acknowledged) ? [...value.learning_acknowledged] : [];
@@ -679,6 +681,7 @@
         automation_habits_disabled: Boolean(this.automationHabitsDisabled),
         automation_reliability_disabled: Boolean(this.automationReliabilityDisabled),
         automation_energy_disabled: Boolean(this.automationEnergyDisabled),
+        learning_season_year_disabled: Boolean(this.learningSeasonYearDisabled),
         learning_excluded_devices: [...this.learningExcludedDevices],
         learning_profile_days: Number(this.learningProfileDays),
         learning_acknowledged: [...this.learningAcknowledged],

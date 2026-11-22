@@ -4483,6 +4483,8 @@
   "settings.learning.record.days_increase": "Aufbewahrung der Profile erhöhen",
   "settings.learning.record.note": "Messketten und Automationen teilen sich eine Aufzeichnung. Jeder Wert wird nur einmal geschrieben.",
   "settings.learning.record.reset": "Gelerntes löschen",
+  "settings.learning.record.season_year": "Saisonale Daten ganzes Jahr",
+  "settings.learning.record.season_year_help": "Behält den Sonnenverlauf der PV ein ganzes Jahr. Damit erkennt die Regelprüfung, ab welcher Kalenderwoche eine PV-Schwelle wieder erreicht wird. Ausgeschaltet bleibt er so lange wie die Profile.",
   "settings.learning.record.title": "Aufzeichnung",
   "settings.learning.reset.confirm": "Löschen",
   "settings.learning.reset.confirm_body": "Alle gelernten Werte werden gelöscht. Verworfene Vorschläge und ignorierte Hinweise bleiben.",

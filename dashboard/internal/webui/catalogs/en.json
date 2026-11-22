@@ -4483,6 +4483,8 @@
   "settings.learning.record.days_increase": "Increase profile retention",
   "settings.learning.record.note": "Chains and automations share one recording. Each value is written only once.",
   "settings.learning.record.reset": "Delete learned data",
+  "settings.learning.record.season_year": "Seasonal data for a whole year",
+  "settings.learning.record.season_year_help": "Keeps the PV sun course for a whole year. The rule check can then tell from which calendar week a PV threshold is reached again. When off, it stays as long as the profiles.",
   "settings.learning.record.title": "Recording",
   "settings.learning.reset.confirm": "Delete",
   "settings.learning.reset.confirm_body": "All learned values will be deleted. Dismissed suggestions and ignored hints stay.",
