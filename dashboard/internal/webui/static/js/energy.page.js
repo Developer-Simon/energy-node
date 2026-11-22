@@ -179,9 +179,14 @@
           if (detail.chain) window.__energyChainRequest__ = detail.chain;
           return;
         }
+        // Taken here, so load() does not run the same request a second time.
+        window.__energyFocusRequest__ = null;
+        window.__energyChainRequest__ = null;
         if (ids.length) this.focusRows(ids);
         if (detail.chain) this.openChain(detail.chain);
       });
+      // The monitoring page acknowledges notices: the summary line counts them again.
+      window.addEventListener('monitoring-changed', () => this.loadMonitoringLine());
       // A draft from the efficiency tab or the device map. While the page loads, load() applies the request instead.
       window.addEventListener('energy-apply-draft', event => {
         if (!this.loading) this.applyDraft((event.detail) || {});

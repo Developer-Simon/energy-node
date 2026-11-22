@@ -232,6 +232,11 @@
         const detail = { panel };
         if (step.ids && step.ids.length) detail.focus = step.ids;
         if (step.chain) detail.chain = step.chain;
+        // The energy page may not be mounted yet: it takes these requests in its load().
+        if (panel === 'energy-panel') {
+          window.__energyFocusRequest__ = detail.focus || null;
+          window.__energyChainRequest__ = detail.chain || null;
+        }
         window.dispatchEvent(new CustomEvent('monitoring-goto', { detail }));
         openTab(panel);
       },

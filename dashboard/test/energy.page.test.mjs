@@ -1558,6 +1558,59 @@ test('monitoring-goto focuses the rows and opens the chain, or keeps the request
   assert.equal(window.__energyChainRequest__, 'n');
 });
 
+test('a monitoring jump left in the window flags is applied by load() and then cleared', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: monitoringFetch([]) });
+  component.$nextTick = fn => fn();
+  const focused = [];
+  const opened = [];
+  component.focusRows = ids => focused.push(ids);
+  component.openChain = id => opened.push(id);
+  window.__energyFocusRequest__ = ['a'];
+  window.__energyChainRequest__ = 'm';
+  await component.load();
+  assert.deepEqual(plainJSON(focused), [['a']]);
+  assert.deepEqual(plainJSON(opened), ['m']);
+  assert.equal(window.__energyFocusRequest__, null);
+  assert.equal(window.__energyChainRequest__, null);
+});
+
+test('a jump on a mounted page runs once: the event takes the flags, a later load() does not repeat it', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: monitoringFetch([]) });
+  component.$nextTick = fn => fn();
+  component.init();
+  await component.load();
+  const focused = [];
+  const opened = [];
+  component.focusRows = ids => focused.push(ids);
+  component.openChain = id => opened.push(id);
+  window.__energyFocusRequest__ = ['a'];
+  window.__energyChainRequest__ = 'm';
+  window.dispatchEvent(new window.CustomEvent('monitoring-goto', { detail: { panel: 'energy-panel', focus: ['a'], chain: 'm' } }));
+  assert.equal(focused.length, 1);
+  assert.equal(opened.length, 1);
+  assert.equal(window.__energyFocusRequest__, null);
+  assert.equal(window.__energyChainRequest__, null);
+  await component.load();
+  assert.equal(focused.length, 1, 'load() does not run the focus again');
+  assert.equal(opened.length, 1, 'load() does not open the chain again');
+});
+
+test('monitoring-changed counts the summary line again', async () => {
+  const notices = [{ id: 'a', source: 'energy', ack: null }];
+  const { component, window } = createEnergyPanel({ fetchImpl: monitoringFetch(notices) });
+  window.document.body.innerHTML = '<button id="tab-monitoring" type="button"></button>';
+  component.$nextTick = fn => fn();
+  component.init();
+  await component.load();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(component.monitoringLine.count, 1);
+  notices.push({ id: 'b', source: 'chain', ack: null });
+  window.dispatchEvent(new window.CustomEvent('monitoring-changed'));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(component.monitoringLine.count, 2);
+  assert.equal(component.monitoringLine.newText, '2 neu');
+});
+
 test('the open button of the summary line sends the monitoring filter for energy', async () => {
   const { component, window } = createEnergyPanel({ fetchImpl: monitoringFetch([]) });
   let detail = null;
