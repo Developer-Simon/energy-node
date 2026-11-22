@@ -1948,3 +1948,45 @@ test('surplus_wallbox prefills the start threshold from the learned operating po
   assert.equal(wizard.defaultAnswers(template, ctx).start, 2000);
   assert.equal(wizard.defaultAnswers(template, base).start, 1400);
 });
+
+// Nachts aus: mit gelernter Nachtruhe und gelerntem Tagesbeginn ein Fenster um die Lernwerte,
+// ohne sie fest von 23:00 bis 06:00. Das Gerät geht zu Beginn des Fensters aus.
+test('night_off with learned night rest and day start builds a window around the learned bounds', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'night_off');
+  const base = plain(contextFor(wizard));
+  const ctx = withLearned(base, [['site/night_rest', '22:40'], ['site/day_start', '06:10']]);
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { device: 'lamp_switch' }), ctx).entry);
+  assert.equal(entry.enabled, true);
+  assert.deepEqual(entry.conditions, [{
+    type: 'time_window',
+    start: { learned: 'site/night_rest', min: '22:00', max: '00:00', fallback: '23:00' },
+    end: { learned: 'site/day_start', min: '05:00', max: '07:00', fallback: '06:00' },
+    weekdays: [],
+  }]);
+  assert.deepEqual(entry.actions, [{
+    type: 'publish', topic: 'werkstatt/lamp/switch', retain: false, payload_source: 'constant',
+    payload: 'OFF', entity_id: 'lamp_switch',
+  }]);
+});
+
+test('night_off without learned values uses the fixed window from 23:00 to 06:00', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'night_off');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { device: 'lamp_switch' }), ctx).entry);
+  assert.deepEqual(entry.conditions, [{ type: 'time_window', start: '23:00', end: '06:00', weekdays: [] }]);
+  const partial = withLearned(ctx, [['site/night_rest', '22:40']]);
+  const onlyOne = plain(template.build(answersFor(wizard, template, partial, { device: 'lamp_switch' }), partial).entry);
+  assert.deepEqual(onlyOne.conditions, [{ type: 'time_window', start: '23:00', end: '06:00', weekdays: [] }]);
+});
+
+test('night_off offers only switches and shows the night window in its summary', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'night_off');
+  const ctx = withLearned(plain(contextFor(wizard)), [['site/night_rest', '22:40'], ['site/day_start', '06:10']]);
+  const steps = plain(wizard.visibleSteps(template, answersFor(wizard, template, ctx, { device: 'lamp_switch' }), ctx));
+  assert.deepEqual(steps.map((step) => step.id), ['device', 'summary']);
+  const rows = plain(template.summary(answersFor(wizard, template, ctx, { device: 'lamp_switch' }), ctx));
+  assert.ok(rows.some((row) => row.text === catalog('de')['automations.assistant.summary.night.learned']));
+});

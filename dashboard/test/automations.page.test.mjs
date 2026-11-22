@@ -3822,6 +3822,13 @@ test('prefillToAnswers maps the device of a quiet switch-off', () => {
   assert.equal(prefillToAnswers('quiet_off', { device: 3 }), null);
 });
 
+test('prefillToAnswers opens a night off suggestion with its device and nothing else', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.deepEqual(JSON.parse(JSON.stringify(prefillToAnswers('night_off', { device: 'lamp_switch' }))), { device: 'lamp_switch' });
+  assert.equal(prefillToAnswers('night_off', { device: 3 }), null);
+});
+
 // --- Lernwerte im Editor ----------------------------------------------------
 
 const LEARNED_VALUES = [

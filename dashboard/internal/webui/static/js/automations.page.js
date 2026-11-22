@@ -251,6 +251,14 @@
       }
       return out;
     },
+    night_off(prefill) {
+      const out = {};
+      if (prefill.device !== undefined) {
+        if (!isPrefillText(prefill.device)) return null;
+        out.device = prefill.device;
+      }
+      return out;
+    },
     follow_switch(prefill) {
       const out = {};
       for (const key of ['source', 'target']) {
