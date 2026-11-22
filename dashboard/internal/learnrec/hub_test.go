@@ -324,3 +324,58 @@ func TestOutdoorNoChoiceIsNil(t *testing.T) {
 		t.Fatalf("frames = %+v, want one frame without OutdoorC", mc.frames)
 	}
 }
+
+// replayRec ist ein Wiederholungsverbraucher mit fester Startzeit.
+type replayRec struct {
+	fakeMinute
+	from time.Time
+}
+
+func (r *replayRec) ReplayFrom() time.Time { return r.from }
+
+func TestHubReplayDeliversFramesToOneConsumer(t *testing.T) {
+	env := newMsEnv(t, LocRAM)
+	s := newMsStore(env)
+	now := time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
+	start := now.Add(-40 * time.Minute)
+	for i := 0; i < 40; i++ {
+		s.ObserveMinute(msFrame(start.Add(time.Duration(i)*time.Minute), 100))
+	}
+
+	h := newTestHub(t, Limits{MaxDevices: 128})
+	other := &fakeMinute{}
+	h.AddMinute("live", other)
+	rec := &replayRec{from: start}
+	h.AddReplay("chain", rec)
+
+	h.Replay(s, now)
+
+	if len(rec.frames) != 40 {
+		t.Fatalf("replay frames = %d, want 40", len(rec.frames))
+	}
+	if !rec.frames[0].Minute.Equal(start) {
+		t.Errorf("first frame minute = %v, want %v", rec.frames[0].Minute, start)
+	}
+	if got := rec.frames[0].Devices[0].Power["uid1"]; got != 100 {
+		t.Errorf("power = %v, want 100", got)
+	}
+	if !rec.frames[0].Devices[0].Reachable {
+		t.Errorf("device with a value must be reachable")
+	}
+	if got := rec.frames[0].Balance["grid"]; got != 42 {
+		t.Errorf("balance grid = %v, want 42", got)
+	}
+	if len(other.frames) != 0 {
+		t.Errorf("replay reached a live consumer: %d frames", len(other.frames))
+	}
+}
+
+func TestHubReplayWithoutRecordingDoesNothing(t *testing.T) {
+	h := newTestHub(t, Limits{MaxDevices: 128})
+	rec := &replayRec{}
+	h.AddReplay("chain", rec)
+	h.Replay(newMsStore(newMsEnv(t, LocRAM)), time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC))
+	if len(rec.frames) != 0 {
+		t.Fatalf("zero ReplayFrom: frames = %d, want 0", len(rec.frames))
+	}
+}

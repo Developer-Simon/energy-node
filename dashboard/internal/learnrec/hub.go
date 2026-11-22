@@ -1,6 +1,7 @@
 package learnrec
 
 import (
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -14,6 +15,13 @@ import (
 // MinuteConsumer erhaelt jeden abgeschlossenen Minutenrahmen.
 type MinuteConsumer interface {
 	ObserveMinute(f Frame)
+}
+
+// ReplayConsumer ist ein Minutenverbraucher, der die Minuten ab ReplayFrom aus
+// der Aufzeichnung nachlesen kann. Eine Zeit null heisst: nichts nachlesen.
+type ReplayConsumer interface {
+	MinuteConsumer
+	ReplayFrom() time.Time
 }
 
 // TickConsumer erhaelt jede Beobachtung sofort.
@@ -42,6 +50,11 @@ var clockReady = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 type namedMinute struct {
 	name string
 	c    MinuteConsumer
+}
+
+type namedReplay struct {
+	name string
+	c    ReplayConsumer
 }
 
 type namedTick struct {
@@ -76,6 +89,7 @@ type Hub struct {
 	limits  func() Limits
 	logf    func(string, ...any)
 	minutes []namedMinute
+	replays []namedReplay
 	ticks   []namedTick
 	savers  []*namedSaver
 	minute  time.Time
@@ -113,6 +127,109 @@ func (h *Hub) AddMinute(name string, c MinuteConsumer) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.minutes = append(h.minutes, namedMinute{name: name, c: c})
+}
+
+// AddReplay meldet einen Verbraucher an, der mit Replay die Minuten nachlesen
+// kann. Er erhaelt nur die Rahmen aus Replay, nicht die Live-Minuten.
+func (h *Hub) AddReplay(name string, c ReplayConsumer) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.replays = append(h.replays, namedReplay{name: name, c: c})
+}
+
+// Replay gibt jedem Wiederholungsverbraucher die Minuten ab seinem ReplayFrom bis
+// vor die Minute von now, aus r. Pro Minute entsteht ein Rahmen mit Leistung je
+// Schluessel e:<unique_id> und Bilanz aus b:<feld>. Ohne Aufzeichnung passiert
+// nichts. Die Verbraucher laufen ausserhalb des Hub-Mutex.
+func (h *Hub) Replay(r Reader, now time.Time) {
+	if r == nil {
+		return
+	}
+	h.mu.Lock()
+	list := append([]namedReplay(nil), h.replays...)
+	h.mu.Unlock()
+
+	for _, nr := range list {
+		from := nr.c.ReplayFrom()
+		if from.IsZero() {
+			continue
+		}
+		h.replayOne(r, nr.c, from, now)
+	}
+}
+
+// replayOne gibt einem Verbraucher seine nachgelesenen Rahmen. Jeder Rahmen hat
+// je Schluessel ein Geraet, dessen ID der unique_id entspricht.
+func (h *Hub) replayOne(r Reader, c MinuteConsumer, from, now time.Time) {
+	start := minuteStart(from, h.loc)
+	end := minuteStart(now, h.loc)
+	if !end.After(start) {
+		return
+	}
+	kl, ok := r.(keyLister)
+	if !ok {
+		return
+	}
+	keys := kl.Keys(start, end)
+	if len(keys) == 0 {
+		return
+	}
+
+	series := map[string]Series{}
+	var powerKeys, balanceKeys []string
+	for _, key := range keys {
+		switch {
+		case strings.HasPrefix(key, "e:"):
+			powerKeys = append(powerKeys, key)
+		case strings.HasPrefix(key, "b:"):
+			balanceKeys = append(balanceKeys, key)
+		default:
+			continue
+		}
+		series[key] = r.Range(key, start, end)
+	}
+
+	n := 0
+	for _, sr := range series {
+		if len(sr.Values) > n {
+			n = len(sr.Values)
+		}
+	}
+	for i := 0; i < n; i++ {
+		f := Frame{Minute: start.Add(time.Duration(i) * time.Minute)}
+		for _, key := range powerKeys {
+			v, ok := valueAt(series[key], i)
+			if !ok {
+				continue
+			}
+			uid := strings.TrimPrefix(key, "e:")
+			f.Devices = append(f.Devices, DeviceMinute{
+				ID:        uid,
+				Power:     map[string]float64{uid: v},
+				Switch:    map[string]bool{},
+				Reachable: true,
+			})
+		}
+		for _, key := range balanceKeys {
+			v, ok := valueAt(series[key], i)
+			if !ok {
+				continue
+			}
+			if f.Balance == nil {
+				f.Balance = map[string]float64{}
+			}
+			f.Balance[strings.TrimPrefix(key, "b:")] = v
+		}
+		c.ObserveMinute(f)
+	}
+}
+
+// valueAt liefert den Wert der Minute i, ohne Luecke.
+func valueAt(sr Series, i int) (float64, bool) {
+	if i >= len(sr.Values) || math.IsNaN(float64(sr.Values[i])) {
+		return 0, false
+	}
+	return float64(sr.Values[i]), true
 }
 
 // AddTick meldet einen Taktverbraucher an.
