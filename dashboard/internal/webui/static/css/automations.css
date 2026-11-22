@@ -973,7 +973,7 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 
 /* Ist-Soll-Grafik: Spuren als SVG, Beschriftung als HTML */
 .auto-learn-evidence { margin: .7rem 0 .15rem; }
-.auto-learn-is { display: grid; gap: .3rem; transform-origin: left center; animation: auto-learn-chart-in 180ms var(--ease-out) both; }
+.auto-learn-is { display: grid; gap: .3rem; transform-origin: left center; }
 .auto-learn-lane { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: .5rem; align-items: center; }
 .auto-learn-lane-label { font-size: .72rem; font-weight: 600; color: var(--text-muted); }
 .auto-learn-scale-bar { margin: .6rem 0 .25rem; font-size: .78rem; font-weight: 600; color: var(--text); }
@@ -1022,11 +1022,16 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-learn-target { justify-self: start; margin-left: calc(2.2rem + .5rem); padding: .15rem .6rem; border-radius: 8px; font-size: .8rem; font-weight: 600;
   color: var(--text-strong); background: var(--accent-bg); border: 1px solid var(--accent-line); }
 .auto-learn-target.is-missing { color: var(--bad); background: transparent; border: 1px dashed var(--bad-line); }
-/* Soll erscheint nach dem Ist: einmal beim Oeffnen, von links */
-.auto-learn-lane.is-soll .auto-learn-lane-svg { animation: auto-learn-trace 280ms var(--ease-out) 120ms both; }
-.auto-learn-plot-svg.is-soll { animation: auto-learn-trace 280ms var(--ease-out) 120ms both; }
-@keyframes auto-learn-trace { from { clip-path: inset(0 100% 0 0 round 5px); } to { clip-path: inset(0 0 0 0 round 5px); } }
-/* Neue Grafik nach dem Umschalten: blendet ein, ohne Bewegung bei reduzierter Bewegung */
+/* Einlauf beim Oeffnen eines Belegs. Die Klasse is-enter setzt AutomationEvidence.mount
+   nur beim ersten Einfuegen, Aktualisierungen laufen deshalb nicht erneut ab. Ist vor Soll,
+   Soll folgt mit 60 ms Versatz. Nur transform, opacity und clip-path, ohne Schleife. */
+.auto-learn-evidence.is-enter .auto-learn-is { animation: auto-learn-chart-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+.auto-learn-evidence.is-enter .auto-learn-shape-scale .auto-learn-lane-svg .auto-learn-ist { transform-box: fill-box; transform-origin: left center; animation: auto-learn-bar-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.auto-learn-evidence.is-enter .auto-learn-shape-scale .auto-learn-lane-svg .auto-learn-soll { transform-box: fill-box; transform-origin: left center; animation: auto-learn-bar-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both; animation-delay: calc(var(--i, 0) * 40ms + 60ms); }
+.auto-learn-evidence.is-enter .auto-learn-shape-events .auto-learn-lane.is-soll .auto-learn-lane-svg { animation: auto-learn-trace 240ms cubic-bezier(0.23, 1, 0.32, 1) 60ms both; }
+.auto-learn-evidence.is-enter .auto-learn-plot-svg.is-soll { animation: auto-learn-trace 240ms cubic-bezier(0.23, 1, 0.32, 1) 60ms both; }
+@keyframes auto-learn-bar-in { from { opacity: 0; transform: scaleX(0.02); } to { opacity: 1; transform: scaleX(1); } }
+@keyframes auto-learn-trace { from { opacity: 0; clip-path: inset(0 100% 0 0 round 5px); } to { opacity: 1; clip-path: inset(0 0 0 0 round 5px); } }
 @keyframes auto-learn-chart-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
 @keyframes auto-learn-chart-fade { from { opacity: 0; } to { opacity: 1; } }
 /* Ausschnitt oder ganzer Tag der Tagesgrafik */
@@ -1042,9 +1047,12 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-learn-mark { transition: none; }
   .auto-learn-mark:active { transform: none; }
   .auto-learn-pop { animation-name: auto-learn-fade; }
-  .auto-learn-lane.is-soll .auto-learn-lane-svg { animation: none; }
-  .auto-learn-plot-svg.is-soll { animation: none; }
-  .auto-learn-is { animation-name: auto-learn-chart-fade; }
+  /* Reduzierte Bewegung: nur ein kurzes Einblenden per opacity, ohne Verschiebung */
+  .auto-learn-evidence.is-enter .auto-learn-is,
+  .auto-learn-evidence.is-enter .auto-learn-shape-scale .auto-learn-lane-svg .auto-learn-ist,
+  .auto-learn-evidence.is-enter .auto-learn-shape-scale .auto-learn-lane-svg .auto-learn-soll,
+  .auto-learn-evidence.is-enter .auto-learn-shape-events .auto-learn-lane.is-soll .auto-learn-lane-svg,
+  .auto-learn-evidence.is-enter .auto-learn-plot-svg.is-soll { animation: auto-learn-chart-fade 200ms ease-out both; animation-delay: 0ms; }
   .auto-learn-zoom-btn { transition: none; }
   .auto-learn-zoom-btn:active { transform: none; }
 }

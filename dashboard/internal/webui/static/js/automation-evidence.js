@@ -311,15 +311,16 @@
     max_change_w: 'automations.learn.param.max_change_w',
   };
   function scaleBarsShape(ev, t) {
-    return ev.scales.map((bar) => {
+    return ev.scales.map((bar, index) => {
       const top = Math.max(bar.ist || 0, bar.soll || 0);
       const max = top > 0 ? top * 1.2 : 1;
       const toX = (v) => pct(v, max);
       const unit = bar.unit ? ' ' + bar.unit : '';
       const majors = [0, max / 2, max];
       const grid = gridLines(majors.map(toX));
-      const istBar = '<rect class="auto-learn-ist" x="0" y="1.5" width="' + toX(bar.ist || 0) + '" height="7" rx="0.8"/>'; // i18n-ignore
-      const sollBar = '<rect class="auto-learn-soll auto-learn-soft" x="0" y="1.5" width="' + toX(bar.soll || 0) + '" height="7" rx="0.8"/>'; // i18n-ignore
+      // Der Einlauf staffelt die Balken je 40 ms, Soll folgt dem Ist mit 60 ms (CSS, --i).
+      const istBar = '<rect class="auto-learn-ist" style="--i:' + index + '" x="0" y="1.5" width="' + toX(bar.ist || 0) + '" height="7" rx="0.8"/>'; // i18n-ignore
+      const sollBar = '<rect class="auto-learn-soll auto-learn-soft" style="--i:' + index + '" x="0" y="1.5" width="' + toX(bar.soll || 0) + '" height="7" rx="0.8"/>'; // i18n-ignore
       const ticks = majors.map((v) => ({ x: toX(v), major: true }));
       const labels = majors.map((v) => ({ x: toX(v), text: (Math.round(v * 100) / 100) + unit }));
       return '<div class="auto-learn-scale-bar">' + esc(t(PARAM_KEYS[bar.name] || bar.name)) + '</div>'
@@ -454,5 +455,23 @@
     return body ? '<div class="auto-learn-is auto-learn-shape-' + evidence.shape + '">' + body + '</div>' : '';
   }
 
-  window.AutomationEvidence = { render, windowOf, zoomable };
+  // mount(el, evidence, t) setzt den Beleg in den Behaelter el. Das erste Einfuegen
+  // bekommt die Klasse is-enter, der Einlauf laeuft dann einmal ab. Eine Aktualisierung
+  // (Poll) ersetzt nur den Inhalt, und nur wenn er sich geaendert hat. Nach ENTER_MS
+  // ist die Klasse wieder weg, damit spaetere Aktualisierungen nicht erneut einlaufen.
+  const ENTER_MS = 700;
+  function mount(el, evidence, t) {
+    if (!el) return;
+    const html = render(evidence, t, {});
+    if (el.__evHtml === html) return;
+    const first = el.__evHtml === undefined;
+    el.__evHtml = html;
+    el.innerHTML = html;
+    if (first) {
+      el.classList.add('is-enter');
+      setTimeout(() => el.classList.remove('is-enter'), ENTER_MS);
+    }
+  }
+
+  window.AutomationEvidence = { render, windowOf, zoomable, mount };
 })();

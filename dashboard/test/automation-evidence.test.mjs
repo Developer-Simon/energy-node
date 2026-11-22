@@ -13,6 +13,8 @@ const source = fs.readFileSync(path.join(jsDir, 'automation-evidence.js'), 'utf8
 
 function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  // Das Skript laeuft im Kontext ohne Timer, der Einlauf braucht setTimeout.
+  dom.window.setTimeout = setTimeout;
   vm.runInContext(source, dom.getInternalVMContext());
   return { api: dom.window.AutomationEvidence, document: dom.window.document };
 }
@@ -457,4 +459,47 @@ test('events shape draws the replayed triggers of the Soll lane as bars', () => 
   const sollLane = host.querySelector('.auto-learn-lane.is-soll');
   assert.ok(sollLane, 'a Soll lane exists');
   assert.ok(sollLane.querySelectorAll('path.auto-learn-bar').length >= 1, 'replayed triggers are drawn');
+});
+
+// Die Balken einer Skala tragen ihre Staffel als --i, der Einlauf verzoegert danach.
+test('scale bars carry their stagger index for the entrance', () => {
+  const { api } = load();
+  const html = api.render({
+    shape: 'scale',
+    scales: [{ name: 'a', ist: 100, soll: 50 }, { name: 'b', ist: 30, soll: 20 }],
+  }, t);
+  assert.match(html, /class="auto-learn-ist" style="--i:0"/);
+  assert.match(html, /class="auto-learn-ist" style="--i:1"/);
+  assert.match(html, /class="auto-learn-soll auto-learn-soft" style="--i:1"/);
+});
+
+// Der Einlauf läuft nur beim ersten Einfuegen. Gleiche Aktualisierungen ersetzen nichts,
+// geaenderte Inhalte nach dem Einlauf kommen ohne die Klasse is-enter.
+test('mount runs the entrance once and leaves later updates still', async () => {
+  const { api, document } = load();
+  const el = document.createElement('div');
+  const ev = { shape: 'scale', ist_value: 300, soll_value: 90, unit: 'min' };
+  api.mount(el, ev, t);
+  assert.equal(el.classList.contains('is-enter'), true);
+  assert.ok(el.querySelector('.auto-learn-is'));
+  const first = el.firstChild;
+  api.mount(el, { ...ev }, t);
+  assert.equal(el.firstChild, first, 'same content keeps the DOM');
+  await new Promise((resolve) => setTimeout(resolve, 750));
+  assert.equal(el.classList.contains('is-enter'), false);
+  api.mount(el, { ...ev, ist_value: 310 }, t);
+  assert.notEqual(el.firstChild, first, 'changed content is rendered');
+  assert.equal(el.classList.contains('is-enter'), false, 'an update does not enter again');
+});
+
+// Die Einlauf-Regeln bleiben an die Klasse gebunden und haben eine reduzierte Fassung.
+test('the evidence entrance is gated by is-enter and has a reduced-motion rule', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'automations.css'), 'utf8');
+  assert.match(css, /\.auto-learn-evidence\.is-enter \.auto-learn-is \{ animation: auto-learn-chart-in 200ms cubic-bezier\(0\.23, 1, 0\.32, 1\)/);
+  assert.match(css, /\.auto-learn-evidence\.is-enter \.auto-learn-plot-svg\.is-soll \{ animation: auto-learn-trace 240ms/);
+  assert.match(css, /transform-origin: left center/);
+  assert.match(css, /scaleX\(0\.02\)/);
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reduced, /auto-learn-chart-fade 200ms ease-out both/);
+  assert.doesNotMatch(css, /(^|\n)\.auto-learn-is \{[^}]*animation/);
 });
