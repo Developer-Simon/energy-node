@@ -1,4 +1,12 @@
 version,date,asset,v,note
+v0.11.22-pre.30,2026-11-22,css/base.css,54,
+v0.11.22-pre.30,2026-11-22,css/manager.css,53,
+v0.11.22-pre.30,2026-11-22,css/monitoring.css,1,
+v0.11.22-pre.30,2026-11-22,js/dashboard.js,55,
+v0.11.22-pre.30,2026-11-22,js/energy.page.js,18,
+v0.11.22-pre.30,2026-11-22,js/monitoring-model.js,1,
+v0.11.22-pre.30,2026-11-22,js/monitoring.page.js,1,
+v0.11.22-pre.30,2026-11-22,js/settings.page.js,41,
 v0.11.22-pre.29,2026-11-21,css/automations.css,22,
 v0.11.22-pre.29,2026-11-21,js/automation-evidence.js,4,
 v0.11.22-pre.29,2026-11-21,js/automation-learned.js,3,

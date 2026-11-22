@@ -84,6 +84,7 @@ Raspberry Pi 1.
 - [Efficiency](efficiency.md)
 - [Device map](device-map.md)
 - [Automations](automations.md)
+- [Monitoring](monitoring.md)
 - [Diagnostics](diagnostics.md)
 - [Configuration editor](configuration.md)
 - [Settings](settings.md)

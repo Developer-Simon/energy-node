@@ -129,6 +129,8 @@
     automationFindingsOpen: false,
     automationFindingsHas: false,
     automationSuggestionsHas: false,
+    // Punkt am Reiter Monitoring, solange neue Meldungen ohne Quittung da sind.
+    monitoringNew: false,
     // Punkt am Reiter Einstellungen, solange neu aktive Lernfunktionen auf eine
     // Quittung warten. learningCanEdit kommt aus der Sitzung (null = noch nicht gefragt).
     learningNewOpen: false,
@@ -281,8 +283,22 @@
       } catch (error) {
         return;
       }
-      this.automationFindingsHas = Array.isArray(body && body.findings) && body.findings.length > 0;
+      // Nur Befunde mit einer Regel zaehlen fuer den Punkt; die Verschattung hat keine Regel.
+      this.automationFindingsHas = Array.isArray(body && body.findings) && body.findings.some((f) => (f.rule_ids || []).length > 0);
       this.updateAutomationDot();
+    },
+
+    // Punkt am Monitoring-Reiter, solange neue Meldungen ohne Quittung offen sind.
+    // Fehler lassen den Punkt, wie er ist.
+    async refreshMonitoring() {
+      if (!this.hasTab('monitoring-panel')) return;
+      let body;
+      try {
+        body = await requestJSON('/api/v1/monitoring');
+      } catch (error) {
+        return;
+      }
+      this.monitoringNew = Boolean(body) && Number(body.new_count) > 0;
     },
 
     // Offene Vorschlaege zaehlen fuer den Punkt am Automationen-Reiter, aber nur,
@@ -545,6 +561,22 @@
       window.addEventListener('automation-findings-changed', () => {
         this.refreshAutomationFindings();
         this.refreshAutomationSuggestions();
+      });
+
+      // Der Punkt am Monitoring-Reiter folgt den Meldungen: beim Start, alle
+      // fuenf Minuten und nach jeder Quittung.
+      if (this.hasTab('monitoring-panel')) {
+        this.refreshMonitoring();
+        window.setInterval(() => this.refreshMonitoring(), 5 * 60 * 1000);
+      }
+      window.addEventListener('monitoring-changed', () => this.refreshMonitoring());
+
+      // Ein Aufruf mit Filter oeffnet den Monitoring-Reiter. Das Panel liest die
+      // Anfrage beim Start von window, ist es schon geladen, nimmt es das Ereignis.
+      window.addEventListener('monitoring-open', async (event) => {
+        const detail = event.detail || {};
+        window.__monitoringOpenRequest__ = {filter: detail.filter || 'all'};
+        await this.setActivePanel('monitoring-panel');
       });
 
       // Der Punkt am Einstellungen-Reiter folgt den Lernfunktionen: beim Start und

@@ -306,11 +306,12 @@ func (m *Manager) loadLocked() (bool, error) {
 		// Version 4 ergaenzt die Geraete-Rechte (migrateV3), Version 5 ersetzt
 		// unveraenderte Vorgaben (migrateV4Locked), Version 6 gibt Admins die
 		// Backup-Rechte (migrateV5), Version 7 ergaenzt view_efficiency
-		// (migrateV6). Jede Umschreibung laeuft
-		// einmal beim Uebergang und nie wieder.
+		// (migrateV6). Version 9 ergaenzt view_monitoring (migrateV8). Jede
+		// Umschreibung laeuft einmal beim Uebergang und nie wieder.
 		upgradeV2 := file.Version < 3
 		upgradeV3 := file.Version < 4
 		upgradeV6 := file.Version < 7
+		upgradeV8 := file.Version < 9
 		guestRoles := file.GuestRoles
 		if upgradeV2 {
 			guestRoles = migrateV2(guestRoles, true)
@@ -320,6 +321,9 @@ func (m *Manager) loadLocked() (bool, error) {
 		}
 		if upgradeV6 {
 			guestRoles = migrateV6(guestRoles)
+		}
+		if upgradeV8 {
+			guestRoles = migrateV8(guestRoles)
 		}
 		m.guestRoles = Normalize(guestAllowedOnly(guestRoles))
 		m.guestRolesReviewed = file.GuestRolesReviewed
@@ -333,6 +337,9 @@ func (m *Manager) loadLocked() (bool, error) {
 			}
 			if upgradeV6 {
 				roles = migrateV6(roles)
+			}
+			if upgradeV8 {
+				roles = migrateV8(roles)
 			}
 			user.Roles = Normalize(roles)
 			m.users[name] = user
@@ -355,6 +362,16 @@ func (m *Manager) loadLocked() (bool, error) {
 			if m.haRoles != nil {
 				m.haRoles.Admin = migrateV6(m.haRoles.Admin)
 				m.haRoles.User = migrateV6(m.haRoles.User)
+			}
+		}
+		if upgradeV8 {
+			for id, account := range m.haAccounts {
+				account.Roles = migrateV8(account.Roles)
+				m.haAccounts[id] = account
+			}
+			if m.haRoles != nil {
+				m.haRoles.Admin = migrateV8(m.haRoles.Admin)
+				m.haRoles.User = migrateV8(m.haRoles.User)
 			}
 		}
 	}

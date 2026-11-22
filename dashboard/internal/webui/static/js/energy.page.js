@@ -138,6 +138,9 @@
     chainStates: {},
     chainOpen: {},
     roleNeeded: [],
+    // Notices about energy and chains on the monitoring page, counted for the
+    // summary line. Null until read, or when the monitoring tab is not there.
+    monitoringEnergy: null,
     flashChain: '',
     // The chain whose direction menu is open, and the side it opens to.
     chainDirectionMenu: '',
@@ -165,6 +168,25 @@
       window.addEventListener('device-map-changed', () => this.load());
       window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
       window.addEventListener('energy-focus-group', event => this.focusGroup((event.detail && event.detail.id) || ''));
+      // The monitoring page sends a notice's target: rows to focus and a chain to open.
+      // While the page loads, load() applies the request instead.
+      window.addEventListener('monitoring-goto', event => {
+        const detail = event.detail || {};
+        if (detail.panel !== 'energy-panel') return;
+        const ids = detail.focus || [];
+        if (this.loading) {
+          if (ids.length) window.__energyFocusRequest__ = ids;
+          if (detail.chain) window.__energyChainRequest__ = detail.chain;
+          return;
+        }
+        // Taken here, so load() does not run the same request a second time.
+        window.__energyFocusRequest__ = null;
+        window.__energyChainRequest__ = null;
+        if (ids.length) this.focusRows(ids);
+        if (detail.chain) this.openChain(detail.chain);
+      });
+      // The monitoring page acknowledges notices: the summary line counts them again.
+      window.addEventListener('monitoring-changed', () => this.loadMonitoringLine());
       // A draft from the efficiency tab or the device map. While the page loads, load() applies the request instead.
       window.addEventListener('energy-apply-draft', event => {
         if (!this.loading) this.applyDraft((event.detail) || {});
@@ -407,6 +429,7 @@
         this.chains = JSON.parse(JSON.stringify(saved.chains || {}));
         this.roleNeeded = [...(saved.role_needed || [])];
         this.chainStates = Object.fromEntries((snapshot.chains || []).map(chain => [chain.id, chain]));
+        this.loadMonitoringLine();
         if (window.__energyFocusRequest__) {
           const ids = window.__energyFocusRequest__;
           window.__energyFocusRequest__ = null;
@@ -1322,6 +1345,38 @@
 
     isChainReference(entityId) {
       return window.EnergyChains.isReference(this.chains, entityId);
+    },
+
+    // Counts the notices about energy and chains on the monitoring page. Without the
+    // monitoring tab (no view_monitoring) nothing is asked and the line stays hidden.
+    async loadMonitoringLine() {
+      if (!document.getElementById('tab-monitoring')) {
+        this.monitoringEnergy = null;
+        return;
+      }
+      try {
+        const body = await requestJSON('/api/v1/monitoring');
+        const energy = (body.notices || []).filter(notice => notice.source === 'energy' || notice.source === 'chain');
+        this.monitoringEnergy = {count: energy.length, new: energy.filter(notice => !notice.ack).length};
+      } catch (error) {
+        this.monitoringEnergy = null;
+      }
+    },
+
+    get monitoringLine() {
+      const energy = this.monitoringEnergy;
+      if (!energy) return {visible: false, count: 0, text: '', newText: ''};
+      // i18n-keys: monitoring.energy_line.count.one, monitoring.energy_line.count.other
+      return {
+        visible: true,
+        count: energy.count,
+        text: energy.count ? tn('monitoring.energy_line.count', energy.count, {count: energy.count}) : t('monitoring.energy_line.none'),
+        newText: energy.new ? t('monitoring.energy_line.new', {count: energy.new}) : '',
+      };
+    },
+
+    openMonitoring() {
+      window.dispatchEvent(new CustomEvent('monitoring-open', {detail: {filter: 'energy'}}));
     },
 
     // Opens the chains section and lets the card of the chain flash, like focusGroup.

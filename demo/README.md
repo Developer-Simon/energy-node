@@ -61,6 +61,13 @@ values while the simulation is on. Its state
 lives in `demo/.run/example` and is deleted at the start and at the end of the
 run. `demo/.state` is not touched. `--stop --example` ends that instance.
 
+The Monitoring tab (*Monitoring*, before *Diagnostics*) shows its notices from
+the start, without any step in the console: a fixed shade in the PV (the
+direction, height and loss come from the learning data), a measurement chain
+with a finding, and values without a role. Its learned values come from the
+seeded learning data of the demo. The PV reserve only gets a value after the
+PV throttle of the console has run for a few minutes, see below.
+
 ## Fake console
 
 The console is a web page for driving the fakes by hand. The sidebar lists one

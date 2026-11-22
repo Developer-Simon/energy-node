@@ -8,55 +8,11 @@
     </span>
   </h2>
 
-  <div class="energy-notices" role="region" aria-label="{{t "energy.roles.notices.label"}}">
-    <p class="energy-notice" role="status" x-cloak x-show="showMeasuredWarning" x-transition.opacity>
-      <svg class="energy-notice-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
-      <span class="energy-notice-body">{{t "energy.roles.notices.measured_warning"}}</span>
-    </p>
-    <p class="energy-notice" role="status" x-cloak x-show="showSocCapacityWarning" x-transition.opacity>
-      <svg class="energy-notice-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
-      <span class="energy-notice-body" x-text="socCapacityWarning"></span>
-    </p>
-    <div class="energy-notice energy-unassigned" x-show="unassignedCount > 0" x-cloak x-transition.opacity>
-      <svg class="energy-notice-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
-      <div class="energy-notice-body">
-        <p><strong x-text="unassignedCount"></strong> {{t "energy.roles.unassigned_notice"}}</p>
-        <ul><template x-for="entity in unassigned" x-bind:key="entity.entity_id"><li x-text="`${entity.name || entity.entity_id}: ${Math.round(entity.value)} ${entity.unit}`"></li></template></ul>
-      </div>
-    </div>
-    <div class="energy-notice energy-chain-needed" role="status" x-cloak x-show="roleNeeded.length" x-transition.opacity>
-      <svg class="energy-notice-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
-      <div class="energy-notice-body">
-        <p>{{t "energy.chains.role_needed"}}</p>
-        <ul class="energy-chain-needed-list"><template x-for="id in roleNeeded" x-bind:key="id"><li><span x-text="chainLabelOf(id)"></span> <button type="button" class="pill-button" x-bind:disabled="!canEdit" x-on:click="dismissRoleNeeded(id)">{{t "energy.chains.role_needed_keep"}}</button></li></template></ul>
-        <button type="button" class="pill-button" x-on:click="focusRows(roleNeeded)">{{t "devicemap.panel.show_in_table"}}</button>
-      </div>
-    </div>
-  </div>
-  <div class="energy-chain-findings">
-    <template x-for="item in findingNotices" x-bind:key="item.key">
-      <article class="energy-chain-finding" x-bind:class="{ 'is-open': isFindingOpen(item.key) }">
-        <div class="energy-chain-finding-head">
-          <button type="button" class="energy-chain-finding-toggle" x-bind:aria-expanded="isFindingOpen(item.key) ? 'true' : 'false'" x-bind:aria-controls="item.domId" x-on:click="toggleFinding(item.key)">
-            <svg class="energy-chain-finding-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
-            <span class="energy-chain-finding-title" x-text="item.title"></span>
-            <svg class="energy-chain-finding-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
-          </button>
-          <template x-if="hasEfficiencyTab"><button type="button" class="energy-chain-finding-link" aria-label="{{t "chains.open_efficiency"}}" title="{{t "chains.open_efficiency"}}" x-on:click="openEfficiency()"><svg aria-hidden="true"><use href="#ico-chain"></use></svg></button></template>
-        </div>
-        <div class="energy-chain-finding-fold" x-bind:id="item.domId" x-bind:inert="!isFindingOpen(item.key)">
-          <div class="energy-chain-finding-inner">
-            <template x-for="detail in item.items" x-bind:key="detail.key">
-              <div class="energy-chain-finding-item">
-                <p class="energy-chain-finding-text" x-text="detail.text"></p>
-                <p class="energy-chain-finding-suggestion" x-show="detail.suggestion" x-text="detail.suggestion"></p>
-                <template x-if="detail.canApply"><div class="energy-chain-finding-actions"><button type="button" class="pill-button" x-on:click="applyFinding(detail)">{{t "chains.suggestion.apply"}}</button></div></template>
-              </div>
-            </template>
-          </div>
-        </div>
-      </article>
-    </template>
+  <div class="energy-monitoring-line" role="status" x-cloak x-show="monitoringLine.visible" x-bind:class="{ 'is-calm': monitoringLine.count === 0 }">
+    <svg class="energy-monitoring-line-icon" aria-hidden="true"><use x-bind:href="monitoringLine.count ? '#ico-bell' : '#ico-check'"></use></svg>
+    <span class="energy-monitoring-line-text" x-text="monitoringLine.text"></span>
+    <span class="energy-monitoring-line-new" x-show="monitoringLine.newText" x-text="monitoringLine.newText"></span>
+    <button type="button" class="pill-button energy-monitoring-line-open" x-on:click="openMonitoring()">{{t "monitoring.energy_line.open"}}</button>
   </div>
 
   <section class="energy-plant" data-tour="energy-plant" aria-labelledby="energy-plant-title" x-data="energyPlantView()" x-init="load()">

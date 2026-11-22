@@ -62,7 +62,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=11\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=16,/static/js/devicemap-subdevices.js?v=1,/static/js/energy-chains.js?v=2,/static/js/energy-chain-suggest.js?v=2,/static/js/devicemap-graph.js?v=12,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=6,/static/js/energy-plant.js?v=7,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=17\"", "data-panel-css=\"/static/css/manager.css?v=52\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=11\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=16,/static/js/devicemap-subdevices.js?v=1,/static/js/energy-chains.js?v=2,/static/js/energy-chain-suggest.js?v=2,/static/js/devicemap-graph.js?v=12,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=6,/static/js/energy-plant.js?v=7,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=18\"", "data-panel-css=\"/static/css/manager.css?v=53\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -159,7 +159,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=5,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/device-picker.js?v=2,/static/js/learning-settings.js?v=2,/static/js/settings-field.js?v=1,/static/js/settings.page.js?v=40",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/device-picker.js?v=2,/static/js/learning-settings.js?v=2,/static/js/settings-field.js?v=1,/static/js/settings.page.js?v=41",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -168,7 +168,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=52,/static/css/settings-controls.css?v=20,/static/css/learning-settings.css?v=2"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=53,/static/css/settings-controls.css?v=20,/static/css/learning-settings.css?v=2"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -382,19 +382,23 @@ func TestEnergyPanelConsolidatesSaveIntoStickyBar(t *testing.T) {
 }
 
 // The settings sit in an accordion, so a long role list stays reachable; the
-// conditional warnings are hoisted out so collapsing never hides one.
-func TestEnergyPanelHoistsNoticesAboveCollapsibleInterpretation(t *testing.T) {
+// summary line for the monitoring page sits above it and is never collapsed.
+// The old notices strip and finding tiles are gone: the monitoring page shows them.
+func TestEnergyPanelShowsMonitoringLineAboveCollapsibleInterpretation(t *testing.T) {
 	body := renderEnergyPanel(t)
-	notices := strings.Index(body, `class="energy-notices"`)
+	line := strings.Index(body, `class="energy-monitoring-line"`)
 	interpretation := strings.Index(body, `data-energy-section="interpretation"`)
-	if notices < 0 {
-		t.Fatalf("energy panel is missing the hoisted notices strip: %s", body)
+	if line < 0 {
+		t.Fatalf("energy panel is missing the monitoring summary line: %s", body)
 	}
 	if interpretation < 0 {
 		t.Fatalf("interpretation is not an accordion section: %s", body)
 	}
-	if notices > interpretation {
-		t.Fatal("notices strip must render before the collapsible accordion")
+	if line > interpretation {
+		t.Fatal("monitoring summary line must render before the collapsible accordion")
+	}
+	if strings.Contains(body, `class="energy-notices"`) {
+		t.Fatal("energy panel must not render the notices strip any more")
 	}
 }
 
@@ -1137,12 +1141,12 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=53"`,
+		`href="/node/static/css/base.css?v=54"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=52,/node/static/css/settings-controls.css?v=20,/node/static/css/learning-settings.css?v=2"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=53,/node/static/css/settings-controls.css?v=20,/node/static/css/learning-settings.css?v=2"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -4653,7 +4657,7 @@ func TestBackupAssetsAreRegisteredOnTheShell(t *testing.T) {
 	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/backup.css?v=2"`) {
 		t.Fatal("backup.css ist nicht als Stylesheet der Unterseite Backup eingetragen")
 	}
-	if !strings.Contains(page, "static/js/settings.page.js?v=40") {
+	if !strings.Contains(page, "static/js/settings.page.js?v=41") {
 		t.Fatal("settings.page.js ist nicht auf v=40 hochgezaehlt")
 	}
 }
@@ -4780,6 +4784,7 @@ func TestPanelPlaceholdersCarrySkeletons(t *testing.T) {
 		{"settings-panel", []string{"sk-form", "sk-line"}},
 		{"devices-panel", []string{"sk-chips", "sk-shell"}},
 		{"efficiency-panel", []string{"sk-chart", "sk-list"}},
+		{"monitoring-panel", []string{"sk-chart", "sk-list"}},
 	}
 	for _, panel := range panels {
 		marker := `id="` + panel.id + `"`
@@ -5002,5 +5007,48 @@ func TestSettingsSubpageBackupForbiddenWithoutRight(t *testing.T) {
 	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=settings-page&page=backup", auth.RoleBackupExport))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("settings-page backup mit backup_export muss rendern, war %d", rec.Code)
+	}
+}
+
+// Reiter und Panel Monitoring hängen am Recht view_monitoring, nicht am Manager.
+func TestMonitoringTabAndPanelFollowTheRight(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(rec, efficiencyUserRequest(t, "/", auth.RoleViewMonitoring, auth.RoleViewOverview))
+	for _, want := range []string{`id="tab-monitoring"`, `id="monitoring-panel"`, `data-tour="monitoring-tab"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("view_monitoring: %s fehlt", want)
+		}
+	}
+
+	without := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(without, efficiencyUserRequest(t, "/", auth.RoleViewOverview))
+	for _, gone := range []string{`id="tab-monitoring"`, `id="monitoring-panel"`} {
+		if strings.Contains(without.Body.String(), gone) {
+			t.Fatalf("ohne view_monitoring darf %s nicht erscheinen", gone)
+		}
+	}
+}
+
+func TestMonitoringFragmentNeedsTheRight(t *testing.T) {
+	denied := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(denied, efficiencyUserRequest(t, "/?fragment=panel&panel=monitoring", auth.RoleViewOverview))
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("Fragment ohne Recht: got status %d, want 403", denied.Code)
+	}
+
+	granted := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(granted, efficiencyUserRequest(t, "/?fragment=panel&panel=monitoring", auth.RoleViewMonitoring))
+	if granted.Code != http.StatusOK {
+		t.Fatalf("Fragment mit view_monitoring: got status %d, want 200", granted.Code)
+	}
+	if !strings.Contains(granted.Body.String(), `class="monitoring-bar"`) {
+		t.Fatal("Fragment mit view_monitoring muss die Monitoring-Leiste enthalten")
+	}
+}
+
+func TestInitialPanelMonitoringOnly(t *testing.T) {
+	can := map[string]bool{auth.RoleViewMonitoring: true}
+	if got := initialPanel(can, false, false, false); got != "monitoring-panel" {
+		t.Fatalf("nur view_monitoring: got %q, want monitoring-panel", got)
 	}
 }

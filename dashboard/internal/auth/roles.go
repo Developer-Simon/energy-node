@@ -25,6 +25,7 @@ const (
 	RoleViewConfig      = "view_config"
 	RoleViewAutomations = "view_automations"
 	RoleViewDiagnostics = "view_diagnostics"
+	RoleViewMonitoring  = "view_monitoring"
 )
 
 // Bedienen, Gestalten, Einrichten, Updates und System.
@@ -72,11 +73,12 @@ var roleCatalog = []RoleInfo{
 	{Key: RoleViewHistory, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewStats, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewEfficiency, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
-	{Key: RoleViewEnergy, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewDeviceMap, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
+	{Key: RoleViewMonitoring, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewConfig, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
-	{Key: RoleViewAutomations, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
+	{Key: RoleViewEnergy, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewDiagnostics, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
+	{Key: RoleViewAutomations, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleOperateDevices, Category: CategoryOperate, Requires: RoleViewDevices, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleOperateAutomations, Category: CategoryOperate, Requires: RoleViewAutomations, GuestAllowed: true, HAAllowed: true},
 	{Key: "edit_layout", Category: CategoryDesign, Requires: RoleViewOverview, GuestAllowed: true, HAAllowed: true},

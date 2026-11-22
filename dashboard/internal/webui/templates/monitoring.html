@@ -1,0 +1,108 @@
+{{define "monitoring"}}
+<section id="monitoring-panel" class="panel monitoring-page" role="tabpanel" aria-labelledby="tab-monitoring" x-bind:class="{ active: activePanel === 'monitoring-panel' }" x-show="activePanel === 'monitoring-panel'" x-data="monitoringPanel()" x-init="init()" x-on:click="onClick($event)" x-cloak>
+
+  <!-- Leiste wie auf der Seite Automationen: Umschaltung links, Filter rechts -->
+  <div class="monitoring-bar">
+    <div class="auto-segment" role="tablist" aria-label="{{t "monitoring.view.label"}}">
+      <button class="auto-segment-tab" type="button" role="tab" x-bind:aria-selected="view === 'notices' ? 'true' : 'false'" x-bind:class="{ active: view === 'notices' }" x-on:click="setView('notices')">
+        <span>{{t "monitoring.view.notices"}}</span>
+        <span class="auto-count" x-text="notices.length"></span>
+        <span class="monitoring-seg-dot" aria-hidden="true" x-show="newCount > 0"></span>
+      </button>
+      <button class="auto-segment-tab" data-tour="monitoring-learned" type="button" role="tab" x-bind:aria-selected="view === 'learned' ? 'true' : 'false'" x-bind:class="{ active: view === 'learned' }" x-on:click="setView('learned')">
+        <span>{{t "monitoring.view.learned"}}</span>
+        <span class="auto-count" x-text="learned.values.length"></span>
+      </button>
+    </div>
+    <div class="monitoring-filters" role="group" aria-label="{{t "monitoring.filter.label"}}" x-show="view === 'notices'">
+      <template x-for="f in filters()" x-bind:key="f.id">
+        <button type="button" class="monitoring-chip" x-bind:class="{ 'is-on': filter === f.id }" x-bind:aria-pressed="filter === f.id ? 'true' : 'false'" x-on:click="setFilter(f.id)">
+          <span x-text="f.label"></span><span class="monitoring-chip-count" x-text="f.count"></span>
+        </button>
+      </template>
+    </div>
+  </div>
+
+  <p class="monitoring-error" role="alert" x-show="failed">{{t "monitoring.load_failed"}}</p>
+
+  <!-- Meldungen -->
+  <div class="monitoring-view" x-show="view === 'notices'">
+
+    <template x-if="loaded && !failed && !list().length">
+      <div class="monitoring-empty">
+        <span class="monitoring-empty-badge"><svg aria-hidden="true"><use href="#ico-check"></use></svg></span>
+        <p class="monitoring-empty-title">{{t "monitoring.empty.title"}}</p>
+        <p class="monitoring-muted">{{t "monitoring.empty.text"}}</p>
+      </div>
+    </template>
+
+    <div class="monitoring-split" x-show="list().length">
+      <div class="monitoring-master" data-tour="monitoring-list">
+        <template x-for="group in groups()" x-bind:key="group.id">
+          <section class="monitoring-list-group">
+            <h3 class="monitoring-list-head"><span x-text="group.label"></span> <span class="monitoring-count" x-text="group.items.length"></span></h3>
+            <ul class="monitoring-rows" role="list">
+              <template x-for="item in group.items" x-bind:key="item.id">
+                <li class="monitoring-li" x-bind:data-row="item.id">
+                  <button type="button" class="monitoring-row" x-bind:class="{ 'is-on': isSelected(item), 'is-new': !item.ack }" x-bind:aria-expanded="isSelected(item) ? 'true' : 'false'" x-on:click="select(item.id)">
+                    <span class="monitoring-row-badge" x-bind:class="'is-' + item.severity"><svg aria-hidden="true"><use x-bind:href="item.severity === 'warn' ? '#ico-warning' : '#ico-info'"></use></svg></span>
+                    <span class="monitoring-row-main">
+                      <span class="monitoring-row-title" x-text="titleOf(item)"></span>
+                      <span class="monitoring-row-meta" x-text="rowMeta(item)"></span>
+                    </span>
+                    <span class="monitoring-row-dot" aria-hidden="true"></span>
+                    <svg class="monitoring-row-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                  </button>
+                  <!-- schmal: Detail klappt unter der Zeile auf -->
+                  <div class="monitoring-acc" x-bind:class="{ 'is-open': isSelected(item) }" x-bind:inert="!isSelected(item)">
+                    <div class="monitoring-acc-inner" x-html="cardHtml(item)"></div>
+                  </div>
+                </li>
+              </template>
+            </ul>
+          </section>
+        </template>
+      </div>
+      <div class="monitoring-detail" aria-live="polite">
+        <div class="monitoring-detail-inner" x-bind:key="selected() ? selected().id : ''" x-html="selected() ? cardHtml(selected()) : ''"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lernwerte -->
+  <div class="monitoring-view" x-show="view === 'learned'" x-cloak>
+    <template x-if="!learned.enabled">
+      <p class="monitoring-muted">{{t "monitoring.learned.off"}}</p>
+    </template>
+    <div class="monitoring-learned">
+      <template x-for="group in learnedGroups()" x-bind:key="group.id">
+        <section class="monitoring-lgroup">
+          <header class="monitoring-lgroup-head">
+            <span class="monitoring-lgroup-icon"><svg aria-hidden="true"><use x-bind:href="'#' + group.icon"></use></svg></span>
+            <span class="monitoring-lgroup-name" x-text="group.label"></span>
+            <span class="monitoring-count" x-text="countText(group)"></span>
+          </header>
+          <div class="monitoring-lrows">
+            <template x-for="row in group.rows" x-bind:key="row.key">
+              <div class="monitoring-lrow" x-bind:class="{ 'is-missing': !row.have, 'is-flash': flashKey === row.key }" x-bind:data-key="row.key">
+                <span class="monitoring-lrow-icon"><svg aria-hidden="true"><use x-bind:href="'#' + row.icon"></use></svg></span>
+                <div class="monitoring-lrow-main">
+                  <span class="monitoring-lrow-label" x-text="row.label"></span>
+                  <span class="monitoring-lrow-meta" x-text="row.meta"></span>
+                </div>
+                <div class="monitoring-lrow-value">
+                  <span class="monitoring-lrow-num" x-text="row.value"></span>
+                  <template x-if="row.estimate"><span class="monitoring-est">{{t "automations.learned.estimate"}}</span></template>
+                  <template x-if="row.spark">
+                    <svg class="monitoring-spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><polyline x-bind:points="row.spark"></polyline></svg>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </section>
+      </template>
+    </div>
+  </div>
+</section>
+{{end}}

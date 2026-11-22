@@ -49,13 +49,21 @@ function createShell({ navHtml = TABS, respond = () => ({ status: 200, body: { f
 }
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
-const FINDING = { id: 'f1', rule: 'loop', severity: 'warning' };
+const FINDING = { id: 'f1', rule: 'loop', severity: 'warning', rule_ids: ['r1'] };
+// Ein Befund ohne Regel (etwa die Verschattung) gehoert zur Monitoring-Seite, nicht zum Punkt.
+const SHADE_FINDING = { id: 'shade:225:15', kind: 'shade', severity: 'info', rule_ids: [] };
 
 test('ein offener Befund zeigt den Punkt am Automationen-Reiter', async () => {
   const { component, requests } = createShell({ respond: () => ({ status: 200, body: { findings: [FINDING] } }) });
   await component.refreshAutomationFindings();
   assert.deepEqual(requests, ['/api/v1/automations/findings']);
   assert.equal(component.automationFindingsOpen, true);
+});
+
+test('ein Befund ohne rule_ids laesst den Punkt am Automationen-Reiter aus', async () => {
+  const { component } = createShell({ respond: () => ({ status: 200, body: { findings: [SHADE_FINDING] } }) });
+  await component.refreshAutomationFindings();
+  assert.equal(component.automationFindingsOpen, false);
 });
 
 test('keine offenen Befunde lassen den Punkt aus', async () => {

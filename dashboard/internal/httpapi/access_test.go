@@ -112,6 +112,19 @@ func TestEfficiencyRoutesNeedTheirOwnView(t *testing.T) {
 	}
 }
 
+func TestMonitoringRoutesNeedViewMonitoring(t *testing.T) {
+	cases := map[string]string{
+		"/api/v1/monitoring":     auth.RoleViewMonitoring,
+		"/api/v1/monitoring/ack": auth.RoleViewMonitoring,
+	}
+	for path, view := range cases {
+		access, ok := routeTable[path]
+		if !ok || access.group != groupPage || access.view != view {
+			t.Errorf("routeTable[%s] = %+v, want a page gate on %s", path, access, view)
+		}
+	}
+}
+
 func TestConfigurationViewFollowsTheName(t *testing.T) {
 	cases := map[string]string{
 		"/api/v1/configurations/automation_rules":        auth.RoleViewAutomations,

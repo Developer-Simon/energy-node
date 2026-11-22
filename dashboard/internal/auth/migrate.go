@@ -7,7 +7,7 @@ import (
 
 // usersFileVersion ist die Version, die users.json heute schreibt. Eine
 // Datei mit hoeherer Version wird nicht angefasst, siehe Spec Abschnitt 2.
-const usersFileVersion = 8
+const usersFileVersion = 9
 
 // ErrUnsupportedUsersVersion meldet eine users.json aus einer neueren Version
 // des Dashboards. Der Start bricht ab, die Datei bleibt unveraendert.
@@ -114,6 +114,18 @@ func migrateV6(roles []string) []string {
 	return out
 }
 
+// migrateV8 bringt die Rollen einer Datei der Version 8 nach Version 9: wer
+// view_energy oder view_automations hat, bekommt view_monitoring. Ein Eintrag,
+// der schon da ist, wird nicht doppelt angehaengt. Die Eingabe sind rohe
+// Rollen, die Aufrufer normalisieren selbst.
+func migrateV8(roles []string) []string {
+	out := append([]string(nil), roles...)
+	if (containsRole(roles, RoleViewEnergy) || containsRole(roles, RoleViewAutomations)) && !containsRole(roles, RoleViewMonitoring) {
+		out = append(out, RoleViewMonitoring)
+	}
+	return out
+}
+
 // withoutRole liefert eine Kopie ohne den Schluessel.
 func withoutRole(roles []string, role string) []string {
 	out := make([]string, 0, len(roles))
@@ -136,7 +148,7 @@ func legacyDefaultGuestRoles() []string {
 // keine Bearbeitung. Normalisiert, wie die Vorgabe nach einem Neustart aus
 // users.json kommt, damit Migration und Neuinstallation gleich vergleichen.
 func defaultGuestRoles() []string {
-	return Normalize([]string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats, RoleViewEfficiency})
+	return Normalize([]string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats, RoleViewEfficiency, RoleViewMonitoring})
 }
 
 // defaultHAUserRoles ist die Vorgabe fuer HA-Konten ohne HA-Admin: Ansehen und
@@ -144,7 +156,7 @@ func defaultGuestRoles() []string {
 func defaultHAUserRoles() []string {
 	return Normalize([]string{
 		RoleViewOverview, RoleViewDevices, RoleViewDeviceAnalysis, RoleViewHistory, RoleViewStats, RoleViewEfficiency,
-		RoleViewEnergy, RoleViewDeviceMap, RoleViewConfig, RoleViewAutomations, RoleViewDiagnostics,
+		RoleViewEnergy, RoleViewDeviceMap, RoleViewConfig, RoleViewAutomations, RoleViewDiagnostics, RoleViewMonitoring,
 		RoleOperateDevices, RoleOperateAutomations, RoleEditLayout, RoleEditDeviceAppearance,
 		RoleEditDeviceMapView, RoleEditSettings, RoleCheckUpdates,
 	})

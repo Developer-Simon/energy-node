@@ -53,7 +53,7 @@ the whole group on or off.
 
 | Category | What it allows |
 |---|---|
-| View | which pages are visible: Overview, Devices, Device analysis, History, Statistics, Energy, Efficiency, Device map, Configuration, Automations, Diagnostics |
+| View | which pages are visible: Overview, Devices, Device analysis, History, Statistics, Efficiency, Device map, Monitoring, Configuration, Energy, Diagnostics, Automations |
 | Operate | switch devices and set values, turn rules and scenarios on and off |
 | Design | arrange the overview, style devices (icon and favourites), default view of the device map, change the appearance |
 | Setup | edit automations, energy assignment, edit device map, edit device configuration, ignore and remove devices from discovery, MQTT connection, set up the dashboard, set up TinyTuya, set up Tailscale, set up the network |

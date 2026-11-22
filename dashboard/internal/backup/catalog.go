@@ -104,6 +104,7 @@ var catalog = []Entry{
 	{RootData, "autolearn/pvmodel.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/pvweather.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/cycles.json", ClassRuntime, AreaHistory},
+	{RootData, "autolearn/monitoring.json", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/*", ClassRuntime, AreaHistory},
 	{RootData, "autolearn/days/*", ClassRuntime, AreaHistory},
 	// Lernstand ueber Neustarte: erster Start und ob schon etwas gelernt wurde.

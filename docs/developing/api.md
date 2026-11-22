@@ -113,6 +113,38 @@ The endpoints are described on four pages:
 - [System and updates](api-system.md): diagnostics and health, system actions,
   updates, versions and changelog, and the backup routes.
 
+## Monitoring
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/monitoring` | view monitoring | The notices of the monitoring page, the number of new ones and the learned values |
+| POST | `/api/v1/monitoring/ack` | view monitoring, edit setup, CSRF | Acknowledges a notice (`ack` true) or takes the acknowledgement back (`ack` false), answers like the GET |
+
+**`GET /api/v1/monitoring`** lists the notices of the round, each with `id`,
+`source` (`energy`, `chain` or `learn`), `severity`, `code`, `params`, `steps`,
+`first_seen` (unix time of the first sighting) and `ack`, which is `null` or
+`{"at","user"}`. `new_count` counts the notices without an acknowledgement.
+`learned` has the same values as `GET /api/v1/automations/learned`, with the
+device name and icon added. `notices` and `learned.values` are never null.
+
+**`POST /api/v1/monitoring/ack`** takes `{"id":"energy:unassigned","ack":true}`. The ID
+must be the ID of a current notice. The answer is the same as the GET.
+
+```json
+{"notices":[{"id":"energy:unassigned","source":"energy","severity":"info","code":"unassigned","params":{"count":2},"steps":[],"first_seen":1794000000,"ack":null}],
+ "new_count":1,"learned":{"enabled":true,"values":[]}}
+```
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `monitoring_ack_invalid` | The POST body has no notice ID |
+| 403 | `view_forbidden` | The account lacks `view_monitoring` |
+| 403 | `monitoring_ack_forbidden` | The POST needs `edit_setup` and the account lacks it |
+| 403 | `csrf_failed` | The POST has no CSRF token or a wrong one |
+| 404 | `monitoring_ack_unknown` | The ID is not a current notice |
+| 500 | `monitoring_save_failed` | Saving the acknowledgement failed |
+| 501 | `monitoring_unavailable` | The node runs without the monitoring services |
+
 ## Not under `/api/v1/`
 
 | Path | Purpose |

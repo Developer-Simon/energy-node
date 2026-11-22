@@ -2251,4 +2251,7 @@ small { color: var(--text-muted); }
 /* Zwei Spalten (Seitenleiste plus Inhalt), am Handy einspaltig */
 .sk-split { display: grid; grid-template-columns: 220px 1fr; gap: 1rem; }
 @media (max-width: 720px) { .sk-split { grid-template-columns: 1fr; } }
+/* Liste links, Detail rechts wie auf der Seite Monitoring, am Handy nur die Liste */
+.sk-split-wide { grid-template-columns: minmax(17rem, 23rem) 1fr; }
+@media (max-width: 720px) { .sk-split-wide { grid-template-columns: 1fr; } .sk-split-wide .sk-detail { display: none; } }
 

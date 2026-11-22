@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.22-pre.29 (2026-11-06)
+## v0.11.22-pre.30 (2026-11-06)
 
 ### Features
 
@@ -29,6 +29,22 @@
 - **automations:** suggest rules from learned habits and check rule reliability (#283) (318066c)
 - **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284) (8aae55b)
 - **automations:** Learning knows the seasons, the sun and the outdoor temperature (#287) (8812dc2)
+- **automations:** Learning knows device cycles, the PV reserve and the remaining surplus of the day (#289) (5d86b6b)
+- **i18n:** add the view_monitoring texts (0385648)
+- **auth:** add the view_monitoring right (44c40f9)
+- **monitoring:** collect notices from energy, chains and learning (e85d98c)
+- **monitoring:** keep first seen and acknowledgements per notice (f231be9)
+- **i18n:** add the monitoring unavailable error text (2739eae)
+- **monitoring:** serve notices and learned values with acknowledgement (55f0eb2)
+- **monitoring:** wire the collector into the dashboard (d484d92)
+- **webui:** add the monitoring page model (7ef342f)
+- **webui:** add the learned values to the monitoring model (96ae9fa)
+- **i18n:** add the monitoring page and energy line texts (32f7f58)
+- **webui:** add the monitoring panel files (24907a4)
+- **i18n:** add the monitoring labels and load error (c5aa6b7)
+- **webui:** add the monitoring tab and panel (41562a2)
+- **energy:** point the energy page notices to monitoring (8c665f2)
+- **monitoring:** A Monitoring tab with notices, acknowledgement and all learned values (#291)
 - **learnrec:** add the energy limits of each learning level (b74b813)
 - **autolearn:** track device cycles from minute power (0e10e79)
 - **autolearn:** store cycles and battery level in the day file (039e639)
@@ -51,7 +67,6 @@
 - **automations:** prefill thresholds from the learned operating power (b5392a5)
 - **autolearn:** seed cycles and PV data in the demo (101e409)
 - **demo:** show the energy learned values in the demo (5807cbe)
-- **automations:** Learning knows device cycles, the PV reserve and the remaining surplus of the day (#289)
 - **sun:** compute sunrise, sunset and the sun position in Go (053ac08)
 - **autolearn:** keep weekly figures for three years and backfill them from the energy statistics (a7b5800)
 - **autolearn:** wire the season store into the learning run (2a532e4)
@@ -248,13 +263,20 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **webui:** translate the time value of the monitoring model (d55ca28)
+- **webui:** add labels and load error to the monitoring panel (79ad0f3)
+- **energy:** keep monitoring jumps and refresh the summary line (9ad7b8a)
+- **settings:** offer efficiency and monitoring in the wide tabs (8c6e470)
+- **webui:** match the monitoring skeleton to the page and bump marks (bd91d58)
+- **users:** label the monitoring right just Monitoring (35f718e)
+- **users:** list the view rights in the order of the tabs (de17776)
+- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** pass the battery level into the learning frames (be60d22)
 - **autolearn:** harden cycle gap, runs and long cycles (a3b5f6f)
 - **autolearn:** count only the PV the house does not use as surplus (c9b33ff)
 - **autolearn:** build the base at the engine round time (427fc12)
 - **autolearn:** draw the shade curve from a finished day (1eb46f2)
 - **autolearn:** count every scenario regulator for throttled PV (291f1f3)
-- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** use the median night load and the median learned value in the weekly figures (9d1bac8)
 - **autolearn:** close the previous season week on any weekday and test the closing (0ff36cc)
 - **automations:** open sun suggestions with the sun anchor and word negative offsets (bca2a79)
@@ -347,6 +369,7 @@
 
 ### Documentation
 
+- **monitoring:** document the monitoring page and add the smoke check (9802fe9)
 - **storage:** describe the system disk breakdown (b2222d8)
 - **storage:** explain sticks with several partitions and extend the smoke check (7e75f7a)
 
@@ -372,6 +395,7 @@
 
 ### Chores
 
+- **webui:** bump the lazy asset marks of the monitoring page (79de377)
 - **dashboard:** bump the cache-bust marks for energy learning (8bd6f10)
 - **dashboard:** rebump the cache-bust marks after the rebase (c8480e9)
 - **dashboard:** renumber the cache-bust history rows after the prerelease sync (d325767)

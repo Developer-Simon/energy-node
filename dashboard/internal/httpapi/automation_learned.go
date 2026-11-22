@@ -65,27 +65,48 @@ func handleAutomationLearned(learning *LearningDeps, source learnedValueSource, 
 			writeErrorKey(w, http.StatusNotImplemented, "learning_unavailable", "error.learning_unavailable", nil, "Die Lernfunktionen sind nicht verfügbar")
 			return
 		}
-		body := automationLearnedBody{Enabled: true, Values: []learnedValueView{}}
-		if learning != nil && learning.Settings != nil {
-			// Without readable settings everything stays on, as for the suggestions.
-			if value, err := learning.Settings(); err == nil {
-				body.Enabled = !value.AutomationPatternsDisabled && !value.AutomationHabitsDisabled
-			}
-		}
-		var weeks []autolearn.Week
-		if season != nil {
-			now := time.Now()
-			from := isoWeekKeyOf(now.AddDate(0, -learnedYearMonths, 0))
-			weeks = season.Weeks(from, isoWeekKeyOf(now))
-		}
-		for _, entry := range source.Entries() {
-			if entry.Device != "" && exists != nil && !exists(entry.Device) {
-				continue
-			}
-			body.Values = append(body.Values, learnedValueView{LearnedEntry: entry, Year: learnedYear(entry, weeks)})
-		}
-		writeJSON(w, body)
+		writeJSON(w, learnedBody(learning, source, exists, season))
 	}
+}
+
+// learnedBody builds the learned values for GET /api/v1/automations/learned and
+// the monitoring page. Values is never null. Without a source the list stays
+// empty.
+func learnedBody(learning *LearningDeps, source learnedValueSource, exists func(string) bool, season learnedSeasonSource) automationLearnedBody {
+	body := automationLearnedBody{Enabled: true, Values: []learnedValueView{}}
+	if learning != nil && learning.Settings != nil {
+		// Without readable settings everything stays on, as for the suggestions.
+		if value, err := learning.Settings(); err == nil {
+			body.Enabled = !value.AutomationPatternsDisabled && !value.AutomationHabitsDisabled
+		}
+	}
+	if source == nil {
+		return body
+	}
+	var weeks []autolearn.Week
+	if season != nil {
+		now := time.Now()
+		from := isoWeekKeyOf(now.AddDate(0, -learnedYearMonths, 0))
+		weeks = season.Weeks(from, isoWeekKeyOf(now))
+	}
+	for _, entry := range source.Entries() {
+		if entry.Device != "" && exists != nil && !exists(entry.Device) {
+			continue
+		}
+		body.Values = append(body.Values, learnedValueView{LearnedEntry: entry, Year: learnedYear(entry, weeks)})
+	}
+	return body
+}
+
+// LearnedBody is learnedBody for the monitoring page. The values are the same,
+// the device name and icon stay empty.
+func LearnedBody(learning *LearningDeps, source learnedValueSource, exists func(string) bool, season learnedSeasonSource) MonitoringLearned {
+	body := learnedBody(learning, source, exists, season)
+	out := MonitoringLearned{Enabled: body.Enabled, Values: make([]MonitoringLearnedValue, 0, len(body.Values))}
+	for _, value := range body.Values {
+		out.Values = append(out.Values, MonitoringLearnedValue{learnedValueView: value})
+	}
+	return out
 }
 
 // learnedYear lists the weeks of the value, oldest first, at most the last

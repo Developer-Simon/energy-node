@@ -63,13 +63,13 @@ func learnedRouterWithSeason(t *testing.T, source learnedValueSource, learning *
 	return router, manager
 }
 
-// learnedBody is the answer of GET /api/v1/automations/learned.
-type learnedBody struct {
+// learnedResponse is the answer of GET /api/v1/automations/learned.
+type learnedResponse struct {
 	Enabled bool               `json:"enabled"`
 	Values  []learnedValueView `json:"values"`
 }
 
-func getLearned(t *testing.T, router http.Handler, cookie *http.Cookie) (*httptest.ResponseRecorder, learnedBody) {
+func getLearned(t *testing.T, router http.Handler, cookie *http.Cookie) (*httptest.ResponseRecorder, learnedResponse) {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/automations/learned", nil)
 	if cookie != nil {
@@ -77,7 +77,7 @@ func getLearned(t *testing.T, router http.Handler, cookie *http.Cookie) (*httpte
 	}
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
-	var body learnedBody
+	var body learnedResponse
 	if recorder.Code == http.StatusOK {
 		if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
 			t.Fatal(err)

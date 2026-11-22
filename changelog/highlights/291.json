@@ -1,0 +1,58 @@
+{
+  "de": {
+    "*": "Ein Reiter Monitoring mit Meldungen, Quittung und allen Lernwerten"
+  },
+  "en": {
+    "*": "A Monitoring tab with notices, acknowledgement and all learned values"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_monitoring",
+          "target": "monitoring-tab",
+          "text": {
+            "de": "Monitoring sammelt die Meldungen zur Energie-Bilanz, zu den Messketten und zum Lernen an einer Stelle. Ein Punkt am Reiter zeigt, dass etwas Neues wartet.",
+            "en": "Monitoring gathers the notices about the energy balance, the measurement chains and the learning in one place. A dot on the tab shows that something new is waiting."
+          },
+          "title": {
+            "de": "Der Reiter Monitoring",
+            "en": "The Monitoring tab"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_monitoring",
+          "panel": "monitoring-panel",
+          "target": "monitoring-list",
+          "text": {
+            "de": "Jede Meldung nennt empfohlene Schritte, und ein Schritt springt an die passende Stelle. Mit dem Recht Einrichten nimmst du eine Meldung zur Kenntnis, sie rutscht dann unter die neuen.",
+            "en": "Each notice lists the recommended steps, and a step jumps to the right place. With the setup right you mark a notice as acknowledged, it then moves below the new ones."
+          },
+          "title": {
+            "de": "Meldungen und Quittung",
+            "en": "Notices and acknowledgement"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_monitoring",
+          "open": [
+            "monitoring-learned"
+          ],
+          "panel": "monitoring-panel",
+          "target": "monitoring-learned",
+          "text": {
+            "de": "Die zweite Ansicht zeigt alles, was der Knoten gelernt hat, nach Anlage und Gerät, und was einem Wert noch fehlt, solange er fehlt.",
+            "en": "The second view shows everything the node has learned, grouped by system and device, and what a value still needs while it is missing."
+          },
+          "title": {
+            "de": "Alle Lernwerte",
+            "en": "All learned values"
+          }
+        }
+      ]
+    }
+  }
+}
