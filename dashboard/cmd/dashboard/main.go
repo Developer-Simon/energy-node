@@ -465,6 +465,9 @@ func main() {
 		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores, learnStateNow().AutoLevel), cores)
 	}
 	learnHub := learnrec.NewHub(time.Local, learnLimits, log.Printf)
+	// Abgleich mit dem Companion: holt fehlende Minuten- und 5-Minuten-Werte
+	// fuer die Lernfunktionen, nur im RAM.
+	learnHA := learnrec.NewHASync(time.Now, learnLimits, time.Local)
 	learnHub.SetOutdoor(func() string {
 		if value, err := settingsStore.LoadSettings(); err == nil {
 			return value.AutomationOutdoorEntity
@@ -1430,6 +1433,7 @@ func main() {
 		Network:               networkClient,
 		Resolver:              energyResolver,
 		EnergyStats:           energyStats,
+		LearnHA:               learnHA,
 		ChainMonitor:          chainMonitor,
 		ChainSuggest:          chainSuggest,
 		AutomationFindings:    automationChecker,
@@ -1581,6 +1585,7 @@ func main() {
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
 				energySync.Tick()
+				learnHA.Tick()
 				perfTiming.Since(performance.PartBackground, start)
 			}
 		}

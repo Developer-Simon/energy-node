@@ -140,3 +140,114 @@ func TestDeliveryToStatsWithoutStatsIsRejected(t *testing.T) {
 		t.Fatalf("Status %d, erwartet 404", status)
 	}
 }
+
+type fakeLearnPeer struct {
+	mu       sync.Mutex
+	send     func(string, []byte) bool
+	offers   []map[string]map[string]historyexchange.Census
+	delivers []historyexchange.Row
+	tiers    []string
+	final    bool
+}
+
+func (f *fakeLearnPeer) Attach(send func(string, []byte) bool, _ func(string) bool) { f.send = send }
+
+func (f *fakeLearnPeer) OnOffer(_ string, coverage map[string]map[string]historyexchange.Census) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.offers = append(f.offers, coverage)
+}
+
+func (f *fakeLearnPeer) OnDeliver(_, _, tier string, rows []historyexchange.Row, final bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.tiers = append(f.tiers, tier)
+	f.delivers = append(f.delivers, rows...)
+	f.final = final
+}
+
+func learnExchangeServer(t *testing.T) (*httptest.Server, *fakeLearnPeer) {
+	t.Helper()
+	mux := http.NewServeMux()
+	learn := &fakeLearnPeer{}
+	exchange := newHistoryExchange(nil)
+	exchange.attachLearn(learn)
+	exchange.routes(mux)
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	return server, learn
+}
+
+var minuteCensus = map[string]any{"role:pv": map[string]any{"from": 1791763200000, "step": 3600000, "n": []int{1, 60}}}
+
+func TestCompanionOfferReachesLearnWithEveryTier(t *testing.T) {
+	server, learn := learnExchangeServer(t)
+	companion, _, closeCompanion := joinStream(t, server)
+	defer closeCompanion()
+
+	status := post(t, server, "/api/v1/history/exchange/offer", map[string]any{
+		"peer": companion, "label": "Home Assistant", "kind": "companion",
+		"coverage": map[string]any{"1m": minuteCensus, "1h": dayCensus},
+	})
+	if status != http.StatusNoContent {
+		t.Fatalf("Status %d", status)
+	}
+	if len(learn.offers) != 1 {
+		t.Fatalf("Lernen bekam %d Angebote", len(learn.offers))
+	}
+	if learn.offers[0]["1m"]["role:pv"].Step != 3600000 || learn.offers[0]["1h"]["role:pv"].Step != 86400000 {
+		t.Fatalf("Angebot unvollstaendig: %+v", learn.offers[0])
+	}
+}
+
+func TestOfferWithoutKindDoesNotReachLearn(t *testing.T) {
+	server, learn := learnExchangeServer(t)
+	peer, _, closePeer := joinStream(t, server)
+	defer closePeer()
+	post(t, server, "/api/v1/history/exchange/offer", map[string]any{"peer": peer, "coverage": map[string]any{"1m": minuteCensus}})
+	if len(learn.offers) != 0 {
+		t.Fatalf("Angebot ohne kind ans Lernen: %v", learn.offers)
+	}
+}
+
+func TestLearnRequestReachesTheCompanion(t *testing.T) {
+	server, learn := learnExchangeServer(t)
+	companion, reader, closeCompanion := joinStream(t, server)
+	defer closeCompanion()
+	payload, _ := json.Marshal(map[string]any{"peer": historyexchange.LearnPeerID, "req_id": "learn-1", "tier": "1m", "series": "role:pv", "ranges": [][2]int64{{0, 3600000}}})
+	if !learn.send(companion, payload) {
+		t.Fatal("Zustellung gescheitert")
+	}
+	request := readUntil(t, reader, "request")
+	if request["req_id"] != "learn-1" || request["peer"] != historyexchange.LearnPeerID {
+		t.Fatalf("Nachfrage = %v", request)
+	}
+}
+
+func TestDeliveryToLearnIsInterceptedNotRelayed(t *testing.T) {
+	server, learn := learnExchangeServer(t)
+	companion, _, closeCompanion := joinStream(t, server)
+	defer closeCompanion()
+	status := post(t, server, "/api/v1/history/exchange/deliver", map[string]any{
+		"peer": companion, "to": historyexchange.LearnPeerID, "req_id": "learn-1", "seq": 0, "final": true, "tier": "1m",
+		"rows": []map[string]any{{"series": "role:pv", "ts": 1791763200000, "min": 5, "max": 5, "avg": 5, "n": 1, "u": "W"}},
+	})
+	if status != http.StatusNoContent {
+		t.Fatalf("Status %d", status)
+	}
+	if len(learn.delivers) != 1 || !learn.final || learn.tiers[0] != "1m" || learn.delivers[0].Avg != 5 {
+		t.Fatalf("Lernen bekam %+v final=%v tiers=%v", learn.delivers, learn.final, learn.tiers)
+	}
+}
+
+func TestDeliveryToLearnWithoutLearnIsRejected(t *testing.T) {
+	server := exchangeServer(t)
+	peer, _, closePeer := joinStream(t, server)
+	defer closePeer()
+	status := post(t, server, "/api/v1/history/exchange/deliver", map[string]any{
+		"peer": peer, "to": historyexchange.LearnPeerID, "req_id": "x", "final": true, "tier": "1m", "rows": []any{},
+	})
+	if status != http.StatusNotFound {
+		t.Fatalf("Status %d, erwartet 404", status)
+	}
+}
