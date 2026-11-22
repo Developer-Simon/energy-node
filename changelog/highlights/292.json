@@ -3,6 +3,6 @@
     "*": "Die Regelprüfung erkennt Rückkopplung, Konkurrenz, steigende Grundlast und Akkuprobleme"
   },
   "en": {
-    "*": "The rule check finds feedback loops, competition for the surplus, a rising base load and a battery that is full too early or empty at night"
+    "*": "The rule check finds feedback, competition for the surplus, a rising base load and battery problems"
   }
 }
