@@ -130,7 +130,7 @@ test('learnedGroups lists all five site keys and marks missing ones', () => {
   ]);
   const dayStart = groups[0].rows[0];
   assert.equal(dayStart.have, true);
-  assert.equal(dayStart.value, '06:10 Uhr');
+  assert.equal(dayStart.value, 'monitoring.value.time{"time":"06:10"}');
   const missing = groups[0].rows[1];
   assert.equal(missing.have, false);
   assert.equal(missing.value, 'monitoring.learned.missing');
@@ -162,7 +162,7 @@ test('origin uses singular for one day', () => {
 });
 
 test('valueText formats time, duration, number and state', () => {
-  assert.equal(M.valueText({ kind: 'time', value: '22:30' }, t), '22:30 Uhr');
+  assert.equal(M.valueText({ kind: 'time', value: '22:30' }, t), 'monitoring.value.time{"time":"22:30"}');
   assert.equal(M.valueText({ kind: 'duration', value: 20520 }, t), '5 h 42 min');
   assert.equal(M.valueText({ kind: 'number', value: 1930, unit: 'W' }, t), '1.930 W');
   assert.equal(M.valueText({ kind: 'state', value: 'active' }, t), 'automations.learned.state.active');

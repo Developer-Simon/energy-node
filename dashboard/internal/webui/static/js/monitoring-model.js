@@ -185,7 +185,7 @@
 
   // Wert eines Lernwerts als Text: Uhrzeit, Dauer, Zahl mit Einheit oder Zustand.
   function valueText(entry, t) {
-    if (entry.kind === 'time') return entry.value + ' Uhr';
+    if (entry.kind === 'time') return t('monitoring.value.time', { time: entry.value });
     if (entry.kind === 'duration') return durationText(entry.value);
     if (entry.kind === 'state') return t(entry.value === 'active' ? 'automations.learned.state.active' : 'automations.learned.state.quiet');
     return numberText(entry.value) + (entry.unit ? ' ' + entry.unit : '');
