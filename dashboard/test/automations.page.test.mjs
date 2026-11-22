@@ -3891,6 +3891,58 @@ test('openAssistantWith on a shift suggestion creates the scenario of the templa
   assert.equal(component.assistant.open, false);
 });
 
+// Die Demo-Spuelmaschine wie sie der Erkenner nennt: Geraete-Id spuelmaschine, Schalter spuelmaschine_steckdose.
+const dishwasherDevices = [
+  ...assistantDevices,
+  {
+    id: 'spuelmaschine', name: 'Dishwasher', entities: [
+      { unique_id: 'spuelmaschine_steckdose', name: 'Socket', command_topic: 'plug/spuelmaschine/output/set', state_topic: 'plug/spuelmaschine/output', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' },
+      { unique_id: 'spuelmaschine_power', name: 'Power', state_topic: 'plug/spuelmaschine/status', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '0' },
+    ],
+  },
+];
+
+// Die echten Apply-Eintraege der Demo (SeedDemo, Erkenner ShiftDetector und SurplusDetector).
+const realShiftPrefill = { device: 'spuelmaschine', latest: '20:45', min_run_s: 3580, on_w: 500 };
+const realSurplusPrefill = { device: 'spuelmaschine', min_run_s: 3600, on_w: 700, source: 'export' };
+
+test('the real demo shift suggestion of the dishwasher maps to device, start power and latest window', () => {
+  const { window } = createAutomationsPanel();
+  const answers = JSON.parse(JSON.stringify(window.__automationsPrefill.prefillToAnswers('shift_start', realShiftPrefill)));
+  assert.deepEqual(answers, {
+    device: 'spuelmaschine', on_w: 500, latest: { from: '20:45', to: '20:50', days: [0, 1, 2, 3, 4, 5, 6] },
+  });
+});
+
+test('the real demo shift suggestion opens the assistant on the dishwasher switch and creates the scenario', async () => {
+  const { component } = await assistantPanel(dishwasherDevices);
+  const before = component.document.scenarios.length;
+  await component.openAssistantWith('shift_start', realShiftPrefill);
+  assert.equal(component.assistant.templateId, 'shift_start');
+  assert.equal(component.assistant.answers.device, 'spuelmaschine_steckdose', 'the device id resolves to the switch');
+  assert.equal(component.assistant.answers.on_w, 500);
+  assert.equal(component.assistant.answers.latest.from, '20:45');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+  assert.equal(component.document.scenarios.length, before + 1);
+  const created = component.document.scenarios[before];
+  assert.equal(created.template, 'shift_start');
+  assert.equal(created.on_start.actions[0].entity_id, 'spuelmaschine_steckdose');
+  assert.equal(created.on_start.actions[0].payload, 'ON');
+  assert.equal(created.when.conditions[2].end, '20:45');
+});
+
+test('the real demo surplus suggestion of the dishwasher opens the surplus switch with its values', async () => {
+  const { component } = await assistantPanel(dishwasherDevices);
+  await component.openAssistantWith('surplus_switch', realSurplusPrefill);
+  assert.equal(component.assistant.templateId, 'surplus_switch');
+  assert.equal(component.assistant.answers.device, 'spuelmaschine_steckdose');
+  assert.equal(component.assistant.answers.on, 700);
+  assert.equal(component.assistant.answers.source, 'export');
+  assert.equal(component.assistant.answers.off, 'runtime');
+  assert.equal(component.assistant.answers.runtime, 60);
+});
+
 test('prefillToAnswers maps a battery full suggestion to device and the nearest run time step', () => {
   const { window } = createAutomationsPanel();
   const { prefillToAnswers } = window.__automationsPrefill;
