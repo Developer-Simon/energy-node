@@ -326,3 +326,25 @@ func OtsuSplit(xs []float64, bins int) (cut float64, ok bool) {
 	}
 	return cut, true
 }
+
+// QuarterNoise estimates the noise of one reading of a quarter hour series in
+// W. It is the 95th percentile of the absolute differences between consecutive
+// quarter hours, halved: a jump of two noisy readings is twice the noise.
+// Differences with a gap (NaN) are left out. A series with fewer than two
+// readings has no noise estimate and returns 0.
+func QuarterNoise(series []float32) float64 {
+	diffs := make([]float64, 0, len(series))
+	for i := 1; i < len(series); i++ {
+		d := math.Abs(float64(series[i]) - float64(series[i-1]))
+		if math.IsNaN(d) {
+			continue
+		}
+		diffs = append(diffs, d)
+	}
+	if len(diffs) == 0 {
+		return 0
+	}
+	sort.Float64s(diffs)
+	rank := int(math.Ceil(0.95*float64(len(diffs)))) - 1
+	return diffs[rank] / 2
+}

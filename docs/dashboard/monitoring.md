@@ -17,7 +17,7 @@ Monitoring covers the energy side and what the system has learned.
 ## Notices
 
 The top left of the tab switches between **Notices** and **Learned values**. The
-filter on the right limits the notices to **All**, **Energy** or **Learning**.
+filter on the right limits the notices to **All**, **Energy**, **Learning** or **Suggestions**.
 
 The list has two groups, **New** and **Acknowledged**. Select a notice to see its
 card. The card has the text, the facts of the notice, the evidence if there is
@@ -30,7 +30,8 @@ Notices come from three sources:
 |---|---|
 | Energy balance | The house load is set to measured, but no meter has the role house meter. A battery level exists without a capacity in kWh. Power values have no role. Values were left without a role by a measurement chain. |
 | Measurement chains | A finding of a [measurement chain](energy.md#measurement-chains), such as a unit error, a frozen value, a contradiction or a sign error. The card shows the time since the finding started. |
-| Learning | A finding that belongs to no rule and to no suggestion, for example a fixed shade that reduces the PV power. The card shows the direction and height of the shade, the calendar weeks, the loss per year and a daily curve. |
+| Learning | A finding that belongs to no rule and to no suggestion, for example a fixed shade that reduces the PV power, a battery that is full early or empty before morning, or a rising base load without a switchable device. The card shows the direction and height of the shade, the calendar weeks, the loss per year and a daily curve. |
+| Suggestions | Every suggestion of the [suggestion band](automations-rules.md#suggestions). **Open suggestion** opens it on the Automations page. The chip **Suggestions** lists only these, **All** includes them. |
 
 Findings that belong to a rule stay on the rule card in
 [Automations](automations-rules.md). Findings with a suggestion to apply stay in

@@ -211,3 +211,30 @@ func TestOtsuSplitNeedsFourPerSide(t *testing.T) {
 		t.Fatalf("OtsuSplit with 3 values on one side: ok = true, want false")
 	}
 }
+
+func TestQuarterNoise(t *testing.T) {
+	// Alternating +100 and -100 W around 500 W: every quarter hour difference
+	// is 200 W, so the noise of one reading is 100 W.
+	series := make([]float32, 96)
+	for i := range series {
+		if i%2 == 0 {
+			series[i] = 600
+		} else {
+			series[i] = 400
+		}
+	}
+	if got := QuarterNoise(series); got < 80 || got > 120 {
+		t.Fatalf("QuarterNoise = %v, want 100 +- 20", got)
+	}
+	if got := QuarterNoise(nil); got != 0 {
+		t.Fatalf("QuarterNoise(nil) = %v, want 0", got)
+	}
+	if got := QuarterNoise([]float32{500}); got != 0 {
+		t.Fatalf("QuarterNoise(one value) = %v, want 0", got)
+	}
+	// A gap (NaN) does not count as a difference.
+	gapped := []float32{500, float32(math.NaN()), 500, 600, 400}
+	if got := QuarterNoise(gapped); math.IsNaN(got) || got < 0 {
+		t.Fatalf("QuarterNoise with gap = %v, want a finite value", got)
+	}
+}

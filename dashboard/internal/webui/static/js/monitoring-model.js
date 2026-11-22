@@ -6,13 +6,21 @@
   const SHADE_ID_RE = /^learn:shade:(\d+):(\d+)$/;
   const pad = (n) => String(n).padStart(2, '0');
 
-  // Quelle für Filter und Gruppen: Energie-Bilanz und Messketten zusammen, sonst Lernfunktionen.
+  // Quelle für Filter und Gruppen: Energie-Bilanz und Messketten zusammen, Vorschläge
+  // für sich, sonst Lernfunktionen.
   function sourceOf(notice) {
-    return notice.source === 'energy' || notice.source === 'chain' ? 'energy' : 'learn';
+    if (notice.source === 'energy' || notice.source === 'chain') return 'energy';
+    return notice.source === 'suggest' ? 'suggest' : 'learn';
+  }
+
+  // Lernbefunde und Vorschläge teilen Texte und Belege der Automationen.
+  function isLearned(notice) {
+    const source = sourceOf(notice);
+    return source === 'learn' || source === 'suggest';
   }
 
   function filterNotices(notices, filter) {
-    if (filter === 'energy' || filter === 'learn') {
+    if (filter === 'energy' || filter === 'learn' || filter === 'suggest') {
       return notices.filter((n) => sourceOf(n) === filter);
     }
     return notices.slice();
@@ -71,6 +79,22 @@
     return t('monitoring.weeks.and', { a: items.slice(0, -1).join(', '), b: items[items.length - 1] });
   }
 
+  // Platzhalter eines Lernbefunds ohne Verursacher, wie im Vorschlagsband.
+  function learnParams(notice, t) {
+    const p = { ...(notice.params || {}) };
+    if (notice.code === 'baseload.drift' && !p.candidate) p.candidate = t('automations.learn.baseload.candidate.none');
+    if (notice.code === 'battery.empty_early' && !p.candidates) p.candidates = t('automations.learn.battery.candidate.none');
+    return p;
+  }
+
+  // Code und Platzhalter eines Lernbefunds. Ist das Vorschlagsband geladen
+  // (automation-suggestions.js), gelten dieselben Umrechnungen wie dort.
+  function learnSummary(notice, t) {
+    const summary = { code: notice.code, params: learnParams(notice, t) };
+    const band = typeof window !== 'undefined' ? window.AutomationSuggestions : null;
+    return band && typeof band.resolveSummary === 'function' ? band.resolveSummary(summary, t) : summary;
+  }
+
   function shadeIdParts(id) {
     const m = SHADE_ID_RE.exec(id || '');
     return m ? { az: Number(m[1]), el: Number(m[2]) } : null;
@@ -98,15 +122,21 @@
   }
 
   function title(notice, t) {
-    const key = sourceOf(notice) === 'learn'
-      ? 'automations.learn.' + notice.code + '.title'
-      : 'monitoring.notice.' + notice.code + '.title';
+    if (isLearned(notice)) {
+      const s = learnSummary(notice, t);
+      const key = 'automations.learn.' + s.code + '.title';
+      return t(key, s.params);
+    }
+    const key = 'monitoring.notice.' + notice.code + '.title';
     return t(key, notice.params);
   }
 
   function text(notice, t) {
     const p = notice.params || {};
-    if (sourceOf(notice) === 'learn') return t(`automations.learn.${notice.code}.text`, notice.params);
+    if (isLearned(notice)) {
+      const s = learnSummary(notice, t);
+      return t(`automations.learn.${s.code}.text`, s.params);
+    }
     if (notice.code === 'measured_no_meter') return t('energy.roles.notices.measured_warning');
     if (notice.code === 'role_needed') return t('energy.chains.role_needed');
     if (notice.code === 'chain') {
@@ -134,6 +164,7 @@
     if (target === 'efficiency') return !!can.view_efficiency;
     if (target === 'devicemap') return !!can.view_device_map;
     if (target === 'action.role_keep') return !!can.edit_energy;
+    if (target === 'suggestion') return !!can.view_automations;
     return false;
   }
 
@@ -157,7 +188,7 @@
   }
 
   // Lernwerte: Anlage mit festen Schlüsseln, Geräte nach Name, feste Reihenfolge der Gerätewerte.
-  const SITE_KEYS = ['day_start', 'night_rest', 'house_state', 'pv_reserve_w', 'surplus_left_wh'];
+  const SITE_KEYS = ['day_start', 'night_rest', 'house_state', 'pv_reserve_w', 'surplus_left_wh', 'base_w', 'battery_full_at', 'night_wh'];
   const RUN_KEYS = ['usual_runtime_s', 'op_power_w', 'cycle_wh'];
   const ORDER = ['usual_on', 'usual_off', 'usual_runtime_s', 'op_power_w', 'cycle_wh'];
   // Icons aus dem Sprite (base.html), keine neuen Zeichnungen.
@@ -166,6 +197,7 @@
     op_power_w: 'ico-gauge', cycle_wh: 'ico-flash',
     day_start: 'ico-sun', night_rest: 'ico-clock', house_state: 'ico-user',
     pv_reserve_w: 'ico-gauge', surplus_left_wh: 'ico-flash',
+    base_w: 'ico-gauge', battery_full_at: 'ico-clock', night_wh: 'ico-flash',
   };
 
   const isFiniteNumber = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -280,6 +312,7 @@
     valueText,
     spark,
     sourceOf,
+    isLearned,
     filterNotices,
     sortNotices,
     groups,

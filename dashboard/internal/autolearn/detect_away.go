@@ -121,7 +121,7 @@ func awayStandbyRun(ctx context.Context, in *Input, device string) []Candidate {
 		}},
 		Evidence: Evidence{Shape: "scale", Unit: "kWh", IstValue: &shown, SollValue: &zero},
 		Apply: []Fix{{Code: "quiet_off", Template: "quiet_off",
-			Prefill: map[string]any{"device": device}}},
+			Prefill: withEntity(map[string]any{"device": device}, "entity", switchEntityOf(in, device))}},
 		Device:  device,
 		Benefit: &benefit,
 	}

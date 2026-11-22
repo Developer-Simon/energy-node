@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // demoFixture is the path of a demo fixture from this package directory.
@@ -167,6 +168,16 @@ func TestDemoSeedYieldsFourFindings(t *testing.T) {
 	}
 }
 
+// learnedEntriesOf gives the learned numbers of the values by key, the way the
+// learned store hands them to the energy checks.
+func learnedEntriesOf(vals []Value) map[string]LearnedEntry {
+	out := make(map[string]LearnedEntry, len(vals))
+	for _, v := range vals {
+		out[v.Key] = LearnedEntry{Key: v.Key, Device: v.Device, Unit: v.Unit, Value: v.Num, N: v.N}
+	}
+	return out
+}
+
 // demoEngineRun seeds the demo days into dir and runs the real engine over them
 // at the daily slot, the way the dashboard does at 03:30.
 func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) *Engine {
@@ -183,9 +194,12 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 		func() learnrec.Limits { return learnrec.LimitsFor(learnrec.LevelBalanced, 4) },
 		loc)
 	for _, d := range []Detector{SwitchTimeDetector, RuntimeDetector, CouplingDetector, OverriddenDetector,
-		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector} {
+		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector,
+		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector, BaseLoadDetector} {
 		e.Register(d)
 	}
+	// The energy checks read the operating powers the engine learned before them.
+	e.SetLearned(func() map[string]LearnedEntry { return learnedEntriesOf(e.Values()) })
 	season := LoadSeasonStore("", noLog)
 	for _, w := range DemoSeason(now) {
 		season.Put(w)
@@ -200,6 +214,11 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 	for i := 0; i < 3; i++ {
 		e.Tick(time.Date(now.Year(), now.Month(), now.Day(), 3, 30, 0, 0, loc), groups)
 	}
+	// The energy checks read the learned operating powers of the day before, so
+	// the next day's daily round and a light round after it see them.
+	next := time.Date(now.Year(), now.Month(), now.Day()+1, 3, 30, 0, 0, loc)
+	e.Tick(next, groups)
+	e.Tick(next.Add(time.Hour), groups)
 	return e
 }
 
@@ -431,8 +450,8 @@ func TestDemoOutdoorSensorIsInBrokerAndSettings(t *testing.T) {
 func TestDemoSeasonYearCourseOfBedtime(t *testing.T) {
 	now := time.Date(2026, 11, 21, 9, 0, 0, 0, berlinLoc(t))
 	weeks := DemoSeason(now)
-	if len(weeks) != demoSeasonWeeks || demoSeasonWeeks < 20 {
-		t.Fatalf("season weeks = %d, want %d (at least 20)", len(weeks), demoSeasonWeeks)
+	if len(weeks) != demoSeasonWeeks+2*(demoPriorWeeks+1) || demoSeasonWeeks < 20 {
+		t.Fatalf("season weeks = %d, want %d (at least 20)", len(weeks), demoSeasonWeeks+2*(demoPriorWeeks+1))
 	}
 	count := 0
 	for _, w := range weeks {
@@ -663,5 +682,87 @@ func TestDemoShadeCurveSkipsTheRunningDay(t *testing.T) {
 	// 14:00 is quarter 56, after now, so only a past day has PV there.
 	if len(ev.Quarters) != dayQuarters || ev.Quarters[56] <= 0 {
 		t.Fatalf("shade curve has no afternoon PV, it shows the running day: %+v", ev)
+	}
+}
+
+// TestDemoSeedYieldsEnergyFindings checks that the demo pipeline yields the
+// energy findings: a feedback pair, two competing loads, a battery that is
+// full early and empty before morning, and a rising base load.
+func TestDemoSeedYieldsEnergyFindings(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]bool{}
+	kinds := map[string]bool{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = true
+		kinds[c.Finding.Kind] = true
+	}
+	for _, kind := range []string{"feedback", "competition", "baseload"} {
+		if !kinds[kind] {
+			t.Errorf("no %s finding in the demo pipeline, kinds %v", kind, kinds)
+		}
+	}
+	for _, id := range []string{"battery:full", "battery:empty"} {
+		if !ids[id] {
+			t.Errorf("no %s finding in the demo pipeline, ids %v", id, ids)
+		}
+	}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		if c.Finding.Kind == "baseload" && (c.Finding.Device != "" || c.Finding.Group != "check") {
+			t.Errorf("baseload finding device %q group %q, want no culprit and group check", c.Finding.Device, c.Finding.Group)
+		}
+		if c.Finding.ID == "battery:empty" && c.Finding.Group != "check" {
+			t.Errorf("battery:empty group %q, want check without culprit", c.Finding.Group)
+		}
+	}
+}
+
+// TestDemoSeedKeepsTheHabitSuggestions checks the suggestions the demo had
+// before the energy findings: run time of the dehumidifier and the away standby.
+func TestDemoSeedKeepsTheHabitSuggestions(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]bool{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = true
+	}
+	for _, id := range []string{"runtime:plug_entfeuchter", "away_standby:waermepumpe"} {
+		if !ids[id] {
+			t.Errorf("no %s in the demo pipeline, ids %v", id, ids)
+		}
+	}
+}
+
+// TestDemoPVYearRestsTheFeedInRule checks that the demo year raster knows the
+// summer sun and that the feed-in rule of the demo rests until a spring week.
+func TestDemoPVYearRestsTheFeedInRule(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	r := DemoPVRasterYear(now, demoLat, demoLon)
+	m := DemoPVModel(r)
+	if !m.Safe || !rasterCoversYear(r, sun.Location{Lat: demoLat, Lon: demoLon}, now) {
+		t.Fatalf("model %+v safe %v, raster must cover the year", m, m.Safe)
+	}
+	doc, err := ParseDoc(demoRulesRaw(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := neverFiredStateFor("grid_export", now.Add(-40*24*time.Hour), 900)
+	// The observer knows the feed-in rule for 40 days, it never fired.
+	st.Rules["regel_einspeisung_entfeuchter"] = RuleStats{FirstSeen: now.Add(-40 * 24 * time.Hour), Hours: map[int64]int{}}
+	src := func() (PVModel, *Raster, bool) { return m, r, true }
+	var got *Finding
+	for _, f := range ObservedFindingsWithPV(doc, st, nil, src, now, DefaultThresholds()) {
+		if f.ID == FindingID("never_fired", "regel_einspeisung_entfeuchter") {
+			f := f
+			got = &f
+		}
+	}
+	if got == nil || got.Summary.Code != "check.never_fired_season" {
+		t.Fatalf("feed-in rule finding = %+v, want check.never_fired_season", got)
+	}
+	week, _ := got.Summary.Params["week"].(int)
+	if week < 5 || week > 20 {
+		t.Fatalf("week = %v, want a spring week", got.Summary.Params["week"])
 	}
 }

@@ -54,6 +54,15 @@ type Fix struct {
 	Ops      []Op           `json:"ops"`
 	Template string         `json:"template,omitempty"`
 	Prefill  map[string]any `json:"prefill,omitempty"`
+	Rules    []RuleOps      `json:"rules,omitempty"`
+}
+
+// RuleOps is the ops of one rule. A fix that changes several rules at once
+// carries one RuleOps per rule in Fix.Rules. The browser applies all of them
+// or none.
+type RuleOps struct {
+	RuleID string `json:"rule_id"`
+	Ops    []Op   `json:"ops"`
 }
 
 // Op sets Value at Path, relative to the rule, for example
@@ -90,6 +99,15 @@ type Evidence struct {
 	IstNames  []string   `json:"ist_names,omitempty"`
 	SollNames []string   `json:"soll_names,omitempty"`
 	Missing   bool       `json:"missing,omitempty"`
+	// Marks holds the steps of a scale, such as the stages of staggered thresholds.
+	Marks []Mark `json:"marks,omitempty"`
+}
+
+// Mark is one step on the scale of a finding. Dormant marks a step that the
+// current season reaches on too few days.
+type Mark struct {
+	Value   float64 `json:"value"`
+	Dormant bool    `json:"dormant,omitempty"`
 }
 
 // FindingID builds the stable ID of a finding from its kind and rule IDs. The

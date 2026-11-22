@@ -3,6 +3,7 @@ package autolearn
 import (
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -287,5 +288,57 @@ func TestSeasonWeekOfTempCountsOnlyDaysWithTemperature(t *testing.T) {
 	}
 	if math.Abs(*week.TempC-17.5) > 1e-9 {
 		t.Errorf("TempC = %v, want 17.5 (mean of the daily means 10 and 25)", *week.TempC)
+	}
+}
+
+// TestSeasonPriorEmptyShareReadsPriorYears: the median of the empty share of the
+// same weeks of the years before. The current year does not count, and a week
+// without a share gives no answer.
+func TestSeasonPriorEmptyShareReadsPriorYears(t *testing.T) {
+	store := LoadSeasonStore(filepath.Join(t.TempDir(), "season.json"), nil)
+	y := time.Now().Year()
+	a, b, cur := 0.8, 0.6, 0.1
+	store.Put(Week{Key: fmt.Sprintf("%d-W45", y-1), Source: seasonSourceDays, EmptyShare: &a})
+	store.Put(Week{Key: fmt.Sprintf("%d-W45", y-2), Source: seasonSourceDays, EmptyShare: &b})
+	store.Put(Week{Key: fmt.Sprintf("%d-W45", y), Source: seasonSourceDays, EmptyShare: &cur})
+	store.Put(Week{Key: fmt.Sprintf("%d-W20", y-1), Source: seasonSourceDays})
+	if got, ok := store.PriorEmptyShare(45); !ok || math.Abs(got-0.7) > 1e-9 {
+		t.Errorf("PriorEmptyShare(45) = %v %v, want median 0.7 true", got, ok)
+	}
+	if _, ok := store.PriorEmptyShare(10); ok {
+		t.Errorf("PriorEmptyShare(10) gave an answer without a record")
+	}
+	var nilStore *SeasonStore
+	if _, ok := nilStore.PriorEmptyShare(45); ok {
+		t.Errorf("nil store gave an answer")
+	}
+}
+
+// TestSeasonWeekWithoutEmptyShareStillLoads: a season file written before the
+// empty share has weeks without the field, they load with a nil share.
+func TestSeasonWeekWithoutEmptyShareStillLoads(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "season.json")
+	old := `{"version":1,"weeks":[{"key":"2026-W46","source":"days","days":7,"base_w":280}]}`
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := LoadSeasonStore(path, nil)
+	ws := store.Weeks("2026-W46", "2026-W46")
+	if len(ws) != 1 || ws[0].BaseW != 280 || ws[0].EmptyShare != nil {
+		t.Fatalf("old week = %+v, want base 280 and no empty share", ws)
+	}
+}
+
+func TestSeasonEmptyShareSavedAndLoaded(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "season.json")
+	share := 0.25
+	store := LoadSeasonStore(path, nil)
+	store.Put(Week{Key: "2026-W46", Source: seasonSourceDays, Days: 7, EmptyShare: &share})
+	if err := store.Save(); err != nil {
+		t.Fatal(err)
+	}
+	ws := LoadSeasonStore(path, nil).Weeks("2026-W46", "2026-W46")
+	if len(ws) != 1 || ws[0].EmptyShare == nil || *ws[0].EmptyShare != 0.25 {
+		t.Fatalf("reloaded week = %+v, want empty share 0.25", ws)
 	}
 }

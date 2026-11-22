@@ -344,3 +344,17 @@ func TestEngineShareLimitPerLevel(t *testing.T) {
 		t.Fatal("balanced: 12 % share did not ask for a downgrade")
 	}
 }
+
+func TestEngineInputCarriesLearnedValues(t *testing.T) {
+	e := newTestEngine(t, learnrec.Limits{})
+	if in := e.input(at(t, "2026-11-22", "12:00"), learnrec.Limits{}, nil); in.Learned != nil {
+		t.Fatalf("Learned without a source = %v, want nil", in.Learned)
+	}
+	e.SetLearned(func() map[string]LearnedEntry {
+		return map[string]LearnedEntry{"site/base_w": {Key: "site/base_w", Value: 300.0}}
+	})
+	in := e.input(at(t, "2026-11-22", "12:00"), learnrec.Limits{}, nil)
+	if got := in.Learned["site/base_w"].Value; got != 300.0 {
+		t.Fatalf("Learned[site/base_w].Value = %v, want 300", got)
+	}
+}

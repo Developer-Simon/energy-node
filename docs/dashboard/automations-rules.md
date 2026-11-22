@@ -449,6 +449,39 @@ not appear.
 
 Each fix changes only the draft in the browser, as described above.
 
+### Energy findings
+
+These findings use the operating power of a device and the learned values of the
+house. They are shown as soon as the data is there. None of them adds a load.
+
+- **Feedback**: A rule switches on a load whose own power pushes the surplus
+  below the switch-off threshold, so the rule turns itself off again. The
+  finding shows the thresholds as a scale and offers **Widen the thresholds** for
+  both rules in one step. It needs the learned operating power of the device and
+  follows the **Reliability** switch. **Flapping** names feedback as the cause
+  when the changes coincide with the power step of the load.
+- **Competition**: Two or more rules start in the same quarter hour on the same
+  surplus, and the grid supplies power afterwards. The finding shows a staircase
+  of thresholds, one step per rule. A step that is rarely reached in the
+  recent weeks is marked as resting. **Stagger the thresholds** applies the
+  staircase to all rules at once.
+- **Resting for the season until week n**: A PV threshold that the learned PV
+  curve reaches again in a later calendar week shows that week. A threshold the
+  plant never reaches stays **Never triggers**.
+- **Base load rises**: The night load of the house stays higher than expected
+  for several weeks. The finding names a device that explains at least half of
+  the rise and, for a switchable device, offers the template **Night off**. Without a switchable device the finding appears as a notice on the [Monitoring](monitoring.md) page.
+- **Battery full early**: The battery reaches 97 % before the sun is highest, on
+  most of the last days. This is information only and appears as a notice on
+  the [Monitoring](monitoring.md) page.
+- **Battery empty before morning**: The battery is empty before sunrise, and it
+  was not just as empty in the same weeks of the year before. The finding names
+  the devices that use most of the missing night energy. It needs a record of
+  the year before and stays silent until the node has collected it. With a switchable device it offers **Night off**, without one it appears as a notice on the [Monitoring](monitoring.md) page.
+
+The template **Night off** switches a device off from the usual night rest to
+the usual start of the day. Without learned values it uses 23:00 to 06:00.
+
 ### The mark and the popover
 
 A rule with open findings shows a mark at its head, labelled **Show the finding

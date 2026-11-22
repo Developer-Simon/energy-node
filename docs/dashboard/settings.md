@@ -57,7 +57,7 @@ appear while **Learn patterns** is on, and each works on its own.
   switching times, run times and devices that follow another device on or off.
 - **Reliability** turns the reliability checks of the
   [rule check](automations-rules.md#rule-check) on or off: flapping, no effect,
-  overridden and runs while offline.
+  overridden, runs while offline, feedback and competition.
 
 **Exclude devices** opens a picker for the devices that the learning leaves out.
 **Allow all** removes every exclusion. The trigger and value checks of the
@@ -70,6 +70,12 @@ trigger history and write nothing new, so they have no switch.
 days. The default is 56 days. Chains and automations share one recording, and
 each value is written only once. The card shows the memory in use and how much
 is written per day.
+
+**Seasonal data for a whole year** keeps the PV sun course for a year, also
+when the profiles are kept for a shorter time. The rule check needs it to tell
+from which calendar week a PV threshold is reached again. When it is off, the
+sun course stays as long as the profiles. In the first year, while the summer
+sun is still missing, a PV threshold is never reported as **Never triggers**.
 
 **Delete learned data** asks for confirmation first. It deletes the day
 profiles, the reaction times, the sums of the chain suggestions and the learned

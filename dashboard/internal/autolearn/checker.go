@@ -37,6 +37,8 @@ type Checker struct {
 	// are nil until SetEngineSource is called.
 	engineCandidates func() []Candidate
 	reliabilityOn    func() bool
+	// pv gives the roof model for the PV thresholds, nil until SetPV is called.
+	pv PVSource
 
 	mu sync.Mutex
 	// doc is the last rule document that parsed. docOK is false when the last
@@ -81,6 +83,14 @@ func (c *Checker) SetThresholds(th Thresholds) {
 	c.thresholds = th
 }
 
+// SetPV gives the checker the roof model and the sky raster, the same source
+// the engine reads. Without a safe model the PV thresholds use the seasonal maximum.
+func (c *Checker) SetPV(pv PVSource) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.pv = pv
+}
+
 // SetEngineSource connects the engine. candidates returns the last candidates
 // of the engine, reliabilityOn tells whether the reliability group is on. Only
 // reliability candidates are listed, and only while the group is on.
@@ -102,7 +112,7 @@ func (c *Checker) Findings(now time.Time) []Finding {
 	// must follow at once, not up to checkerDocEvery later.
 	c.refreshLocked(now, true)
 	all := StaticFindings(c.doc, c.entityExists)
-	all = append(all, ObservedFindingsWith(c.doc, c.obs.Snapshot(), c.season, now, c.thresholds)...)
+	all = append(all, ObservedFindingsWithPV(c.doc, c.obs.Snapshot(), c.season, c.pv, now, c.thresholds)...)
 	all = append(all, c.reliabilityLocked()...)
 	sort.SliceStable(all, func(i, j int) bool {
 		ri, rj := severityRank[all[i].Severity], severityRank[all[j].Severity]
@@ -284,7 +294,7 @@ func (c *Checker) reliabilityLocked() []Finding {
 	var out []Finding
 	for _, cand := range c.engineCandidates() {
 		f := cand.Finding
-		if f.Group != "check" || cand.NEff < cand.MinNEff || !rulesCurrent(f.RuleIDs, current) {
+		if f.Group != "check" || cand.NEff < cand.MinNEff || !rulesCurrent(f.RuleIDs, current) || fixSaved(f, c.doc) {
 			continue
 		}
 		out = append(out, f)
@@ -300,6 +310,13 @@ func rulesCurrent(ruleIDs []string, current map[string]bool) bool {
 		}
 	}
 	return true
+}
+
+// fixSaved reports whether the first fix of f is already in the saved
+// document. The engine keeps a finding until its detector runs again, so the
+// rule check drops it as soon as its fix is saved.
+func fixSaved(f Finding, doc Doc) bool {
+	return len(f.Apply) > 0 && OpsApplied(f.Apply[0], doc)
 }
 
 // dropOrphansLocked removes ignored IDs that are neither in the unfiltered

@@ -32,6 +32,24 @@ const (
 	// demoPVRuleID ist die Regel „PV-Überschuss, WP an“ der Demo. Sie schaltet die
 	// Wärmepumpe an, der Temperaturvorschlag der Demo gilt für sie.
 	demoPVRuleID = "regel_pv_ueberschuss_wp_an"
+	// demoRuleWashOn ist die Regel „Waschmaschine an bei Überschuss“ der Demo. Sie
+	// steht mit der Wärmepumpenregel auf derselben Schwelle, die Aus-Regel bildet
+	// mit ihr die Rückkopplung.
+	demoRuleWashOn = "regel_wasch_ueberschuss_an"
+	// demoCompetitionMin ist die Minute, zu der die Regeln der Konkurrenz an den
+	// Konkurrenztagen gleichzeitig schalten, 11:00.
+	demoCompetitionMin = 660.0
+	// demoRiseFrom ist der Tagesindex, ab dem ein nicht gemessener Verbraucher
+	// die Grundlast um demoRiseW hebt. TUNABLE
+	demoRiseFrom = 12
+	// demoRiseW ist der Anstieg der Grundlast in W. TUNABLE
+	demoRiseW = 200.0
+	// demoPriorWeeks ist die Zahl der Wochen vor now, für die das Vorjahr einen
+	// Anteil leerer Morgen trägt. Sie deckt die 21 Demo-Tage plus die Nachbarwoche ab.
+	demoPriorWeeks = 5
+	// demoSeasonBaseW ist die Grundlast der Vorjahreswochen in W, so hoch wie die
+	// Nächte der Demo vor dem Anstieg. TUNABLE
+	demoSeasonBaseW = 290.0
 
 	// demoPlugOffMin ist die Abschaltzeit der Balkonsteckdose, 22:30 in Minuten.
 	demoPlugOffMin = 1350
@@ -85,14 +103,15 @@ const demoHeatKneeC = 15.0
 
 // demoEntities ist die unique_id der Schalter je Gerät, wie sie die Registry hat.
 var demoEntities = map[string]string{
-	demoPlugBalkon: "plug_balkon_steckdose",
-	demoPlugDry:    "plug_entfeuchter_steckdose",
-	demoRelais:     "relais_keller_switch_1",
-	demoHeatPump:   "waermepumpe_mode",
+	demoPlugBalkon:   "plug_balkon_steckdose",
+	demoPlugDry:      "plug_entfeuchter_steckdose",
+	demoRelais:       "relais_keller_switch_1",
+	demoHeatPump:     "waermepumpe_mode",
+	demoWasherDevice: "waschmaschine_steckdose",
 }
 
 // demoWatts ist die Leistung der Demo-Geräte, wenn sie laufen.
-var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500}
+var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500, demoWasherDevice: 2000}
 
 // SeedDemo schreibt die Tagesdateien der letzten 21 Tage vor now in dir, für die
 // Geräte der Demo. Jede Datei trägt "fake": true, die Konsole der Demo entfernt
@@ -128,13 +147,21 @@ type demoChange struct {
 	on     bool
 }
 
-// demoDays erzeugt die 21 Tage vor dem heutigen Tag. Die Zeiten sind zufällig
-// nur innerhalb ihrer Grenzen, der Zufall hat den festen Seed demoSeed.
+// demoDays erzeugt die 21 Tage vor dem heutigen Tag mit dem Grundlastanstieg.
 func demoDays(now time.Time, loc *time.Location) []DayFile {
+	return demoDaysWith(now, loc, true)
+}
+
+// demoDaysWith erzeugt die 21 Tage vor dem heutigen Tag. rise hebt die Grundlast
+// der letzten Nächte um demoRiseW (demoRiseFrom). Die Zeiten sind zufällig
+// nur innerhalb ihrer Grenzen, der Zufall hat den festen Seed demoSeed.
+func demoDaysWith(now time.Time, loc *time.Location, rise bool) []DayFile {
 	rng := rand.New(rand.NewSource(demoSeed))
 	// Die Waschmaschine hat einen eigenen Zufallsstrom, damit die Geräte oben
 	// dieselben Bytes behalten.
 	wash := rand.New(rand.NewSource(demoSeed + 1))
+	// Die Wärmepumpenzyklen haben einen eigenen Zufallsstrom aus demselben Grund.
+	heat := rand.New(rand.NewSource(demoSeed + 3))
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	out := make([]DayFile, 0, demoSeedDays)
 	for i := 0; i < demoSeedDays; i++ {
@@ -232,7 +259,17 @@ func demoDays(now time.Time, loc *time.Location) []DayFile {
 
 		b.solar(i)
 		b.washer(i, wash)
+		b.battery()
+		if i < demoAwayFrom || i > demoAwayTo {
+			b.heatCycle(heat)
+		}
+		if demoCompetitionDays[i] {
+			b.competition()
+		}
 		b.fill(rng)
+		if rise && i >= demoRiseFrom {
+			b.riseBase()
+		}
 		out = append(out, b.f)
 	}
 	return out
@@ -262,6 +299,11 @@ const (
 
 // demoCloudyDays sind die Tagesindizes mit bedecktem Himmel.
 var demoCloudyDays = map[int]bool{4: true, 11: true, 18: true}
+
+// demoCompetitionDays sind die Tagesindizes, an denen die Regeln der Wärmepumpe
+// und der Waschmaschine um elf Uhr gleichzeitig auslösen. Sechs Tage in den letzten
+// vierzehn reichen für die Konkurrenz.
+var demoCompetitionDays = map[int]bool{10: true, 12: true, 14: true, 16: true, 18: true, 20: true}
 
 // demoEcoCycleDays und demoShortCycleDays sind die Tagesindizes mit einem
 // Eco-Zyklus (12 Tage) oder einem kurzen Zyklus (4 Tage) der Waschmaschine.
@@ -329,6 +371,64 @@ func (b *demoBuilder) washer(i int, rng *rand.Rand) {
 	rec.DurS = int(float64(rec.Wh) / float64(rec.OpW) * 3600)
 	rec.End = "self"
 	b.f.Cycles = append(b.f.Cycles, rec)
+}
+
+// heatCycle schreibt den Zyklus der Wärmepumpe des Tages, 1400 Wh bei 1500 W, um
+// acht Uhr. Die Konkurrenz lernt daraus die Betriebsleistung der Wärmepumpe.
+func (b *demoBuilder) heatCycle(rng *rand.Rand) {
+	wh := 1400 + 50*rng.NormFloat64()
+	opW := 1500 + 50*rng.NormFloat64()
+	rec := CycleRec{Device: demoHeatPump, Wh: float32(wh), OpW: float32(opW)}
+	rec.Start = b.at(480).Unix()
+	rec.DurS = int(wh / opW * 3600)
+	rec.End = "self"
+	b.f.Cycles = append(b.f.Cycles, rec)
+}
+
+// competition schreibt die Konkurrenz des Tages: die Regel der Wärmepumpe und die
+// Regel der Waschmaschine schalten um elf Uhr im selben Viertel ein, die
+// Waschmaschine läuft dann eine Stunde.
+func (b *demoBuilder) competition() {
+	b.actionFor(demoCompetitionMin, demoPVRuleID, demoHeatPump, true)
+	b.actionFor(demoCompetitionMin, demoRuleWashOn, demoWasherDevice, true)
+	b.emit(demoCompetitionMin, demoWasherDevice, true, OriginRule, demoRuleWashOn)
+	b.emit(demoCompetitionMin+60, demoWasherDevice, false, OriginRule, demoRuleWashOn)
+}
+
+// demoSoC ist der Ladestand des Hausakkus in Prozent zur Minute m ab Mitternacht.
+// Der Akku sinkt bis 05:00 von 30 auf 6 Prozent und bleibt dort bis 08:00, also
+// leer vor Sonnenaufgang. Er lädt bis 10:00 auf 97 Prozent, hält sie bis 17:00
+// und sinkt bis Mitternacht wieder auf 30 Prozent.
+func demoSoC(m float64) float64 {
+	switch {
+	case m < 300:
+		return 30 - 24*m/300
+	case m < 480:
+		return 6
+	case m < 600:
+		return 6 + 91*(m-480)/120
+	case m < 1020:
+		return 97
+	default:
+		return 97 - 67*(m-1020)/420
+	}
+}
+
+// battery setzt den Ladestand des Tages je Viertelstunde.
+func (b *demoBuilder) battery() {
+	for q := range b.f.Site.SoC {
+		v := float32(demoSoC(float64(q) * baseQuarterMin))
+		b.f.Site.SoC[q] = &v
+	}
+}
+
+// riseBase hebt die Last des ganzen Tages um demoRiseW, ein Verbraucher ohne
+// eigene Messung. Netzbezug folgt der Last.
+func (b *demoBuilder) riseBase() {
+	for q := range b.f.Site.LoadTotal {
+		b.f.Site.LoadTotal[q] += float32(demoRiseW)
+		b.f.Site.GridImport[q] = b.f.Site.LoadTotal[q]
+	}
 }
 
 // demoTodayC ist die Außentemperatur des angefangenen Demo-Tages, so kalt wie
@@ -402,6 +502,28 @@ func DemoPVRaster(now time.Time, lat, lon float64) *Raster {
 	return r
 }
 
+// demoYearStep ist der Abstand in Tagen der klaren Tage vor den 21 Demo-Tagen. TUNABLE
+const demoYearStep = 3
+
+// DemoPVRasterYear ist DemoPVRaster mit dem Jahr davor: an jedem demoYearStep-ten
+// Tag bis 365 Tage zurück ein klarer Tag. So kennt der Raster die Sommersonne,
+// wie bei einem Node, der ein Jahr gelaufen ist.
+func DemoPVRasterYear(now time.Time, lat, lon float64) *Raster {
+	r := DemoPVRaster(now, lat, lon)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	for back := demoSeedDays + 1; back <= 365; back += demoYearStep {
+		day := today.AddDate(0, 0, -back)
+		for q := 0; q < dayQuarters; q++ {
+			az, el := sun.Position(shadeQuarterTime(day, q), lat, lon)
+			if el < pvRasterMinElDeg {
+				continue
+			}
+			r.Add(az, el, demoPVW(az, el, demoKClear), day.Format(dayLayout))
+		}
+	}
+	return r
+}
+
 // DemoPVModel passt das Dachmodell an das Demo-Raster an, so wie der nächtliche
 // Erkenner es täte.
 func DemoPVModel(r *Raster) PVModel {
@@ -409,11 +531,11 @@ func DemoPVModel(r *Raster) PVModel {
 	return m
 }
 
-// SeedDemoPV schreibt das Demo-Raster nach rasterPath und das Dachmodell nach
-// modelPath. Der Aufrufer schreibt sie nur beim ersten Start der Demo, zusammen
-// mit den Tagesdateien.
+// SeedDemoPV schreibt das Demo-Raster, das ein Jahr Himmel umfasst, nach
+// rasterPath und das Dachmodell nach modelPath. Der Aufrufer schreibt sie nur
+// beim ersten Start der Demo, zusammen mit den Tagesdateien.
 func SeedDemoPV(rasterPath, modelPath string, now time.Time) error {
-	r := DemoPVRaster(now, demoLat, demoLon)
+	r := DemoPVRasterYear(now, demoLat, demoLon)
 	data := r.State()
 	if data == nil {
 		return fmt.Errorf("autolearn: demo raster could not be encoded")
@@ -492,8 +614,13 @@ func (b *demoBuilder) clear() {
 
 // action schreibt die Regelaktion zu einem Schaltvorgang der Regel demoRuleID.
 func (b *demoBuilder) action(minute float64, device string, on bool) {
+	b.actionFor(minute, demoRuleID, device, on)
+}
+
+// actionFor schreibt die Regelaktion einer Regel zu einem Schaltvorgang.
+func (b *demoBuilder) actionFor(minute float64, rule, device string, on bool) {
 	want := on
-	b.f.Actions = append(b.f.Actions, ActionRec{At: b.at(minute).Unix(), Rule: demoRuleID, Device: device,
+	b.f.Actions = append(b.f.Actions, ActionRec{At: b.at(minute).Unix(), Rule: rule, Device: device,
 		Entity: demoEntities[device], Want: &want, There: false, OK: true, Reaction: 2.4})
 }
 
@@ -560,6 +687,20 @@ func DemoSeason(now time.Time) []Week {
 			Triggers: map[string]float64{demoRuleID: 5, demoPVRuleID: 5},
 			Learned:  map[string]float64{demoBedtimeKey: demoBedtimeMin + 6*math.Sin(float64(k))},
 		})
+	}
+	// Dieselben Wochen in den zwei Jahren davor: der Akku war damals selten leer,
+	// und die Grundlast lag nachts bei demoSeasonBaseW. Damit meldet die Demo
+	// „Akku ist nachts leer“ und „Grundlast steigt“ schon nach 21 Tagen.
+	for back := 1; back <= 2; back++ {
+		for k := 0; k <= demoPriorWeeks; k++ {
+			y, w := now.AddDate(0, 0, -7*k).ISOWeek()
+			week := Week{Key: fmt.Sprintf("%d-W%02d", y-back, w), Source: seasonSourceDays, Days: 7, BaseW: demoSeasonBaseW}
+			if back == 1 {
+				share := 0.1
+				week.EmptyShare = &share
+			}
+			out = append(out, week)
+		}
 	}
 	return out
 }

@@ -62,8 +62,8 @@
   }
 
   // Hilfslinien hinter den Balken, an den Hauptmarken der Achse.
-  function gridLines(xs) {
-    return xs.map((x) => '<line class="auto-learn-grid" x1="' + round(x) + '" x2="' + round(x) + '" y1="0" y2="10" vector-effect="non-scaling-stroke"/>').join('');
+  function gridLines(xs, height = 10) {
+    return xs.map((x) => '<line class="auto-learn-grid" x1="' + round(x) + '" x2="' + round(x) + '" y1="0" y2="' + height + '" vector-effect="non-scaling-stroke"/>').join('');
   }
 
   function spans(list, from, to, cls) {
@@ -322,6 +322,7 @@
       + axisHtml(ticks, labels);
   }
 
+  // Ist und Soll teilen eine Kurvenflaeche, die Soll-Ebene liegt ueber der Ist-Ebene.
   // Tageskurve aus 96 Viertelstunden in W. Ist als Linie, Soll-Spur mit Klarhimmel-Kurve, Bestkurve
   // gestrichelt und die abgeregelte Flaeche zwischen Best und Ist, wo die Bestkurve darueber liegt.
   const CURVE_N = 96;
@@ -338,7 +339,13 @@
   }
 
   const curveX = (i) => round((i / CURVE_N) * 100);
-  const curveY = (v, max) => round(9.5 - (Math.max(0, v) / max) * 9);
+  // Ist und Soll teilen ein Koordinatensystem, so hoch wie zwei Spuren.
+  const PLOT_H = 20;
+  const curveY = (v, max) => round(PLOT_H - 0.5 - (Math.max(0, v) / max) * (PLOT_H - 1));
+
+  function plotSvg(inner, soll) {
+    return '<svg class="auto-learn-plot-svg' + (soll ? ' is-soll' : '') + '" viewBox="0 0 100 ' + PLOT_H + '" preserveAspectRatio="none" aria-hidden="true">' + inner + '</svg>'; // i18n-ignore
+  }
 
   function curveShape(ev, t) {
     const ist = curveSeries(ev.ist_q);
@@ -370,17 +377,24 @@
       + r.map((i) => point(i, bestAt.get(i))).concat(r.slice().reverse().map((i) => point(i, istAt.get(i)))).join(' ')
       + '"/>').join(''); // i18n-ignore
     const hours = CURVE_HOURS.map((h) => h * 60);
-    const grid = gridLines(hours.map((m) => (m / DAY) * 100));
+    const grid = gridLines(hours.map((m) => (m / DAY) * 100), PLOT_H);
     const istBody = grid + line(ist, 'auto-learn-ist auto-learn-curve', false); // i18n-ignore
-    const sollBody = grid + throttled + line(soll, 'auto-learn-clear', false) + line(best, 'auto-learn-best', true); // i18n-ignore
+    // Mit Bestkurve (Verschattung) ist Soll die Klarhimmel-Referenz, sonst die Sollkurve selbst.
+    const sollCls = best.length > 0 ? 'auto-learn-clear' : 'auto-learn-soll-line'; // i18n-ignore
+    const sollBody = throttled + line(soll, sollCls, false) + line(best, 'auto-learn-best', true); // i18n-ignore
+    const hasSoll = soll.length > 0 || best.length > 0;
     const ticks = [];
     for (let h = 0; h <= 24; h++) {
       ticks.push({ x: (h / 24) * 100, major: CURVE_HOURS.indexOf(h) >= 0 });
     }
     const labels = hours.map((m) => ({ x: (m / DAY) * 100, text: clockText(m, true) }));
-    return lane(t('automations.learn.lane.ist'), laneSvg(istBody)) // i18n-ignore
-      + lane(t('automations.learn.lane.soll'), laneSvg(sollBody), true)
-      + axisHtml(ticks, labels);
+    const legend = '<div class="auto-learn-plot-legend">' // i18n-ignore
+      + '<span class="auto-learn-plot-key">' + esc(t('automations.learn.lane.ist')) + '</span>' // i18n-ignore
+      + (hasSoll ? '<span class="auto-learn-plot-key is-soll">' + esc(t('automations.learn.lane.soll')) + '</span>' : '') // i18n-ignore
+      + '</div>';
+    return '<div class="auto-learn-plot">' + legend + '<div class="auto-learn-plot-area">' // i18n-ignore
+      + plotSvg(istBody, false) + (hasSoll ? plotSvg(sollBody, true) : '')
+      + '</div></div>' + axisHtml(ticks, labels);
   }
 
   function chips(names) {

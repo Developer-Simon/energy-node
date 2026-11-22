@@ -20,6 +20,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // seasonBackfillYears is how far back the energy statistics refill the season
@@ -34,8 +35,11 @@ type seasonCloser struct {
 	store   *autolearn.SeasonStore
 	days    func(from, to time.Time) ([]autolearn.DayFile, error)
 	learned func() map[string][]float64
-	loc     *time.Location
-	done    string
+	// site gives the coordinates of the rule document, nil or nil result means
+	// no sun, and the closed week gets no empty share.
+	site func() *sun.Location
+	loc  *time.Location
+	done string
 }
 
 // Run closes the previous ISO week when the store has no week for it yet, or
@@ -68,6 +72,9 @@ func (c *seasonCloser) close(now, prevMonday, thisMonday time.Time) {
 		log.Printf("autolearn: season week day files incomplete: %v", err)
 	}
 	if w, ok := autolearn.WeekOf(days, c.learned(), c.loc); ok {
+		if share, ok := c.emptyShare(prevMonday, days); ok {
+			w.EmptyShare = &share
+		}
 		c.store.Put(w)
 	} else {
 		log.Printf("autolearn: season week %s not closed, fewer than four day files", prevMonday.Format("2006-01-02"))
@@ -75,6 +82,39 @@ func (c *seasonCloser) close(now, prevMonday, thisMonday time.Time) {
 	c.store.Prune(now)
 	if err := c.store.Save(); err != nil {
 		log.Printf("autolearn: season store not saved: %v", err)
+	}
+}
+
+// emptyShare returns the share of the empty mornings of the week, judged with
+// the 14 days before it. ok is false without a site or without enough sun days.
+func (c *seasonCloser) emptyShare(prevMonday time.Time, week []autolearn.DayFile) (float64, bool) {
+	if c.site == nil {
+		return 0, false
+	}
+	site := c.site()
+	if site == nil {
+		return 0, false
+	}
+	prior, err := c.days(prevMonday.AddDate(0, 0, -14), prevMonday.AddDate(0, 0, -1))
+	if err != nil {
+		log.Printf("autolearn: season week prior day files incomplete: %v", err)
+	}
+	return autolearn.EmptyShareOf(prior, week, site, c.loc)
+}
+
+// ruleSite reads the coordinates of the rule document. A document that cannot
+// be read or parsed gives no site.
+func ruleSite(read func() ([]byte, error)) func() *sun.Location {
+	return func() *sun.Location {
+		raw, err := read()
+		if err != nil {
+			return nil
+		}
+		doc, err := autolearn.ParseDoc(raw)
+		if err != nil {
+			return nil
+		}
+		return doc.Location
 	}
 }
 
@@ -155,6 +195,18 @@ func engineGroupsFor(value settings.Settings) map[string]bool {
 		"reliability": patterns && !value.AutomationReliabilityDisabled,
 		"energy":      patterns && !value.AutomationEnergyDisabled,
 	}
+}
+
+// pvKeepDays is how many days the sky raster keeps: a year with the seasonal
+// data switch on, else as long as the day profiles.
+func pvKeepDays(value settings.Settings) int {
+	if !value.LearningSeasonYearDisabled {
+		return autolearn.PVRasterYearDays
+	}
+	if value.LearningProfileDays > 0 {
+		return value.LearningProfileDays
+	}
+	return settings.LearningProfileDaysDefault
 }
 
 // anyGroupOn reports whether a group of the engine is switched on.

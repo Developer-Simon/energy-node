@@ -2019,8 +2019,64 @@
     },
   };
 
+  // ---------------------------------------------------------------- Nachts aus
+
+  // Feste Nacht ohne Lernwerte und Abstand der gelernten Grenzen dazu, in Minuten.
+  const NIGHT_FIXED = { start: '23:00', end: '06:00' };
+  const NIGHT_LEARNED_MIN = 60;
+  const CLOCK_TEXT = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  // Die Nacht folgt den Lernwerten nur, wenn Nachtruhe und Tagesbeginn beide gelernt sind.
+  const nightLearned = (ctx) => {
+    const learned = ctx.learned;
+    if (!learned || typeof learned.get !== 'function') return false;
+    return ['site/night_rest', 'site/day_start'].every((key) => CLOCK_TEXT.test(learned.get(key) || ''));
+  };
+  // Gelernte Grenze mit Spielraum von einer Stunde nach beiden Seiten um die feste Uhrzeit.
+  const nightRef = (key, fixed) => ({
+    learned: key, min: clockAfter(fixed, -NIGHT_LEARNED_MIN), max: clockAfter(fixed, NIGHT_LEARNED_MIN), fallback: fixed,
+  });
+
+  const nightOff = {
+    id: 'night_off',
+    category: 'time',
+    icon: 'ico-clock',
+    requires: { devices: 'switch' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'switch' },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.switches, answers.device);
+      const entity = requireEntity(entry);
+      const bounds = nightLearned(ctx)
+        ? { start: nightRef('site/night_rest', NIGHT_FIXED.start), end: nightRef('site/day_start', NIGHT_FIXED.end) }
+        : NIGHT_FIXED;
+      const rule = {
+        id: uniqueId('night_off', ctx.usedIds),
+        name: t('automations.templates.night_off.title'),
+        enabled: true,
+        cooldown_seconds: Math.max(600, ctx.publishMinInterval),
+        conditions: [{ type: 'time_window', start: bounds.start, end: bounds.end, weekdays: [] }],
+        actions: [Sw(entity, false)],
+      };
+      return { kind: 'rule', entry: rule };
+    },
+    summary(answers, ctx) {
+      return [
+        {
+          label: phase('when'),
+          text: nightLearned(ctx)
+            ? t('automations.assistant.summary.night.learned')
+            : t('automations.assistant.summary.night.fixed', { start: NIGHT_FIXED.start, end: NIGHT_FIXED.end }),
+          step: 'device',
+        },
+        { label: phase('then'), text: t('automations.assistant.summary.switch.end_off'), step: 'device' },
+      ];
+    },
+  };
+
   window.__automationTemplates = {
-    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod, chainWatchdog, chainStandby, timePoint, runtimeOff, quietOff, followSwitch],
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod, chainWatchdog, chainStandby, timePoint, runtimeOff, quietOff, followSwitch, nightOff],
     chargeFit,
   };
 })();

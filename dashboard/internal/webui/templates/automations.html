@@ -76,6 +76,7 @@
 
       <section class="auto-learn-band" data-tour="auto-learn-band" aria-labelledby="auto-learn-band-title"
                x-data="autoLearnBand()" x-init="load()" x-effect="canEdit = canEditAutomations; csrf = csrfToken"
+               x-on:automation-suggestion-open.window="openRequested()"
                x-show="shown" x-cloak>
         <div class="auto-learn-band-head">
           <h3 id="auto-learn-band-title" class="auto-learn-band-title">{{t "automations.learn.band.title"}}</h3>

@@ -69,6 +69,7 @@ type Engine struct {
 	season    *SeasonStore
 	outdoor   func() OutdoorSource
 	pv        func() (PVModel, *Raster, bool)
+	learned   func() map[string]LearnedEntry
 	// recentC is the mean outdoor temperature of the last three days as the
 	// last round read it, nil when unknown.
 	recentC *float64
@@ -395,6 +396,9 @@ func (e *Engine) Downgrade() bool {
 // document is logged and replaced by an empty one, so the round still runs.
 func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string]DeviceInfo) *Input {
 	in := &Input{Now: now, Loc: e.loc, Devices: devices, Reactions: e.reactions, Limits: limits, Season: e.seasonStore()}
+	if st := e.seasonStore(); st != nil {
+		in.PriorEmptyShare = st.PriorEmptyShare
+	}
 	if e.days != nil {
 		days, err := e.days.Days(now.AddDate(0, 0, -engineHistoryDays), now)
 		if err != nil {
@@ -417,7 +421,11 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 	e.recentC = in.Base.RecentOutdoorC
 	outdoor := e.outdoor
 	in.PV = e.pv
+	learned := e.learned
 	e.mu.Unlock()
+	if learned != nil {
+		in.Learned = learned()
+	}
 	if outdoor != nil {
 		in.Outdoor = outdoor()
 	}
@@ -431,6 +439,14 @@ func (e *Engine) SetPV(f func() (PVModel, *Raster, bool)) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.pv = f
+}
+
+// SetLearned gives the engine the learned values by key. A round reads them
+// into Input.Learned. Without it the round has no learned values.
+func (e *Engine) SetLearned(f func() map[string]LearnedEntry) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.learned = f
 }
 
 // SetOutdoor gives the engine the outdoor temperature entity. It is read on

@@ -3442,6 +3442,40 @@ test('applying a temperature limit suggestion adds the condition to the draft an
   assert.deepEqual(posted, []);
 });
 
+test('applyFix with rules changes every listed rule in the draft', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+    { id: 'r2', name: 'Heizstab', conditions: [{ type: 'balance_threshold', threshold: 300, hysteresis: 0 }], actions: [] },
+  ] };
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  component.applyFix({ code: 'shift_thresholds', rule_id: 'r1', ops: [], rules: [
+    { rule_id: 'r1', ops: [{ path: ['conditions', 0, 'threshold'], value: 120 }] },
+    { rule_id: 'r2', ops: [{ path: ['conditions', 0, 'threshold'], value: 320 }] },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].threshold, 120);
+  assert.equal(component.document.rules[1].conditions[0].threshold, 320);
+  assert.deepEqual(started, ['r1']);
+  assert.equal(component.expanded.r1, true);
+  assert.equal(component.expanded.r2, true);
+});
+
+test('applyFix with rules changes none when a path of the second rule does not resolve', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+    { id: 'r2', name: 'Heizstab', conditions: [{ type: 'balance_threshold', threshold: 300, hysteresis: 0 }], actions: [] },
+  ] };
+  component.startEditing = () => {};
+  component.applyFix({ code: 'shift_thresholds', rule_id: 'r1', ops: [], rules: [
+    { rule_id: 'r1', ops: [{ path: ['conditions', 0, 'threshold'], value: 120 }] },
+    { rule_id: 'r2', ops: [{ path: ['conditions', 4, 'threshold'], value: 320 }] },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].threshold, 100);
+  assert.equal(component.document.rules[1].conditions[0].threshold, 300);
+});
+
 test('applyFix writes nothing and still opens the rule when a path element is missing', () => {
   const { component, window } = createAutomationsPanel();
   component.document = { version: 1, settings: {}, rules: [
@@ -3589,15 +3623,47 @@ test('a stale preview response does not overwrite a newer one', async () => {
   assert.deepEqual(component.draftFindings, [draftDuplicate]);
 });
 
-test('observed kinds of the saved list stay while a draft preview exists', () => {
+test('every non-static kind of the saved list stays while a draft preview exists', () => {
   const { component } = createAutomationsPanel();
   const frequent = { id: 'o-freq', kind: 'frequent', rule_ids: ['r1'], severity: 'info', summary: {}, apply: [] };
   const neverFired = { id: 'o-never', kind: 'never_fired', rule_ids: ['r2'], severity: 'info', summary: {}, apply: [] };
-  component.findings = [sampleFinding, frequent, neverFired];
+  const feedback = { id: 'o-feed', kind: 'feedback', rule_ids: ['r1', 'r2'], severity: 'warn', summary: {}, apply: [] };
+  const competition = { id: 'o-comp', kind: 'competition', rule_ids: ['r2'], severity: 'warn', summary: {}, apply: [] };
+  component.findings = [sampleFinding, frequent, neverFired, feedback, competition];
   component.draftFindings = [draftDuplicate];
   const ids = component.allFindings().map((finding) => finding.id).sort();
-  assert.equal(ids.join(','), 'd-dup,o-freq,o-never');
+  assert.equal(ids.join(','), 'd-dup,o-comp,o-feed,o-freq,o-never');
   assert.equal(component.findingFor('r1').id, 'd-dup');
+});
+
+test('applyFix with its finding hides only that finding until the next load', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+    { id: 'r2', name: 'Anderes', conditions: [], actions: [] },
+  ] };
+  const other = { id: 'o-feed', kind: 'feedback', rule_ids: ['r2'], severity: 'warn', summary: {}, apply: [] };
+  component.findings = [sampleFinding, other];
+  component.startEditing = () => {};
+  component.applyFix(sampleFinding.apply[0], sampleFinding);
+  assert.deepEqual([...component.appliedFindingIds], ['f-hyst']);
+  assert.deepEqual([...component.allFindings().map((finding) => finding.id)], ['o-feed']);
+  component.draftFindings = [];
+  assert.deepEqual([...component.allFindings().map((finding) => finding.id)], ['o-feed']);
+  window.fetch = async () => ({ ok: true, json: async () => ({ findings: [sampleFinding, other] }) });
+  component.refreshDraftPreview = async () => {};
+  await component.loadFindings();
+  assert.deepEqual([...component.appliedFindingIds], []);
+});
+
+test('applyFix keeps the finding visible when the rule changed and nothing was written', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [{ id: 'r1', name: 'Pumpe', conditions: [], actions: [] }] };
+  component.findings = [sampleFinding];
+  component.startEditing = () => {};
+  component.applyFix(sampleFinding.apply[0], sampleFinding);
+  assert.deepEqual([...component.appliedFindingIds], []);
+  assert.equal(component.allFindings().length, 1);
 });
 
 test('ignoreFinding removes a draft finding from the draft list', async () => {
@@ -3786,6 +3852,13 @@ test('prefillToAnswers maps the device of a quiet switch-off', () => {
   const { prefillToAnswers } = window.__automationsPrefill;
   assert.deepEqual(JSON.parse(JSON.stringify(prefillToAnswers('quiet_off', { device: 'lamp_switch' }))), { device: 'lamp_switch' });
   assert.equal(prefillToAnswers('quiet_off', { device: 3 }), null);
+});
+
+test('prefillToAnswers opens a night off suggestion with its device and nothing else', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.deepEqual(JSON.parse(JSON.stringify(prefillToAnswers('night_off', { device: 'lamp_switch' }))), { device: 'lamp_switch' });
+  assert.equal(prefillToAnswers('night_off', { device: 3 }), null);
 });
 
 // --- Lernwerte im Editor ----------------------------------------------------
@@ -3989,4 +4062,14 @@ test('applyFix appends an add_condition even when its index is stale', () => {
   component.applyFix({ rule_id: 'r1', code: 'add_condition', ops: [{ path: ['conditions', 1], value: added }] });
   const conditions = JSON.parse(JSON.stringify(component.document.rules[0].conditions));
   assert.deepEqual(conditions, [existing, extra, added]);
+});
+
+test('night_off and quiet_off prefer the entity of the prefill over the device', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  for (const id of ['night_off', 'quiet_off']) {
+    assert.deepEqual({ ...prefillToAnswers(id, { device: 'pump', entity: 'pump_switch' }) }, { device: 'pump_switch' });
+    assert.deepEqual({ ...prefillToAnswers(id, { device: 'pump' }) }, { device: 'pump' });
+    assert.equal(prefillToAnswers(id, { entity: 5 }), null);
+  }
 });

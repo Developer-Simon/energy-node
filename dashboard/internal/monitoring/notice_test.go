@@ -94,3 +94,31 @@ func TestCollectLearnOnlyRulelessWithoutApply(t *testing.T) {
 		t.Errorf("steps = %v", codes)
 	}
 }
+
+func TestSuggestionsBecomeNoticesThatOpenTheSuggestion(t *testing.T) {
+	in := Input{Suggestions: []autolearn.Finding{{
+		ID: "runtime:plug", Kind: "runtime", Severity: "info",
+		Summary:  autolearn.Text{Code: "runtime.long", Params: map[string]any{"device": "Plug"}},
+		Evidence: autolearn.Evidence{Shape: "scale"},
+	}}}
+	var got *Notice
+	for _, n := range Collect(in) {
+		if n.ID == "suggest:runtime:plug" {
+			n := n
+			got = &n
+		}
+	}
+	if got == nil {
+		t.Fatal("no notice for the suggestion")
+	}
+	if got.Source != "suggest" || got.Code != "runtime.long" || got.Params["device"] != "Plug" || got.Params["kind"] != "runtime" {
+		t.Errorf("notice = %+v", got)
+	}
+	if len(got.Steps) != 1 || got.Steps[0].Code != "suggestion_open" || got.Steps[0].Target != "suggestion" ||
+		len(got.Steps[0].IDs) != 1 || got.Steps[0].IDs[0] != "runtime:plug" {
+		t.Errorf("steps = %+v, want one suggestion_open step with the suggestion id", got.Steps)
+	}
+	if got.Evidence == nil || got.Evidence.Shape != "scale" {
+		t.Errorf("evidence = %+v, want the suggestion evidence", got.Evidence)
+	}
+}

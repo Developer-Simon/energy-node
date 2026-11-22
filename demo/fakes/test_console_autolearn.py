@@ -648,3 +648,15 @@ def test_pv_throttle_needs_a_bool_and_the_broker(rules_path, broker):
         AutolearnTab(Log(), rules_path, url).act("pv_throttle", {"on": "ja"})
     with pytest.raises(ValueError):
         AutolearnTab(Log(), rules_path).act("pv_throttle", {"on": True})
+
+
+def test_publish_now_publishes_zero_counts_once(rules_path, broker):
+    url, posts = broker
+    tab = AutolearnTab(Log(), rules_path, url)
+
+    tab.publish_now()
+
+    doc = _document(rules_path)
+    states = _states(posts)
+    assert len(states) == 1
+    assert states[0]["rules"] == {r["id"]: {"trigger_count": 0} for r in doc["rules"]}

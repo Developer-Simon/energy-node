@@ -21,6 +21,7 @@ type PVTracker struct {
 	day             func() string
 	path            string
 	pruned          string
+	keepDays        func() int
 	lastUnthrottled bool
 }
 
@@ -32,6 +33,14 @@ func NewPVTracker(raster *Raster, location func() (lat, lon float64, ok bool), r
 	return &PVTracker{raster: raster, location: location, regulator: regulator, day: day, path: path}
 }
 
+// SetKeepDays sets how many days the raster keeps. It is read once a day when
+// the raster is pruned. Without it the raster keeps pvRasterDays.
+func (t *PVTracker) SetKeepDays(fn func() int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.keepDays = fn
+}
+
 // ObserveMinute adds the PV power of an unthrottled minute at the sun position
 // of the minute. It prunes the raster once per day.
 func (t *PVTracker) ObserveMinute(f learnrec.Frame) {
@@ -39,7 +48,11 @@ func (t *PVTracker) ObserveMinute(f learnrec.Frame) {
 	defer t.mu.Unlock()
 	day := t.day()
 	if day != "" && day != t.pruned {
-		t.raster.Prune(day)
+		if t.keepDays != nil {
+			t.raster.PruneDays(day, t.keepDays())
+		} else {
+			t.raster.Prune(day)
+		}
 		t.pruned = day
 	}
 	var reg *RegulatorView

@@ -31,6 +31,9 @@
   const CHAIN_VALUE_DEFAULT = 10;
   // Entwurfsvorschau der Regelpruefung: Wartezeit nach der letzten Aenderung.
   const DRAFT_PREVIEW_DEBOUNCE_MS = 400;
+  // Befundarten der statischen Pruefung. Nur sie rechnet die Entwurfsvorschau neu,
+  // alle anderen Befunde bleiben waehrend eines Entwurfs aus der gespeicherten Liste.
+  const STATIC_FINDING_KINDS = ['regulator_conflict', 'unsatisfiable', 'orphan', 'duplicate', 'contradiction'];
 
   // Monatstage fuer Zeitfenster und Sonnenfenster, 1 bis 31.
   const MONTH_DAY_NUMBERS = Array.from({ length: 31 }, (_, index) => index + 1);
@@ -245,9 +248,21 @@
     },
     quiet_off(prefill) {
       const out = {};
-      if (prefill.device !== undefined) {
-        if (!isPrefillText(prefill.device)) return null;
-        out.device = prefill.device;
+      // Der Assistent waehlt den Schalter nach Entitaets-ID. Ohne entity gilt das Geraet.
+      const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
+      }
+      return out;
+    },
+    night_off(prefill) {
+      const out = {};
+      // Der Assistent waehlt den Schalter nach Entitaets-ID. Ohne entity gilt das Geraet.
+      const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
       }
       return out;
     },
@@ -348,6 +363,8 @@
     findingStyle: '',
     // Statische Befunde des ungespeicherten Entwurfs (null, solange er dem Gespeicherten entspricht).
     draftFindings: null,
+    // Befunde, deren Aenderung im Entwurf steht. Sie bleiben bis zum Speichern oder Verwerfen verborgen.
+    appliedFindingIds: [],
     scenarioExpanded: {},
     durationUnits: {},
     scenarioEditing: {},
@@ -2098,6 +2115,7 @@
         window.dispatchEvent(new CustomEvent('automation-findings-changed'));
         // Nach dem Speichern entspricht der Entwurf dem Gespeicherten; die Vorschau folgt dem Entwurf.
         this.draftFindings = null;
+        this.appliedFindingIds = [];
         this.refreshDraftPreview();
       } catch {
         // Die bisherige Liste bleibt sichtbar.
@@ -2111,6 +2129,7 @@
       this._draftSeq = seq;
       if (JSON.stringify(this.document) === JSON.stringify(this.savedDocument)) {
         this.draftFindings = null;
+        this.appliedFindingIds = [];
         return;
       }
       try {
@@ -2130,11 +2149,13 @@
       this._draftTimer = setTimeout(() => this.refreshDraftPreview(), DRAFT_PREVIEW_DEBOUNCE_MS);
     },
     // Befunde fuer Anzeige und Zaehler: die statischen kommen aus dem Entwurf, wenn
-    // es einen gibt; beobachtete Befunde (haeufig, nie ausgeloest) bleiben aus der gespeicherten Liste.
+    // es einen gibt. Alle anderen (beobachtete und gelernte) bleiben aus der gespeicherten
+    // Liste. Ein Befund, dessen Aenderung im Entwurf steht, ist bis zum Speichern verborgen.
     allFindings() {
-      if (this.draftFindings === null) return this.findings;
-      const observed = this.findings.filter((finding) => finding.kind === 'frequent' || finding.kind === 'never_fired');
-      return [...this.draftFindings, ...observed];
+      const shown = (finding) => !this.appliedFindingIds.includes(finding.id);
+      if (this.draftFindings === null) return this.findings.filter(shown);
+      const kept = this.findings.filter((finding) => !STATIC_FINDING_KINDS.includes(finding.kind));
+      return [...this.draftFindings, ...kept].filter(shown);
     },
     findingFor(ruleId) {
       return this.allFindings().find((finding) => (finding.rule_ids || []).includes(ruleId)) || null;
@@ -2188,10 +2209,13 @@
     // Schreibt die Ops als Pfade in den Entwurf der Regel. Gespeichert wird nicht.
     // Alle Ziele werden zuerst aufgeloest. Fehlt ein Pfadteil (die Regel hat sich
     // seit dem Befund geaendert), wird nichts geschrieben, die Regel oeffnet sich trotzdem.
-    applyFix(fix) {
-      const rule = this.document.rules.find((entry) => entry.id === fix.rule_id);
-      if (!rule) return;
-      const targetOf = (path) => {
+    // Ein Befund mit fix.rules aendert mehrere Regeln: alle oder keine.
+    // finding (optional) ist der Befund des Popovers, er bleibt bis zum Speichern verborgen.
+    applyFix(fix, finding = null) {
+      const groups = Array.isArray(fix.rules) && fix.rules.length
+        ? fix.rules.map((entry) => ({ code: fix.code, rule_id: entry.rule_id, ops: entry.ops || [] }))
+        : [{ code: fix.code, rule_id: fix.rule_id, ops: fix.ops || [] }];
+      const targetOf = (rule, path) => {
         let node = rule;
         path.slice(0, -1).forEach((key) => {
           node = node && typeof node === 'object' ? node[key] : undefined;
@@ -2199,23 +2223,33 @@
         if (path.length === 0 || !node || typeof node !== 'object') return null;
         return { parent: node, key: path[path.length - 1] };
       };
-      // Ein add_condition nennt den Index, den die Bedingung beim Befund hatte.
-      // Seitdem kann eine Bedingung dazugekommen sein, deshalb wird angehaengt.
-      const writes = (fix.ops || []).map((op) => {
-        const target = targetOf(op.path || []);
-        if (fix.code === 'add_condition') {
-          return { target: target && Array.isArray(target.parent) ? { parent: target.parent, append: true } : null, value: op.value };
-        }
-        return { target, value: op.value };
+      const plans = groups.map((group) => {
+        const rule = this.document.rules.find((entry) => entry.id === group.rule_id);
+        if (!rule) return { rule: null, writes: [] };
+        // Ein add_condition nennt den Index, den die Bedingung beim Befund hatte.
+        // Seitdem kann eine Bedingung dazugekommen sein, deshalb wird angehaengt.
+        const writes = group.ops.map((op) => {
+          const target = targetOf(rule, op.path || []);
+          if (group.code === 'add_condition') {
+            return { target: target && Array.isArray(target.parent) ? { parent: target.parent, append: true } : null, value: op.value };
+          }
+          return { target, value: op.value };
+        });
+        return { rule, writes };
       });
-      if (writes.every((write) => write.target)) {
-        writes.forEach((write) => {
+      const opened = plans.map((plan) => plan.rule).filter(Boolean);
+      if (opened.length === 0) return;
+      if (plans.every((plan) => plan.rule && plan.writes.every((write) => write.target))) {
+        plans.forEach((plan) => plan.writes.forEach((write) => {
           if (write.target.append) write.target.parent.push(write.value);
           else write.target.parent[write.target.key] = write.value;
-        });
+        }));
+        if (finding && finding.id && !this.appliedFindingIds.includes(finding.id)) {
+          this.appliedFindingIds = [...this.appliedFindingIds, finding.id];
+        }
       }
-      this.startEditing(rule);
-      this.expanded[rule.id] = true;
+      this.startEditing(opened[0]);
+      opened.forEach((rule) => { this.expanded[rule.id] = true; });
       this.closeFinding();
     },
     postFindingIgnore(id, undo) {

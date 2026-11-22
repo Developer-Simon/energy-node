@@ -110,6 +110,42 @@
       "actions": [
         {"type": "publish", "topic": "waermepumpe/mode/set", "payload_source": "constant", "payload": "OFF"}
       ]
+    },
+    {
+      "id": "regel_wasch_ueberschuss_an",
+      "name": "Waschmaschine an bei Überschuss",
+      "enabled": true,
+      "cooldown_seconds": 600,
+      "conditions": [
+        {"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 1000, "hysteresis": 100, "hold_seconds": 30}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "plug/waschmaschine/output/set", "entity_id": "waschmaschine_steckdose", "payload_source": "constant", "payload": "ON"}
+      ]
+    },
+    {
+      "id": "regel_wasch_ueberschuss_aus",
+      "name": "Waschmaschine aus, wenn der Überschuss fehlt",
+      "enabled": true,
+      "cooldown_seconds": 600,
+      "conditions": [
+        {"type": "balance_threshold", "field": "grid_export", "comparison": "below", "threshold": 500, "hysteresis": 100, "hold_seconds": 60}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "plug/waschmaschine/output/set", "entity_id": "waschmaschine_steckdose", "payload_source": "constant", "payload": "OFF"}
+      ]
+    },
+    {
+      "id": "regel_einspeisung_entfeuchter",
+      "name": "Entfeuchter an bei viel Einspeisung",
+      "enabled": true,
+      "cooldown_seconds": 600,
+      "conditions": [
+        {"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 2600, "hysteresis": 100, "hold_seconds": 60}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "plug/entfeuchter/output/set", "payload_source": "constant", "payload": "ON"}
+      ]
     }
   ],
   "scenarios": [

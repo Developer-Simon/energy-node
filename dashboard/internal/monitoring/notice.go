@@ -45,6 +45,9 @@ type Input struct {
 	Snapshot energy.Snapshot
 	Config   settings.EnergyConfig
 	Findings []autolearn.Finding
+	// Suggestions are the suggestions of the band as the automations page shows
+	// them. Each one becomes a notice that opens it there.
+	Suggestions []autolearn.Finding
 }
 
 // Collect baut die Meldungen in fester Reihenfolge: energy, chain, learn.
@@ -53,6 +56,7 @@ func Collect(in Input) []Notice {
 	out = append(out, energyNotices(in)...)
 	out = append(out, chainNotices(in.Snapshot)...)
 	out = append(out, learnNotices(in.Findings)...)
+	out = append(out, suggestionNotices(in.Suggestions)...)
 	return out
 }
 
@@ -215,6 +219,34 @@ func learnNotices(findings []autolearn.Finding) []Notice {
 			Code:     f.Summary.Code,
 			Params:   params,
 			Steps:    steps,
+		}
+		if f.Evidence.Shape != "" {
+			ev := f.Evidence
+			n.Evidence = &ev
+		}
+		out = append(out, n)
+	}
+	return out
+}
+
+// suggestionNotices turns the visible suggestions into notices. The step opens
+// the suggestion on the automations page. Their source is suggest, the page lists
+// them under the filter Vorschläge.
+func suggestionNotices(list []autolearn.Finding) []Notice {
+	var out []Notice
+	for _, f := range list {
+		params := make(map[string]any, len(f.Summary.Params)+1)
+		for k, v := range f.Summary.Params {
+			params[k] = v
+		}
+		params["kind"] = f.Kind
+		n := Notice{
+			ID:       "suggest:" + f.ID,
+			Source:   "suggest",
+			Severity: learnSeverity(f.Severity),
+			Code:     f.Summary.Code,
+			Params:   params,
+			Steps:    []Step{{Code: "suggestion_open", Target: "suggestion", IDs: []string{f.ID}}},
 		}
 		if f.Evidence.Shape != "" {
 			ev := f.Evidence

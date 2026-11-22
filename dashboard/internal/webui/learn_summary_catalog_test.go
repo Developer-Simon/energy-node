@@ -18,10 +18,13 @@ var summaryCodeLiteral = regexp.MustCompile(`Text\{Code: "([a-z_.]+)"`)
 // rule findings from the checker, which the band does not draw as a tile. Each entry must stay
 // without a .line key, the test fails when one gets its key, so the list is kept current.
 var learnLineGaps = map[string]bool{
+	"check.competition":        true,
 	"check.contradiction":      true,
 	"check.duplicate":          true,
+	"check.feedback":           true,
 	"check.frequent":           true,
 	"check.never_fired":        true,
+	"check.never_fired_season": true,
 	"check.orphan":             true,
 	"check.regulator_conflict": true,
 	"check.seasonal_rest":      true,

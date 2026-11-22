@@ -119,14 +119,15 @@ test('weekRanges joins runs', () => {
 
 const NOW = 1794000000;
 
-test('learnedGroups lists all five site keys and marks missing ones', () => {
+test('learnedGroups lists all eight site keys and marks missing ones', () => {
   const values = [{ key: 'site/day_start', kind: 'time', value: '06:10', n: 4, at: NOW - 60, changed_at: NOW - 300 }];
   const groups = M.learnedGroups(values, NOW, t);
   assert.equal(groups[0].id, 'site');
-  assert.equal(groups[0].total, 5);
+  assert.equal(groups[0].total, 8);
   assert.equal(groups[0].have, 1);
   assert.deepEqual(groups[0].rows.map((r) => r.key), [
     'site/day_start', 'site/night_rest', 'site/house_state', 'site/pv_reserve_w', 'site/surplus_left_wh',
+    'site/base_w', 'site/battery_full_at', 'site/night_wh',
   ]);
   const dayStart = groups[0].rows[0];
   assert.equal(dayStart.have, true);
@@ -136,6 +137,18 @@ test('learnedGroups lists all five site keys and marks missing ones', () => {
   assert.equal(missing.value, 'monitoring.learned.missing');
   assert.equal(missing.meta, 'monitoring.learned.missing_days');
   assert.equal(groups[0].rows[3].meta, 'monitoring.learned.missing_pv');
+});
+
+test('learnedGroups shows the night energy with its unit and the battery time', () => {
+  const values = [
+    { key: 'site/night_wh', kind: 'number', unit: 'Wh', value: 13200, n: 12, at: NOW - 60 },
+    { key: 'site/battery_full_at', kind: 'time', value: '11:15', n: 10, at: NOW - 60 },
+  ];
+  const rows = M.learnedGroups(values, NOW, t)[0].rows;
+  assert.equal(rows[7].key, 'site/night_wh');
+  assert.equal(rows[7].have, true);
+  assert.equal(rows[7].value, '13.200 Wh');
+  assert.equal(rows[6].value, 'monitoring.value.time{"time":"11:15"}');
 });
 
 test('learnedGroups orders device values on, off, runtime, power, cycle', () => {
@@ -167,4 +180,40 @@ test('valueText formats time, duration, number and state', () => {
   assert.equal(M.valueText({ kind: 'number', value: 1930, unit: 'W' }, t), '1.930 W');
   assert.equal(M.valueText({ kind: 'state', value: 'active' }, t), 'automations.learned.state.active');
   assert.equal(M.valueText({ kind: 'state', value: 'quiet' }, t), 'automations.learned.state.quiet');
+});
+
+test('learn findings without a culprit name the placeholder instead of the template field', () => {
+  const calls = [];
+  const spy = (key, params) => { calls.push(key); return key + JSON.stringify(params || {}); };
+  const drift = { source: 'learn', code: 'baseload.drift', params: { w: 80, kwh_month: 57.6, candidate: '' } };
+  const text = M.text(drift, spy);
+  assert.ok(text.includes('automations.learn.baseload.candidate.none'));
+  assert.ok(!text.includes('{candidate}'));
+  assert.ok(calls.includes('automations.learn.baseload.candidate.none'));
+  const empty = { source: 'learn', code: 'battery.empty_early', params: { time: '05:10', kwh_missing: 3.2, candidates: '' } };
+  const emptyText = M.text(empty, spy);
+  assert.ok(emptyText.includes('automations.learn.battery.candidate.none'));
+  assert.ok(!emptyText.includes('{candidates}'));
+});
+
+test('a suggestion step targets the automations page only with the view_automations right', () => {
+  const notice = { source: 'learn', code: 'runtime.long', steps: [{ code: 'suggestion_open', target: 'suggestion', ids: ['runtime:plug'] }] };
+  const with_ = M.steps(notice, { view_automations: true }, t)[0];
+  assert.equal(with_.target, 'suggestion');
+  assert.ok(with_.label.length > 0);
+  const without = M.steps(notice, {}, t)[0];
+  assert.equal(without.target, '');
+  assert.equal(without.label, '');
+});
+
+test('suggestion notices have their own source and filter and use the learn texts', () => {
+  const learn = { id: 'learn:x', source: 'learn', code: 'battery.full_early', params: {} };
+  const suggest = { id: 'suggest:y', source: 'suggest', code: 'runtime.long', params: { device: 'Plug', kind: 'runtime' } };
+  const energy = { id: 'energy:z', source: 'energy', code: 'unassigned', params: {} };
+  const all = [learn, suggest, energy];
+  assert.equal(M.sourceOf(suggest), 'suggest');
+  assert.deepEqual(M.filterNotices(all, 'suggest').map((n) => n.id), ['suggest:y']);
+  assert.deepEqual(M.filterNotices(all, 'learn').map((n) => n.id), ['learn:x']);
+  assert.equal(M.filterNotices(all, 'all').length, 3);
+  assert.ok(M.title(suggest, t).startsWith('automations.learn.runtime.long.title'));
 });

@@ -143,3 +143,35 @@ func TestFlappingSparseRulesGiveNothing(t *testing.T) {
 		t.Fatalf("daily switching gave %d candidates, want 0", len(got))
 	}
 }
+
+func TestFlappingCausedByFeedbackNamesTheCause(t *testing.T) {
+	loc := berlinLoc(t)
+	days := flapDays(t, loc, "plug.kettle", 10, 60)
+	devices := map[string]DeviceInfo{"plug.kettle": {ID: "plug.kettle", Name: "Kessel", Switchable: true,
+		Entities: []string{"switch.plug.kettle"}}}
+	causeOf := func(in *Input) (string, bool) {
+		got := relRun(FlappingDetector.Run, in, "plug.kettle")
+		if len(got) != 1 {
+			t.Fatalf("candidates = %d, want 1", len(got))
+		}
+		for _, f := range got[0].Finding.Facts {
+			if f.Code == "cause" {
+				return f.Value.(string), true
+			}
+		}
+		return "", false
+	}
+
+	// Without a learned operating power the switch-ons cannot be tied to the load.
+	plain := relInput(loc, days, devices, fbRule("on", "above", 1500), fbRule("off", "below", 500))
+	if cause, ok := causeOf(plain); ok {
+		t.Errorf("cause without feedback = %q, want none", cause)
+	}
+
+	// The kettle moves the export by 2000 W, so the thresholds 1500 and 500 feed back.
+	fed := relInput(loc, days, devices, fbRule("on", "above", 1500), fbRule("off", "below", 500))
+	fed.Learned = fbLearned(2000)
+	if cause, ok := causeOf(fed); !ok || cause != "feedback" {
+		t.Errorf("cause = %q (found %v), want feedback", cause, ok)
+	}
+}

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.22-pre.30 (2026-11-06)
+## v0.11.22-pre.31 (2026-11-06)
 
 ### Features
 
@@ -30,6 +30,31 @@
 - **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284) (8aae55b)
 - **automations:** Learning knows the seasons, the sun and the outdoor temperature (#287) (8812dc2)
 - **automations:** Learning knows device cycles, the PV reserve and the remaining surplus of the day (#289) (5d86b6b)
+- **monitoring:** A Monitoring tab with notices, acknowledgement and all learned values (#291) (7ae50a9)
+- **autolearn:** let a fix change several rules and estimate signal noise (80c444e)
+- **autolearn:** flag rules whose own load flips their condition (67cbc32)
+- **autolearn:** name feedback as the cause of flapping rules (f6ea384)
+- **autolearn:** stagger rules that compete for the same surplus (d725acf)
+- **autolearn:** say in which week a PV rule will fire again (3769fa6)
+- **autolearn:** report a rising base load with the device behind it (b624fb6)
+- **autolearn:** add the night off template with learned night bounds (20a221a)
+- **autolearn:** report a battery that is full too early or empty before morning (aac68e4)
+- **monitoring:** show base load, battery full time and night energy (e6e4e30)
+- **autolearn:** store the empty battery share per season week (0fbf269)
+- **autolearn:** seed energy findings in the demo (e00d60b)
+- **autolearn:** seed a rising base load and an empty battery in the demo (5775d14)
+- **autolearn:** keep the PV sky for a year and stop calling summer thresholds unreachable in winter (bb0ea79)
+- **settings:** add the switch for a whole year of seasonal data (2a5c0aa)
+- **autolearn:** seed a year of PV sky so the demo shows a seasonal rest (2c655b5)
+- **autolearn:** send energy findings without a rule to Monitoring (d0e1298)
+- **autolearn:** let the season expectation shorten the base load history (d87e3c1)
+- **autolearn:** seed earlier years instead of doubling the demo days (4789168)
+- **autolearn:** show the Soll charge of the battery findings (43ae2f6)
+- **monitoring:** list every suggestion as a notice (a5ff2af)
+- **automations:** draw Ist and Soll curves in one chart (5f880ad)
+- **monitoring:** open the suggestion from its notice (9eaa37c)
+- **monitoring:** collect the suggestions under their own filter (add1bab)
+- **autolearn:** The rule check finds feedback, competition for the surplus, a rising base load and battery problems (#292)
 - **i18n:** add the view_monitoring texts (0385648)
 - **auth:** add the view_monitoring right (44c40f9)
 - **monitoring:** collect notices from energy, chains and learning (e85d98c)
@@ -44,7 +69,6 @@
 - **i18n:** add the monitoring labels and load error (c5aa6b7)
 - **webui:** add the monitoring tab and panel (41562a2)
 - **energy:** point the energy page notices to monitoring (8c665f2)
-- **monitoring:** A Monitoring tab with notices, acknowledgement and all learned values (#291)
 - **learnrec:** add the energy limits of each learning level (b74b813)
 - **autolearn:** track device cycles from minute power (0e10e79)
 - **autolearn:** store cycles and battery level in the day file (039e639)
@@ -263,6 +287,10 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **autolearn:** drop findings whose fix is saved and show an early full battery in Monitoring (cb2d65b)
+- **automations:** keep learned findings while a fix sits in the draft (715cbfd)
+- **automations:** preselect the switch of night off and quiet off suggestions (e3a0952)
+- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **webui:** translate the time value of the monitoring model (d55ca28)
 - **webui:** add labels and load error to the monitoring panel (79ad0f3)
 - **energy:** keep monitoring jumps and refresh the summary line (9ad7b8a)
@@ -270,7 +298,6 @@
 - **webui:** match the monitoring skeleton to the page and bump marks (bd91d58)
 - **users:** label the monitoring right just Monitoring (35f718e)
 - **users:** list the view rights in the order of the tabs (de17776)
-- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** pass the battery level into the learning frames (be60d22)
 - **autolearn:** harden cycle gap, runs and long cycles (a3b5f6f)
 - **autolearn:** count only the PV the house does not use as surplus (c9b33ff)
@@ -375,6 +402,7 @@
 
 ### Tests
 
+- **webui:** follow the template cache-bust mark (c30a3db)
 - **smoke:** probe the live push on the house load (5382341)
 - **webui:** follow the new cache-bust marks (b06cc13)
 - **automations:** do not pin the cache-bust mark of the learned helper (2fd09ce)
@@ -395,6 +423,9 @@
 
 ### Chores
 
+- **dashboard:** bump the cache-bust marks for energy findings (85a44b4)
+- **dashboard:** bump the cache-bust mark of the settings page (a590474)
+- **dashboard:** bump the cache-bust marks for the curve chart and suggestion notices (e4c86cb)
 - **webui:** bump the lazy asset marks of the monitoring page (79de377)
 - **dashboard:** bump the cache-bust marks for energy learning (8bd6f10)
 - **dashboard:** rebump the cache-bust marks after the rebase (c8480e9)

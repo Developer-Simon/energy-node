@@ -549,6 +549,25 @@ test('the temperature limit title and line show the rule, device, knee and weekl
   assert.equal(api.legend(s, t), catalogs.de['automations.learn.legend.scale']);
 });
 
+test('the baseload drift line names the cause, or an unmeasured consumer without a device', () => {
+  const { api } = load(germanI18n);
+  const t = catalogT('de');
+  const measured = suggestion('baseload.drift', { w: 80, kwh_month: 57.6, candidate: 'Heizlüfter' }, 'scale');
+  assert.equal(api.line(measured, t), 'Nachts 80 W mehr, rund 57,6 kWh im Monat');
+  assert.ok(api.text(measured, t).endsWith('Verursacher ist Heizlüfter.'));
+  const unmeasured = suggestion('baseload.drift', { w: 80, kwh_month: 57.6, candidate: '' }, 'scale');
+  assert.ok(api.text(unmeasured, t).endsWith('Verursacher ist ein nicht gemessener Verbraucher.'));
+});
+
+test('the battery empty line names the night consumers, or an unmeasured one without a device', () => {
+  const { api } = load(germanI18n);
+  const t = catalogT('de');
+  const measured = suggestion('battery.empty_early', { time: '00:00', kwh_missing: 12.4, candidates: 'Heizlüfter' }, 'curve');
+  assert.ok(api.text(measured, t).endsWith('Hauptverbraucher in der Nacht: Heizlüfter.'));
+  const unmeasured = suggestion('battery.empty_early', { time: '00:00', kwh_missing: 12.4, candidates: '' }, 'curve');
+  assert.ok(api.text(unmeasured, t).endsWith('Hauptverbraucher in der Nacht: ein nicht gemessener Verbraucher.'));
+});
+
 test('a scale evidence with the weekly unit shows the catalog unit on the axis', () => {
   const { evidence } = load();
   const t = catalogT('de');
@@ -649,4 +668,31 @@ test('the rules texts keep their shape for a share and a sun code', () => {
   const sun = resolveSummary({ code: 'switch_time.sun_on', params: { event: 'sunrise', offset_min: -5 } }, (key) => key);
   assert.equal(sun.code, 'switch_time.sun_on.before');
   assert.equal(sun.params.minutes, 5);
+});
+
+test('a monitoring request opens its suggestion even beyond the band, and clears the request', async () => {
+  const a = finding('a:1');
+  const b = finding('b:2');
+  const c = finding('c:3');
+  const d = finding('d:4');
+  const { band, window, close } = loadBand(listRoutes({ enabled: true, suggestions: [a, b, c, d], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  assert.ok(!band.visible.some((s) => s.id === 'd:4'), 'd:4 is beyond BAND_MAX');
+  window.__automationSuggestionRequest__ = 'd:4';
+  band.openRequested();
+  assert.equal(band.open, 'd:4');
+  assert.equal(band.all, true);
+  assert.equal(window.__automationSuggestionRequest__, null);
+  close();
+});
+
+test('an unknown monitoring request keeps the band as it is and the request', async () => {
+  const a = finding('a:1');
+  const { band, window, close } = loadBand(listRoutes({ enabled: true, suggestions: [a], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  window.__automationSuggestionRequest__ = 'zz:9';
+  band.openRequested();
+  assert.equal(band.open, '');
+  assert.equal(window.__automationSuggestionRequest__, 'zz:9');
+  close();
 });

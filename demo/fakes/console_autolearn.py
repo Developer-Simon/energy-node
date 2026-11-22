@@ -471,6 +471,11 @@ class AutolearnTab(Tab):
                       for rule in rules if "id" in rule},
         })
 
+    def publish_now(self) -> None:
+        """Veroeffentlicht den Zustand einmal, etwa kurz nach dem Start der Konsole."""
+        with self._lock:
+            self._publish_state()
+
     def _trigger(self, body: dict) -> str:
         scenario = BY_ID.get(body.get("scenario"))
         if scenario is None or not scenario.get("triggerable"):

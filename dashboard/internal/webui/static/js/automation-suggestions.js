@@ -31,6 +31,9 @@
     let code = (summary && summary.code) || '';
     const params = Object.assign({}, (summary && summary.params) || {});
     if (typeof params.share === 'number') params.share = Math.round(params.share * 100);
+    // Ohne gemessenen Verbraucher bleibt der Name leer, der Text nennt dann den Verbraucher ohne Messung.
+    if (code === 'baseload.drift' && !params.candidate) params.candidate = t('automations.learn.baseload.candidate.none');
+    if (code === 'battery.empty_early' && !params.candidates) params.candidates = t('automations.learn.battery.candidate.none');
     if (/^switch_time\.sun_(on|off)$/.test(code)) {
       const offset = Number(params.offset_min) || 0;
       params.minutes = Math.abs(offset);
@@ -167,6 +170,7 @@
           this.days = Number(body && body.learning && body.learning.days) || 0;
           this.devices = Number(body && body.learning && body.learning.devices) || 0;
           this.loaded = true;
+          this.openRequested();
         } catch (error) {
           this.loaded = false;
         }
@@ -177,6 +181,24 @@
         this.fullDay = false;
         this.tipOpen = false;
         if (this.open && tile) this.placeCaret(tile);
+      },
+      // Sprung aus dem Monitoring: der Vorschlag klappt auf und rueckt ins Bild.
+      openRequested() {
+        const id = window.__automationSuggestionRequest__;
+        if (!id || !this.items.some((s) => s.id === id)) return;
+        window.__automationSuggestionRequest__ = null;
+        if (!this.visible.some((s) => s.id === id)) this.all = true;
+        this.open = id;
+        this.fullDay = false;
+        this.tipOpen = false;
+        if (!this.$nextTick) return;
+        this.$nextTick(() => {
+          this.placeCaret();
+          const tile = this.$root ? this.$root.querySelector('.auto-learn-tile[aria-expanded="true"]') : null;
+          if (!tile || typeof tile.scrollIntoView !== 'function') return;
+          const calm = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          tile.scrollIntoView({ block: 'center', behavior: calm ? 'auto' : 'smooth' });
+        });
       },
       // Die Karte zeigt mit ihrer Spitze auf die Kachel, aus der sie kommt. Ohne Kachel
       // (Groessenwechsel, mehr Kacheln) gilt die gerade aufgeklappte.

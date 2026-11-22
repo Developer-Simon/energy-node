@@ -376,3 +376,20 @@ func TestCheckerIgnoresHabitCandidates(t *testing.T) {
 		t.Fatalf("habit candidate listed in the rule check: %+v", got)
 	}
 }
+
+func TestCheckerDropsReliabilityFindingWhoseFixIsSaved(t *testing.T) {
+	on := true
+	saved := reliabilityCandidate("flapping", "r1")
+	saved.Finding.Apply = []Fix{{Code: "set_threshold", RuleID: "r1", Ops: []Op{{Path: []any{"conditions", 0, "threshold"}, Value: 500}}}}
+	c := checkerWithEngine(t, reliabilityDoc, []Candidate{saved}, &on, "")
+	if got := c.Findings(testBase); len(got) != 0 {
+		t.Fatalf("finding with a saved fix listed: %+v", got)
+	}
+
+	open := reliabilityCandidate("flapping", "r1")
+	open.Finding.Apply = []Fix{{Code: "set_threshold", RuleID: "r1", Ops: []Op{{Path: []any{"conditions", 0, "threshold"}, Value: 600}}}}
+	c = checkerWithEngine(t, reliabilityDoc, []Candidate{open}, &on, "")
+	if got := c.Findings(testBase); len(got) != 1 {
+		t.Fatalf("finding with an open fix = %d findings, want 1", len(got))
+	}
+}
