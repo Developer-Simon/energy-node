@@ -374,6 +374,7 @@
 
 - **dashboard:** bump the cache-bust marks for energy learning (8bd6f10)
 - **dashboard:** rebump the cache-bust marks after the rebase (c8480e9)
+- **dashboard:** renumber the cache-bust history rows after the prerelease sync (d325767)
 - **dashboard:** bump the cache-bust marks for seasons (5f8fe25)
 - **dashboard:** bump the learning settings stylesheet mark (c903788)
 - **dashboard:** bump the performance core mark (c1ef9d5)
