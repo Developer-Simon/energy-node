@@ -3,6 +3,7 @@ package autolearn
 import (
 	"fmt"
 	"math"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -94,8 +95,8 @@ func TestStepLogCountsChangesAndSignFlips(t *testing.T) {
 	if fig == nil {
 		t.Fatal("no figures for heizung")
 	}
-	if fig.N != 5 {
-		t.Errorf("n = %d, want 5", fig.N)
+	if fig.N != 4 {
+		t.Errorf("n = %d, want 4 (ohne Totzone)", fig.N)
 	}
 	if fig.Changes != 2 {
 		t.Errorf("changes = %d, want 2", fig.Changes)
@@ -110,7 +111,7 @@ func TestStepLogOutOfDeadbandEnergySplitsBySign(t *testing.T) {
 	loc := berlinLoc(t)
 	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
 	l := newTestStepLog(1, base.Add(time.Hour))
-	// Export 100 W ueber 60 s: 100 * 60 / 3600 Wh. Die Totzone-Zeile zaehlt nicht.
+	// Export 100 W, Abstand bis zum naechsten Schritt ohne Totzone 120 s: 100 * 120 / 3600 Wh.
 	steps := [][]byte{
 		stepPayload(float64(base.Unix()), -100, -100, fptr(1200), fptr(1200), "unchanged"),
 		stepPayload(float64(base.Unix()+60), -100, -100, fptr(1200), fptr(1200), "deadband"),
@@ -125,7 +126,7 @@ func TestStepLogOutOfDeadbandEnergySplitsBySign(t *testing.T) {
 	if fig == nil {
 		t.Fatal("no figures")
 	}
-	wantExp := 100.0 * 60 / 3600
+	wantExp := 100.0 * 120 / 3600
 	if math.Abs(float64(fig.OutWhExport)-wantExp) > 1e-3 {
 		t.Errorf("out_exp = %v, want %v", fig.OutWhExport, wantExp)
 	}
@@ -219,5 +220,115 @@ func TestStepRecordRoundTrip(t *testing.T) {
 	}
 	if out.From == nil || *out.From != 1200 || out.To != nil {
 		t.Errorf("from/to = %v/%v, want 1200/nil", out.From, out.To)
+	}
+}
+
+func TestStepLogGapIsCappedAt300Seconds(t *testing.T) {
+	loc := berlinLoc(t)
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	l := newTestStepLog(1, base.Add(2*time.Hour))
+	// Zwei Schritte 1000 s auseinander: gezaehlt werden nur 300 s, 60 * 300 / 3600 Wh.
+	for _, at := range []int64{base.Unix(), base.Unix() + 1000} {
+		if err := l.Add("heizung", stepPayload(float64(at), -60, -60, fptr(1200), fptr(1200), "unchanged")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fig := l.DayFigures("2026-11-19")["heizung"]
+	if fig == nil {
+		t.Fatal("no figures")
+	}
+	if want := 60.0 * 300 / 3600; math.Abs(float64(fig.OutWhExport)-want) > 1e-3 {
+		t.Errorf("out_exp = %v, want %v", fig.OutWhExport, want)
+	}
+}
+
+func TestStepLogFlushAppendsOncePerStepAndRoundTrips(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	l := NewStepLog(func() int { return 2 }, func() string { return dir })
+	l.now = func() time.Time { return base.Add(time.Hour) }
+	if err := l.Add("heizung", stepPayload(float64(base.Unix()), 5, 5, fptr(1200), nil, "sent")); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Add("heizung", stepPayload(float64(base.Unix()+10), -3, -3, nil, nil, "deadband")); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Add("lampe", stepPayload(float64(base.Unix()+20), 1, 1, nil, nil, "limit")); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := l.Flush(base.Add(time.Hour)); err != nil {
+			t.Fatalf("flush %d: %v", i, err)
+		}
+	}
+	file := stepFileName(dir, "2026-11-19", "heizung")
+	raw, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) != 2*stepRecordSize {
+		t.Fatalf("file = %d bytes, want 2 records after a repeated flush", len(raw))
+	}
+	if _, err := os.Stat(stepFileName(dir, "2026-11-19", "lampe")); err != nil {
+		t.Errorf("lampe file: %v", err)
+	}
+
+	// Ein neuer Speicher ohne RAM liest den Tag aus der Datei, auch nach dem Ring.
+	later := NewStepLog(func() int { return 1 }, func() string { return dir })
+	later.now = func() time.Time { return base.Add(48 * time.Hour) }
+	got := later.Steps("heizung", base.Add(-time.Hour), base.Add(time.Hour))
+	if len(got) != 2 {
+		t.Fatalf("read back %d steps, want 2", len(got))
+	}
+	if got[0].At != base.Unix() || got[0].Err != 5 || got[0].Why != StepSent {
+		t.Errorf("first = %+v, want the sent step back", got[0])
+	}
+	if got[0].From == nil || *got[0].From != 1200 || got[0].To != nil {
+		t.Errorf("from/to = %v/%v, want 1200/nil", got[0].From, got[0].To)
+	}
+	if got[1].Why != StepDeadband || got[1].From != nil {
+		t.Errorf("second = %+v, want the deadband step with from nil", got[1])
+	}
+}
+
+func TestStepLogFlushPrunesOldStepFiles(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	old := time.Date(2026, 11, 10, 10, 0, 0, 0, loc)
+	now := time.Date(2026, 11, 22, 10, 0, 0, 0, loc)
+	l := NewStepLog(func() int { return 3 }, func() string { return dir })
+	l.now = func() time.Time { return old }
+	if err := l.Add("heizung", stepPayload(float64(old.Unix()), 1, 1, nil, nil, "sent")); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Flush(old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stepFileName(dir, "2026-11-10", "heizung")); err != nil {
+		t.Fatalf("old file not written: %v", err)
+	}
+	l.now = func() time.Time { return now }
+	if err := l.Flush(now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(stepFileName(dir, "2026-11-10", "heizung")); !os.IsNotExist(err) {
+		t.Errorf("old file still there, err = %v", err)
+	}
+}
+
+func TestStepLogRAMOnlyWritesNoFiles(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 19, 10, 0, 0, 0, loc)
+	l := newTestStepLog(1, base.Add(time.Hour))
+	if err := l.Add("heizung", stepPayload(float64(base.Unix()), 1, 1, nil, nil, "sent")); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Flush(base.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+		t.Errorf("entries = %d, want none", len(entries))
 	}
 }
