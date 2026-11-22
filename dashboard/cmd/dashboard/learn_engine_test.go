@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -131,5 +132,17 @@ func TestPVSiteRegulatorCountsEveryRegulator(t *testing.T) {
 	c.refresh()
 	if reg := c.regulator(); reg != nil {
 		t.Errorf("disabled scenario gives regulator %+v, want none", reg)
+	}
+}
+
+func TestPVKeepDaysFollowsTheSeasonSwitch(t *testing.T) {
+	if got := pvKeepDays(settings.Settings{}); got != autolearn.PVRasterYearDays {
+		t.Fatalf("default = %d, want a year", got)
+	}
+	if got := pvKeepDays(settings.Settings{LearningSeasonYearDisabled: true, LearningProfileDays: 90}); got != 90 {
+		t.Fatalf("switch off = %d, want the profile days 90", got)
+	}
+	if got := pvKeepDays(settings.Settings{LearningSeasonYearDisabled: true}); got != settings.LearningProfileDaysDefault {
+		t.Fatalf("switch off without profile days = %d, want the default", got)
 	}
 }

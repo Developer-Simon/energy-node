@@ -31,6 +31,7 @@ var settingsFieldRoles = map[string]string{
 	"automation_habits_disabled":      auth.RoleEditSetup,
 	"automation_reliability_disabled": auth.RoleEditSetup,
 	"automation_energy_disabled":      auth.RoleEditSetup,
+	"learning_season_year_disabled":   auth.RoleEditSetup,
 	"automation_outdoor_entity":       auth.RoleEditSetup,
 	"learning_excluded_devices":       auth.RoleEditSetup,
 	"learning_profile_days":           auth.RoleEditSetup,

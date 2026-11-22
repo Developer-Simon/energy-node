@@ -206,9 +206,15 @@ func neverFiredFinding(rule Rule, stats RuleStats, st ObserverState, season Seas
 func aboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, season SeasonalSource, pv PVSource, loc *sun.Location, now time.Time) (Finding, bool) {
 	var seasonMax *float64
 	var months []int
+	// unsure is a PV threshold the curve does not reach while the raster does
+	// not know the summer sun yet. It never becomes "can never be met".
+	unsure := false
 	if c.Type == "balance_threshold" && (c.Field == "pv" || c.Field == "grid_export") && pv != nil && loc != nil {
 		if m, r, ok := pv(); ok && m.Safe {
-			return pvAboveFinding(rule, i, c, x, lo, hi, m, r, *loc, now)
+			if f, ok := pvAboveFinding(rule, i, c, x, lo, hi, m, r, *loc, now); ok {
+				return f, true
+			}
+			unsure = true
 		}
 	}
 	if c.Type == "balance_threshold" && season != nil {
@@ -233,6 +239,9 @@ func aboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, season Seaso
 			Facts:    []Fact{{Code: "season_months", Value: months}},
 		}, true
 	}
+	if unsure {
+		return Finding{}, false
+	}
 
 	s := math.Max(50, math.Floor(0.75*hi/50)*50)
 	scale.SollValue = &s
@@ -254,8 +263,10 @@ func aboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, season Seaso
 
 // pvAboveFinding is a PV or grid export threshold above the clear-sky curve of
 // a safe model. A threshold the curve reaches later in the year is a seasonal
-// rest with the first week that reaches it. One the curve never reaches is
-// never fired and gets the threshold fix.
+// rest with the first week that reaches it. A threshold the curve never reaches
+// is never fired with the threshold fix, but only when the raster knows the
+// highest noon sun of the year. Otherwise ok is false and the caller falls back
+// to the seasonal maximum.
 func pvAboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, m PVModel, r *Raster, loc sun.Location, now time.Time) (Finding, bool) {
 	scale := Evidence{Shape: "scale", Seen: [2]float64{lo, hi}, IstValue: &x, Unit: unitOf(c)}
 	if week, ok := SeasonWeekFor(x, m, r, loc, now); ok {
@@ -272,6 +283,9 @@ func pvAboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, m PVModel,
 			Evidence: scale,
 			Facts:    []Fact{{Code: "season_week", Value: week}},
 		}, true
+	}
+	if !rasterCoversYear(r, loc, now) {
+		return Finding{}, false
 	}
 
 	s := math.Max(50, math.Floor(0.75*hi/50)*50)
@@ -290,6 +304,30 @@ func pvAboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, m PVModel,
 		Apply: []Fix{{Code: "set_threshold", RuleID: rule.ID, Ops: []Op{
 			{Path: []any{"conditions", i, thresholdKey(c)}, Value: int(s)}}}},
 	}, true
+}
+
+// pvCoverMarginDeg is how far the highest cell of the raster may stay below
+// the highest noon sun of the coming year.
+const pvCoverMarginDeg = 5.0
+
+// rasterCoversYear reports whether the raster holds values near the highest
+// noon sun of the coming year. Without them the roof model only knows the low
+// sun, and a threshold it does not reach may still be reached in summer. A nil
+// raster covers nothing.
+func rasterCoversYear(r *Raster, loc sun.Location, now time.Time) bool {
+	if r == nil {
+		return false
+	}
+	top := -90.0
+	r.Each(func(_, el, _ float64) {
+		top = math.Max(top, el)
+	})
+	need := -90.0
+	for k := 0; k <= seasonWeeks; k++ {
+		_, el := weekNoon(now.Add(time.Duration(k)*7*24*time.Hour), loc)
+		need = math.Max(need, el)
+	}
+	return top >= need-pvCoverMarginDeg
 }
 
 // seasonWeeks is how many weeks ahead SeasonWeekFor looks.

@@ -3284,7 +3284,7 @@ func TestSchemaKenntDieAutomationGruppenSchalter(t *testing.T) {
 	if err := json.Unmarshal(settingsSchema, &schema); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"automation_habits_disabled", "automation_reliability_disabled", "automation_energy_disabled"} {
+	for _, key := range []string{"automation_habits_disabled", "automation_reliability_disabled", "automation_energy_disabled", "learning_season_year_disabled"} {
 		property, ok := schema.Properties[key]
 		if !ok {
 			t.Fatalf("%s fehlt im Schema", key)

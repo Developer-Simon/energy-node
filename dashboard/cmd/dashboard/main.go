@@ -515,6 +515,15 @@ func main() {
 	pvTracker := autolearn.NewPVTracker(loadPVRaster(pvPath, learnLimits(), log.Printf),
 		pvSite.location, pvSite.regulator,
 		func() string { return time.Now().In(time.Local).Format("2006-01-02") }, pvPath)
+	// Saisonale Daten: der Himmelsraster bleibt ein Jahr, mit abgeschaltetem
+	// Schalter so lange wie die Tagesprofile.
+	pvTracker.SetKeepDays(func() int {
+		value, err := settingsStore.LoadSettings()
+		if err != nil {
+			return autolearn.PVRasterYearDays
+		}
+		return pvKeepDays(value)
+	})
 	learnHub.AddMinute("pvtracker", pvTracker)
 	learnHub.AddSaver("pvtracker", saverFunc(func() error {
 		pvSite.refresh()

@@ -197,6 +197,18 @@ func engineGroupsFor(value settings.Settings) map[string]bool {
 	}
 }
 
+// pvKeepDays is how many days the sky raster keeps: a year with the seasonal
+// data switch on, else as long as the day profiles.
+func pvKeepDays(value settings.Settings) int {
+	if !value.LearningSeasonYearDisabled {
+		return autolearn.PVRasterYearDays
+	}
+	if value.LearningProfileDays > 0 {
+		return value.LearningProfileDays
+	}
+	return settings.LearningProfileDaysDefault
+}
+
 // anyGroupOn reports whether a group of the engine is switched on.
 func anyGroupOn(groups map[string]bool) bool {
 	for _, on := range groups {

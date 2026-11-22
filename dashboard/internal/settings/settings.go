@@ -114,13 +114,17 @@ type Settings struct {
 	// AutomationEnergyDisabled schalten die Gruppen unter dem Muster-Lernen
 	// getrennt ab (invertiert benannt wie oben). Ohne Muster-Lernen laufen sie
 	// nicht, egal wie sie stehen.
-	AutomationHabitsDisabled      bool     `json:"automation_habits_disabled"`
-	AutomationReliabilityDisabled bool     `json:"automation_reliability_disabled"`
-	AutomationEnergyDisabled      bool     `json:"automation_energy_disabled"`
-	LearningExcludedDevices       []string `json:"learning_excluded_devices"`
-	LearningProfileDays           int      `json:"learning_profile_days"`
-	LearningAcknowledged          []string `json:"learning_acknowledged"`
-	LearningLevel                 string   `json:"learning_level"`
+	AutomationHabitsDisabled      bool `json:"automation_habits_disabled"`
+	AutomationReliabilityDisabled bool `json:"automation_reliability_disabled"`
+	AutomationEnergyDisabled      bool `json:"automation_energy_disabled"`
+	// LearningSeasonYearDisabled hält die saisonalen Daten (den Himmelsraster
+	// der PV) nur so lange wie die Tagesprofile statt ein ganzes Jahr.
+	// Invertiert benannt, damit fehlend „ganzes Jahr“ heisst.
+	LearningSeasonYearDisabled bool     `json:"learning_season_year_disabled"`
+	LearningExcludedDevices    []string `json:"learning_excluded_devices"`
+	LearningProfileDays        int      `json:"learning_profile_days"`
+	LearningAcknowledged       []string `json:"learning_acknowledged"`
+	LearningLevel              string   `json:"learning_level"`
 	// AutomationOutdoorEntity ist die unique_id der Aussentemperatur-Entitaet
 	// fuers Saisonlernen. Leer heisst: keine Temperatur wird gesammelt.
 	AutomationOutdoorEntity string `json:"automation_outdoor_entity"`

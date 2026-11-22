@@ -10,6 +10,9 @@ import (
 const (
 	// pvRasterDays is how long a sample stays in the raster.
 	pvRasterDays = 45
+	// PVRasterYearDays is how long a sample stays while the seasonal data are
+	// kept for a whole year.
+	PVRasterYearDays = 366
 	// pvRasterKeep is how many of the highest values each cell keeps.
 	pvRasterKeep = 3
 	// pvRasterMinElDeg is the sun elevation below which samples are ignored.
@@ -107,12 +110,17 @@ func (r *Raster) Each(fn func(az, el, w float64)) {
 	}
 }
 
-// Prune drops samples older than pvRasterDays relative to today (format
-// 2006-01-02) and removes cells that end up empty. An unparsable today leaves
-// the raster unchanged.
+// Prune drops samples older than pvRasterDays relative to today, see PruneDays.
 func (r *Raster) Prune(today string) {
+	r.PruneDays(today, pvRasterDays)
+}
+
+// PruneDays drops samples older than days relative to today (format
+// 2006-01-02) and removes cells that end up empty. An unparsable today or
+// days below 1 leave the raster unchanged.
+func (r *Raster) PruneDays(today string, days int) {
 	t, err := time.Parse(pvDayLayout, today)
-	if err != nil {
+	if err != nil || days < 1 {
 		return
 	}
 	for key, c := range r.cells {
@@ -122,7 +130,7 @@ func (r *Raster) Prune(today string) {
 			if err != nil {
 				continue
 			}
-			if t.Sub(d) <= pvRasterDays*24*time.Hour {
+			if t.Sub(d) <= time.Duration(days)*24*time.Hour {
 				kept = append(kept, s)
 			}
 		}

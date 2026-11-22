@@ -155,3 +155,22 @@ func TestRasterEachVisitsCellsWithCentre(t *testing.T) {
 		t.Fatalf("Each got %v, want centre 102.5/40.5 value 900", got[0])
 	}
 }
+
+func TestRasterPruneDaysKeepsTheGivenWindow(t *testing.T) {
+	r := NewRaster(5, 5)
+	r.Add(180, 30, 1000, "2026-01-10")
+	r.Add(180, 30, 900, "2026-01-11")
+	r.Add(180, 60, 4000, "2025-06-20")
+	r.Add(180, 60, 3900, "2025-06-21")
+	r.PruneDays("2026-01-20", PVRasterYearDays)
+	if _, ok := r.Cell(180, 60); !ok {
+		t.Fatal("summer cell dropped within a year")
+	}
+	r.PruneDays("2026-01-20", 56)
+	if _, ok := r.Cell(180, 60); ok {
+		t.Fatal("summer cell kept beyond 56 days")
+	}
+	if _, ok := r.Cell(180, 30); !ok {
+		t.Fatal("recent cell dropped")
+	}
+}
