@@ -499,6 +499,8 @@ func main() {
 			} else if err := autolearn.SeedDemoPV(filepath.Join(autolearnDir, "pvraster.json"),
 				filepath.Join(autolearnDir, "pvmodel.json"), time.Now()); err != nil {
 				log.Printf("autolearn: demo pv data: %v", err)
+			} else if err := autolearn.SeedDemoToday(demoDir, time.Now(), time.Local); err != nil {
+				log.Printf("autolearn: demo today: %v", err)
 			} else {
 				log.Printf("autolearn: demo profiles written to %s", demoDir)
 			}

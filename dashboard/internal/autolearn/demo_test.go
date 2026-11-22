@@ -594,3 +594,74 @@ func TestSeedDemoPVWritesRasterAndModel(t *testing.T) {
 		t.Errorf("stored model = %+v, ok %v, want a safe model", m, ok)
 	}
 }
+
+func TestSeedDemoTodayGivesSurplusLeft(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 11, 10, 0, 0, loc)
+	dir := t.TempDir()
+	in := demoSeedInputFor(t, dir, now, loc)
+	if err := SeedDemoToday(dir, now, loc); err != nil {
+		t.Fatalf("SeedDemoToday: %v", err)
+	}
+	store := OpenDayStore(dir, loc, keepAll, noLog)
+	days, err := store.Days(now.AddDate(0, 0, -demoSeedDays), now)
+	if err != nil {
+		t.Fatalf("Days: %v", err)
+	}
+	if len(days) != demoSeedDays+1 || days[len(days)-1].Day != now.Format(dayLayout) {
+		t.Fatalf("days = %d, last %q, want %d with today", len(days), days[len(days)-1].Day, demoSeedDays+1)
+	}
+	td := days[len(days)-1]
+	if td.Site.Seen[43] == 0 || td.Site.Seen[44] != 0 || len(td.Events) != 0 {
+		t.Errorf("today covers the wrong quarters or has events: seen[43]=%d seen[44]=%d events=%d",
+			td.Site.Seen[43], td.Site.Seen[44], len(td.Events))
+	}
+	raster := DemoPVRaster(now, demoLat, demoLon)
+	model := DemoPVModel(raster)
+	in.PV = func() (PVModel, *Raster, bool) { return model, raster, true }
+	in.Days = days
+	wh, _, ok := SurplusLeft(in, now)
+	if !ok || wh <= 0 {
+		t.Errorf("surplus left = %v, ok %v, want a positive value", wh, ok)
+	}
+}
+
+func TestSeedDemoTodaySkipsTheFirstQuarter(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	if err := SeedDemoToday(dir, time.Date(2026, 11, 20, 0, 10, 0, 0, loc), loc); err != nil {
+		t.Fatal(err)
+	}
+	if empty, err := DaysDirEmpty(dir); err != nil || !empty {
+		t.Errorf("dir empty = %v, err %v, want no file in the first quarter", empty, err)
+	}
+}
+
+// TestDemoShadeCurveSkipsTheRunningDay checks that the curve of the shade
+// finding shows a whole past day, not the cut day of today.
+func TestDemoShadeCurveSkipsTheRunningDay(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 11, 10, 0, 0, loc)
+	dir := t.TempDir()
+	in := demoSeedInputFor(t, dir, now, loc)
+	if err := SeedDemoToday(dir, now, loc); err != nil {
+		t.Fatalf("SeedDemoToday: %v", err)
+	}
+	days, err := OpenDayStore(dir, loc, keepAll, noLog).Days(now.AddDate(0, 0, -demoSeedDays), now)
+	if err != nil {
+		t.Fatalf("Days: %v", err)
+	}
+	in.Days = days
+	raster := DemoPVRaster(now, demoLat, demoLon)
+	model := DemoPVModel(raster)
+	shade := NewShadeDetector(func() *Raster { return raster }, func() (PVModel, bool) { return model, true })
+	cands := shade.Run(context.Background(), in, "")
+	if len(cands) == 0 {
+		t.Fatal("demo shows no shade")
+	}
+	ev := cands[0].Finding.Evidence
+	// 14:00 is quarter 56, after now, so only a past day has PV there.
+	if len(ev.Quarters) != dayQuarters || ev.Quarters[56] <= 0 {
+		t.Fatalf("shade curve has no afternoon PV, it shows the running day: %+v", ev)
+	}
+}

@@ -331,6 +331,57 @@ func (b *demoBuilder) washer(i int, rng *rand.Rand) {
 	b.f.Cycles = append(b.f.Cycles, rec)
 }
 
+// demoTodayC ist die Außentemperatur des angefangenen Demo-Tages, so kalt wie
+// die letzten Demo-Tage.
+const demoTodayC = 9.0
+
+// demoToday baut den angefangenen heutigen Tag bis vor die Viertelstunde von now:
+// nur die Werte des Hauses (Last, PV, Wetterfaktor eines klaren Tages,
+// Außentemperatur), keine Geräte und keine Schaltvorgänge. ok ist false in der
+// ersten Viertelstunde des Tages.
+func demoToday(now time.Time, loc *time.Location) (DayFile, bool) {
+	local := now.In(loc)
+	day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	q0 := (local.Hour()*60 + local.Minute()) / shadeQuarterMin
+	if q0 == 0 {
+		return DayFile{}, false
+	}
+	rng := rand.New(rand.NewSource(demoSeed + 2))
+	f := DayFile{V: dayFileVersion, Day: day.Format(dayLayout), Fake: true,
+		Devices: map[string]*DeviceDay{}, Events: []EventRec{}, Actions: []ActionRec{}}
+	for q := 0; q < q0; q++ {
+		k := float32(demoKClear)
+		temp := float32(demoTodayC)
+		az, el := sun.Position(shadeQuarterTime(day, q), demoLat, demoLon)
+		f.Site.Seen[q] = dayCounterMax
+		f.Site.K[q] = &k
+		f.Site.TempC[q] = &temp
+		f.Site.PV[q] = float32(demoPVW(az, el, demoKClear))
+		f.Site.LoadTotal[q] = float32(300 + 10*rng.NormFloat64())
+		f.Site.GridImport[q] = f.Site.LoadTotal[q]
+	}
+	return f, true
+}
+
+// SeedDemoToday schreibt den angefangenen heutigen Tag nach dir, damit der
+// Rest-Überschuss von heute in der Demo gleich nach dem Start einen Vergleich
+// hat. Der Tagesspeicher übernimmt die Datei beim Start und schreibt live weiter.
+// In der ersten Viertelstunde des Tages schreibt sie nichts.
+func SeedDemoToday(dir string, now time.Time, loc *time.Location) error {
+	if loc == nil {
+		loc = time.Local
+	}
+	f, ok := demoToday(now, loc)
+	if !ok {
+		return nil
+	}
+	store := &DayStore{dir: dir}
+	if err := store.writeFile(f.Day, f); err != nil {
+		return fmt.Errorf("autolearn: demo today: %w", err)
+	}
+	return nil
+}
+
 // DemoPVRaster liefert das Himmelsraster des Demo-Dachs: je Viertelstunde der
 // 21 Demo-Tage mit Sonnenstand die PV-Leistung, die auch die Tagesdateien tragen.
 // now bestimmt die Tage, lat und lon den Standort der Sonne.

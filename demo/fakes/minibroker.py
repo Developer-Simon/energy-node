@@ -99,7 +99,6 @@ SERVICE_MODE_LOG = {
 # eines Energiebilanz-Modells, das fuer eine Sichtpruefung der Charts nicht
 # noetig ist. voltage/id/source werden vom Fixture-Grundwert uebernommen.
 SIMULATED_TOPICS = {
-    "pv/wechselrichter/status": (4200, 1500, 45, 0.0),
     "zaehler/netz/status": (-1250, 800, 45, 1.0),
     "batterie/wr/status": (900, 500, 60, 2.0),
     "zaehler/haus/status": (2050, 300, 30, 0.5),
@@ -126,8 +125,72 @@ CHAIN_TOPICS = (
     # Frei stehendes Paar, bewusst ohne Kette in der Demo, siehe SIMULATED_TOPICS.
     ("garage/status", "plug/garage/status", 0.97),
 )
+# Sonne der Demo: die drei PV-Topics der Rolle pv folgen dem Sonnenstand ueber
+# dem Demo-Standort und dem Sueddach der Lerndaten (5 kW, 30 Grad Neigung,
+# Wetterfaktor 0,9), siehe dashboard/internal/autolearn/demo.go. So passen
+# Live-PV, Himmelsraster und Dachmodell zusammen. Je Topic der Anteil am Dach
+# und ob die Nutzlast JSON mit apower ist oder eine nackte Zahl.
+SUN_LAT, SUN_LON = 48.1, 11.6
+SUN_PEAK_W, SUN_TILT_DEG, SUN_AZ_DEG, SUN_K = 5000.0, 30.0, 180.0, 0.9
+SUN_MIN_EL_DEG = 3.0
+# Fester Schatten im Westen wie in den Lerndaten (demoShade* in demo.go), damit
+# Live-Minuten den Schatten im Himmelsraster nicht ueberschreiben.
+SUN_SHADE_AZ, SUN_SHADE_EL, SUN_SHADE_FACTOR = (220.0, 230.0), (12.0, 18.0), 0.4
+SUN_TOPICS = (
+    ("pv/wechselrichter/status", 0.5, True),
+    ("outstation/apsystems_dach/pv1/power_w", 0.25, False),
+    ("outstation/apsystems_dach/pv2/power_w", 0.25, False),
+)
+SUN_TOTAL_TOPIC = "outstation/apsystems_dach/total/power_w"
+SUN_TOTAL_PARTS = ("outstation/apsystems_dach/pv1/power_w", "outstation/apsystems_dach/pv2/power_w")
+# PV-Drossel (Konsole, Reiter Auto-Lernfunktionen): die PV liefert die Haelfte,
+# das Netz steht knapp ueber null und die Akkus laden nicht. So sieht die Minute
+# fuer das Dashboard gedrosselt aus und die PV-Reserve zeigt den Rest.
+THROTTLE_FACTOR = 0.5
+THROTTLE_HOLD = {
+    "zaehler/netz/status": -20,
+    "batterie/wr/status": 0,
+    "plug/speicher/status": 0,
+}
 RELAY_SUM_TOPIC = "relais/keller/status"
 RELAY_SUM_SOURCES = ("waermepumpe/status", "plug/entfeuchter/status")
+
+
+def sun_position(ts, lat, lon):
+    """Azimut (Grad ab Nord im Uhrzeigersinn) und Hoehe der Sonne zur Unix-Zeit ts.
+
+    Naeherung auf etwa ein halbes Grad, genug fuer die Demo-PV.
+    """
+    d = ts / 86400.0 - 10957.5  # Tage seit J2000
+    g = math.radians((357.529 + 0.98560028 * d) % 360)
+    q = (280.459 + 0.98564736 * d) % 360
+    lam = math.radians(q + 1.915 * math.sin(g) + 0.020 * math.sin(2 * g))
+    eps = math.radians(23.439 - 0.00000036 * d)
+    ra = math.atan2(math.cos(eps) * math.sin(lam), math.cos(lam))
+    dec = math.asin(math.sin(eps) * math.sin(lam))
+    gmst = (18.697374558 + 24.06570982441908 * d) % 24
+    ha = math.radians(gmst * 15 + lon) - ra
+    phi = math.radians(lat)
+    el = math.asin(math.sin(phi) * math.sin(dec) + math.cos(phi) * math.cos(dec) * math.cos(ha))
+    az = math.atan2(-math.sin(ha), math.tan(dec) * math.cos(phi) - math.sin(phi) * math.cos(ha))
+    return math.degrees(az) % 360, math.degrees(el)
+
+
+def sun_pv_w(ts):
+    """PV-Leistung des Demo-Dachs in W zur Unix-Zeit ts, wie pvGeom im Dashboard."""
+    az, el = sun_position(ts, SUN_LAT, SUN_LON)
+    if el < SUN_MIN_EL_DEG:
+        return 0.0
+    sin_el, cos_el = math.sin(math.radians(el)), math.cos(math.radians(el))
+    tilt = math.radians(SUN_TILT_DEG)
+    c = sin_el * math.cos(tilt) + cos_el * math.sin(tilt) * math.cos(math.radians(az - SUN_AZ_DEG))
+    if c <= 0:
+        return 0.0
+    passage = 0.7 ** (1 / sin_el ** 0.678)
+    shade = 1.0
+    if SUN_SHADE_AZ[0] <= az < SUN_SHADE_AZ[1] and SUN_SHADE_EL[0] <= el < SUN_SHADE_EL[1]:
+        shade = SUN_SHADE_FACTOR
+    return SUN_K * SUN_PEAK_W * c * passage * shade
 
 
 def expand_ages(value, now):
@@ -291,6 +354,7 @@ class BrokerState:
         self.port = port
         self.initial_simulate = simulate
         self.simulate = simulate
+        self.pv_throttle = False
         self.initial_modes = {name: "reject" for name in rejected}
         self.modes = dict(self.initial_modes)
         self.connections = {}  # conn -> threading.Lock()
@@ -349,6 +413,13 @@ class BrokerState:
     def set_simulate(self, on):
         self.simulate = bool(on)
 
+    def set_pv_throttle(self, on):
+        self.pv_throttle = bool(on)
+        if self.pv_throttle:
+            self.log.add("konsole", "PV gedrosselt", "warn")
+        else:
+            self.log.add("konsole", "PV-Drossel aus")
+
     def set_login(self, required, user, password):
         """Verlangt ein Konto (oder nimmt wieder jeden an) und trennt alle Clients.
 
@@ -402,6 +473,7 @@ class BrokerState:
 
     def reset(self):
         self.simulate = self.initial_simulate
+        self.pv_throttle = False
         self.login = self.initial_login
         self.modes = dict(self.initial_modes)
         for device in self.devices():
@@ -424,6 +496,7 @@ class BrokerState:
             "port": self.port,
             "simulate": self.simulate,
             "initial_simulate": self.initial_simulate,
+            "pv_throttle": self.pv_throttle,
             "topics": len(self.messages),
             "topic_names": sorted(name for name in list(self.messages) if not name.startswith("homeassistant/")),
             "connections": [{"client_id": c["client_id"], "since": c["since"]} for c in list(self.clients.values())],
@@ -508,6 +581,37 @@ def handle(conn, state):
         conn.close()
 
 
+def _set_apower(state, topic, value):
+    """Setzt apower einer JSON-Nutzlast und sendet sie. Ungueltige Nutzlasten bleiben."""
+    try:
+        values = json.loads(state.messages[topic])
+        values["apower"] = round(value)
+    except (ValueError, TypeError, KeyError):
+        return
+    state.messages[topic] = json.dumps(values).encode("utf-8")
+    broadcast(state.messages, state.connections, topic, state.messages[topic], False)
+
+
+def sun_tick(state, ts):
+    """Schreibt die PV-Topics nach dem Sonnenstand zur Unix-Zeit ts, mit Drossel halbiert."""
+    roof = sun_pv_w(ts) * (THROTTLE_FACTOR if state.pv_throttle else 1.0)
+    for topic, share, is_json in SUN_TOPICS:
+        if topic not in state.messages:
+            continue
+        if is_json:
+            _set_apower(state, topic, roof * share)
+            continue
+        state.messages[topic] = str(round(roof * share)).encode("utf-8")
+        broadcast(state.messages, state.connections, topic, state.messages[topic], False)
+    if SUN_TOTAL_TOPIC in state.messages and all(t in state.messages for t in SUN_TOTAL_PARTS):
+        try:
+            total = sum(float(state.messages[t]) for t in SUN_TOTAL_PARTS)
+        except ValueError:
+            return
+        state.messages[SUN_TOTAL_TOPIC] = str(round(total)).encode("utf-8")
+        broadcast(state.messages, state.connections, SUN_TOTAL_TOPIC, state.messages[SUN_TOTAL_TOPIC], False)
+
+
 def simulate_tick(state, t):
     # Ein Tick der Simulation: neue Werte fuer SIMULATED_TOPICS in messages
     # ablegen (damit ein neu verbindender Client den aktuellen Stand als
@@ -518,8 +622,12 @@ def simulate_tick(state, t):
     if not state.simulate:
         return
     messages, connections = state.messages, state.connections
+    sun_tick(state, time.time())
     for topic, (base, amplitude, period, phase) in SIMULATED_TOPICS.items():
         if topic not in messages:
+            continue
+        if state.pv_throttle and topic in THROTTLE_HOLD:
+            _set_apower(state, topic, THROTTLE_HOLD[topic])
             continue
         # Eine ungueltige Retained-Payload (kein JSON, kein Objekt mit apower) wird
         # uebersprungen, damit die Simulationsschleife nicht abbricht.
@@ -633,7 +741,7 @@ def service_status_loop(devices_dir, state):
         time.sleep(SERVICE_SCAN_INTERVAL)
 
 
-CONTROL_POST_PATHS = ("/simulate", "/device", "/service", "/publish", "/disconnect", "/login", "/reset")
+CONTROL_POST_PATHS = ("/simulate", "/pv_throttle", "/device", "/service", "/publish", "/disconnect", "/login", "/reset")
 
 
 def _field(body, key):
@@ -679,6 +787,8 @@ def make_control_server(state, port):
             body = self._body()
             if url.path == "/simulate":
                 state.set_simulate(_field(body, "on"))
+            elif url.path == "/pv_throttle":
+                state.set_pv_throttle(_field(body, "on"))
             elif url.path == "/device":
                 state.set_device(_field(body, "topic"), _field(body, "online"))
             elif url.path == "/service":
