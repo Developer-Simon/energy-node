@@ -113,6 +113,7 @@
           view_efficiency: roles.includes('view_efficiency'),
           view_device_map: roles.includes('view_device_map'),
           edit_energy: roles.includes('edit_energy'),
+          view_automations: roles.includes('view_automations'),
         };
       },
       canAck() { return (this.sessionRoles || []).includes('edit_setup'); },
@@ -226,6 +227,7 @@
         const step = this.stepsOf(notice)[index];
         if (!step || !step.target) return;
         if (step.target === 'learned') { this.goLearned(); return; }
+        if (step.target === 'suggestion') { this.goSuggestion((step.ids || [])[0]); return; }
         if (step.target === 'action.role_keep') { this.roleKeep(step.ids); return; }
         const panel = panelFor(step.target);
         if (!panel) return;
@@ -247,6 +249,15 @@
           const el = this.$el && this.$el.querySelector('.monitoring-learned');
           if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });
         });
+      },
+
+      // Sprung zum aufgeklappten Vorschlag. Ist die Automationen-Seite noch nicht
+      // geladen, nimmt ihr Band die Anfrage in load() entgegen.
+      goSuggestion(id) {
+        if (!id) return;
+        window.__automationSuggestionRequest__ = id;
+        window.dispatchEvent(new CustomEvent('automation-suggestion-open', { detail: { id } }));
+        openTab('automations-panel');
       },
 
       learnedGroups() {

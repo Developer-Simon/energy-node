@@ -3725,6 +3725,8 @@
   "monitoring.step.set_role.button": "Rollen setzen",
   "monitoring.step.shade_accept": "Lässt sich der Schatten nicht beseitigen, ist nichts zu tun. Rest-Überschuss und Überschussfenster rechnen ihn schon heraus.",
   "monitoring.step.shade_look": "Vor Ort nach der Ursache schauen: Baum, Antenne, Nachbarhaus oder Schornstein in Richtung {direction}, etwa {height}° hoch.",
+  "monitoring.step.suggestion_open": "Der Vorschlag steht unter Automationen",
+  "monitoring.step.suggestion_open.button": "Vorschlag öffnen",
   "monitoring.steps.title": "Empfohlene Schritte",
   "monitoring.value.time": "{time} Uhr",
   "monitoring.view.label": "Ansicht",

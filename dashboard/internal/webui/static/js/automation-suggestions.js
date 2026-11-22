@@ -170,6 +170,7 @@
           this.days = Number(body && body.learning && body.learning.days) || 0;
           this.devices = Number(body && body.learning && body.learning.devices) || 0;
           this.loaded = true;
+          this.openRequested();
         } catch (error) {
           this.loaded = false;
         }
@@ -180,6 +181,24 @@
         this.fullDay = false;
         this.tipOpen = false;
         if (this.open && tile) this.placeCaret(tile);
+      },
+      // Sprung aus dem Monitoring: der Vorschlag klappt auf und rueckt ins Bild.
+      openRequested() {
+        const id = window.__automationSuggestionRequest__;
+        if (!id || !this.items.some((s) => s.id === id)) return;
+        window.__automationSuggestionRequest__ = null;
+        if (!this.visible.some((s) => s.id === id)) this.all = true;
+        this.open = id;
+        this.fullDay = false;
+        this.tipOpen = false;
+        if (!this.$nextTick) return;
+        this.$nextTick(() => {
+          this.placeCaret();
+          const tile = this.$root ? this.$root.querySelector('.auto-learn-tile[aria-expanded="true"]') : null;
+          if (!tile || typeof tile.scrollIntoView !== 'function') return;
+          const calm = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          tile.scrollIntoView({ block: 'center', behavior: calm ? 'auto' : 'smooth' });
+        });
       },
       // Die Karte zeigt mit ihrer Spitze auf die Kachel, aus der sie kommt. Ohne Kachel
       // (Groessenwechsel, mehr Kacheln) gilt die gerade aufgeklappte.

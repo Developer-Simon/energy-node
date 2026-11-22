@@ -195,3 +195,13 @@ test('learn findings without a culprit name the placeholder instead of the templ
   assert.ok(emptyText.includes('automations.learn.battery.candidate.none'));
   assert.ok(!emptyText.includes('{candidates}'));
 });
+
+test('a suggestion step targets the automations page only with the view_automations right', () => {
+  const notice = { source: 'learn', code: 'runtime.long', steps: [{ code: 'suggestion_open', target: 'suggestion', ids: ['runtime:plug'] }] };
+  const with_ = M.steps(notice, { view_automations: true }, t)[0];
+  assert.equal(with_.target, 'suggestion');
+  assert.ok(with_.label.length > 0);
+  const without = M.steps(notice, {}, t)[0];
+  assert.equal(without.target, '');
+  assert.equal(without.label, '');
+});

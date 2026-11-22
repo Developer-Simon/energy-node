@@ -669,3 +669,30 @@ test('the rules texts keep their shape for a share and a sun code', () => {
   assert.equal(sun.code, 'switch_time.sun_on.before');
   assert.equal(sun.params.minutes, 5);
 });
+
+test('a monitoring request opens its suggestion even beyond the band, and clears the request', async () => {
+  const a = finding('a:1');
+  const b = finding('b:2');
+  const c = finding('c:3');
+  const d = finding('d:4');
+  const { band, window, close } = loadBand(listRoutes({ enabled: true, suggestions: [a, b, c, d], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  assert.ok(!band.visible.some((s) => s.id === 'd:4'), 'd:4 is beyond BAND_MAX');
+  window.__automationSuggestionRequest__ = 'd:4';
+  band.openRequested();
+  assert.equal(band.open, 'd:4');
+  assert.equal(band.all, true);
+  assert.equal(window.__automationSuggestionRequest__, null);
+  close();
+});
+
+test('an unknown monitoring request keeps the band as it is and the request', async () => {
+  const a = finding('a:1');
+  const { band, window, close } = loadBand(listRoutes({ enabled: true, suggestions: [a], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  window.__automationSuggestionRequest__ = 'zz:9';
+  band.openRequested();
+  assert.equal(band.open, '');
+  assert.equal(window.__automationSuggestionRequest__, 'zz:9');
+  close();
+});

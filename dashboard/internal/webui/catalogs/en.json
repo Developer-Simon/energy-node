@@ -3725,6 +3725,8 @@
   "monitoring.step.set_role.button": "Set roles",
   "monitoring.step.shade_accept": "If the shade cannot be removed, there is nothing to do. The remaining surplus and the surplus window already leave it out.",
   "monitoring.step.shade_look": "Look for the cause on site: a tree, an antenna, a neighbouring house or a chimney towards the {direction}, about {height}° high.",
+  "monitoring.step.suggestion_open": "The suggestion is on the Automations page",
+  "monitoring.step.suggestion_open.button": "Open suggestion",
   "monitoring.steps.title": "Recommended steps",
   "monitoring.value.time": "{time}",
   "monitoring.view.label": "View",

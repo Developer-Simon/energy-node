@@ -79,6 +79,14 @@
     return p;
   }
 
+  // Code und Platzhalter eines Lernbefunds. Ist das Vorschlagsband geladen
+  // (automation-suggestions.js), gelten dieselben Umrechnungen wie dort.
+  function learnSummary(notice, t) {
+    const summary = { code: notice.code, params: learnParams(notice, t) };
+    const band = typeof window !== 'undefined' ? window.AutomationSuggestions : null;
+    return band && typeof band.resolveSummary === 'function' ? band.resolveSummary(summary, t) : summary;
+  }
+
   function shadeIdParts(id) {
     const m = SHADE_ID_RE.exec(id || '');
     return m ? { az: Number(m[1]), el: Number(m[2]) } : null;
@@ -106,15 +114,21 @@
   }
 
   function title(notice, t) {
-    const key = sourceOf(notice) === 'learn'
-      ? 'automations.learn.' + notice.code + '.title'
-      : 'monitoring.notice.' + notice.code + '.title';
-    return t(key, sourceOf(notice) === 'learn' ? learnParams(notice, t) : notice.params);
+    if (sourceOf(notice) === 'learn') {
+      const s = learnSummary(notice, t);
+      const key = 'automations.learn.' + s.code + '.title';
+      return t(key, s.params);
+    }
+    const key = 'monitoring.notice.' + notice.code + '.title';
+    return t(key, notice.params);
   }
 
   function text(notice, t) {
     const p = notice.params || {};
-    if (sourceOf(notice) === 'learn') return t(`automations.learn.${notice.code}.text`, learnParams(notice, t));
+    if (sourceOf(notice) === 'learn') {
+      const s = learnSummary(notice, t);
+      return t(`automations.learn.${s.code}.text`, s.params);
+    }
     if (notice.code === 'measured_no_meter') return t('energy.roles.notices.measured_warning');
     if (notice.code === 'role_needed') return t('energy.chains.role_needed');
     if (notice.code === 'chain') {
@@ -142,6 +156,7 @@
     if (target === 'efficiency') return !!can.view_efficiency;
     if (target === 'devicemap') return !!can.view_device_map;
     if (target === 'action.role_keep') return !!can.edit_energy;
+    if (target === 'suggestion') return !!can.view_automations;
     return false;
   }
 
