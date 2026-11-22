@@ -108,6 +108,22 @@ func TestSurplusWindowSuggestsSwitchOnWindow(t *testing.T) {
 	if c.Finding.Evidence.Shape != "curve" {
 		t.Errorf("evidence shape = %q, want curve", c.Finding.Evidence.Shape)
 	}
+	ev := c.Finding.Evidence
+	if len(ev.Quarters) != dayQuarters || len(ev.SollQ) != dayQuarters {
+		t.Fatalf("curve lengths = %d, %d, want %d each", len(ev.Quarters), len(ev.SollQ), dayQuarters)
+	}
+	for q := 0; q < dayQuarters; q++ {
+		inWindow := q >= 44 && q < 60
+		if inWindow && ev.SollQ[q] != 1700 {
+			t.Errorf("SollQ[%d] = %v in window, want 1700", q, ev.SollQ[q])
+		}
+		if !inWindow && ev.SollQ[q] != 0 {
+			t.Errorf("SollQ[%d] = %v outside window, want 0", q, ev.SollQ[q])
+		}
+		if inWindow && ev.Quarters[q] < 1700 {
+			t.Errorf("Quarters[%d] = %v in window, want >= 1700", q, ev.Quarters[q])
+		}
+	}
 }
 
 func TestSurplusWindowReserveSource(t *testing.T) {

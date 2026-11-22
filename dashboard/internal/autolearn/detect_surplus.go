@@ -95,21 +95,52 @@ func surWinWindowRun(ctx context.Context, in *Input, device string) []Candidate 
 	}
 	threshold := p + surWinReserveMarginW
 
+	pickExport := func(d *surWinDay) *[dayQuarters]float64 { return &d.without }
+	pickReserve := func(d *surWinDay) *[dayQuarters]float64 { return &d.with }
 	source := "export"
-	start, n, lower, rate := surWinLongestWindow(days, threshold, func(d *surWinDay) *[dayQuarters]float64 { return &d.without })
+	pick := pickExport
+	start, n, lower, rate := surWinLongestWindow(days, threshold, pickExport)
 	if n < need {
-		start2, n2, lower2, rate2 := surWinLongestWindow(days, threshold, func(d *surWinDay) *[dayQuarters]float64 { return &d.with })
+		start2, n2, lower2, rate2 := surWinLongestWindow(days, threshold, pickReserve)
 		if n2 < need || !surWinReserveHelps(days, threshold, need) {
 			return nil
 		}
 		source = "reserve"
+		pick = pickReserve
 		start, n, lower, rate = start2, n2, lower2, rate2
 	}
-	return []Candidate{surWinCandidate(ctx, in, device, p, cycle, source, start, n, lower, rate, days, neff)}
+	return []Candidate{surWinCandidate(ctx, in, device, p, cycle, source, start, n, lower, rate, days, neff, pick)}
+}
+
+// surWinCurve is the typical surplus per quarter hour of the day in W: the
+// median over the days that have the quarter, computed on the same series that
+// found the window. Quarters without data stay 0.
+func surWinCurve(days []surWinDay, pick func(*surWinDay) *[dayQuarters]float64) []float32 {
+	out := make([]float32, dayQuarters)
+	for q := 0; q < dayQuarters; q++ {
+		var xs []float64
+		for i := range days {
+			if days[i].seen[q] {
+				xs = append(xs, pick(&days[i])[q])
+			}
+		}
+		out[q] = float32(Median(xs))
+	}
+	return out
+}
+
+// surWinTarget is the switch on power per quarter hour: on_w inside the window,
+// 0 outside, so the target block shows the window as a step.
+func surWinTarget(start, n int, onW float64) []float32 {
+	out := make([]float32, dayQuarters)
+	for q := start; q < start+n && q < dayQuarters; q++ {
+		out[q] = float32(onW)
+	}
+	return out
 }
 
 // surWinCandidate builds the finding for the window and checks it by replay.
-func surWinCandidate(ctx context.Context, in *Input, device string, p, cycle float64, source string, start, n int, lower, rate float64, days []surWinDay, neff float64) Candidate {
+func surWinCandidate(ctx context.Context, in *Input, device string, p, cycle float64, source string, start, n int, lower, rate float64, days []surWinDay, neff float64, pick func(*surWinDay) *[dayQuarters]float64) Candidate {
 	peak := feedbackInrush(in.Days, device, p)
 	onW := math.Round((peak+surWinReserveMarginW)/surWinRoundW) * surWinRoundW
 	runS := int(cycle / p * 3600)
@@ -134,7 +165,8 @@ func surWinCandidate(ctx context.Context, in *Input, device string, p, cycle flo
 		Confidence: conf,
 		Summary: Text{Code: "surplus.window", Params: map[string]any{
 			"device": device, "on_w": onW, "from": clockFrom, "to": clockTo, "days": len(days)}},
-		Evidence: Evidence{Shape: "curve", From: int64(start * 15), To: int64((start + n) * 15), Soll: []int64{int64(onW)}},
+		Evidence: Evidence{Shape: "curve", From: int64(start * 15), To: int64((start + n) * 15), Soll: []int64{int64(onW)},
+			Quarters: surWinCurve(days, pick), SollQ: surWinTarget(start, n, onW)},
 		Facts: []Fact{
 			{Code: "window_min", Value: n * 15},
 			{Code: "run_min", Value: runS / 60},
