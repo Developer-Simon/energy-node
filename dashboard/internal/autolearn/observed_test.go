@@ -493,3 +493,21 @@ func TestObservedFrequentCooldownFromBurstGap(t *testing.T) {
 		t.Errorf("cooldown for 200 s gaps = %d, want 600", got)
 	}
 }
+
+// With a replay the Soll lane shows the replayed triggers, not the span of the
+// burst, so the span of the Ist triggers is dropped.
+func TestObservedFrequentReplayReplacesIstSpan(t *testing.T) {
+	now := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC)
+	in := frequentInputFor(t, now, spikeDays("2026-11-19", "2026-11-18"))
+	findings := ObservedFindingsWithPV(in.Doc, frequentState(15), nil, nil, in, now, DefaultThresholds())
+	got := findKind(findings, "frequent")
+	if len(got) != 1 {
+		t.Fatalf("frequent findings = %d, want 1", len(got))
+	}
+	if got[0].Evidence.Soll == nil {
+		t.Fatalf("Soll = nil, want the replay")
+	}
+	if len(got[0].Evidence.SollSpans) != 0 {
+		t.Errorf("SollSpans = %v, want none beside the replayed Soll", got[0].Evidence.SollSpans)
+	}
+}

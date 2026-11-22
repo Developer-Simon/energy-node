@@ -164,7 +164,10 @@ func frequentFinding(rule Rule, stats RuleStats, in *Input, now time.Time, minCo
 			{Path: []any{"conditions", hystIdx, "hysteresis"}, Value: hyst}}})
 		if in != nil {
 			if soll, est, ok := frequentSoll(in, rule, hystIdx, hyst, from, to); ok {
+				// The replayed triggers are the Soll. The span of the Ist triggers
+				// would stand in for it, so it is dropped.
 				ev.Soll = soll
+				ev.SollSpans = nil
 				if est {
 					confidence = "estimate"
 				}
