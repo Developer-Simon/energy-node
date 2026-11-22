@@ -270,3 +270,58 @@ func TestEmptyShareOfNeedsFourDaysAndSun(t *testing.T) {
 		t.Errorf("without a site gave a share, want none")
 	}
 }
+
+// batteryTestDay is a day with the charge of soc(q) per quarter.
+func batteryTestDay(soc func(q int) float32) *DayFile {
+	f := &DayFile{}
+	for q := 0; q < dayQuarters; q++ {
+		v := soc(q)
+		f.Site.SoC[q] = &v
+	}
+	return f
+}
+
+func TestBatteryFullEvidenceIsFullOnlyAtNoon(t *testing.T) {
+	f := batteryTestDay(func(q int) float32 {
+		switch {
+		case q < 32:
+			return 10
+		case q < 40:
+			return 10 + float32(q-32)*87/8
+		default:
+			return 97
+		}
+	})
+	d := &batteryDay{f: f, sunOK: true, rise: 7 * 60, set: 17 * 60, fullQ: 40}
+	ev := batteryFullEvidence(d)
+	if len(ev.Quarters) != dayQuarters || len(ev.SollQ) != dayQuarters {
+		t.Fatalf("ist %d, soll %d quarters, want %d each", len(ev.Quarters), len(ev.SollQ), dayQuarters)
+	}
+	if ev.SollQ[48] != 97 {
+		t.Errorf("Soll at noon = %v, want full 97", ev.SollQ[48])
+	}
+	if !(ev.SollQ[44] > 10 && ev.SollQ[44] < ev.Quarters[44]) {
+		t.Errorf("Soll at 11:00 = %v, want between 10 and the Ist %v", ev.SollQ[44], ev.Quarters[44])
+	}
+	if ev.SollQ[0] != ev.Quarters[0] || ev.SollQ[60] != ev.Quarters[60] {
+		t.Errorf("Soll must follow the Ist before the charge and after noon")
+	}
+}
+
+func TestBatteryEmptyEvidenceKeepsTheFloorUntilSunrise(t *testing.T) {
+	f := batteryTestDay(func(q int) float32 {
+		if q < 32 {
+			return 6
+		}
+		return 6 + float32(q-32)*2
+	})
+	d := &batteryDay{f: f, sunOK: true, rise: 7*60 + 30, set: 17 * 60, hasThr: true, thr: 9}
+	ev := batteryEmptyEvidence(d)
+	floor := float32(9 + batteryEmptyMargin)
+	if ev.SollQ[10] != floor || ev.SollQ[31] != floor {
+		t.Errorf("Soll before sunrise = %v/%v, want the floor %v", ev.SollQ[10], ev.SollQ[31], floor)
+	}
+	if ev.SollQ[50] != ev.Quarters[50] {
+		t.Errorf("Soll after the charge rose = %v, want the Ist %v", ev.SollQ[50], ev.Quarters[50])
+	}
+}

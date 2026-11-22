@@ -318,7 +318,7 @@ func batteryFull(days []*batteryDay) []Candidate {
 			"time":      batteryClock(Median(at)),
 			"kwh_after": round1(Median(kwh)),
 		}},
-		Evidence: batteryEvidence(days),
+		Evidence: batteryFullEvidence(hits[len(hits)-1]),
 	}
 	return []Candidate{{
 		Finding:     finding,
@@ -405,7 +405,7 @@ func batteryEmpty(in *Input, days []*batteryDay) []Candidate {
 			"kwh_missing": round1(kwh),
 			"candidates":  strings.Join(names, ", "),
 		}},
-		Evidence: batteryEvidence(days),
+		Evidence: batteryEmptyEvidence(hits[len(hits)-1]),
 		Apply:    apply,
 		Benefit:  &Benefit{Unit: "kwh_week", Value: kwh * batteryWeekDays},
 	}
@@ -538,16 +538,57 @@ func batteryLearned(in *Input, days []*batteryDay) []Candidate {
 	return out
 }
 
-// batteryEvidence shows the charge of the last day as the curve, in percent.
-func batteryEvidence(days []*batteryDay) Evidence {
-	last := days[len(days)-1].f
+// batteryCurve is the charge of a day per quarter, 0 where it is missing.
+func batteryCurve(f *DayFile) []float32 {
 	curve := make([]float32, dayQuarters)
 	for q := 0; q < dayQuarters; q++ {
-		if v := last.Site.SoC[q]; v != nil {
+		if v := f.Site.SoC[q]; v != nil {
 			curve[q] = *v
 		}
 	}
-	return Evidence{Shape: "curve", Quarters: curve, Unit: "%"}
+	return curve
+}
+
+// batteryFullEvidence shows the charge of the last early full day as Ist. The
+// Soll is the same day reaching full only at the highest sun: from the start
+// of the charge it rises evenly and is full at noon, so the surplus of the
+// morning can go to loads first.
+func batteryFullEvidence(d *batteryDay) Evidence {
+	ist := batteryCurve(d.f)
+	soll := append([]float32(nil), ist...)
+	noonQ := int(math.Round((d.rise + d.set) / 2 / baseQuarterMin))
+	if d.sunOK && d.fullQ > 0 && noonQ > d.fullQ && noonQ < dayQuarters {
+		start := d.fullQ
+		for start > 0 && ist[start-1] < ist[start] {
+			start--
+		}
+		from, to := float64(ist[start]), float64(ist[d.fullQ])
+		for q := start; q <= noonQ; q++ {
+			soll[q] = float32(from + (to-from)*float64(q-start)/float64(noonQ-start))
+		}
+	}
+	return Evidence{Shape: "curve", Quarters: ist, SollQ: soll, Unit: "%"}
+}
+
+// batteryEmptyEvidence shows the charge of the last night that ran empty as
+// Ist. The Soll keeps the charge batteryEmptyMargin above the empty threshold
+// until the charge rises again after sunrise.
+func batteryEmptyEvidence(d *batteryDay) Evidence {
+	ist := batteryCurve(d.f)
+	soll := append([]float32(nil), ist...)
+	if d.hasThr && d.sunOK {
+		floor := float32(d.thr + batteryEmptyMargin)
+		riseQ := int(d.rise / baseQuarterMin)
+		for q := 0; q < dayQuarters; q++ {
+			if q >= riseQ && ist[q] >= floor {
+				break
+			}
+			if soll[q] < floor {
+				soll[q] = floor
+			}
+		}
+	}
+	return Evidence{Shape: "curve", Quarters: ist, SollQ: soll, Unit: "%"}
 }
 
 // batteryHalves reports whether the first and the second half of the days both
