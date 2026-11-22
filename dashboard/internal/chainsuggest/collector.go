@@ -92,6 +92,9 @@ type Collector struct {
 	owner   map[string]string
 	sums    map[pairDay]*sums
 	lastDay int
+	// lastMinute ist die letzte gezaehlte Minute, live oder nachgelesen. Ab der
+	// Minute danach liest Replay nach. Die Nullzeit heisst: noch nichts gezaehlt.
+	lastMinute time.Time
 
 	// dismissed haelt verworfene Paare.
 	dismissed map[pairKey]bool
@@ -161,6 +164,20 @@ func (c *Collector) LearnedSpan() (since int64, entities int) {
 	return int64(oldest) * 86400, len(seen)
 }
 
+var _ learnrec.ReplayConsumer = (*Collector)(nil)
+
+// ReplayFrom liefert die erste Minute, die noch nicht gezaehlt ist. Ohne gezaehlte
+// Minute, etwa bei einer Datei aus einer Version ohne diesen Stand, liefert sie
+// die Nullzeit: dann wird nichts nachgelesen, damit nichts doppelt zaehlt.
+func (c *Collector) ReplayFrom() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.lastMinute.IsZero() {
+		return time.Time{}
+	}
+	return c.lastMinute.Add(time.Minute)
+}
+
 // ObserveMinute nimmt den abgeschlossenen Minutenrahmen des Hubs entgegen und
 // addiert die aktiven Paare dieser Minute zu den Tagessummen.
 func (c *Collector) ObserveMinute(f learnrec.Frame) {
@@ -213,14 +230,22 @@ func (c *Collector) participants(f learnrec.Frame) map[string]participant {
 // addMinuteLocked addiert die aktiven Paare des Rahmens zu den Tagessummen.
 // Teilnehmer werden dabei als devices und owner vermerkt.
 func (c *Collector) addMinuteLocked(f learnrec.Frame) {
+	if !f.Minute.Equal(c.lastMinute) {
+		c.lastMinute = f.Minute
+		c.dirty = true
+	}
 	parts := c.participants(f)
 	c.devices = make(map[string]string, len(parts))
 	ids := make([]string, 0, len(parts))
 	for id, p := range parts {
-		c.devices[id] = p.device
-		if c.owner[id] != p.device {
-			c.owner[id] = p.device
-			c.dirty = true
+		// Nachgelesene Rahmen nennen die Entitaet als Geraet. Das wuerde die
+		// Geraetezuordnung der Live-Minuten ueberschreiben.
+		if !f.Replayed {
+			c.devices[id] = p.device
+			if c.owner[id] != p.device {
+				c.owner[id] = p.device
+				c.dirty = true
+			}
 		}
 		ids = append(ids, id)
 	}

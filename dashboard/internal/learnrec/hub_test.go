@@ -362,6 +362,9 @@ func TestHubReplayDeliversFramesToOneConsumer(t *testing.T) {
 	if !rec.frames[0].Devices[0].Reachable {
 		t.Errorf("device with a value must be reachable")
 	}
+	if !rec.frames[0].Replayed {
+		t.Errorf("replay frame must be marked Replayed")
+	}
 	if got := rec.frames[0].Balance["grid"]; got != 42 {
 		t.Errorf("balance grid = %v, want 42", got)
 	}

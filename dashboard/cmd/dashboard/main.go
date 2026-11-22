@@ -472,6 +472,7 @@ func main() {
 		return ""
 	})
 	learnHub.AddMinute("chainsuggest", chainSuggest)
+	learnHub.AddReplay("chainsuggest", chainSuggest)
 	learnHub.AddTick("chainwatch", learnrec.TickFunc(chainMonitor.Observe))
 	learnHub.AddTick("autolearn", learnrec.TickFunc(func(at time.Time, snap energy.Snapshot) {
 		automationChecker.ObserveTick(at, automationState(), balanceRuleValues(snap.Balance), automationEntityValue)
@@ -1464,6 +1465,14 @@ func main() {
 		Addr:              net.JoinHostPort(bindAddress, port),
 		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	// Nachlesen der Minuten nach dem Neustart, einmal und vor der ersten Live-Minute.
+	// Der MinuteStore als Reader kommt erst mit der Aufzeichnung (Task 7). Bis dahin
+	// ist minuteReader nil, und Replay passiert nichts.
+	var minuteReader learnrec.Reader
+	if minuteReader != nil {
+		learnHub.Replay(minuteReader, time.Now())
 	}
 
 	go func() {

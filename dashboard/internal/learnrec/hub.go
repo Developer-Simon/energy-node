@@ -196,7 +196,7 @@ func (h *Hub) replayOne(r Reader, c MinuteConsumer, from, now time.Time) {
 		}
 	}
 	for i := 0; i < n; i++ {
-		f := Frame{Minute: start.Add(time.Duration(i) * time.Minute)}
+		f := Frame{Minute: start.Add(time.Duration(i) * time.Minute), Replayed: true}
 		for _, key := range powerKeys {
 			v, ok := valueAt(series[key], i)
 			if !ok {

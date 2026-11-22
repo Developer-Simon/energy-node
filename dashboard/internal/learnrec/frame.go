@@ -18,6 +18,9 @@ type Frame struct {
 	// OutdoorC ist das Minutenmittel der Aussentemperatur in Grad Celsius.
 	// nil, wenn keine Entitaet gewaehlt ist oder sie keinen Wert liefert.
 	OutdoorC *float64
+	// Replayed ist gesetzt, wenn der Rahmen aus der Aufzeichnung kommt (Hub.Replay).
+	// Dort ist jede Entitaet ein eigenes Geraet mit ID = unique_id.
+	Replayed bool
 }
 
 // DeviceMinute enthaelt die Minutenwerte eines Geraets.
