@@ -346,8 +346,8 @@ func parseReplayCond(raw json.RawMessage) (replayCond, error) {
 			return replayCond{}, err
 		}
 		if head.Type == "balance_threshold" {
-			if err := decodeString(fields["field"], &c.field); err != nil || c.field == "" {
-				return replayCond{}, fmt.Errorf("%w: field", ErrNotReplayable)
+			if err := decodeString(fields["field"], &c.field); err != nil || !balanceFields[c.field] {
+				return replayCond{}, fmt.Errorf("%w: balance field %q", ErrNotReplayable, c.field)
 			}
 			return c, nil
 		}
@@ -454,6 +454,16 @@ func decodeInts(raw json.RawMessage, out *[]int) error {
 		return fmt.Errorf("%w: list of numbers expected", ErrNotReplayable)
 	}
 	return nil
+}
+
+// balanceFields are the balance fields of the service (BALANCE_FIELDS). Custom
+// categories (custom:<id>) and unknown names are not replayable.
+var balanceFields = map[string]bool{
+	"grid_export": true, "grid_import": true, "pv": true, "load_total": true,
+	"base": true, "wallbox": true, "heat_pump": true, "battery_charge": true,
+	"battery_discharge": true, "gap_applied": true, "autarkie": true,
+	"eigenverbrauch": true, "battery_soc": true, "battery_capacity_kwh": true,
+	"battery_energy_kwh": true,
 }
 
 // parseClock reads "HH:MM".

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"testing"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
@@ -188,7 +189,7 @@ func vectorTicks(t *testing.T, v replayVector, loc *time.Location, tick int64) (
 func TestReplayVectors(t *testing.T) {
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
-		t.Skipf("no Europe/Berlin zone: %v", err)
+		t.Fatalf("Europe/Berlin zone: %v", err)
 	}
 	vectors := loadReplayVectors(t)
 	if len(vectors) < 24 {
@@ -235,7 +236,11 @@ func TestReplayVectors(t *testing.T) {
 			}
 			sort.Slice(stepOffsets, func(i, j int) bool { return stepOffsets[i] < stepOffsets[j] })
 			for _, off := range stepOffsets {
-				phases = append(phases, res.Phases[index[off]])
+				i, ok := index[off]
+				if !ok {
+					t.Fatalf("%s: step at %d s is off the tick grid", v.Name, off)
+				}
+				phases = append(phases, res.Phases[i])
 			}
 			if !slices.Equal(res.Fires, v.Expect.Fires) {
 				t.Errorf("fires: got %v, want %v", res.Fires, v.Expect.Fires)
@@ -247,7 +252,7 @@ func TestReplayVectors(t *testing.T) {
 	}
 }
 
-func TestReplayClosedLoopCapsGridImport(t *testing.T) {
+func TestReplayClosedLoopTakesExportFirst(t *testing.T) {
 	rule := `{"id":"r1","enabled":true,"conditions":[{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":800,"hysteresis":0,"hold_seconds":0}]}`
 	target := ReplayTarget{Device: "heater", OpW: 2000, CycleWh: 100000}
 	ticks := make([]ReplayMinute, 4)
@@ -277,7 +282,7 @@ func TestReplayStartPeakInFirstTwoMinutes(t *testing.T) {
 	rule := `{"id":"r1","enabled":true,"conditions":[{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":800,"hysteresis":0,"hold_seconds":0}]}`
 	target := ReplayTarget{Device: "heater", OpW: 1000, PeakW: 1500, CycleWh: 100000}
 	base := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
-	ticks := make([]ReplayMinute, 3)
+	ticks := make([]ReplayMinute, 4)
 	for i := range ticks {
 		ticks[i] = ReplayMinute{At: base.Add(time.Duration(i) * time.Minute),
 			Balance: map[string]float64{"grid_export": 3000, "grid_import": 0}}
@@ -289,9 +294,10 @@ func TestReplayStartPeakInFirstTwoMinutes(t *testing.T) {
 	if !res.On[0] {
 		t.Fatalf("device should be on after the fire, On = %v", res.On)
 	}
-	// Tick 1 is inside the first two minutes: 1000 W plus 1500 W peak.
-	// Export 3000 W leaves 500 W, tick 2 is outside the peak: 1000 W leaves 2000 W.
-	exportWh := 3000.0 + 500.0 + 2000.0
+	// The device is on from tick 0. Ticks 1 and 2 are within two minutes of
+	// switching on and take 1000 W plus 1500 W peak, tick 3 takes 1000 W.
+	// Export per tick: 3000 (no load yet), 500, 500, 2000.
+	exportWh := 3000.0 + 500.0 + 500.0 + 2000.0
 	if res.ExportWh != exportWh/60.0 {
 		t.Errorf("export Wh = %v, want %v", res.ExportWh, exportWh/60.0)
 	}
@@ -357,5 +363,35 @@ func TestReplayClockHelpers(t *testing.T) {
 	}
 	if got := strconv.Itoa(pyWeekday(time.Date(2026, 11, 22, 0, 0, 0, 0, time.UTC))); got != "6" {
 		t.Fatalf("Sunday should be 6, got %s", got)
+	}
+}
+
+func TestApplyDeltaDoesNotCreateMissingKeys(t *testing.T) {
+	b, _ := applyDelta(map[string]float64{"grid_export": 2500}, nil, 2000)
+	if b["grid_export"] != 500 {
+		t.Fatalf("grid_export = %v, want 500", b["grid_export"])
+	}
+	if _, ok := b["grid_import"]; ok {
+		t.Fatalf("grid_import was created with a zero amount: %v", b)
+	}
+	cond, err := parseReplayCond(json.RawMessage(`{"type":"balance_threshold","field":"grid_import","comparison":"below","threshold":100,"hysteresis":0,"hold_seconds":0}`))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if raw, _, _ := evalCond(cond, &replayCondRT{}, evalCtx{now: time.Now(), balance: b}); raw {
+		t.Fatalf("grid_import below 100 became true through a created key")
+	}
+}
+
+func TestReplayRejectsCustomAndUnknownBalanceFields(t *testing.T) {
+	for _, field := range []string{"custom:pool_load", "unknown_field"} {
+		raw := json.RawMessage(`{"type":"balance_threshold","field":"` + field + `","comparison":"above","threshold":500,"hysteresis":0,"hold_seconds":0}`)
+		if _, err := parseReplayCond(raw); !errors.Is(err, ErrNotReplayable) {
+			t.Errorf("field %q: got %v, want ErrNotReplayable", field, err)
+		}
+	}
+	raw := json.RawMessage(`{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":500,"hysteresis":0,"hold_seconds":0}`)
+	if _, err := parseReplayCond(raw); err != nil {
+		t.Errorf("grid_export should be replayable: %v", err)
 	}
 }

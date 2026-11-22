@@ -23,7 +23,6 @@ type scenarioMachine struct {
 	s        replayScenario
 	phase    string
 	since    time.Time
-	hasSince bool
 	endedAt  time.Time
 	hasEnded bool
 	rearm    bool
@@ -95,13 +94,11 @@ func (m *scenarioMachine) tick(ec evalCtx) (string, bool) {
 func (m *scenarioMachine) start(now time.Time) {
 	m.phase = "active"
 	m.since = now
-	m.hasSince = true
 }
 
 // end returns to idle and drops the condition runtimes, as the service does.
 func (m *scenarioMachine) end(now time.Time) {
 	m.phase = "idle"
-	m.hasSince = false
 	m.endedAt = now
 	m.hasEnded = true
 	m.when, m.until = nil, nil

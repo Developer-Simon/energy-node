@@ -30,7 +30,6 @@ type ReplayMinute struct {
 type ReplayTarget struct {
 	RuleID, ScenarioID, Device   string
 	OpW, PeakW, CycleWh, MinRunS float64
-	Light                        bool
 }
 
 // ReplayResult is the outcome of one replay. Fires are the seconds since the
@@ -78,6 +77,10 @@ func Replay(ctx context.Context, rule any, target ReplayTarget, minutes []Replay
 
 // replayCore runs the replay with a tick of step. Hold, cooldown, repeat and
 // minimum run times count real seconds with step.
+//
+// settling_seconds of the service is deliberately not modelled. It only blocks
+// the first moments after a service start, while a replay over up to 56 days
+// describes the settled operation.
 func replayCore(ctx context.Context, rule any, target ReplayTarget, ticks []ReplayMinute, real []bool, step time.Duration, loc *time.Location, site sun.Location) (ReplayResult, error) {
 	subject, err := parseSubject(rule)
 	if err != nil {
@@ -168,7 +171,7 @@ func loopDelta(t ReplayTarget, simOn, realOn bool, onSince, now time.Time) float
 	switch {
 	case simOn && !realOn:
 		delta := t.OpW
-		if now.Sub(onSince) < 2*time.Minute {
+		if now.Sub(onSince) <= 2*time.Minute {
 			delta += t.PeakW
 		}
 		return delta
@@ -190,10 +193,17 @@ func applyDelta(balance, learned map[string]float64, delta float64) (map[string]
 	for k, v := range balance {
 		b[k] = v
 	}
-	b["load_total"] += delta
+	// add changes a key only when it exists or the change is not zero, so a
+	// missing key is not created by a zero amount.
+	add := func(key string, inc float64) {
+		if _, ok := b[key]; ok || inc != 0 {
+			b[key] += inc
+		}
+	}
+	add("load_total", delta)
 	if delta > 0 {
 		take := math.Min(math.Max(b["grid_export"], 0), delta)
-		b["grid_export"] -= take
+		add("grid_export", -take)
 		rest := delta - take
 		if reserve, ok := learned[reserveKey]; ok && rest > 0 {
 			used := math.Min(math.Max(reserve, 0), rest)
@@ -201,13 +211,13 @@ func applyDelta(balance, learned map[string]float64, delta float64) (map[string]
 			learned[reserveKey] = reserve - used
 			rest -= used
 		}
-		b["grid_import"] += rest
+		add("grid_import", rest)
 		return b, learned
 	}
 	cut := -delta
 	take := math.Min(math.Max(b["grid_import"], 0), cut)
-	b["grid_import"] -= take
-	b["grid_export"] += cut - take
+	add("grid_import", -take)
+	add("grid_export", cut-take)
 	return b, learned
 }
 
