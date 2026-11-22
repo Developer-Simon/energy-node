@@ -29,6 +29,8 @@ const (
 	demoRelais = "relais_keller"
 	// demoDryer ist der Wäschetrockner, der mittags aus der Sonne läuft, ohne Regel.
 	demoDryer = "waeschetrockner"
+	// demoDishwasher ist die Spülmaschine, die abends aus dem Netz läuft.
+	demoDishwasher = "spuelmaschine"
 	// demoHeatPump ist die Wärmepumpe, deren Modus die Demo-Regel schaltet.
 	demoHeatPump = "waermepumpe"
 	// demoRuleID ist die Regel „Akku leer, WP aus“ der Demo. Sie schaltet die
@@ -114,10 +116,11 @@ var demoEntities = map[string]string{
 	demoHeatPump:     "waermepumpe_mode",
 	demoWasherDevice: "waschmaschine_steckdose",
 	demoDryer:        "waeschetrockner_steckdose",
+	demoDishwasher:   "spuelmaschine_steckdose",
 }
 
 // demoWatts ist die Leistung der Demo-Geräte, wenn sie laufen.
-var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500, demoWasherDevice: 2000, demoDryer: 500}
+var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500, demoWasherDevice: 2000, demoDryer: 500, demoDishwasher: 500}
 
 // SeedDemo schreibt die Tagesdateien der letzten 21 Tage vor now in dir, für die
 // Geräte der Demo. Jede Datei trägt "fake": true, die Konsole der Demo entfernt
@@ -170,6 +173,8 @@ func demoDaysWith(now time.Time, loc *time.Location, rise bool) []DayFile {
 	heat := rand.New(rand.NewSource(demoSeed + 3))
 	// Der Trockner hat einen eigenen Zufallsstrom.
 	dry := rand.New(rand.NewSource(demoSeed + 5))
+	// Die Spülmaschine hat einen eigenen Zufallsstrom.
+	dish := rand.New(rand.NewSource(demoSeed + 7))
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	out := make([]DayFile, 0, demoSeedDays)
 	for i := 0; i < demoSeedDays; i++ {
@@ -271,6 +276,7 @@ func demoDaysWith(now time.Time, loc *time.Location, rise bool) []DayFile {
 		if i < demoAwayFrom || i > demoAwayTo {
 			b.heatCycle(heat)
 			b.dryer(dry)
+			b.dishwasher(dish)
 		}
 		if demoCompetitionDays[i] {
 			b.competition()
@@ -408,6 +414,25 @@ func (b *demoBuilder) dryer(rng *rand.Rand) {
 	b.f.Cycles = append(b.f.Cycles, rec)
 	on := int(math.Round(start))
 	b.changes[demoDryer] = append(b.changes[demoDryer],
+		demoChange{minute: on, on: true},
+		demoChange{minute: on + rec.DurS/60, on: false})
+}
+
+// dishwasher schreibt den Lauf der Spülmaschine: eine Stunde, 500 Wh bei 500 W,
+// aus dem Netz. Der Start streut am Abend zwischen 17:30 und 21:30, so weit, dass
+// der robuste Streuungswert des Erkenners über 60 Minuten liegt. Auch hier
+// entstehen keine Ereignisse.
+func (b *demoBuilder) dishwasher(rng *rand.Rand) {
+	wh := 500 + 15*rng.NormFloat64()
+	opW := 500 + 10*rng.NormFloat64()
+	start := 1050 + 240*rng.Float64()
+	rec := CycleRec{Device: demoDishwasher, Wh: float32(wh), OpW: float32(opW), Grid: 1}
+	rec.Start = b.at(start).Unix()
+	rec.DurS = int(wh / opW * 3600)
+	rec.End = "self"
+	b.f.Cycles = append(b.f.Cycles, rec)
+	on := int(math.Round(start))
+	b.changes[demoDishwasher] = append(b.changes[demoDishwasher],
 		demoChange{minute: on, on: true},
 		demoChange{minute: on + rec.DurS/60, on: false})
 }

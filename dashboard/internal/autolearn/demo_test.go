@@ -196,7 +196,7 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 	for _, d := range []Detector{SwitchTimeDetector, RuntimeDetector, CouplingDetector, OverriddenDetector,
 		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector,
 		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector, BaseLoadDetector,
-		ThresholdDetector, RegulatorDetector, SurplusDetector} {
+		ThresholdDetector, RegulatorDetector, SurplusDetector, ShiftDetector} {
 		e.Register(d)
 	}
 	// The energy checks read the operating powers the engine learned before them.
@@ -815,6 +815,21 @@ func TestDemoSeedYieldsSurplusFinding(t *testing.T) {
 		ids[c.Finding.ID] = c
 	}
 	const id = "surplus:" + demoDryer
+	if _, ok := ids[id]; !ok {
+		t.Errorf("no %s in the demo pipeline, ids %v", id, candidateIDs(ids))
+	}
+}
+
+// TestDemoSeedYieldsShiftFinding checks that the demo dishwasher, which runs in
+// the evening from the grid, gets a load shift to the midday surplus.
+func TestDemoSeedYieldsShiftFinding(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]Candidate{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = c
+	}
+	const id = "shift:" + demoDishwasher
 	if _, ok := ids[id]; !ok {
 		t.Errorf("no %s in the demo pipeline, ids %v", id, candidateIDs(ids))
 	}

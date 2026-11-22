@@ -2144,5 +2144,65 @@
   {
     "topic": "plug/waeschetrockner/output",
     "payload": "OFF"
+  },
+  {
+    "topic": "homeassistant/switch/spuelmaschine/steckdose/config",
+    "payload": {
+      "name": "Socket",
+      "unique_id": "spuelmaschine_steckdose",
+      "state_topic": "plug/spuelmaschine/output",
+      "command_topic": "plug/spuelmaschine/output/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "plug/spuelmaschine/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "spuelmaschine"
+        ],
+        "via_device": "energy_node",
+        "name": "Dishwasher"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/spuelmaschine/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "spuelmaschine_power",
+      "state_topic": "plug/spuelmaschine/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "plug/spuelmaschine/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "spuelmaschine"
+        ],
+        "via_device": "energy_node",
+        "name": "Dishwasher"
+      }
+    }
+  },
+  {
+    "topic": "plug/spuelmaschine/online",
+    "payload": "true"
+  },
+  {
+    "topic": "plug/spuelmaschine/status",
+    "payload": {
+      "id": 0,
+      "apower": 0,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "plug/spuelmaschine/output",
+    "payload": "OFF"
   }
 ]
