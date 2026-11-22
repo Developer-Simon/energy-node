@@ -195,3 +195,39 @@ func TestRegulatorSkipsWithoutPVModel(t *testing.T) {
 		t.Fatalf("candidates = %d, want 0 without a PV model", len(got))
 	}
 }
+
+func TestRegulatorScaleBarsOnlyForChangedParameters(t *testing.T) {
+	maxChange := 100.0
+	res := regulatorResult{GainSoll: 0.2, DeadbandSoll: 10, MaxChangeSoll: 5, K: 1, Dead: 1, Days: 3}
+	reg := &RegulatorSpec{DeadbandW: 50, Gain: 0.8, MaxChangeW: &maxChange, BaseSource: "last"}
+	cand, ok := regulatorCandidate(Scenario{ID: "reg", Name: "Regler", Regulator: reg}, res)
+	if !ok {
+		t.Fatal("no candidate for a swinging gain, a wide deadband and a loose change limit")
+	}
+	bars := cand.Finding.Evidence.Scales
+	if len(bars) != 3 {
+		t.Fatalf("bars = %+v, want gain, deadband_w and max_change_w", bars)
+	}
+	if bars[0].Name != "gain" || bars[0].Ist != 0.8 || math.Abs(bars[0].Soll-0.2) > 1e-9 {
+		t.Errorf("gain bar = %+v, want ist 0.8 soll 0.2", bars[0])
+	}
+	if bars[1].Name != "deadband_w" || bars[1].Ist != 50 || bars[1].Soll != 10 || bars[1].Unit != "W" {
+		t.Errorf("deadband bar = %+v, want ist 50 soll 10 W", bars[1])
+	}
+	if bars[2].Name != "max_change_w" || bars[2].Ist != 100 || bars[2].Soll != 5 {
+		t.Errorf("change bar = %+v, want ist 100 soll 5", bars[2])
+	}
+}
+
+func TestRegulatorScaleBarsSkipUnchangedGain(t *testing.T) {
+	res := regulatorResult{GainSoll: 0.8, DeadbandSoll: 20, K: 1, Dead: 0, Days: 3}
+	reg := &RegulatorSpec{DeadbandW: 50, Gain: 0.8, BaseSource: "last"}
+	cand, ok := regulatorCandidate(Scenario{ID: "reg", Regulator: reg}, res)
+	if !ok {
+		t.Fatal("no candidate for a wide deadband")
+	}
+	bars := cand.Finding.Evidence.Scales
+	if len(bars) != 1 || bars[0].Name != "deadband_w" {
+		t.Fatalf("bars = %+v, want only the deadband bar", bars)
+	}
+}

@@ -417,3 +417,34 @@ test('curve shape without Soll draws only the Ist layer and one legend key', () 
   assert.equal(host.querySelectorAll('svg.auto-learn-plot-svg').length, 1);
   assert.equal(host.querySelectorAll('.auto-learn-plot-key').length, 1);
 });
+
+test('scale shape with scales draws one Ist and Soll bar pair per parameter', () => {
+  const { api, document } = load();
+  const html = api.render({
+    shape: 'scale',
+    ist_value: 0.8,
+    soll_value: 0.2,
+    scales: [
+      { name: 'gain', ist: 0.8, soll: 0.2 },
+      { name: 'deadband_w', ist: 50, soll: 10, unit: 'W' },
+    ],
+  }, t);
+  const host = mount(document, html);
+  const istBars = host.querySelectorAll('rect.auto-learn-ist');
+  assert.equal(istBars.length, 2, 'one Ist bar per parameter');
+  assert.equal(host.querySelectorAll('rect.auto-learn-soll').length, 2, 'one Soll bar per parameter');
+  const names = Array.from(host.querySelectorAll('.auto-learn-scale-bar')).map((n) => n.textContent);
+  assert.deepEqual(names, ['automations.learn.param.gain', 'automations.learn.param.deadband_w']);
+  const deadbandIst = istBars[1];
+  // the deadband bar scales on its own maximum, 50 * 1.2 = 60 W
+  assert.equal(Number(deadbandIst.getAttribute('width')).toFixed(3), ((50 / 60) * 100).toFixed(3));
+  assert.deepEqual(axisLabels(host).slice(-1), ['60 W']);
+});
+
+test('scale shape without scales keeps the single pair', () => {
+  const { api, document } = load();
+  const html = api.render({ shape: 'scale', ist_value: 360, soll_value: 90, unit: 'min' }, t);
+  const host = mount(document, html);
+  assert.equal(host.querySelectorAll('.auto-learn-scale-bar').length, 0);
+  assert.equal(host.querySelectorAll('rect.auto-learn-ist').length, 1);
+});

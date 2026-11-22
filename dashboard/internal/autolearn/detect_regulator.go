@@ -411,17 +411,29 @@ func regulatorCandidate(sc Scenario, res regulatorResult) (Candidate, bool) {
 	if gain == 0 {
 		gain = regulatorDefaultGain
 	}
+	gainIst, gainSoll := gain, roundTo(res.GainSoll, 2)
 	var ops []Op
+	var bars []ScaleBar
 	if gain > regulatorSwingShare*res.GainSoll {
-		ops = append(ops, Op{Path: []any{"while", "regulator", "gain"}, Value: roundTo(res.GainSoll, 2)})
+		ops = append(ops, Op{Path: []any{"while", "regulator", "gain"}, Value: gainSoll})
+		bars = append(bars, ScaleBar{Name: "gain", Ist: gainIst, Soll: gainSoll})
 	}
 	if r.DeadbandW > regulatorDeadFactor*res.DeadbandSoll || r.DeadbandW < res.DeadbandSoll/regulatorDeadFactor {
-		ops = append(ops, Op{Path: []any{"while", "regulator", "deadband_w"}, Value: math.Round(res.DeadbandSoll)})
+		soll := math.Round(res.DeadbandSoll)
+		ops = append(ops, Op{Path: []any{"while", "regulator", "deadband_w"}, Value: soll})
+		bars = append(bars, ScaleBar{Name: "deadband_w", Ist: r.DeadbandW, Soll: soll, Unit: "W"})
 	}
 	if res.MaxChangeSoll > 0 {
 		off := r.MaxChangeW == nil || *r.MaxChangeW > regulatorDeadFactor*res.MaxChangeSoll || *r.MaxChangeW < res.MaxChangeSoll/regulatorDeadFactor
 		if off {
-			ops = append(ops, Op{Path: []any{"while", "regulator", "max_change_w"}, Value: math.Max(1, math.Round(res.MaxChangeSoll))})
+			soll := math.Max(1, math.Round(res.MaxChangeSoll))
+			ops = append(ops, Op{Path: []any{"while", "regulator", "max_change_w"}, Value: soll})
+			// Ist 0 stands for no change limit.
+			ist := 0.0
+			if r.MaxChangeW != nil {
+				ist = *r.MaxChangeW
+			}
+			bars = append(bars, ScaleBar{Name: "max_change_w", Ist: ist, Soll: soll, Unit: "W"})
 		}
 	}
 	if len(ops) == 0 {
@@ -431,7 +443,6 @@ func regulatorCandidate(sc Scenario, res regulatorResult) (Candidate, bool) {
 	if name == "" {
 		name = sc.ID
 	}
-	gainIst, gainSoll := gain, roundTo(res.GainSoll, 2)
 	benefit := Benefit{}
 	finding := Finding{
 		ID:         FindingID("regulator", sc.ID),
@@ -442,7 +453,7 @@ func regulatorCandidate(sc Scenario, res regulatorResult) (Candidate, bool) {
 		Confidence: "high",
 		Summary: Text{Code: "regulator.quality", Params: map[string]any{
 			"scenario": name, "gain": gainIst, "gain_soll": gainSoll}},
-		Evidence: Evidence{Shape: "scale", IstValue: &gainIst, SollValue: &gainSoll},
+		Evidence: Evidence{Shape: "scale", IstValue: &gainIst, SollValue: &gainSoll, Scales: bars},
 		Facts: []Fact{
 			{Code: "k", Value: roundTo(res.K, 2)},
 			{Code: "dead_steps", Value: res.Dead},

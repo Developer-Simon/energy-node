@@ -154,7 +154,6 @@ func shiftRunFor(ctx context.Context, in *Input, device string) []Candidate {
 	if agree {
 		conf = "high"
 	}
-	entity := info.Entities[0]
 	id := "shift:" + device
 	finding := Finding{
 		ID:         id,
@@ -170,7 +169,7 @@ func shiftRunFor(ctx context.Context, in *Input, device string) []Candidate {
 			{Code: "hit_rate", Value: float64(k) / float64(n)},
 		},
 		Apply: []Fix{{Code: "shift_start", Template: "shift_start", Prefill: map[string]any{
-			"device": device, "entity": entity, "on_w": onW, "latest": latestClock, "min_run_s": runS}}},
+			"device": device, "on_w": onW, "latest": latestClock, "min_run_s": runS}}},
 		Device:  device,
 		Benefit: &benefit,
 	}

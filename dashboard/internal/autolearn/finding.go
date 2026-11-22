@@ -101,6 +101,18 @@ type Evidence struct {
 	Missing   bool       `json:"missing,omitempty"`
 	// Marks holds the steps of a scale, such as the stages of staggered thresholds.
 	Marks []Mark `json:"marks,omitempty"`
+	// Scales holds one Ist and Soll bar per parameter of a scale evidence. When
+	// it is set the scale draws these bars and ignores IstValue and SollValue.
+	Scales []ScaleBar `json:"scales,omitempty"`
+}
+
+// ScaleBar is one parameter of a scale evidence: its Ist and Soll value in
+// its unit. Name is the parameter name, the catalog key is automations.learn.param.<name>.
+type ScaleBar struct {
+	Name string  `json:"name"`
+	Ist  float64 `json:"ist"`
+	Soll float64 `json:"soll"`
+	Unit string  `json:"unit,omitempty"`
 }
 
 // Mark is one step on the scale of a finding. Dormant marks a step that the

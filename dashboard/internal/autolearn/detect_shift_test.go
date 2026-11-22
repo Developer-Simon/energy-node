@@ -86,8 +86,11 @@ func TestShiftSuggestsGridCyclesMovableToSurplus(t *testing.T) {
 		t.Fatalf("apply = %+v, want the shift_start template", c.Finding.Apply)
 	}
 	p := c.Finding.Apply[0].Prefill
-	if p["device"] != "wash" || p["entity"] != "switch.wash" {
-		t.Errorf("prefill device/entity = %v/%v", p["device"], p["entity"])
+	if p["device"] != "wash" {
+		t.Errorf("prefill device = %v, want wash", p["device"])
+	}
+	if _, ok := p["entity"]; ok {
+		t.Errorf("prefill carries an entity %v, want none: the first entity is not a safe switch", p["entity"])
 	}
 	if p["on_w"] != 2000.0 {
 		t.Errorf("prefill on_w = %v, want 2000", p["on_w"])

@@ -300,7 +300,34 @@
     return UNIT_KEYS[ev.unit] ? t(UNIT_KEYS[ev.unit]) : ev.unit;
   }
 
+  // Ein Balkenpaar je Parameter, wenn die Evidenz Scales liefert.
+  // i18n-keys: automations.learn.param.gain, automations.learn.param.deadband_w, automations.learn.param.max_change_w
+  const PARAM_KEYS = {
+    gain: 'automations.learn.param.gain',
+    deadband_w: 'automations.learn.param.deadband_w',
+    max_change_w: 'automations.learn.param.max_change_w',
+  };
+  function scaleBarsShape(ev, t) {
+    return ev.scales.map((bar) => {
+      const top = Math.max(bar.ist || 0, bar.soll || 0);
+      const max = top > 0 ? top * 1.2 : 1;
+      const toX = (v) => pct(v, max);
+      const unit = bar.unit ? ' ' + bar.unit : '';
+      const majors = [0, max / 2, max];
+      const grid = gridLines(majors.map(toX));
+      const istBar = '<rect class="auto-learn-ist" x="0" y="1.5" width="' + toX(bar.ist || 0) + '" height="7" rx="0.8"/>'; // i18n-ignore
+      const sollBar = '<rect class="auto-learn-soll auto-learn-soft" x="0" y="1.5" width="' + toX(bar.soll || 0) + '" height="7" rx="0.8"/>'; // i18n-ignore
+      const ticks = majors.map((v) => ({ x: toX(v), major: true }));
+      const labels = majors.map((v) => ({ x: toX(v), text: (Math.round(v * 100) / 100) + unit }));
+      return '<div class="auto-learn-scale-bar">' + esc(t(PARAM_KEYS[bar.name] || bar.name)) + '</div>'
+        + lane(t('automations.learn.lane.ist'), laneSvg(grid + istBar)) // i18n-ignore
+        + lane(t('automations.learn.lane.soll'), laneSvg(grid + sollBar), true)
+        + axisHtml(ticks, labels);
+    }).join('');
+  }
+
   function scaleShape(ev, t) {
+    if (Array.isArray(ev.scales) && ev.scales.length > 0) return scaleBarsShape(ev, t);
     const max = scaleMaxOf(ev);
     const toX = (v) => pct(v, max);
     const unit = ev.unit ? ' ' + unitOf(ev, t) : '';
