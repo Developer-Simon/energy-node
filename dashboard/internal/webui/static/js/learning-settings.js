@@ -79,13 +79,24 @@
     return Math.max(keys * MINUTES_PER_DAY * BYTES_PER_VALUE, measured);
   }
 
+  // Groesse fuer die Zeile Zusatzlaufwerk: Einheiten ab 1000, GB und TB mit einer
+  // Nachkommastelle, wie formatStorageBytes auf der Speicherseite (dort eine
+  // Methode, deshalb hier eigene Kopie der Regel).
+  function driveSizeText(bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let amount = Math.max(0, Number(bytes) || 0);
+    let unit = 0;
+    while (amount >= 1000 && unit < units.length - 1) { amount /= 1000; unit += 1; }
+    return `${numberText(amount, unit >= 3 ? 1 : 0)} ${units[unit]}`;
+  }
+
   // Nur die Zahl in MB, die Einheit steht im Satz. Unter 10 MB mit einer Nachkommastelle.
   function mbNumber(bytes) {
     const mb = Math.max(0, Number(bytes) || 0) / MB;
     return numberText(mb, mb < 10 ? 1 : 0);
   }
 
-  window.LearningSettings = {usageText, sinceText, newFeatures, minutesLocation, driveFreeBytes, systemBytesPerDay, mbNumber};
+  window.LearningSettings = {usageText, sinceText, newFeatures, minutesLocation, driveFreeBytes, driveSizeText, systemBytesPerDay, mbNumber};
 
   // Gleiche Anfrage wie in settings.page.js: Basispfad vor die URL, JSON zurueck.
   const requestJSON = async (url, options) => {
@@ -286,7 +297,7 @@
     },
 
     minutesDriveSub() {
-      return t('settings.learning.minutes.loc.drive_sub', {free: sizeText(driveFreeBytes(this.storageStatus), t)});
+      return t('settings.learning.minutes.loc.drive_sub', {free: driveSizeText(driveFreeBytes(this.storageStatus))});
     },
 
     // Die Tage im RAM kommen aus dem Status, ohne Status die Tage der Einstellung.

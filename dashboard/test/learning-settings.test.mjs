@@ -367,11 +367,11 @@ test('without a drive the drive row is unavailable and the setup text names the 
 });
 
 test('with a drive the drive sub line shows the free space', async () => {
-  const storage = { drive: { size: 800_000_000, used: 200_000_000 } };
+  const storage = { drive: { size: 8_000_000_000, used: 2_000_000_000 } };
   const { page } = createPage({ routes: minutesRoutes(minutesStatus({ drive_configured: true, location: 'drive' }), storage) });
   await page.load();
   assert.equal(page.minutesDriveConfigured, true);
-  assert.equal(page.minutesDriveSub(), '600,0 MB frei');
+  assert.equal(page.minutesDriveSub(), '6,0 GB frei');
 });
 
 test('the system estimate uses the keys and 1440 minutes at 4 bytes each', () => {
@@ -414,4 +414,15 @@ test('"Behalten" acknowledges minutes_drive with the CSRF header and reloads', a
   assert.ok(save, 'a settings write happened');
   assert.equal(save.headers['X-CSRF-Token'], 'tok');
   assert.ok(save.body.includes('minutes_drive'), save.body);
+});
+
+test('driveSizeText uses 1000 steps, GB and TB with one decimal and MB without', () => {
+  const window = load(new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' }));
+  const { driveSizeText } = window.LearningSettings;
+  assert.equal(driveSizeText(600_000_000), '600 MB');
+  assert.equal(driveSizeText(999_000_000), '999 MB');
+  assert.equal(driveSizeText(1_000_000_000), '1,0 GB');
+  assert.equal(driveSizeText(6_500_000_000), '6,5 GB');
+  assert.equal(driveSizeText(2_000_000_000_000), '2,0 TB');
+  assert.equal(driveSizeText(0), '0 B');
 });
