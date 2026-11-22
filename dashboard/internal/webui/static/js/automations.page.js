@@ -1885,12 +1885,15 @@
       } catch (error) {
         return null;
       }
-      if (name && name.trim() !== '') built.entry.name = name.trim();
+      // Der Name gilt fuer den ersten Eintrag. Eine Vorlage mit zwei Regeln (kind rules) legt beide an.
+      if (name && name.trim() !== '') (built.kind === 'rules' ? built.entries[0] : built.entry).name = name.trim();
       return built;
     },
 
-    assistantFull(kind) {
-      return kind === 'scenario' ? !this.canAddScenario() : !this.canAddRule();
+    // Ob count neue Eintraege der Art kind in die volle Liste passen wuerden.
+    assistantFull(kind, count = 1) {
+      if (kind === 'scenario') return (this.document.scenarios || []).length + count > SCENARIO_LIMIT;
+      return (this.document.rules || []).length + count > RULE_LIMIT;
     },
 
     // Zeilen der Zusammenfassung: Phase, Text und der Schritt zum Aendern.
@@ -1909,15 +1912,26 @@
 
     assistantListFull() {
       const built = this.assistantBuild();
-      return !!built && this.assistantFull(built.kind);
+      if (!built) return false;
+      const { kind, entries } = this.assistantEntries(built);
+      return this.assistantFull(kind, entries.length);
+    },
+
+    // Art (rule oder scenario) und Eintraege eines Builds. Ein Build mit kind rules liefert zwei Regeln.
+    assistantEntries(built) {
+      if (built.kind === 'rules') return { kind: 'rule', entries: built.entries };
+      return { kind: built.kind, entries: [built.entry] };
     },
 
     // Legt die Vorlage an: ungespeichert, aktiv, mit Rueckgaengig. Bei voller Liste
-    // passiert nichts, der Dialog bleibt offen.
+    // passiert nichts, der Dialog bleibt offen. Alle Eintraege sind schon gebaut, bevor
+    // der erste eingefuegt wird, daher bleibt bei einem Fehler nichts halb angelegt.
     assistantCreate() {
       const built = this.assistantBuild();
-      if (!built || this.assistantFull(built.kind)) return;
-      this.insertEntry(built.kind, built.entry);
+      if (!built) return;
+      const { kind, entries } = this.assistantEntries(built);
+      if (this.assistantFull(kind, entries.length)) return;
+      this.insertEntries(kind, entries);
       this.closeAssistant();
     },
 
@@ -2060,24 +2074,32 @@
     // Gemeinsamer Kern fuer neue Regeln und Szenarien: anlegen, als neu
     // markieren, aufklappen, Editor oeffnen, Reiter wechseln, Rueckgaengig anbieten.
     insertEntry(kind, entry) {
-      if (kind === 'scenario') {
-        this.document.scenarios.push(entry);
-        this.scenarioExpanded[entry.id] = true;
-        this.scenarioEditing[entry.id] = true;
-        this.view = 'scenarios';
-      } else {
-        this.document.rules.push(entry);
-        this.expanded[entry.id] = true;
-        this.editing[entry.id] = true;
-        this.view = 'rules';
+      this.insertEntries(kind, [entry]);
+      return entry;
+    },
+
+    // Mehrere Eintraege einer Art, ein Rueckgaengig nimmt alle zurueck.
+    insertEntries(kind, entries) {
+      for (const entry of entries) {
+        if (kind === 'scenario') {
+          this.document.scenarios.push(entry);
+          this.scenarioExpanded[entry.id] = true;
+          this.scenarioEditing[entry.id] = true;
+        } else {
+          this.document.rules.push(entry);
+          this.expanded[entry.id] = true;
+          this.editing[entry.id] = true;
+        }
+        this.newIds[entry.id] = true;
       }
-      this.newIds[entry.id] = true;
+      this.view = kind === 'scenario' ? 'scenarios' : 'rules';
       this.armUndo({
         label: kind === 'scenario' ? t('automations.undo.scenario_added') : t('automations.undo.rule_added'),
         kind,
-        id: entry.id,
+        id: entries[0].id,
+        ids: entries.map((entry) => entry.id),
       });
-      return entry;
+      return entries;
     },
 
     armUndo(undo) {
@@ -2093,16 +2115,22 @@
       const undo = this.undo;
       if (!undo) return;
       if (undo.findingId) return this.undoIgnoredFinding(undo);
+      const ids = undo.ids || [undo.id];
       if (undo.kind === 'scenario') {
-        this.document.scenarios = this.document.scenarios.filter((entry) => entry.id !== undo.id);
-        delete this.scenarioExpanded[undo.id];
-        delete this.scenarioEditing[undo.id];
+        this.document.scenarios = this.document.scenarios.filter((entry) => !ids.includes(entry.id));
       } else {
-        this.document.rules = this.document.rules.filter((entry) => entry.id !== undo.id);
-        delete this.expanded[undo.id];
-        delete this.editing[undo.id];
+        this.document.rules = this.document.rules.filter((entry) => !ids.includes(entry.id));
       }
-      delete this.newIds[undo.id];
+      for (const id of ids) {
+        if (undo.kind === 'scenario') {
+          delete this.scenarioExpanded[id];
+          delete this.scenarioEditing[id];
+        } else {
+          delete this.expanded[id];
+          delete this.editing[id];
+        }
+        delete this.newIds[id];
+      }
       clearTimeout(this._undoTimer);
       this.undo = null;
     },

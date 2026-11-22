@@ -2909,6 +2909,49 @@ test('creating zero_feed inserts an active unsaved scenario and offers undo', as
   assert.equal(component.assistant.open, false);
 });
 
+// Die Vorlagen mit Schalter brauchen ein schaltbares Geraet im Fixture.
+const switchDevices = [
+  ...assistantDevices,
+  {
+    id: 'lamp', name: 'Steckdose Werkstatt',
+    entities: [
+      { unique_id: 'lamp_switch', name: 'Schalter', command_topic: 'werkstatt/lamp/switch', state_topic: 'werkstatt/lamp/state', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' },
+    ],
+  },
+];
+
+test('creating shift_start inserts both rules and one undo removes them', async () => {
+  const { component } = await assistantPanel(switchDevices);
+  await component.openAssistant();
+  component.view = 'scenarios';
+  component.startTemplate('shift_start');
+  component.assistantGoTo('summary');
+  const before = component.document.rules.length;
+  component.assistantCreate();
+  assert.equal(component.document.rules.length, before + 2);
+  const added = component.document.rules.slice(before).map((rule) => rule.id);
+  assert.equal(new Set(added).size, 2, 'the two rules get different ids');
+  assert.equal(component.view, 'rules');
+  assert.equal(component.assistant.open, false);
+  assert.deepEqual(component.undo.ids, added);
+  component.undoInsert();
+  assert.equal(component.document.rules.length, before);
+  assert.equal(added.some((id) => component.newIds[id]), false);
+});
+
+test('creating shift_start is blocked when only one rule place is left', async () => {
+  const { component } = await assistantPanel(switchDevices);
+  await component.openAssistant();
+  component.startTemplate('shift_start');
+  component.assistantGoTo('summary');
+  component.document.rules = Array.from({ length: 15 }, (_, index) => ({ id: `regel_${index}`, name: 'Voll', enabled: true }));
+  assert.equal(component.assistantListFull(), true);
+  component.assistantCreate();
+  assert.equal(component.document.rules.length, 15);
+  assert.equal(component.undo, null);
+  assert.equal(component.assistant.open, true, 'the dialog stays open');
+});
+
 test('creating battery_warn switches to the rules tab', async () => {
   const { component } = await assistantPanel();
   await component.openAssistant();
