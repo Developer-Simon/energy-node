@@ -1,0 +1,116 @@
+// Tests for the monitoring page model (part A): groups, order, since text, steps, shade facts, week ranges.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
+const source = fs.readFileSync(path.join(jsDir, 'monitoring-model.js'), 'utf8');
+
+function load() {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  vm.runInContext(source, dom.getInternalVMContext());
+  return dom.window.MonitoringModel;
+}
+
+// Results come from the vm realm, so they are copied into this realm before strict comparison.
+const plain = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
+const raw = load();
+const M = Object.fromEntries(Object.entries(raw).map(([name, fn]) => [name, (...args) => plain(fn(...args))]));
+const t = (key, params) => (params ? key + JSON.stringify(params) : key);
+const tWeeks = (key, p) => {
+  if (key === 'monitoring.weeks.range') return p.from + ' bis ' + p.to;
+  if (key === 'monitoring.weeks.and') return p.a + ' und ' + p.b;
+  return key;
+};
+
+test('groups puts new before known and drops empty groups', () => {
+  const onlyNew = [{ id: 'a', ack: null }, { id: 'b', ack: null }];
+  assert.deepEqual(M.groups(onlyNew), [{ id: 'new', items: onlyNew }]);
+  const mixed = [{ id: 'k', ack: { at: 1, user: 'x' } }, { id: 'n', ack: null }];
+  assert.deepEqual(M.groups(mixed).map((g) => g.id), ['new', 'known']);
+  const onlyKnown = [{ id: 'k', ack: { at: 1, user: 'x' } }];
+  assert.deepEqual(M.groups(onlyKnown).map((g) => g.id), ['known']);
+});
+
+test('sortNotices orders warn before info inside new', () => {
+  const notices = [
+    { id: 'info-new', severity: 'info', ack: null, first_seen: 300 },
+    { id: 'warn-old', severity: 'warn', ack: null, first_seen: 100 },
+    { id: 'warn-new', severity: 'warn', ack: null, first_seen: 200 },
+    { id: 'acked', severity: 'warn', ack: { at: 1, user: 'x' }, first_seen: 999 },
+  ];
+  assert.deepEqual(M.sortNotices(notices).map((n) => n.id), ['warn-new', 'warn-old', 'info-new', 'acked']);
+});
+
+test('sinceText says heute, gestern and vor n Tagen', () => {
+  const now = 1794000000;
+  assert.equal(M.sinceText(now - 3600, now, t), 'monitoring.since.today');
+  assert.equal(M.sinceText(now - 90000, now, t), 'monitoring.since.yesterday');
+  assert.equal(M.sinceText(now - 5 * 86400, now, t), 'monitoring.since.days{"n":5}');
+});
+
+test('steps drop targets without the right but keep the text', () => {
+  const notice = {
+    code: 'unassigned',
+    source: 'energy',
+    steps: [{ code: 'assign_roles', target: 'energy.focus', ids: ['sensor.a'] }],
+  };
+  const withRight = M.steps(notice, { view_energy: true }, t)[0];
+  assert.equal(withRight.target, 'energy.focus');
+  assert.equal(withRight.label, 'monitoring.step.assign_roles.button');
+
+  const without = M.steps(notice, { view_energy: false }, t)[0];
+  assert.equal(without.text, 'monitoring.step.assign_roles');
+  assert.equal(without.target, '');
+  assert.equal(without.label, '');
+  assert.deepEqual(without.ids, ['sensor.a']);
+});
+
+test('steps hide role_keep without edit_energy', () => {
+  const notice = {
+    code: 'role_needed',
+    source: 'energy',
+    steps: [{ code: 'role_keep', target: 'action.role_keep', ids: ['sensor.a'] }],
+  };
+  const off = M.steps(notice, { view_energy: true, edit_energy: false }, t)[0];
+  assert.equal(off.text, 'monitoring.step.role_keep');
+  assert.equal(off.target, '');
+  assert.equal(off.label, '');
+
+  const on = M.steps(notice, { edit_energy: true }, t)[0];
+  assert.equal(on.target, 'action.role_keep');
+  assert.equal(on.label, 'monitoring.step.role_keep.button');
+});
+
+test('shade facts read direction and height from the id', () => {
+  const notice = {
+    id: 'learn:shade:225:15',
+    source: 'learn',
+    code: 'shade',
+    params: { kind: 'shade', from: '14:35', to: '15:49', kwh_lost: 5.7, weeks: [4, 5, 6, 7, 44, 45, 46, 47] },
+  };
+  const facts = M.facts(notice, t);
+  assert.deepEqual(facts.map(([label]) => label), [
+    'monitoring.fact.time',
+    'monitoring.fact.weeks',
+    'monitoring.fact.direction',
+    'monitoring.fact.loss',
+  ]);
+  assert.deepEqual(facts[2], [
+    'monitoring.fact.direction',
+    'monitoring.fact.direction_value{"az":225,"compass":"monitoring.compass.sw","el":15}',
+  ]);
+  assert.deepEqual(facts[0], ['monitoring.fact.time', 'monitoring.fact.time_value{"from":"14:35","to":"15:49"}']);
+});
+
+test('weekRanges joins runs', () => {
+  assert.equal(M.weekRanges([4, 5, 6, 7, 44, 45], tWeeks), '4 bis 7, 44 und 45');
+  assert.equal(M.weekRanges([45, 4], tWeeks), '4 und 45');
+  assert.equal(M.weekRanges([12], tWeeks), '12');
+  assert.equal(M.weekRanges([], tWeeks), '');
+});
