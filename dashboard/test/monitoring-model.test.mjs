@@ -205,3 +205,15 @@ test('a suggestion step targets the automations page only with the view_automati
   assert.equal(without.target, '');
   assert.equal(without.label, '');
 });
+
+test('suggestion notices have their own source and filter and use the learn texts', () => {
+  const learn = { id: 'learn:x', source: 'learn', code: 'battery.full_early', params: {} };
+  const suggest = { id: 'suggest:y', source: 'suggest', code: 'runtime.long', params: { device: 'Plug', kind: 'runtime' } };
+  const energy = { id: 'energy:z', source: 'energy', code: 'unassigned', params: {} };
+  const all = [learn, suggest, energy];
+  assert.equal(M.sourceOf(suggest), 'suggest');
+  assert.deepEqual(M.filterNotices(all, 'suggest').map((n) => n.id), ['suggest:y']);
+  assert.deepEqual(M.filterNotices(all, 'learn').map((n) => n.id), ['learn:x']);
+  assert.equal(M.filterNotices(all, 'all').length, 3);
+  assert.ok(M.title(suggest, t).startsWith('automations.learn.runtime.long.title'));
+});

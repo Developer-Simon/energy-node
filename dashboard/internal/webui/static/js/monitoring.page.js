@@ -3,7 +3,8 @@
 // mit dem CSRF-Token der Sitzung. Die Texte baut window.MonitoringModel.
 //
 // i18n-keys: monitoring.filter.all, monitoring.filter.energy, monitoring.filter.learn,
-// monitoring.source.energy, monitoring.source.chain, monitoring.source.learn,
+// monitoring.filter.suggest, monitoring.source.energy, monitoring.source.chain,
+// monitoring.source.learn, monitoring.source.suggest,
 // monitoring.group.new, monitoring.group.known, monitoring.steps.title,
 // monitoring.ack.button, monitoring.ack.done, monitoring.ack.undo, monitoring.ack.no_right,
 // monitoring.badge.new, monitoring.learned.count
@@ -19,11 +20,13 @@
     { id: 'all', key: 'monitoring.filter.all' },
     { id: 'energy', key: 'monitoring.filter.energy' },
     { id: 'learn', key: 'monitoring.filter.learn' },
+    { id: 'suggest', key: 'monitoring.filter.suggest' },
   ];
   const SOURCE_KEYS = {
     energy: 'monitoring.source.energy',
     chain: 'monitoring.source.chain',
     learn: 'monitoring.source.learn',
+    suggest: 'monitoring.source.suggest',
   };
   const GROUP_KEYS = { new: 'monitoring.group.new', known: 'monitoring.group.known' };
   // Sprungziel der Schritte auf die Seite (Reiter) und das Panel, das den Reiter besitzt.

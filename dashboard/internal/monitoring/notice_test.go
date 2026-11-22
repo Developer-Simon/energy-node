@@ -111,7 +111,7 @@ func TestSuggestionsBecomeNoticesThatOpenTheSuggestion(t *testing.T) {
 	if got == nil {
 		t.Fatal("no notice for the suggestion")
 	}
-	if got.Source != "learn" || got.Code != "runtime.long" || got.Params["device"] != "Plug" || got.Params["kind"] != "runtime" {
+	if got.Source != "suggest" || got.Code != "runtime.long" || got.Params["device"] != "Plug" || got.Params["kind"] != "runtime" {
 		t.Errorf("notice = %+v", got)
 	}
 	if len(got.Steps) != 1 || got.Steps[0].Code != "suggestion_open" || got.Steps[0].Target != "suggestion" ||

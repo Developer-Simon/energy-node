@@ -6,13 +6,21 @@
   const SHADE_ID_RE = /^learn:shade:(\d+):(\d+)$/;
   const pad = (n) => String(n).padStart(2, '0');
 
-  // Quelle für Filter und Gruppen: Energie-Bilanz und Messketten zusammen, sonst Lernfunktionen.
+  // Quelle für Filter und Gruppen: Energie-Bilanz und Messketten zusammen, Vorschläge
+  // für sich, sonst Lernfunktionen.
   function sourceOf(notice) {
-    return notice.source === 'energy' || notice.source === 'chain' ? 'energy' : 'learn';
+    if (notice.source === 'energy' || notice.source === 'chain') return 'energy';
+    return notice.source === 'suggest' ? 'suggest' : 'learn';
+  }
+
+  // Lernbefunde und Vorschläge teilen Texte und Belege der Automationen.
+  function isLearned(notice) {
+    const source = sourceOf(notice);
+    return source === 'learn' || source === 'suggest';
   }
 
   function filterNotices(notices, filter) {
-    if (filter === 'energy' || filter === 'learn') {
+    if (filter === 'energy' || filter === 'learn' || filter === 'suggest') {
       return notices.filter((n) => sourceOf(n) === filter);
     }
     return notices.slice();
@@ -114,7 +122,7 @@
   }
 
   function title(notice, t) {
-    if (sourceOf(notice) === 'learn') {
+    if (isLearned(notice)) {
       const s = learnSummary(notice, t);
       const key = 'automations.learn.' + s.code + '.title';
       return t(key, s.params);
@@ -125,7 +133,7 @@
 
   function text(notice, t) {
     const p = notice.params || {};
-    if (sourceOf(notice) === 'learn') {
+    if (isLearned(notice)) {
       const s = learnSummary(notice, t);
       return t(`automations.learn.${s.code}.text`, s.params);
     }
@@ -304,6 +312,7 @@
     valueText,
     spark,
     sourceOf,
+    isLearned,
     filterNotices,
     sortNotices,
     groups,

@@ -230,7 +230,8 @@ func learnNotices(findings []autolearn.Finding) []Notice {
 }
 
 // suggestionNotices turns the visible suggestions into notices. The step opens
-// the suggestion on the automations page.
+// the suggestion on the automations page. Their source is suggest, the page lists
+// them under the filter Vorschläge.
 func suggestionNotices(list []autolearn.Finding) []Notice {
 	var out []Notice
 	for _, f := range list {
@@ -241,7 +242,7 @@ func suggestionNotices(list []autolearn.Finding) []Notice {
 		params["kind"] = f.Kind
 		n := Notice{
 			ID:       "suggest:" + f.ID,
-			Source:   "learn",
+			Source:   "suggest",
 			Severity: learnSeverity(f.Severity),
 			Code:     f.Summary.Code,
 			Params:   params,
