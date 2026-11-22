@@ -46,6 +46,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/monitoring"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/netmgr"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
@@ -629,6 +630,20 @@ func main() {
 	// Datei liegt unter autolearn/ und wird mit dem Hub gespeichert.
 	learnedStore := autolearn.LoadLearnedStore(filepath.Join(autolearnDir, "learned.json"), log.Printf)
 	learnHub.AddSaver("learned", learnedStore)
+	// Monitoring: Meldungen aus Energie, Ketten und Regelpruefung, je Minute
+	// gesammelt, beim Abruf frisch und mit dem Hub gespeichert.
+	collectMonitoring := func() monitoring.Input {
+		in := monitoring.Input{Snapshot: energy.Aggregate(reg.Snapshot(), energyResolver, time.Now().UTC())}
+		if value, err := settingsStore.LoadEnergy(); err == nil {
+			in.Config = value
+		}
+		in.Findings = automationChecker.Findings(time.Now())
+		return in
+	}
+	monitoringStore := monitoring.OpenStore(filepath.Join(autolearnDir, "monitoring.json"), log.Printf)
+	monitoringLoop := newMonitoringRunner(monitoringStore, collectMonitoring)
+	learnHub.AddMinute("monitoring", monitoringLoop)
+	learnHub.AddSaver("monitoring", monitoringLoop)
 	// Wochenwerte fuer den Saisonvergleich. Fehlt season.json, fuellt die
 	// Energiestatistik der letzten drei Jahre sie einmal nach.
 	seasonPath := filepath.Join(autolearnDir, "season.json")
@@ -1278,6 +1293,20 @@ func main() {
 	// root-relative paths, even when a reverse proxy serves the dashboard
 	// under a subpath (see knowhow/dashboard/dashboard-reverse-proxy-unterpfad.md).
 	// Both listeners serve this same handler.
+	// Lernfunktionen fuer den Router und die Ueberwachung, dieselben Werte.
+	learningDeps := &httpapi.LearningDeps{
+		Settings:         settingsStore.LoadSettings,
+		State:            learnStateNow,
+		Usage:            dayStore.Usage,
+		ChainSuggestInfo: chainSuggest.LearnedSpan,
+		ChainLearnInfo:   chainMonitor.LearnedSpan,
+		SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
+		Rules:            func() ([]byte, error) { return configManager.Read("automation_rules") },
+		Reset: func() error {
+			resetLearned(learnedStore, client)
+			return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset())
+		},
+	}
 	handler := perfTiming.Middleware(basepath.Middleware(httpapi.NewAuthenticatedRouter(reg, configManager, settingsStore, tinytuya.NewClient(
 		cfg.TinyTuya.ProbePython,
 		cfg.TinyTuya.ProbeScript,
@@ -1313,21 +1342,9 @@ func main() {
 		DataDir:              dataDir,
 		AutomationHistoryDir: cfg.RuntimePath(devicesDir, ""),
 		Onboarding:           onboardingStore,
-		Learning: &httpapi.LearningDeps{
-			Settings:         settingsStore.LoadSettings,
-			State:            learnStateNow,
-			Usage:            dayStore.Usage,
-			ChainSuggestInfo: chainSuggest.LearnedSpan,
-			ChainLearnInfo:   chainMonitor.LearnedSpan,
-			SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
-			Rules:            func() ([]byte, error) { return configManager.Read("automation_rules") },
-			Reset: func() error {
-				resetLearned(learnedStore, client)
-				return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset())
-			},
-		},
-		TourTargets: dashwebui.TourTargets,
-		Backup:      backupDeps,
+		Learning:             learningDeps,
+		TourTargets:          dashwebui.TourTargets,
+		Backup:               backupDeps,
 		Storage: &httpapi.StorageDeps{
 			DataDir:   dataDir,
 			Service:   storageService,
@@ -1350,9 +1367,19 @@ func main() {
 		AutomationSuggestions: suggestions,
 		LearnedValues:         learnedStore,
 		LearnedSeason:         seasonStore,
-		CommandObserver:       origin.observeCommand,
-		StorageFallback:       storageFallback,
-		HistorySampler:        historySampler,
+		Monitoring: &httpapi.MonitoringDeps{
+			Notices: monitoringLoop.Notices,
+			Ack:     monitoringLoop.Ack,
+			Learned: func() httpapi.MonitoringLearned {
+				devices := reg.Snapshot()
+				learned := httpapi.LearnedBody(learningDeps, learnedStore, learnedExists, seasonStore)
+				snap := energy.Aggregate(devices, energyResolver, time.Now().UTC())
+				return monitoringLearned(learned, devices, snap, energyResolver)
+			},
+		},
+		CommandObserver: origin.observeCommand,
+		StorageFallback: storageFallback,
+		HistorySampler:  historySampler,
 		InstalledServices: map[string]bool{
 			"automation": cfg.ServiceInstalled("automation"),
 			"tailscale":  cfg.ServiceInstalled("tailscale"),
