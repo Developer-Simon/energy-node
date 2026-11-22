@@ -46,6 +46,9 @@ type Week struct {
 	RunMin    map[string]float64 `json:"run_min,omitempty"`
 	Triggers  map[string]float64 `json:"triggers,omitempty"`
 	Learned   map[string]float64 `json:"learned,omitempty"`
+	// EmptyShare is the share of the days of the week in which the battery
+	// fell to the empty threshold before sunrise. Nil without a charge record.
+	EmptyShare *float64 `json:"empty_share,omitempty"`
 }
 
 // WeekOf summarises the day files of one week. It returns false when there are
@@ -307,6 +310,26 @@ func (s *SeasonStore) Weeks(from, to string) []Week {
 	}
 	sortWeeks(out)
 	return out
+}
+
+// PriorEmptyShare returns the median empty share of the same calendar week in
+// the years before, the weeks of Same that hold a share. ok is false without
+// such a week. The engine gives it to the battery detector as
+// Input.PriorEmptyShare.
+func (s *SeasonStore) PriorEmptyShare(week int) (float64, bool) {
+	if s == nil {
+		return 0, false
+	}
+	var vals []float64
+	for _, w := range s.Same(week, seasonYears) {
+		if w.EmptyShare != nil {
+			vals = append(vals, *w.EmptyShare)
+		}
+	}
+	if len(vals) == 0 {
+		return 0, false
+	}
+	return Median(vals), true
 }
 
 // Same lists the weeks of the calendar week and its neighbours (one week before

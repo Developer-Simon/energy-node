@@ -676,7 +676,8 @@ func main() {
 			seasonStore.Put(w)
 		}
 	}
-	seasonClose := &seasonCloser{store: seasonStore, days: dayStore.Days, learned: learnedClockMinutes(learnedStore), loc: time.Local}
+	seasonClose := &seasonCloser{store: seasonStore, days: dayStore.Days, learned: learnedClockMinutes(learnedStore),
+		site: ruleSite(func() ([]byte, error) { return configManager.Read("automation_rules") }), loc: time.Local}
 	suggestions := &suggestionBook{state: suggestionState, readDoc: func() ([]byte, error) { return configManager.Read("automation_rules") }}
 	suggestionExists := func(device string) bool {
 		if deviceFilterStore.IsIgnored(device) {

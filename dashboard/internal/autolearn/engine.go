@@ -396,6 +396,9 @@ func (e *Engine) Downgrade() bool {
 // document is logged and replaced by an empty one, so the round still runs.
 func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string]DeviceInfo) *Input {
 	in := &Input{Now: now, Loc: e.loc, Devices: devices, Reactions: e.reactions, Limits: limits, Season: e.seasonStore()}
+	if st := e.seasonStore(); st != nil {
+		in.PriorEmptyShare = st.PriorEmptyShare
+	}
 	if e.days != nil {
 		days, err := e.days.Days(now.AddDate(0, 0, -engineHistoryDays), now)
 		if err != nil {

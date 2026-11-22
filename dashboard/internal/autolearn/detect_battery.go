@@ -82,10 +82,8 @@ func batteryRun(ctx context.Context, in *Input, _ string) []Candidate {
 	return out
 }
 
-// batteryDays reads the day files with a charge in date order, today left out.
-// Each day gets its sun times, its first full quarter and its empty threshold
-// from the lowest charge of the days before it. Then the morning and the night
-// of each day are read.
+// batteryDays reads the day files with a charge in date order, today left out,
+// and scans them with the site of the rule document.
 func batteryDays(in *Input) []*batteryDay {
 	loc := in.Loc
 	if loc == nil {
@@ -94,12 +92,31 @@ func batteryDays(in *Input) []*batteryDay {
 	today := in.Now.In(loc).Format(dayLayout)
 	files := make([]*DayFile, 0, len(in.Days))
 	for i := range in.Days {
-		files = append(files, &in.Days[i])
+		if in.Days[i].Day != today {
+			files = append(files, &in.Days[i])
+		}
 	}
+	out := batteryScan(files, loc, in.Doc.Location)
+	for _, d := range out {
+		if g, ok := in.Base.DayType[d.date]; ok {
+			d.group = g
+		} else {
+			d.group = -1
+		}
+	}
+	return out
+}
+
+// batteryScan reads the day files with a charge in date order. Each day gets
+// its sun times, its first full quarter and its empty threshold from the lowest
+// charge of the 14 days before it in the list. Then the morning before sunrise
+// and the night after sunset of each day are read. This is the one definition of
+// empty and full that the detector and the season record share.
+func batteryScan(files []*DayFile, loc *time.Location, site *sun.Location) []*batteryDay {
 	sort.SliceStable(files, func(a, b int) bool { return files[a].Day < files[b].Day })
 	var out []*batteryDay
 	for _, f := range files {
-		if f.Day == today || !batteryHasSoC(f) {
+		if !batteryHasSoC(f) {
 			continue
 		}
 		t, err := time.ParseInLocation(dayLayout, f.Day, loc)
@@ -108,13 +125,8 @@ func batteryDays(in *Input) []*batteryDay {
 		}
 		_, week := t.ISOWeek()
 		d := &batteryDay{date: f.Day, week: week, f: f, fullQ: -1, emptyQ: -1}
-		if g, ok := in.Base.DayType[f.Day]; ok {
-			d.group = g
-		} else {
-			d.group = -1
-		}
-		if in.Doc.Location != nil {
-			rise, set, ok := sun.Times(t, in.Doc.Location.Lat, in.Doc.Location.Lon)
+		if site != nil {
+			rise, set, ok := sun.Times(t, site.Lat, site.Lon)
 			if ok {
 				d.sunOK = true
 				d.rise = batteryMinute(rise, loc)
@@ -163,6 +175,40 @@ func batteryDays(in *Input) []*batteryDay {
 		}
 	}
 	return out
+}
+
+// EmptyShareOf returns the share of the days of week in which the charge fell
+// to the empty threshold before sunrise, the same definition as the battery
+// detector. prior are the day files before the week, the threshold reads the
+// last 14 of them. ok is false without sun, without a charge or with fewer than
+// seasonMinDays evaluated days.
+func EmptyShareOf(prior, week []DayFile, site *sun.Location, loc *time.Location) (float64, bool) {
+	if loc == nil {
+		loc = time.Local
+	}
+	files := make([]*DayFile, 0, len(prior)+len(week))
+	for i := range prior {
+		files = append(files, &prior[i])
+	}
+	inWeek := map[string]bool{}
+	for i := range week {
+		files = append(files, &week[i])
+		inWeek[week[i].Day] = true
+	}
+	n, hits := 0, 0
+	for _, d := range batteryScan(files, loc, site) {
+		if !inWeek[d.date] || !d.sunOK || !d.hasThr || !d.morning {
+			continue
+		}
+		n++
+		if d.emptyQ >= 0 {
+			hits++
+		}
+	}
+	if n < seasonMinDays {
+		return 0, false
+	}
+	return float64(hits) / float64(n), true
 }
 
 // batteryNextDay reports whether the date next is the day after date.

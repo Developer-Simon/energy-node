@@ -10,6 +10,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // seasonTestDays returns n day files starting at the given day, each with a
@@ -214,5 +215,51 @@ func TestDailyShareSaverRecordsOnlyWhenRunning(t *testing.T) {
 				t.Errorf("state file written = %v, want %v", statErr == nil, tc.want)
 			}
 		})
+	}
+}
+
+// seasonSoCDays returns one day file per day from start, with the charge in
+// every quarter.
+func seasonSoCDays(start time.Time, n int, soc float32) []autolearn.DayFile {
+	var out []autolearn.DayFile
+	for i := 0; i < n; i++ {
+		f := autolearn.DayFile{V: 1, Day: start.AddDate(0, 0, i).Format("2006-01-02")}
+		for q := 0; q < 96; q++ {
+			v := soc
+			f.Site.SoC[q] = &v
+			f.Site.Seen[q] = 1
+		}
+		out = append(out, f)
+	}
+	return out
+}
+
+// TestSeasonCloserWritesEmptyShare: with a site the closed week carries the
+// share of its empty mornings, judged with the 14 days before it. Without a
+// site the week has no share.
+func TestSeasonCloserWritesEmptyShare(t *testing.T) {
+	site := &sun.Location{Lat: 52, Lon: 0}
+	priorFrom := seasonPrevMon.AddDate(0, 0, -14)
+	run := func(withSite bool) *seasonCloser {
+		closer, _ := newSeasonCloserForTest(t, nil, new(int))
+		closer.days = func(from, to time.Time) ([]autolearn.DayFile, error) {
+			if from.Equal(priorFrom) {
+				return seasonSoCDays(priorFrom, 14, 40), nil
+			}
+			return seasonSoCDays(seasonPrevMon, 7, 10), nil
+		}
+		if withSite {
+			closer.site = func() *sun.Location { return site }
+		}
+		closer.Run(seasonWednesday)
+		return closer
+	}
+	ws := run(true).store.Weeks("2026-W47", "2026-W47")
+	if len(ws) != 1 || ws[0].EmptyShare == nil || *ws[0].EmptyShare != 1 {
+		t.Fatalf("week with site = %+v, want empty share 1", ws)
+	}
+	ws = run(false).store.Weeks("2026-W47", "2026-W47")
+	if len(ws) != 1 || ws[0].EmptyShare != nil {
+		t.Fatalf("week without site = %+v, want no empty share", ws)
 	}
 }

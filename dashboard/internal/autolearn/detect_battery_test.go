@@ -215,3 +215,58 @@ func TestBatteryDetectorIsEnergyDaily(t *testing.T) {
 		t.Errorf("detector = %+v, want battery, energy, daily, not per device", BatteryDetector)
 	}
 }
+
+// btFileAt is a day file of the given charge in every quarter, the day of start plus i.
+func btFileAt(start time.Time, i int, soc float32) DayFile {
+	f := DayFile{V: 1, Day: start.AddDate(0, 0, i).Format(dayLayout)}
+	for q := 0; q < dayQuarters; q++ {
+		v := soc
+		f.Site.SoC[q] = &v
+		f.Site.Seen[q] = 1
+	}
+	return f
+}
+
+// TestEmptyShareOfCountsEmptyMornings: the prior 14 days sit at 40 %, the
+// threshold is 43 %, so a week at 10 % is empty every morning and a week at 90 %
+// never is. The share is the same definition the detector uses.
+func TestEmptyShareOfCountsEmptyMornings(t *testing.T) {
+	site := &sun.Location{Lat: 52, Lon: 0}
+	priorStart := time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC)
+	weekStart := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	var prior []DayFile
+	for i := 0; i < 14; i++ {
+		prior = append(prior, btFileAt(priorStart, i, 40))
+	}
+	var empty, full []DayFile
+	for i := 0; i < 7; i++ {
+		empty = append(empty, btFileAt(weekStart, i, 10))
+		full = append(full, btFileAt(weekStart, i, 90))
+	}
+	share, ok := EmptyShareOf(prior, empty, site, time.UTC)
+	if !ok || share != 1 {
+		t.Errorf("empty week: share %v ok %v, want 1 true", share, ok)
+	}
+	share, ok = EmptyShareOf(prior, full, site, time.UTC)
+	if !ok || share != 0 {
+		t.Errorf("full week: share %v ok %v, want 0 true", share, ok)
+	}
+}
+
+func TestEmptyShareOfNeedsFourDaysAndSun(t *testing.T) {
+	weekStart := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	var three []DayFile
+	for i := 0; i < 3; i++ {
+		three = append(three, btFileAt(weekStart, i, 10))
+	}
+	if _, ok := EmptyShareOf(nil, three, &sun.Location{Lat: 52, Lon: 0}, time.UTC); ok {
+		t.Errorf("three days gave a share, want none")
+	}
+	var seven []DayFile
+	for i := 0; i < 7; i++ {
+		seven = append(seven, btFileAt(weekStart, i, 10))
+	}
+	if _, ok := EmptyShareOf(nil, seven, nil, time.UTC); ok {
+		t.Errorf("without a site gave a share, want none")
+	}
+}
