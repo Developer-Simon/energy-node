@@ -384,3 +384,43 @@ func TestOverriddenSunFixDropsOffsetOutOfRange(t *testing.T) {
 		}
 	}
 }
+
+// TestOverriddenSignalSplitGivesThresholdCondition: the reversals happen when
+// the export at the switch was under 600 W, so the split is the signal and the
+// fix adds the export threshold as a condition.
+func TestOverriddenSignalSplitGivesThresholdCondition(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 11, 2, 0, 0, 0, 0, loc)
+	n := 20
+	reversed := make([]bool, n)
+	for i := 0; i < 14; i++ {
+		reversed[i] = true
+	}
+	days := ovDays(t, loc, start, reversed, func(int) float64 { return 300 })
+	for i := range days {
+		exp := float32(900)
+		if reversed[i] {
+			exp = 300
+		}
+		days[i].Site.Seen[72] = 1 // quarter hour of 18:00
+		days[i].Site.GridExport[72] = exp
+	}
+	got := ovRun(loc, days, Base{}, relRule("heat", "Heizung"))
+	if len(got) != 1 {
+		t.Fatalf("candidates = %d, want 1: %+v", len(got), got)
+	}
+	f := got[0].Finding
+	if f.Facts[1].Value != overriddenSignal {
+		t.Fatalf("feature = %v, want %q", f.Facts[1].Value, overriddenSignal)
+	}
+	if len(f.Apply) != 1 || f.Apply[0].Code != "add_condition" {
+		t.Fatalf("apply = %+v, want add_condition", f.Apply)
+	}
+	cond, ok := f.Apply[0].Ops[0].Value.(map[string]any)
+	if !ok || cond["type"] != "balance_threshold" || cond["field"] != "grid_export" {
+		t.Fatalf("condition = %+v, want balance_threshold grid_export", f.Apply[0].Ops[0].Value)
+	}
+	if cond["threshold"] != 600.0 {
+		t.Errorf("threshold = %v, want 600 between 300 and 900 W", cond["threshold"])
+	}
+}

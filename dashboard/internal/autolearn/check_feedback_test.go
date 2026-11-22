@@ -142,3 +142,54 @@ func TestFeedbackDetectorWrapsFindingsAsCandidates(t *testing.T) {
 		t.Fatalf("candidates = %+v, want one listed feedback candidate", got)
 	}
 }
+
+// fbNoiseFact returns the noise_w fact of the first feedback finding, false without one.
+func fbNoiseFact(got []Finding) (float64, bool) {
+	if len(got) != 1 {
+		return 0, false
+	}
+	for _, f := range got[0].Facts {
+		if f.Code == "noise_w" {
+			v, ok := f.Value.(float64)
+			return v, ok
+		}
+	}
+	return 0, false
+}
+
+// TestFeedbackNoiseIsMinuteNoiseWithThreeMinuteDays: with three minute days the
+// noise near the switch-on threshold comes from the minutes, with fewer it
+// stays the quarter noise of the days.
+func TestFeedbackNoiseIsMinuteNoiseWithThreeMinuteDays(t *testing.T) {
+	loc := berlinLoc(t)
+	spikes := make([]float32, 1440)
+	for m := range spikes {
+		spikes[m] = 1500
+		if m%10 == 5 {
+			spikes[m] = 1580
+		}
+	}
+	days := []DayFile{relDay(fbDay(loc, 15)), relDay(fbDay(loc, 16)), relDay(fbDay(loc, 17))}
+	minutes := func(n int) fakeMinutes {
+		fm := fakeMinutes{loc: loc, days: map[string]map[string][]float32{}}
+		for _, d := range days[:n] {
+			fm.days[d.Day] = map[string][]float32{"b:grid_export": spikes}
+		}
+		return fm
+	}
+	run := func(fm fakeMinutes) []Finding {
+		in := relInput(loc, days, fbDevice(), fbRule("on", "above", 1500), fbRule("off", "below", 500))
+		in.Learned = fbLearned(2000)
+		in.Minutes = fm
+		return FeedbackFindings(in)
+	}
+
+	noise, ok := fbNoiseFact(run(minutes(3)))
+	if !ok || noise != 80 {
+		t.Fatalf("noise with three minute days = %v (found %v), want the minute noise 80", noise, ok)
+	}
+	noise, ok = fbNoiseFact(run(minutes(2)))
+	if !ok || noise != 0 {
+		t.Fatalf("noise with two minute days = %v (found %v), want the quarter noise 0", noise, ok)
+	}
+}

@@ -95,8 +95,8 @@ func TestObservedFrequentWithBothFixes(t *testing.T) {
 	}
 
 	cool := f.Apply[1]
-	if cool.Code != "set_cooldown" || len(cool.Ops) != 1 || cool.Ops[0].Path[0] != "cooldown_seconds" || cool.Ops[0].Value != 600 {
-		t.Errorf("second fix = %+v, want set_cooldown to 600", cool)
+	if cool.Code != "set_cooldown" || len(cool.Ops) != 1 || cool.Ops[0].Path[0] != "cooldown_seconds" || cool.Ops[0].Value != 300 {
+		t.Errorf("second fix = %+v, want set_cooldown to 300", cool)
 	}
 
 	if len(f.Facts) != 1 || f.Facts[0].Code != "per_hour_max" || f.Facts[0].Value != 15 {
@@ -399,5 +399,97 @@ func TestObservedNeverFiredPVWinterRasterFallsBack(t *testing.T) {
 	got := findKind(findings, "never_fired")
 	if len(got) != 1 || got[0].Summary.Code != "check.seasonal_rest" {
 		t.Fatalf("findings = %+v, want check.seasonal_rest from the seasonal maximum", got)
+	}
+}
+
+// spikeDays returns the balance keys of the given days: the export is 1000 W
+// with every tenth minute at 1080 W, the load total is 1000 W.
+func spikeDays(days ...string) map[string]map[string][]float32 {
+	out := make(map[string]map[string][]float32, len(days))
+	for _, d := range days {
+		grid := make([]float32, 1440)
+		load := make([]float32, 1440)
+		for m := range grid {
+			grid[m], load[m] = 1000, 1000
+			if m%10 == 5 {
+				grid[m] = 1080
+			}
+		}
+		out[d] = map[string][]float32{"b:grid_export": grid, "b:load_total": load}
+	}
+	return out
+}
+
+// frequentInputFor is an input with a 1000 W heater on switch.heater and the
+// given minute days.
+func frequentInputFor(t *testing.T, now time.Time, days map[string]map[string][]float32) *Input {
+	t.Helper()
+	doc := staticDoc(t, `{"rules": [{"id": "heat", "name": "Heater", "enabled": true,
+	  "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 1000}],
+	  "actions": [{"type": "publish", "topic": "heater/set", "payload": "ON", "entity_id": "switch.heater"}]}]}`)
+	in := &Input{
+		Now:     now,
+		Loc:     time.UTC,
+		Doc:     doc,
+		Devices: map[string]DeviceInfo{"heater": {ID: "heater", Switchable: true, Entities: []string{"switch.heater"}}},
+		Learned: map[string]LearnedEntry{"device/heater/op_power_w": {Key: "device/heater/op_power_w", Value: 1000.0}},
+	}
+	if days != nil {
+		in.Minutes = fakeMinutes{loc: time.UTC, days: days}
+	}
+	return in
+}
+
+func TestObservedFrequentHysteresisFromMinuteNoise(t *testing.T) {
+	in := frequentInputFor(t, testNow, spikeDays("2026-11-18", "2026-11-17", "2026-11-16"))
+	doc := in.Doc
+	findings := ObservedFindingsWithPV(doc, frequentState(15), nil, nil, in, testNow, DefaultThresholds())
+	got := findKind(findings, "frequent")
+	if len(got) != 1 {
+		t.Fatalf("frequent findings = %d, want 1", len(got))
+	}
+	hyst := got[0].Apply[0]
+	if hyst.Code != "set_hysteresis" || hyst.Ops[0].Value != 1200 {
+		t.Fatalf("hysteresis fix = %+v, want 1200 (2 x 80 W noise + 1000 W load, up to 50 W)", hyst)
+	}
+}
+
+func TestObservedFrequentHysteresisFallsBackWithoutMinutes(t *testing.T) {
+	in := frequentInputFor(t, testNow, nil)
+	findings := ObservedFindingsWithPV(in.Doc, frequentState(15), nil, nil, in, testNow, DefaultThresholds())
+	got := findKind(findings, "frequent")
+	if len(got) != 1 {
+		t.Fatalf("frequent findings = %d, want 1", len(got))
+	}
+	if v := got[0].Apply[0].Ops[0].Value; v != hysteresisFor(1000) {
+		t.Fatalf("hysteresis = %v, want the fallback %d", v, hysteresisFor(1000))
+	}
+}
+
+func TestObservedFrequentEvidenceSollFromReplay(t *testing.T) {
+	// The burst sits on 19 Nov at 09:00, the replay runs on the days before 20 Nov.
+	now := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC)
+	in := frequentInputFor(t, now, spikeDays("2026-11-19", "2026-11-18"))
+	findings := ObservedFindingsWithPV(in.Doc, frequentState(15), nil, nil, in, now, DefaultThresholds())
+	got := findKind(findings, "frequent")
+	if len(got) != 1 {
+		t.Fatalf("frequent findings = %d, want 1", len(got))
+	}
+	if got[0].Evidence.Soll == nil {
+		t.Fatalf("Soll = nil, want the replayed triggers with the hysteresis")
+	}
+	for _, s := range got[0].Evidence.Soll {
+		if s < got[0].Evidence.From || s >= got[0].Evidence.To {
+			t.Errorf("Soll %d outside the evidence window", s)
+		}
+	}
+}
+
+func TestObservedFrequentCooldownFromBurstGap(t *testing.T) {
+	if got := frequentCooldown([]int64{0, 60, 120}); got != 300 {
+		t.Errorf("cooldown for 60 s gaps = %d, want the floor 300", got)
+	}
+	if got := frequentCooldown([]int64{0, 200, 400}); got != 600 {
+		t.Errorf("cooldown for 200 s gaps = %d, want 600", got)
 	}
 }

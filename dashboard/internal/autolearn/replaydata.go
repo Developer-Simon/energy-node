@@ -44,7 +44,7 @@ func ReplayDays(in *Input, days int) (minutes []ReplayMinute, estimate bool) {
 	for k := days; k >= 1; k-- {
 		start := first.AddDate(0, 0, -k)
 		end := start.AddDate(0, 0, 1)
-		if in.Minutes != nil && in.Minutes.Coverage(start, end) >= 1 {
+		if isMinuteDay(in.Minutes, start, end) {
 			plan = append(plan, dayPlan{start: start})
 			minuteStarts = append(minuteStarts, start)
 			continue
@@ -66,6 +66,31 @@ func ReplayDays(in *Input, days int) (minutes []ReplayMinute, estimate bool) {
 		minutes = append(minutes, stretchedDay(p.file, p.start, learned, pool)...)
 	}
 	return minutes, estimate
+}
+
+// isMinuteDay reports whether the minute record holds the day from start to end.
+// A day counts with one minute in it, the same test the replay applies.
+func isMinuteDay(r learnrec.Reader, start, end time.Time) bool {
+	return r != nil && r.Coverage(start, end) >= 1
+}
+
+// minuteDayCount counts the day files of in that have minutes.
+func minuteDayCount(in *Input) int {
+	if in.Minutes == nil {
+		return 0
+	}
+	loc := replayLoc(in)
+	n := 0
+	for i := range in.Days {
+		start, err := time.ParseInLocation(dayLayout, in.Days[i].Day, loc)
+		if err != nil {
+			continue
+		}
+		if isMinuteDay(in.Minutes, start, start.AddDate(0, 0, 1)) {
+			n++
+		}
+	}
+	return n
 }
 
 // minuteShape is one quarter hour of a minute day: its mean and the ratio of
