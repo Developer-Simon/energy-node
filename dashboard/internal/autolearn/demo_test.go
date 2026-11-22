@@ -195,7 +195,8 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 		loc)
 	for _, d := range []Detector{SwitchTimeDetector, RuntimeDetector, CouplingDetector, OverriddenDetector,
 		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector,
-		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector, BaseLoadDetector} {
+		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector, BaseLoadDetector,
+		ThresholdDetector} {
 		e.Register(d)
 	}
 	// The energy checks read the operating powers the engine learned before them.
@@ -715,6 +716,36 @@ func TestDemoSeedYieldsEnergyFindings(t *testing.T) {
 			t.Errorf("battery:empty group %q, want check without culprit", c.Finding.Group)
 		}
 	}
+}
+
+// TestDemoSeedYieldsThresholdFinding checks that the demo holds a surplus rule
+// whose threshold is too high for the heat pump, so the threshold rating
+// suggests a lower one.
+func TestDemoSeedYieldsThresholdFinding(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]Candidate{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = c
+	}
+	const id = "threshold:regel_wp_ueberschuss_hoch"
+	c, ok := ids[id]
+	if !ok {
+		t.Fatalf("no %s in the demo pipeline, ids %v", id, candidateIDs(ids))
+	}
+	if c.Finding.Summary.Code != "threshold.too_high" {
+		t.Errorf("%s code = %q, want threshold.too_high", id, c.Finding.Summary.Code)
+	}
+}
+
+// candidateIDs lists the finding IDs for failure messages.
+func candidateIDs(m map[string]Candidate) []string {
+	out := make([]string, 0, len(m))
+	for id := range m {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // TestDemoSeedKeepsTheHabitSuggestions checks the suggestions the demo had

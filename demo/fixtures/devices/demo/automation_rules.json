@@ -136,6 +136,18 @@
       ]
     },
     {
+      "id": "regel_wp_ueberschuss_hoch",
+      "name": "WP an bei sehr hohem Überschuss",
+      "enabled": true,
+      "cooldown_seconds": 600,
+      "conditions": [
+        {"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 3000, "hysteresis": 200, "hold_seconds": 300}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "waermepumpe/mode/set", "entity_id": "waermepumpe_mode", "payload_source": "constant", "payload": "ON"}
+      ]
+    },
+    {
       "id": "regel_einspeisung_entfeuchter",
       "name": "Entfeuchter an bei viel Einspeisung",
       "enabled": true,
