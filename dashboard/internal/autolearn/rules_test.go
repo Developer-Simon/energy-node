@@ -416,3 +416,52 @@ func TestParseDocReadsRegulatorSpec(t *testing.T) {
 		t.Errorf("scenario without regulator = %+v, want nil", doc.Scenarios[2].Regulator)
 	}
 }
+
+// A learned_value condition keeps the key it compares under learned, with its
+// top level fallback and max_age_s. A threshold may be a reference of its own.
+func TestParseLearnedValueRules(t *testing.T) {
+	doc, err := ParseDoc([]byte(`{"rules":[{"id":"r","name":"R","enabled":true,"conditions":[` +
+		`{"type":"learned_value","learned":"site/pv_reserve_w","comparison":"above","threshold":1500,` +
+		`"fallback":0,"hysteresis":100,"max_age_s":120,"hold_seconds":30},` +
+		`{"type":"learned_value","learned":"site/pv_reserve_w","comparison":"below",` +
+		`"threshold":{"learned":"device/wallbox_1/cycle_wh","min":500,"max":3000,"fallback":1500,"offset":10},` +
+		`"fallback":0}` +
+		`],"actions":[]}]}`))
+	if err != nil {
+		t.Fatalf("ParseDoc: %v", err)
+	}
+	conds := doc.Rules[0].Conditions
+	if len(conds) != 2 {
+		t.Fatalf("conditions = %d, want 2", len(conds))
+	}
+
+	plain := conds[0]
+	if plain.Type != "learned_value" || plain.Comparison != "above" || plain.Threshold != 1500 || plain.Hysteresis != 100 {
+		t.Errorf("plain condition = %+v", plain)
+	}
+	if plain.HoldSeconds == nil || *plain.HoldSeconds != 30 {
+		t.Errorf("HoldSeconds = %v, want 30", plain.HoldSeconds)
+	}
+	ref := plain.Learned["learned"]
+	if ref.Key != "site/pv_reserve_w" || ref.Fallback != float64(0) || ref.MaxAgeS != 120 {
+		t.Errorf("compared value reference = %+v", ref)
+	}
+	if _, ok := plain.Learned["threshold"]; ok {
+		t.Errorf("plain threshold is a reference, want a number")
+	}
+	if !strings.Contains(string(plain.Raw), `"max_age_s":120`) {
+		t.Errorf("Raw = %s, want the original condition JSON", plain.Raw)
+	}
+
+	bound := conds[1]
+	if bound.Comparison != "below" || bound.Threshold != 0 {
+		t.Errorf("bound condition = %+v", bound)
+	}
+	thr := bound.Learned["threshold"]
+	if thr.Key != "device/wallbox_1/cycle_wh" || thr.Min != float64(500) || thr.Max != float64(3000) || thr.Fallback != float64(1500) || thr.Offset != 10 {
+		t.Errorf("threshold reference = %+v", thr)
+	}
+	if bound.Learned["learned"].Key != "site/pv_reserve_w" {
+		t.Errorf("compared value reference = %+v", bound.Learned["learned"])
+	}
+}

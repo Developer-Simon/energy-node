@@ -33,6 +33,7 @@ type Rule struct {
 // balance_threshold, Value from value of a topic_value or entity_value,
 // HoldSeconds from hold_seconds. A field that holds a learned value is not a
 // number: it stays 0 or nil here and is listed in Learned under its field name.
+// The value a learned_value condition compares is listed under learned.
 // Raw keeps the original JSON of the condition.
 type Condition struct {
 	Type        string
@@ -141,6 +142,14 @@ type wireCondition struct {
 	Start       json.RawMessage `json:"start"`
 	End         json.RawMessage `json:"end"`
 	HoldSeconds json.RawMessage `json:"hold_seconds"`
+}
+
+// wireLearnedValue holds the top level learned key of a learned_value
+// condition, the value it compares, with its fallback and max age.
+type wireLearnedValue struct {
+	Learned  string  `json:"learned"`
+	Fallback any     `json:"fallback"`
+	MaxAgeS  float64 `json:"max_age_s"`
 }
 
 // wireLearnedRef mirrors the JSON of a learned reference.
@@ -267,6 +276,11 @@ func parseCondition(rawCond json.RawMessage) (Condition, error) {
 	if _, err := learnedRef(wc.End, "end", learned); err != nil {
 		return Condition{}, err
 	}
+	if wc.Type == "learned_value" {
+		if err := learnedValueRef(rawCond, learned); err != nil {
+			return Condition{}, err
+		}
+	}
 	condition := Condition{
 		Type: wc.Type, Field: wc.Field, Comparison: wc.Comparison, Topic: wc.Topic,
 		EntityID: wc.EntityID, Hysteresis: wc.Hysteresis, Value: value, HoldSeconds: holdSeconds,
@@ -296,6 +310,21 @@ func number(raw json.RawMessage, name string, learned map[string]LearnedRef) (*f
 		return nil, fmt.Errorf("%s must be a number or a learned value", name)
 	}
 	return &n, nil
+}
+
+// learnedValueRef records the key a learned_value condition compares under
+// learned, with its top level fallback and max_age_s. Without a key nothing is
+// recorded.
+func learnedValueRef(rawCond json.RawMessage, learned map[string]LearnedRef) error {
+	var wv wireLearnedValue
+	if err := json.Unmarshal(rawCond, &wv); err != nil {
+		return err
+	}
+	if wv.Learned == "" {
+		return nil
+	}
+	learned["learned"] = LearnedRef{Key: wv.Learned, Fallback: wv.Fallback, MaxAgeS: wv.MaxAgeS}
+	return nil
 }
 
 // learnedRef records raw under name when it is a learned reference and reports
