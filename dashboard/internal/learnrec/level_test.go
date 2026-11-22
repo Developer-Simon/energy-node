@@ -12,12 +12,12 @@ func TestLimitsForLevels(t *testing.T) {
 		cores int
 		want  Limits
 	}{
-		{"eco 1 core", LevelEco, 1, Limits{Workers: 1, Budget: 2 * time.Second, LightEvery: 15 * time.Minute, MaxDevices: 64, RAMMinuteDays: 3, RAMMinuteBytes: 4 << 20, PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 5, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: false}},
-		{"eco 4 cores", LevelEco, 4, Limits{Workers: 1, Budget: 2 * time.Second, LightEvery: 15 * time.Minute, MaxDevices: 64, RAMMinuteDays: 3, RAMMinuteBytes: 4 << 20, PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 5, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: false}},
-		{"balanced 1 core", LevelBalanced, 1, Limits{Workers: 1, Budget: 10 * time.Second, LightEvery: 5 * time.Minute, MaxDevices: 128, RAMMinuteDays: 7, RAMMinuteBytes: 16 << 20, PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 2, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: true}},
-		{"balanced 4 cores", LevelBalanced, 4, Limits{Workers: 3, Budget: 10 * time.Second, LightEvery: 5 * time.Minute, MaxDevices: 128, RAMMinuteDays: 7, RAMMinuteBytes: 16 << 20, PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 2, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: true}},
-		{"full 1 core", LevelFull, 1, Limits{Workers: 1, Budget: 60 * time.Second, LightEvery: 1 * time.Minute, MaxDevices: 256, RAMMinuteDays: 14, RAMMinuteBytes: 64 << 20, PVCellAzDeg: 2, PVCellElDeg: 1, GeoStepDeg: 1, GeoSurfaces: 3, SimilarDays: 15, SimilarPoolDays: 0, SimilarLastYear: true}},
-		{"full 4 cores", LevelFull, 4, Limits{Workers: 3, Budget: 60 * time.Second, LightEvery: 1 * time.Minute, MaxDevices: 256, RAMMinuteDays: 14, RAMMinuteBytes: 64 << 20, PVCellAzDeg: 2, PVCellElDeg: 1, GeoStepDeg: 1, GeoSurfaces: 3, SimilarDays: 15, SimilarPoolDays: 0, SimilarLastYear: true}},
+		{"eco 1 core", LevelEco, 1, Limits{Workers: 1, Budget: 2 * time.Second, LightEvery: 15 * time.Minute, MaxDevices: 64, RAMMinuteDays: 3, RAMMinuteBytes: 4 << 20, PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 5, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: false, ThresholdSteps: 20, ReplayJointHold: false}},
+		{"eco 4 cores", LevelEco, 4, Limits{Workers: 1, Budget: 2 * time.Second, LightEvery: 15 * time.Minute, MaxDevices: 64, RAMMinuteDays: 3, RAMMinuteBytes: 4 << 20, PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 5, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: false, ThresholdSteps: 20, ReplayJointHold: false}},
+		{"balanced 1 core", LevelBalanced, 1, Limits{Workers: 1, Budget: 10 * time.Second, LightEvery: 5 * time.Minute, MaxDevices: 128, RAMMinuteDays: 7, RAMMinuteBytes: 16 << 20, PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 2, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: true, ThresholdSteps: 40, ReplayJointHold: false}},
+		{"balanced 4 cores", LevelBalanced, 4, Limits{Workers: 3, Budget: 10 * time.Second, LightEvery: 5 * time.Minute, MaxDevices: 128, RAMMinuteDays: 7, RAMMinuteBytes: 16 << 20, PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 2, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: true, ThresholdSteps: 40, ReplayJointHold: false}},
+		{"full 1 core", LevelFull, 1, Limits{Workers: 1, Budget: 60 * time.Second, LightEvery: 1 * time.Minute, MaxDevices: 256, RAMMinuteDays: 14, RAMMinuteBytes: 64 << 20, PVCellAzDeg: 2, PVCellElDeg: 1, GeoStepDeg: 1, GeoSurfaces: 3, SimilarDays: 15, SimilarPoolDays: 0, SimilarLastYear: true, ThresholdSteps: 80, ReplayJointHold: true}},
+		{"full 4 cores", LevelFull, 4, Limits{Workers: 3, Budget: 60 * time.Second, LightEvery: 1 * time.Minute, MaxDevices: 256, RAMMinuteDays: 14, RAMMinuteBytes: 64 << 20, PVCellAzDeg: 2, PVCellElDeg: 1, GeoStepDeg: 1, GeoSurfaces: 3, SimilarDays: 15, SimilarPoolDays: 0, SimilarLastYear: true, ThresholdSteps: 80, ReplayJointHold: true}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -178,5 +178,24 @@ func TestRecordShareKeepsFourteenDays(t *testing.T) {
 	}
 	if got := st.DailyShare[suggestNow.Format(dayLayout)]; got != 0 {
 		t.Errorf("today = %v, want 0", got)
+	}
+}
+
+func TestLimitsForReplayThreshold(t *testing.T) {
+	tests := []struct {
+		level     Level
+		steps     int
+		jointHold bool
+	}{
+		{LevelEco, 20, false},
+		{LevelBalanced, 40, false},
+		{LevelFull, 80, true},
+	}
+	for _, tt := range tests {
+		got := LimitsFor(tt.level, 4)
+		if got.ThresholdSteps != tt.steps || got.ReplayJointHold != tt.jointHold {
+			t.Errorf("LimitsFor(%s) = (steps %d, jointHold %v), want (%d, %v)",
+				tt.level, got.ThresholdSteps, got.ReplayJointHold, tt.steps, tt.jointHold)
+		}
 	}
 }

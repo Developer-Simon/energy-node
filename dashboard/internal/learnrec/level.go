@@ -33,6 +33,8 @@ type Limits struct {
 	SimilarDays     int
 	SimilarPoolDays int
 	SimilarLastYear bool
+	ThresholdSteps  int
+	ReplayJointHold bool
 }
 
 // LimitsFor liefert die Grenzen aus Spec 5.7 fuer die Stufe und die Kernzahl.
@@ -42,13 +44,13 @@ func LimitsFor(l Level, cores int) Limits {
 	switch l {
 	case LevelEco:
 		return Limits{Workers: 1, Budget: 2 * time.Second, LightEvery: 15 * time.Minute, MaxDevices: 64, RAMMinuteDays: 3, RAMMinuteBytes: 4 << 20,
-			PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 5, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: false}
+			PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 5, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: false, ThresholdSteps: 20, ReplayJointHold: false}
 	case LevelFull:
 		return Limits{Workers: workers, Budget: 60 * time.Second, LightEvery: 1 * time.Minute, MaxDevices: 256, RAMMinuteDays: 14, RAMMinuteBytes: 64 << 20,
-			PVCellAzDeg: 2, PVCellElDeg: 1, GeoStepDeg: 1, GeoSurfaces: 3, SimilarDays: 15, SimilarPoolDays: 0, SimilarLastYear: true}
+			PVCellAzDeg: 2, PVCellElDeg: 1, GeoStepDeg: 1, GeoSurfaces: 3, SimilarDays: 15, SimilarPoolDays: 0, SimilarLastYear: true, ThresholdSteps: 80, ReplayJointHold: true}
 	default:
 		return Limits{Workers: workers, Budget: 10 * time.Second, LightEvery: 5 * time.Minute, MaxDevices: 128, RAMMinuteDays: 7, RAMMinuteBytes: 16 << 20,
-			PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 2, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: true}
+			PVCellAzDeg: 5, PVCellElDeg: 3, GeoStepDeg: 2, GeoSurfaces: 2, SimilarDays: 7, SimilarPoolDays: 56, SimilarLastYear: true, ThresholdSteps: 40, ReplayJointHold: false}
 	}
 }
 
