@@ -57,7 +57,7 @@ appear while **Learn patterns** is on, and each works on its own.
   switching times, run times and devices that follow another device on or off.
 - **Reliability** turns the reliability checks of the
   [rule check](automations-rules.md#rule-check) on or off: flapping, no effect,
-  overridden and runs while offline.
+  overridden, runs while offline, feedback and competition.
 
 **Exclude devices** opens a picker for the devices that the learning leaves out.
 **Allow all** removes every exclusion. The trigger and value checks of the
