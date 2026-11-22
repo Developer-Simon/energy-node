@@ -1,13 +1,16 @@
 package autolearn
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sort"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
@@ -745,4 +748,166 @@ func WithDemoHouseState(vals []Value) []Value {
 	out := make([]Value, 0, len(vals)+1)
 	out = append(out, vals...)
 	return append(out, Value{Key: "site/house_state", Kind: ValueState, Group: "habit", Text: "quiet", N: demoHouseStateDays})
+}
+
+// Die Minutenaufzeichnung der Demo: die letzten drei Tage vor dem heutigen Tag
+// mit Leistung je Gerät, Bilanz und Außentemperatur, dazu am letzten Tag die
+// Reglerschritte des Szenarios der Demo. Die Dateien tragen keine Kennzeichnung,
+// sie liegen im Datenordner der Demo und verschwinden mit dessen Zurücksetzen.
+const (
+	demoMinuteDays = 3
+	// demoStepScenario ist das Szenario der Demo, das den Regler fährt (Nulleinspeisung).
+	demoStepScenario = "nulleinspeisung"
+	// demoStepEveryMin ist der Abstand der Reglerschritte in Minuten, von 06:00 bis 20:00.
+	demoStepEveryMin = 2
+	// demoStepTargetW ist der Zielwert der Nulleinspeisung, und demoStepDeadbandW
+	// die Totzone um ihn, wie in der Regel der Demo.
+	demoStepTargetW   = -30.0
+	demoStepDeadbandW = 20.0
+	// demoStepLimitMin und demoStepLimitMax sind die Grenzen des Stellwerts in W.
+	demoStepLimitMin = 50.0
+	demoStepLimitMax = 800.0
+	// demoStepGain ist der Verstärkungsfaktor des Reglers der Demo.
+	demoStepGain = 0.8
+)
+
+// SeedDemoMinutes schreibt die Minutenaufzeichnung der Demo nach dataDir, in
+// <dataDir>/learnrec/minutes: je Tag eine Datei mit den Minuten, am letzten Tag
+// zusätzlich die Reglerschritte des Szenarios. Vorhandene Dateien bleiben
+// unberührt, derselbe Aufruf schreibt dieselben Bytes.
+func SeedDemoMinutes(dataDir string, now time.Time, loc *time.Location) error {
+	if loc == nil {
+		loc = time.Local
+	}
+	days := demoDays(now.In(loc), loc)
+	rng := rand.New(rand.NewSource(demoSeed + 4))
+	for i := demoSeedDays - demoMinuteDays; i < demoSeedDays; i++ {
+		f := days[i]
+		path := minuteFileName(dataDir, f.Day)
+		if err := seedMinuteDay(path, f); err != nil {
+			return fmt.Errorf("autolearn: demo minutes: %w", err)
+		}
+		if i == demoSeedDays-1 {
+			if err := seedDemoSteps(dataDir, f, loc, rng); err != nil {
+				return fmt.Errorf("autolearn: demo steps: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+// minuteFileName ist die Minutendatei eines Tages am Basisverzeichnis dir.
+func minuteFileName(dir, day string) string {
+	return filepath.Join(dir, "learnrec", "minutes", day+".enm")
+}
+
+// seedMinuteDay schreibt die Minuten eines Demo-Tages in path, wenn die Datei fehlt.
+// Je Viertelstunde gilt ein Wert, für die Minuten einer Viertelstunde.
+func seedMinuteDay(path string, f DayFile) error {
+	if demoFileExists(path) {
+		return nil
+	}
+	var keys []string
+	var values [][]float32
+	add := func(key string, quarter func(q int) float32) {
+		row := make([]float32, minutesPerDayDemo)
+		for m := range row {
+			row[m] = quarter(m / 15)
+		}
+		keys = append(keys, key)
+		values = append(values, row)
+	}
+	ids := make([]string, 0, len(demoEntities))
+	for id := range demoEntities {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		dd := f.Devices[id]
+		add("e:"+demoEntities[id], func(q int) float32 { return dd.AvgW[q] })
+	}
+	add("b:load_total", func(q int) float32 { return f.Site.LoadTotal[q] })
+	add("b:grid_import", func(q int) float32 { return f.Site.GridImport[q] })
+	add("b:pv", func(q int) float32 { return f.Site.PV[q] })
+	add("t:outdoor", func(q int) float32 {
+		if p := f.Site.TempC[q]; p != nil {
+			return *p
+		}
+		return float32(math.NaN())
+	})
+
+	var buf bytes.Buffer
+	if _, err := learnrec.AppendBlock(&buf, f.Day, learnrec.MinuteBlock{Keys: keys, Values: values}, map[string]int{}); err != nil {
+		return err
+	}
+	return writeNewFile(path, buf.Bytes())
+}
+
+// minutesPerDayDemo ist die Zahl der Minuten eines Tages.
+const minutesPerDayDemo = 1440
+
+// seedDemoSteps schreibt die Reglerschritte des Szenarios am Tag f, wenn die
+// Datei fehlt. Der Regler zieht den Netzbezug auf den Zielwert: Netz ist PV minus
+// Last, der Stellwert folgt dem Fehler mit dem Verstärkungsfaktor und bleibt in
+// seinen Grenzen. Gesendet wird jeder Schritt, auch ohne Stellwertänderung.
+func seedDemoSteps(dataDir string, f DayFile, loc *time.Location, rng *rand.Rand) error {
+	path := stepFileName(dataDir, f.Day, demoStepScenario)
+	if demoFileExists(path) {
+		return nil
+	}
+	day, err := time.ParseInLocation(dayLayout, f.Day, loc)
+	if err != nil {
+		return err
+	}
+	var steps []Step
+	prev := demoStepLimitMax
+	for m := 6 * 60; m < 20*60; m += demoStepEveryMin {
+		q := m / 15
+		net := float64(f.Site.PV[q]-f.Site.LoadTotal[q]) + 5*rng.NormFloat64()
+		errW := net - demoStepTargetW
+		to, why := prev, StepUnchanged
+		switch {
+		case math.Abs(errW) <= demoStepDeadbandW:
+			why = StepDeadband
+		default:
+			raw := float64(prev) - demoStepGain*errW
+			switch {
+			case raw > demoStepLimitMax || raw < demoStepLimitMin:
+				to = math.Max(demoStepLimitMin, math.Min(demoStepLimitMax, math.Round(raw/10)*10))
+				why = StepLimit
+			default:
+				to = math.Round(raw/10) * 10
+				if to != prev {
+					why = StepSent
+				}
+			}
+		}
+		from32, to32 := float32(prev), float32(to)
+		at := time.Date(day.Year(), day.Month(), day.Day(), m/60, m%60, 0, 0, loc)
+		steps = append(steps, Step{At: at.Unix(), Err: float32(errW), Net: float32(net),
+			From: &from32, To: &to32, Why: why})
+		prev = to
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	var buf []byte
+	for _, st := range steps {
+		buf = append(buf, encodeStep(st)...)
+	}
+	return writeNewFile(path, buf)
+}
+
+// demoFileExists meldet, ob path existiert.
+func demoFileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// writeNewFile schreibt data nach path, nur wenn path noch nicht existiert.
+func writeNewFile(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
 }

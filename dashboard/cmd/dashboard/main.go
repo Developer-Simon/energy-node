@@ -507,6 +507,11 @@ func main() {
 				log.Printf("autolearn: demo profiles written to %s", demoDir)
 			}
 		}
+		// Die Minutenaufzeichnung liegt im Datenordner, dort liest der MinuteStore sie
+		// am Ort System. Die Demo schreibt sie bei jedem Start, vorhandene Dateien bleiben.
+		if err := autolearn.SeedDemoMinutes(dataDir, time.Now(), time.Local); err != nil {
+			log.Printf("autolearn: demo minutes: %v", err)
+		}
 	}
 	// PV-Himmelsraster: nur ungedrosselte PV-Minuten zaehlen. Standort und Regler
 	// kommen aus dem Regelwerk, das pvSite.refresh nur beim Speichern liest.
