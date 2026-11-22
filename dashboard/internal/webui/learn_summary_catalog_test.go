@@ -20,6 +20,7 @@ var summaryCodeLiteral = regexp.MustCompile(`Text\{Code: "([a-z_.]+)"`)
 var learnLineGaps = map[string]bool{
 	"check.contradiction":      true,
 	"check.duplicate":          true,
+	"check.feedback":           true,
 	"check.frequent":           true,
 	"check.never_fired":        true,
 	"check.orphan":             true,

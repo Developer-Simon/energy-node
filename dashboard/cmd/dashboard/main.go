@@ -561,7 +561,7 @@ func main() {
 	// Erkenner: Gewohnheiten (habit) und Zuverlaessigkeit (reliability).
 	for _, det := range []autolearn.Detector{
 		autolearn.SwitchTimeDetector, autolearn.RuntimeDetector, autolearn.CouplingDetector,
-		autolearn.FlappingDetector, autolearn.NoEffectDetector, autolearn.OverriddenDetector, autolearn.OfflineDetector,
+		autolearn.FlappingDetector, autolearn.FeedbackDetector, autolearn.NoEffectDetector, autolearn.OverriddenDetector, autolearn.OfflineDetector,
 		autolearn.AwayStandbyDetector,
 	} {
 		automationEngine.Register(det)
@@ -644,6 +644,15 @@ func main() {
 	monitoringLoop := newMonitoringRunner(monitoringStore, collectMonitoring)
 	learnHub.AddMinute("monitoring", monitoringLoop)
 	learnHub.AddSaver("monitoring", monitoringLoop)
+	// Die gelernten Werte der Engine, etwa die Betriebsleistung fuer die Rueckkopplung.
+	automationEngine.SetLearned(func() map[string]autolearn.LearnedEntry {
+		entries := learnedStore.Entries()
+		out := make(map[string]autolearn.LearnedEntry, len(entries))
+		for _, e := range entries {
+			out[e.Key] = e
+		}
+		return out
+	})
 	// Wochenwerte fuer den Saisonvergleich. Fehlt season.json, fuellt die
 	// Energiestatistik der letzten drei Jahre sie einmal nach.
 	seasonPath := filepath.Join(autolearnDir, "season.json")
