@@ -20,6 +20,8 @@ const (
 	checkerDocEvery = time.Minute
 	// checkerMaxFindings caps the findings the check reports.
 	checkerMaxFindings = 20
+	// checkerReplayEvery is how long the replay input is kept before it is built again.
+	checkerReplayEvery = 10 * time.Minute
 )
 
 // Checker runs the static and observed checks on the rule document and keeps
@@ -41,6 +43,11 @@ type Checker struct {
 	pv PVSource
 	// replay gives the input of the replay checks, nil until SetReplaySource is called.
 	replay func() *Input
+	// replayIn is the input built at replayAt, kept for checkerReplayEvery.
+	// replayBuilt is false until the first build.
+	replayIn    *Input
+	replayAt    time.Time
+	replayBuilt bool
 
 	mu sync.Mutex
 	// doc is the last rule document that parsed. docOK is false when the last
@@ -112,6 +119,32 @@ func (c *Checker) SetReplaySource(replay func() *Input) {
 	c.replay = replay
 }
 
+// replayInputLocked returns the replay input for the observed checks. It is
+// built only when the document has an enabled rule, and kept for
+// checkerReplayEvery after its build time. A nil result is kept as well.
+func (c *Checker) replayInputLocked(now time.Time) *Input {
+	if c.replay == nil || !c.docOK || !hasEnabledRule(c.doc) {
+		return nil
+	}
+	if c.replayBuilt {
+		if age := now.Sub(c.replayAt); age >= 0 && age < checkerReplayEvery {
+			return c.replayIn
+		}
+	}
+	c.replayIn, c.replayAt, c.replayBuilt = c.replay(), now, true
+	return c.replayIn
+}
+
+// hasEnabledRule reports whether the document has a rule that is switched on.
+func hasEnabledRule(doc Doc) bool {
+	for _, r := range doc.Rules {
+		if r.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
 // Findings returns the static, observed and reliability findings without the
 // ignored ones, ordered by severity and ID, at most 20. Ignored IDs of rules that no longer
 // exist are removed from the ignored file here.
@@ -123,11 +156,7 @@ func (c *Checker) Findings(now time.Time) []Finding {
 	// must follow at once, not up to checkerDocEvery later.
 	c.refreshLocked(now, true)
 	all := StaticFindings(c.doc, c.entityExists)
-	var in *Input
-	if c.replay != nil {
-		in = c.replay()
-	}
-	all = append(all, ObservedFindingsWithPV(c.doc, c.obs.Snapshot(), c.season, c.pv, in, now, c.thresholds)...)
+	all = append(all, ObservedFindingsWithPV(c.doc, c.obs.Snapshot(), c.season, c.pv, c.replayInputLocked(now), now, c.thresholds)...)
 	all = append(all, c.reliabilityLocked()...)
 	sort.SliceStable(all, func(i, j int) bool {
 		ri, rj := severityRank[all[i].Severity], severityRank[all[j].Severity]
@@ -302,9 +331,13 @@ func (c *Checker) reliabilityLocked() []Finding {
 	if c.engineCandidates == nil || c.reliabilityOn == nil || !c.docOK || !c.reliabilityOn() {
 		return nil
 	}
-	current := make(map[string]bool, len(c.doc.Rules))
+	// Scenario findings (regulator quality) name a scenario, which is a current target too.
+	current := make(map[string]bool, len(c.doc.Rules)+len(c.doc.Scenarios))
 	for _, rule := range c.doc.Rules {
 		current[rule.ID] = true
+	}
+	for _, sc := range c.doc.Scenarios {
+		current[sc.ID] = true
 	}
 	var out []Finding
 	for _, cand := range c.engineCandidates() {
