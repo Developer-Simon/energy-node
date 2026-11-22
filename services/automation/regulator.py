@@ -71,6 +71,7 @@ def compute_step(regulator: dict, *, net: float, base: float, last_value: Option
     if max_change is not None and last_value is not None:
         value = min(max(value, last_value - max_change), last_value + max_change)
     out = regulator["output"]
+    clamped = value < out["min"] or value > out["max"]
     value, payload = quantize(
         value,
         step=out.get("step"),
@@ -80,4 +81,4 @@ def compute_step(regulator: dict, *, net: float, base: float, last_value: Option
     )
     if last_value is not None and value == last_value:
         return RegulatorStep(error, None, None, "unchanged")
-    return RegulatorStep(error, value, payload, None)
+    return RegulatorStep(error, value, payload, "limit" if clamped else None)
