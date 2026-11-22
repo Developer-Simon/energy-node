@@ -56,6 +56,10 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 			continue
 		}
 
+		if c.Replay != nil && replayAddsGrid(*c.Replay) {
+			continue
+		}
+
 		conf := f.Confidence
 		var score float64
 		if f.Group != "check" {
@@ -70,6 +74,9 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 			}
 			if !pass || !compatible(f, doc) {
 				continue
+			}
+			if c.Replay != nil && c.Replay.Estimate && conf == "high" {
+				conf = "estimate"
 			}
 			score = kwh * confidenceWeight(conf)
 		}
@@ -210,6 +217,14 @@ var benefitMinimum = map[string]float64{
 	"kwh_week":     0.5,
 	"actions_week": 3,
 	"switches_day": 10,
+}
+
+// replayAddsGrid reports whether the suggestion draws more extra grid import
+// than the export it uses. Such a suggestion is dropped.
+func replayAddsGrid(v ReplayVerdict) bool {
+	extraGrid := v.Alt.GridWh - v.Base.GridWh
+	usedExport := v.Base.ExportWh - v.Alt.ExportWh
+	return extraGrid > usedExport
 }
 
 // benefitKWh converts a benefit to kWh per week with the fixed rates of spec
