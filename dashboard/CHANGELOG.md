@@ -6,7 +6,7 @@
 
 - **backup:** keep a restore alive when the battery state cannot be written (8fa7fdb)
 - **backup:** show the restore result even when the restart is not noticed (afca5ab)
-- **backup:** keep a restore alive without battery state and show its result (#288)
+- **backup:** A restore stays in place even when the battery state cannot be written, and ends with a notice instead of a rollback. (#288)
 
 ## v0.11.20 (2026-11-16)
 
