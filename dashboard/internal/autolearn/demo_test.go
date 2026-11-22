@@ -782,6 +782,29 @@ func TestDemoSeedYieldsRegulatorFinding(t *testing.T) {
 	}
 }
 
+// TestDemoRegulatorScenariosShareNoOutputTopic checks that the demo scenarios
+// with a regulator never drive the same output topic, so the demo does not
+// fight over the live limit of the PV inverter.
+func TestDemoRegulatorScenariosShareNoOutputTopic(t *testing.T) {
+	doc, err := ParseDoc(demoRulesRaw(t))
+	if err != nil {
+		t.Fatalf("parse demo rules: %v", err)
+	}
+	seen := map[string]string{}
+	for _, sc := range doc.Scenarios {
+		if sc.Regulator == nil {
+			continue
+		}
+		if other, ok := seen[sc.RegulatorTopic]; ok {
+			t.Errorf("scenarios %s and %s both drive %s", other, sc.ID, sc.RegulatorTopic)
+		}
+		seen[sc.RegulatorTopic] = sc.ID
+	}
+	if len(seen) < 2 {
+		t.Fatalf("demo regulator scenarios = %v, want two", seen)
+	}
+}
+
 // TestDemoSeedKeepsTheHabitSuggestions checks the suggestions the demo had
 // before the energy findings: run time of the dehumidifier and the away standby.
 func TestDemoSeedKeepsTheHabitSuggestions(t *testing.T) {

@@ -202,8 +202,7 @@
         "mode": "regulate",
         "regulator": {
           "output": {
-            "topic": "outstation/apsystems_dach/max_power_limit_w/set",
-            "entity_id": "apsystems_dach_max_power_limit",
+            "topic": "outstation/apsystems_dach/max_power_limit_last_w/set",
             "min": 50,
             "max": 800,
             "step": 10,
