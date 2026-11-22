@@ -28,6 +28,7 @@ LEARNABLE = {
     "time_window": ("start", "end", "hold_seconds"),
     "sun_window": ("hold_seconds",),
     "learned_state": ("hold_seconds",),
+    "learned_value": ("threshold", "hold_seconds"),
 }
 
 _TIME_FIELDS = ("start", "end")
@@ -212,9 +213,36 @@ def state_value(cond: dict, topic_values: dict, now_ts: float) -> tuple[str, str
     return value, "learned"
 
 
+def learned_number(cond: dict, store: dict, now_ts: float) -> tuple[float, str]:
+    """Zahl einer `learned_value`-Bedingung als (Wert, Herkunft). Fehlt oder altert
+    der Lernwert, gilt `fallback`. Anders als bei Bezugsangaben wird nicht geklemmt."""
+    payload = store.get(learned_topic(cond["learned"]))
+    value = _fresh_value(payload, "number", now_ts, cond.get("max_age_s", DEFAULT_MAX_AGE_S))
+    if value is None:
+        return cond["fallback"], "fallback"
+    return value, "learned"
+
+
+def evaluate_learned_value(cond: dict, store: dict, now_ts: float, latched: bool = False) -> bool:
+    """Vergleicht den Lernwert mit der Schwelle. `store` bildet Topics auf den
+    Payload-Text ab, wie topic_values in der Engine. Eine Schwelle als Bezugsangabe
+    wird hier aufgeloest. Mit hysteresis > 0 zaehlt `latched`, der Zustand der letzten
+    Auswertung: wahr bleibt wahr, bis der Wert um die Hysterese zurueckfaellt (wie
+    balance_threshold)."""
+    value, _ = learned_number(cond, store, now_ts)
+    threshold = cond["threshold"]
+    if is_ref(threshold):
+        threshold, _ = resolve_ref(threshold, "number", store.get(learned_topic(threshold["learned"])), now_ts)
+    hysteresis = cond.get("hysteresis", 0)
+    held = latched and hysteresis > 0
+    if cond["comparison"] == "above":
+        return value >= threshold - hysteresis if held else value > threshold
+    return value <= threshold + hysteresis if held else value < threshold
+
+
 def cond_learned_keys(cond: dict) -> set[str]:
     keys: set[str] = set()
-    if cond.get("type") == "learned_state" and isinstance(cond.get("learned"), str):
+    if cond.get("type") in ("learned_state", "learned_value") and isinstance(cond.get("learned"), str):
         keys.add(cond["learned"])
     for field in LEARNABLE.get(cond.get("type"), ()):
         ref = cond.get(field)
