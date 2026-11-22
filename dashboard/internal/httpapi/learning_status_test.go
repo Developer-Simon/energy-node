@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -23,6 +24,8 @@ type fakeLearning struct {
 	value    settings.Settings
 	state    learnrec.State
 	usage    autolearn.Usage
+	minutes  learnrec.MinuteUsage
+	driveOK  bool
 	chainS   [2]int64
 	chainL   [2]int64
 	setup    bool
@@ -39,6 +42,8 @@ func (f *fakeLearning) deps() *LearningDeps {
 		ChainSuggestInfo: func() (int64, int) { return f.chainS[0], int(f.chainS[1]) },
 		ChainLearnInfo:   func() (int64, int) { return f.chainL[0], int(f.chainL[1]) },
 		SetupDone:        func() bool { return f.setup },
+		Minutes:          func() learnrec.MinuteUsage { return f.minutes },
+		DriveConfigured:  func() bool { return f.driveOK },
 		Reset: func() error {
 			f.resets++
 			if f.resetErr != nil {
@@ -307,5 +312,95 @@ func TestLearningWithoutDepsAnswers501(t *testing.T) {
 	handleLearningStatus(nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/learning/status", nil))
 	if recorder.Code != http.StatusNotImplemented {
 		t.Fatalf("status without deps: %d, want 501", recorder.Code)
+	}
+}
+
+func TestLearningStatusMinutesWithoutDriveIsRAM(t *testing.T) {
+	got := learningStatus(settings.Settings{}, &LearningDeps{}, 1)
+	if got.Minutes.Location != "ram" || !got.Minutes.AutoLocation || got.Minutes.DriveConfigured {
+		t.Fatalf("minutes without drive = %+v, want ram, auto_location, no drive", got.Minutes)
+	}
+	if !got.Minutes.On || got.Minutes.Days != learnrec.MinuteDaysDefault {
+		t.Fatalf("minutes on/days = %v/%d, want on and %d days", got.Minutes.On, got.Minutes.Days, learnrec.MinuteDaysDefault)
+	}
+	if slices.Contains(got.New, minutesDriveKey) {
+		t.Fatalf("new = %v, want no %s without drive", got.New, minutesDriveKey)
+	}
+}
+
+func TestLearningStatusMinutesDriveAutoIsNewUntilAcknowledged(t *testing.T) {
+	deps := &LearningDeps{DriveConfigured: func() bool { return true }}
+	got := learningStatus(settings.Settings{}, deps, 1)
+	if got.Minutes.Location != "drive" || !got.Minutes.AutoLocation || !got.Minutes.DriveConfigured {
+		t.Fatalf("minutes with drive and auto = %+v, want drive, auto_location", got.Minutes)
+	}
+	if !slices.Contains(got.New, minutesDriveKey) {
+		t.Fatalf("new = %v, want %s", got.New, minutesDriveKey)
+	}
+
+	acknowledged := settings.Settings{LearningAcknowledged: []string{minutesDriveKey}}
+	if got := learningStatus(acknowledged, deps, 1); slices.Contains(got.New, minutesDriveKey) {
+		t.Fatalf("acknowledged: new = %v, want no %s", got.New, minutesDriveKey)
+	}
+}
+
+func TestLearningStatusMinutesExplicitLocationGivesNoHint(t *testing.T) {
+	deps := &LearningDeps{DriveConfigured: func() bool { return true }}
+	for _, location := range []string{"ram", "system", "drive"} {
+		got := learningStatus(settings.Settings{LearningMinutesLocation: location}, deps, 1)
+		if got.Minutes.AutoLocation {
+			t.Errorf("location %s: auto_location = true", location)
+		}
+		if slices.Contains(got.New, minutesDriveKey) {
+			t.Errorf("location %s: new = %v, want no %s", location, got.New, minutesDriveKey)
+		}
+	}
+}
+
+func TestLearningStatusMinutesOffGivesNoHint(t *testing.T) {
+	deps := &LearningDeps{DriveConfigured: func() bool { return true }}
+	got := learningStatus(settings.Settings{LearningMinutesMode: "off"}, deps, 1)
+	if got.Minutes.On {
+		t.Fatal("mode off: on = true")
+	}
+	if slices.Contains(got.New, minutesDriveKey) {
+		t.Fatalf("mode off: new = %v, want no %s", got.New, minutesDriveKey)
+	}
+}
+
+func TestLearningStatusMinutesUsageFields(t *testing.T) {
+	fake := &fakeLearning{
+		driveOK: true,
+		minutes: learnrec.MinuteUsage{Bytes: 4096, WrittenPerDay: 512, Since: 1794000000, Keys: 7, RAMDays: 3, DriveDown: true},
+	}
+	router, manager := learningTestRouter(t, fake.deps())
+	cookie, _ := loginWithRoles(t, router, manager, "automata", []string{auth.RoleViewAutomations})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, sessionRequest(t, "/api/v1/learning/status", cookie, true))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status: %d %s", recorder.Code, recorder.Body.String())
+	}
+	var got struct {
+		Minutes map[string]any `json:"minutes"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{
+		"on": true, "location": "drive", "auto_location": true, "drive_configured": true,
+		"drive_down": true, "days": float64(learnrec.MinuteDaysDefault), "ram_days": float64(3),
+		"bytes": float64(4096), "written_per_day": float64(512), "since": float64(1794000000), "keys": float64(7),
+	}
+	if !reflect.DeepEqual(got.Minutes, want) {
+		t.Fatalf("minutes = %v\nwant %v", got.Minutes, want)
+	}
+}
+
+func TestLearningMinutesSettingsNeedEditSetup(t *testing.T) {
+	for _, key := range []string{"learning_minutes_mode", "learning_minutes_location", "learning_minutes_days"} {
+		if got := settingsFieldRoles[key]; got != auth.RoleEditSetup {
+			t.Errorf("%s: role %q, want %q", key, got, auth.RoleEditSetup)
+		}
 	}
 }

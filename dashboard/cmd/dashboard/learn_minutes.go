@@ -20,10 +20,11 @@ const automationServiceID = "automation"
 // minuteSnapshot ist, was die Minutenaufzeichnung aus Einstellungen, Laufwerk
 // und Lernstufe braucht. Der Minutenweg liest ihn atomar, ohne Datei und ohne Lock.
 type minuteSnapshot struct {
-	plan    learnrec.MinutePlan
-	dirs    learnrec.MinuteDirs
-	driveUp bool
-	limits  learnrec.Limits
+	plan            learnrec.MinutePlan
+	dirs            learnrec.MinuteDirs
+	driveUp         bool
+	driveConfigured bool
+	limits          learnrec.Limits
 }
 
 // minuteSnapshotFor baut den Schnappschuss. Das Laufwerksverzeichnis ist nur
@@ -35,7 +36,7 @@ func minuteSnapshotFor(value settings.Settings, driveUUID string, status storage
 		Location: value.LearningMinutesLocation,
 		Days:     value.LearningMinutesDays,
 	}, driveUUID != "")
-	snap := &minuteSnapshot{plan: plan, dirs: learnrec.MinuteDirs{System: dataDir}, limits: limits}
+	snap := &minuteSnapshot{plan: plan, dirs: learnrec.MinuteDirs{System: dataDir}, driveConfigured: driveUUID != "", limits: limits}
 	if status.Mode == storage.ModeDrive {
 		snap.driveUp = true
 		snap.dirs.Drive = storage.DriveRuntimeDir(storage.Paths{Mount: mount})
@@ -111,8 +112,11 @@ func (r *minuteRecording) Refresh() {
 func (r *minuteRecording) plan() learnrec.MinutePlan { return r.snap.Load().plan }
 func (r *minuteRecording) dirs() learnrec.MinuteDirs { return r.snap.Load().dirs }
 func (r *minuteRecording) driveUp() bool             { return r.snap.Load().driveUp }
-func (r *minuteRecording) limits() learnrec.Limits   { return r.snap.Load().limits }
-func (r *minuteRecording) stepDir() string           { return r.snap.Load().stepDir() }
+
+// DriveConfigured meldet, ob ein Laufwerk eingerichtet ist, wie der Schnappschuss es sieht.
+func (r *minuteRecording) DriveConfigured() bool   { return r.snap.Load().driveConfigured }
+func (r *minuteRecording) limits() learnrec.Limits { return r.snap.Load().limits }
+func (r *minuteRecording) stepDir() string         { return r.snap.Load().stepDir() }
 
 // Flush schreibt Minuten und Schritte an den Ort. Beide laufen, auch wenn der
 // eine einen Fehler meldet.

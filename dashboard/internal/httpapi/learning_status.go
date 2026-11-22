@@ -25,8 +25,16 @@ type LearningDeps struct {
 	// Rules reads the automation rule document. Its site location gives
 	// location_set in the status. Nil or an unreadable document reads as no location.
 	Rules func() ([]byte, error)
-	Reset func() error
+	// Minutes reads the minute recording store. Nil reads as nothing recorded.
+	Minutes func() learnrec.MinuteUsage
+	// DriveConfigured reports whether a storage drive is set up. It resolves
+	// the automatic location of the minute recording. Nil reads as no drive.
+	DriveConfigured func() bool
+	Reset           func() error
 }
+
+// minutesDriveKey is the new-hint of the minute recording that moved to the drive.
+const minutesDriveKey = "minutes_drive"
 
 // learningStatusBody is the answer of GET /api/v1/learning/status.
 type learningStatusBody struct {
@@ -39,6 +47,23 @@ type learningStatusBody struct {
 	Acknowledged []string             `json:"acknowledged"`
 	New          []string             `json:"new"`
 	LocationSet  bool                 `json:"location_set"`
+	Minutes      minutesBody          `json:"minutes"`
+}
+
+// minutesBody is the minute recording part of the status. Days and location are
+// the resolved settings, the rest is the store's usage.
+type minutesBody struct {
+	On              bool   `json:"on"`
+	Location        string `json:"location"`
+	AutoLocation    bool   `json:"auto_location"`
+	DriveConfigured bool   `json:"drive_configured"`
+	DriveDown       bool   `json:"drive_down"`
+	Days            int    `json:"days"`
+	RAMDays         int    `json:"ram_days"`
+	Bytes           int64  `json:"bytes"`
+	WrittenPerDay   int64  `json:"written_per_day"`
+	Since           int64  `json:"since"`
+	Keys            int    `json:"keys"`
 }
 
 type learningFeaturesBody struct {
@@ -107,11 +132,39 @@ func learningStatus(value settings.Settings, deps *LearningDeps, cores int) lear
 		"chain_learning":    chainLearn.On,
 		"auto_patterns":     patterns.On,
 	}
+	driveConfigured := deps.DriveConfigured != nil && deps.DriveConfigured()
+	plan := learnrec.ResolveMinutes(learnrec.MinuteSettings{
+		Mode:     value.LearningMinutesMode,
+		Location: value.LearningMinutesLocation,
+		Days:     value.LearningMinutesDays,
+	}, driveConfigured)
+	minutes := minutesBody{
+		On:              plan.On,
+		Location:        string(plan.Location),
+		AutoLocation:    plan.AutoLocation,
+		DriveConfigured: driveConfigured,
+		Days:            plan.Days,
+	}
+	if deps.Minutes != nil {
+		store := deps.Minutes()
+		minutes.DriveDown = store.DriveDown
+		minutes.RAMDays = store.RAMDays
+		minutes.Bytes = store.Bytes
+		minutes.WrittenPerDay = store.WrittenPerDay
+		minutes.Since = store.Since
+		minutes.Keys = store.Keys
+	}
+
 	news := []string{}
 	for _, key := range settings.LearningFeatures() {
 		if features[key] && !learningAcknowledged(acknowledged, key) {
 			news = append(news, key)
 		}
+	}
+	// The minute recording moved to the drive by itself (automatic location, not
+	// acknowledged yet). An explicit location never gives this hint.
+	if plan.On && plan.AutoLocation && plan.Location == learnrec.LocDrive && !learningAcknowledged(acknowledged, minutesDriveKey) {
+		news = append(news, minutesDriveKey)
 	}
 
 	fresh := false
@@ -138,6 +191,7 @@ func learningStatus(value settings.Settings, deps *LearningDeps, cores int) lear
 		Acknowledged: acknowledged,
 		New:          news,
 		LocationSet:  locationSet,
+		Minutes:      minutes,
 	}
 }
 
