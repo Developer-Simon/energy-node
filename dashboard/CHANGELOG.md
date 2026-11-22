@@ -54,7 +54,7 @@
 - **automations:** draw Ist and Soll curves in one chart (5f880ad)
 - **monitoring:** open the suggestion from its notice (9eaa37c)
 - **monitoring:** collect the suggestions under their own filter (add1bab)
-- **autolearn:** The rule check finds feedback loops, competition for the surplus, a rising base load and a battery that is full too early or empty at night (#292)
+- **autolearn:** The rule check finds feedback, competition for the surplus, a rising base load and battery problems (#292)
 - **i18n:** add the view_monitoring texts (0385648)
 - **auth:** add the view_monitoring right (44c40f9)
 - **monitoring:** collect notices from energy, chains and learning (e85d98c)
