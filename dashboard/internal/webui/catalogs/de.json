@@ -1237,6 +1237,8 @@
   "backup.https_only.title": "Backup nur über HTTPS",
   "backup.import.code.apply_failed": "Ein Teil des Archivs konnte nicht geschrieben werden. Der vorherige Stand wurde zurückgeholt.",
   "backup.import.code.interrupted": "Die Wiederherstellung wurde unterbrochen. Der vorherige Stand wurde zurückgeholt.",
+  "backup.import.code.partial_battery": "Der Zustand der Batterie konnte nicht geschrieben werden, weil der Zielordner auf diesem Gerät nicht beschreibbar ist. Alles andere wurde wiederhergestellt.",
+  "backup.import.code.partial_stats": "Einige Monatsdateien der Statistik waren nicht lesbar und wurden übersprungen. Alles andere wurde wiederhergestellt.",
   "backup.import.corrupt.text": "Die Datei ist unvollständig oder verändert. Es wurde nichts verändert.",
   "backup.import.corrupt.title": "Dieses Archiv ist beschädigt.",
   "backup.import.failed": "Das Archiv konnte nicht wiederhergestellt werden.",

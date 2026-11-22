@@ -167,6 +167,9 @@
 .bs-done h4 { margin: .35rem 0 0; color: var(--text-strong); font-size: 1.1rem; font-weight: 600; letter-spacing: -.012em; }
 .bs-done .setting-note { margin: 0; }
 .bs-done-mark svg { display: block; width: 3.4rem; height: 3.4rem; fill: none; stroke: var(--ok); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.bs-done-mark.failed svg { stroke: var(--bad); }
+.bs-done-mark.failed path { stroke-dasharray: 42; stroke-dashoffset: 42; }
+.bs-done-detail { overflow-wrap: anywhere; font-family: var(--mono, ui-monospace, monospace); font-size: .8rem; }
 .bs-done-mark circle { stroke-dasharray: 132; stroke-dashoffset: 132; transform: rotate(-90deg); transform-origin: center; }
 .bs-done-mark path { stroke-dasharray: 34; stroke-dashoffset: 34; }
 .bs-done-mark.drawn circle { stroke-dashoffset: 0; transition: stroke-dashoffset .42s cubic-bezier(.23, 1, .32, 1); }

@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Eine Wiederherstellung bleibt erhalten, auch wenn der Akkustand nicht geschrieben werden kann"
+  },
+  "en": {
+    "*": "Keep a restore alive without battery state and show its result"
+  }
+}

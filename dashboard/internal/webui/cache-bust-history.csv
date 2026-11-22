@@ -1,4 +1,6 @@
 version,date,asset,v,note
+v0.11.21,2026-11-21,css/backup.css,2,
+v0.11.21,2026-11-21,js/backup.page.js,3,
 v0.11.18,2026-11-16,js/device-modal.js,6,
 v0.11.18,2026-11-16,js/onboarding-actions.js,4,
 v0.11.18,2026-11-16,js/onboarding-model.js,6,

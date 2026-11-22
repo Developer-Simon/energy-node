@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.11.21 (2026-11-21)
+
+### Fixes
+
+- **backup:** keep a restore alive when the battery state cannot be written (8fa7fdb)
+- **backup:** show the restore result even when the restart is not noticed (afca5ab)
+- **backup:** A restore stays in place even when the battery state cannot be written (#288)
+
 ## v0.11.20 (2026-11-16)
 
 ### Features
