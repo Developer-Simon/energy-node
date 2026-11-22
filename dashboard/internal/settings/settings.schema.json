@@ -77,7 +77,7 @@
     "wide_panels": {
       "type": "array",
       "items": {"type": "string", "enum": ["overview", "devices", "history", "diagnostics",
-                "config", "energy", "layout", "devicemap", "settings", "automations"]},
+                "config", "energy", "layout", "devicemap", "settings", "automations", "efficiency", "monitoring"]},
       "default": ["overview", "devices", "history", "layout", "settings"],
       "title": "Tabs ohne Breitendeckelung",
       "description": "Tabs, die die volle Fensterbreite nutzen duerfen statt der 1180px-Lesebreite."

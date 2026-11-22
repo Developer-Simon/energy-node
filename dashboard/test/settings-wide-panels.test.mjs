@@ -21,7 +21,7 @@ const fieldSource = fs.readFileSync(
 );
 const templateSource = fs.readFileSync(path.join(webui, 'templates', 'settings.html'), 'utf8');
 
-const ALL_TABS = ['overview', 'devices', 'history', 'config', 'energy', 'layout', 'devicemap', 'diagnostics', 'settings', 'automations'];
+const ALL_TABS = ['overview', 'devices', 'history', 'config', 'energy', 'layout', 'devicemap', 'diagnostics', 'settings', 'automations', 'efficiency', 'monitoring'];
 
 class FakeChoices {
   constructor() { this.currentValues = []; }

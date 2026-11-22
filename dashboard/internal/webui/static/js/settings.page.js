@@ -142,6 +142,8 @@
       {key: 'diagnostics', label: 'nav.diagnostics'},
       {key: 'settings', label: 'nav.settings'},
       {key: 'automations', label: 'nav.automations'},
+      {key: 'efficiency', label: 'nav.efficiency'},
+      {key: 'monitoring', label: 'nav.monitoring'},
     ],
     statusBarItems: [],
     // Schluessel, wie sie runtimeStatusPanel() in dashboard.js interpretiert.
