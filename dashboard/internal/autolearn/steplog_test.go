@@ -361,3 +361,34 @@ func TestStepLogResetClearsRAMAndStepFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestStepLogRingIsBoundedWhileFilesKeepTheirDays(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Date(2026, 11, 20, 10, 0, 0, 0, time.Local)
+	l := NewStepLog(func() int { return 3 }, func() string { return dir }).WithRingDays(func() int { return 1 })
+	l.now = func() time.Time { return now }
+	for _, back := range []int{2, 1, 0} {
+		at := now.AddDate(0, 0, -back)
+		if err := l.Add("heizung", stepPayload(float64(at.Unix()), -5, -5, fptr(1200), fptr(1200), "unchanged")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The first flush writes the old days, the second one drops them from the ring.
+	for i := 0; i < 2; i++ {
+		if err := l.Flush(now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := len(l.steps["heizung"]); got != 1 {
+		t.Fatalf("ring holds %d steps, want only today", got)
+	}
+	for _, back := range []int{2, 1} {
+		day := now.AddDate(0, 0, -back).Format(dayLayout)
+		if _, err := os.Stat(stepFileName(dir, day, "heizung")); err != nil {
+			t.Fatalf("file of day -%d missing: %v", back, err)
+		}
+	}
+	if got := l.Steps("heizung", now.AddDate(0, 0, -3), now); len(got) != 3 {
+		t.Fatalf("Steps = %d, want 3 (two days from files, today from RAM)", len(got))
+	}
+}

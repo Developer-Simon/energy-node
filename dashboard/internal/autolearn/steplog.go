@@ -58,11 +58,13 @@ type StepDay struct {
 	OutWhExport float32 `json:"out_exp"`
 }
 
-// StepLog haelt die Reglerschritte je Szenario im RAM. Die Aufbewahrung folgt
-// days. dir liefert das Basisverzeichnis: dort liegt je Szenario und Tag die
-// Datei learnrec/minutes/JJJJ-MM-TT.<szenario>.steps. Leer heisst nur RAM.
+// StepLog haelt die Reglerschritte je Szenario im RAM. Die Aufbewahrung der
+// Dateien folgt days. Der RAM-Ring haelt ring Tage, standardmaessig days. dir
+// liefert das Basisverzeichnis: dort liegt je Szenario und Tag die Datei
+// learnrec/minutes/JJJJ-MM-TT.<szenario>.steps. Leer heisst nur RAM.
 type StepLog struct {
 	days func() int
+	ring func() int
 	dir  func() string
 	now  func() time.Time
 
@@ -129,24 +131,36 @@ func (l *StepLog) Add(scenario string, payload []byte) error {
 	return nil
 }
 
+// WithRingDays setzt die Zahl der Tage im RAM-Ring, getrennt von den Tagen der
+// Dateien. Ohne diesen Aufruf zaehlt der Ring wie die Dateien.
+func (l *StepLog) WithRingDays(ring func() int) *StepLog {
+	l.ring = ring
+	return l
+}
+
 // Steps liefert die Schritte des Szenarios mit einem Zeitpunkt von from bis to,
-// beide Enden einschliesslich. Aeltere Tage liest es aus den Dateien am Ort,
-// die juengeren aus dem RAM. Ohne Ort zaehlt nur das RAM.
+// beide Enden einschliesslich. Vor dem Ring liest es aus den Dateien am Ort, im
+// Ring aus dem RAM. Ein Schritt vor dem Ring steht im RAM, wenn er noch nicht
+// in der Datei steht oder die Datei schon verfallen ist. Ohne Ort zaehlt nur das RAM.
 func (l *StepLog) Steps(scenario string, from, to time.Time) []Step {
-	cutoff := l.cutoff(l.now())
+	now := l.now()
+	ringCut := l.ringCutoff(now)
+	fileCut := l.fileCutoff(now)
 	dir := l.dir()
 	var out []Step
-	if dir != "" && from.Unix() < cutoff {
-		out = l.readFiles(dir, scenario, from, to, cutoff)
+	if dir != "" && from.Unix() < ringCut {
+		out = l.readFiles(dir, scenario, from, to, ringCut)
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	for _, st := range l.steps[scenario] {
+	written := l.written[scenario]
+	for i, st := range l.steps[scenario] {
 		if st.At < from.Unix() || st.At > to.Unix() {
 			continue
 		}
-		if dir != "" && st.At < cutoff {
-			continue // steht in der Datei oder ist schon verfallen
+		inFile := dir != "" && st.At < ringCut && i < written && st.At >= fileCut
+		if inFile {
+			continue // steht in der Datei, die readFiles liest
 		}
 		out = append(out, st)
 	}
@@ -160,7 +174,8 @@ func (l *StepLog) Steps(scenario string, from, to time.Time) []Step {
 func (l *StepLog) Flush(now time.Time) error {
 	l.flushMu.Lock()
 	defer l.flushMu.Unlock()
-	cutoff := l.cutoff(now)
+	ringCut := l.ringCutoff(now)
+	fileCut := l.fileCutoff(now)
 	dir := l.dir()
 
 	type job struct {
@@ -174,7 +189,9 @@ func (l *StepLog) Flush(now time.Time) error {
 		keep := list[:0]
 		dropped := 0
 		for i, st := range list {
-			if st.At < cutoff {
+			// Ein Schritt vor dem Ring geht, sobald er in der Datei steht. Ohne Ort
+			// gibt es keine Datei, dort geht er gleich.
+			if st.At < ringCut && (dir == "" || i < w) {
 				if i < w {
 					dropped++
 				}
@@ -211,7 +228,7 @@ func (l *StepLog) Flush(now time.Time) error {
 			errs = append(errs, err)
 		}
 	}
-	if err := pruneStepFiles(dir, time.Unix(cutoff, 0).In(time.Local).Format(dayLayout)); err != nil {
+	if err := pruneStepFiles(dir, time.Unix(fileCut, 0).In(time.Local).Format(dayLayout)); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
@@ -243,11 +260,24 @@ func (l *StepLog) DayFigures(day string) map[string]*StepDay {
 	return out
 }
 
-// cutoff ist der Anfang des ersten Tages, den der Ring behaelt.
-func (l *StepLog) cutoff(now time.Time) int64 {
-	n := max(1, l.days())
+// ringCutoff ist der Anfang des ersten Tages, den der RAM-Ring behaelt.
+func (l *StepLog) ringCutoff(now time.Time) int64 {
+	n := l.days()
+	if l.ring != nil {
+		n = l.ring()
+	}
+	return dayCutoff(now, n)
+}
+
+// fileCutoff ist der Anfang des ersten Tages, dessen Datei am Ort bleibt.
+func (l *StepLog) fileCutoff(now time.Time) int64 {
+	return dayCutoff(now, l.days())
+}
+
+// dayCutoff ist der Anfang des Tages, der n Tage bis einschliesslich heute zaehlt.
+func dayCutoff(now time.Time, n int) int64 {
 	local := now.In(time.Local)
-	first := time.Date(local.Year(), local.Month(), local.Day()-(n-1), 0, 0, 0, 0, time.Local)
+	first := time.Date(local.Year(), local.Month(), local.Day()-(max(1, n)-1), 0, 0, 0, 0, time.Local)
 	return first.Unix()
 }
 

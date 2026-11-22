@@ -1512,6 +1512,9 @@ func main() {
 				if err := minutes.Flush(start); err != nil {
 					log.Printf("energy-node-dashboard: learning minutes not flushed: %v", err)
 				}
+				if took := time.Since(start); took > 2*time.Second {
+					log.Printf("energy-node-dashboard: learning minutes flush took %s", took.Round(time.Millisecond))
+				}
 			}
 		}
 	}()

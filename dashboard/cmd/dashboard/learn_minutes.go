@@ -80,8 +80,18 @@ func newMinuteRecording(src minuteSources) *minuteRecording {
 	r := &minuteRecording{src: src}
 	r.Refresh()
 	r.store = learnrec.NewMinuteStore(time.Local, r.plan, r.dirs, r.driveUp, r.limits, log.Printf)
-	r.steps = autolearn.NewStepLog(func() int { return r.snap.Load().plan.Days }, r.stepDir)
+	r.steps = autolearn.NewStepLog(func() int { return r.snap.Load().plan.Days }, r.stepDir).WithRingDays(r.stepRingDays)
 	return r
+}
+
+// stepRingDays ist die Zahl der Tage im RAM-Ring der Schritte. Sie folgt dem
+// RAM-Budget wie die Minuten im RAM: die Bytes eines vollen Tages sind die
+// Kanaele mal 1440 Minuten mal 4 Byte je Wert. Der Ort aendert den Ring nicht.
+func (r *minuteRecording) stepRingDays() int {
+	const bytesPerValue = 4
+	const minutesPerDay = 1440
+	keys := r.store.Usage().Keys
+	return learnrec.RAMDays(r.limits(), int64(keys)*minutesPerDay*bytesPerValue)
 }
 
 // Refresh liest Einstellungen, Laufwerk und Lernstufe und ersetzt den
