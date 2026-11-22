@@ -5080,6 +5080,10 @@ func TestScenarioCardsShareTheFindingMark(t *testing.T) {
 	if strings.Contains(string(rule), "findingFor(rule.id)?.severity") {
 		t.Fatal("Regelkarte: die Befundmarke steht noch inline")
 	}
+	// Die Vorlage kennt keine Regel-Variable, nur den Schluessel der Aufrufstelle.
+	if strings.Contains(string(partial), "rule.id") || strings.Contains(string(partial), "scenario.id") {
+		t.Fatal("Befundmarke: die Vorlage nennt eine feste Variable statt {{.key}}")
+	}
 	for _, want := range []string{
 		`findingFor({{.key}}.id)`,
 		`{{if eq .tour "rule"}}data-tour="rule-finding-mark"{{end}}`,
