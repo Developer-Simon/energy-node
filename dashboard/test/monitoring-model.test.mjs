@@ -13,6 +13,8 @@ const source = fs.readFileSync(path.join(jsDir, 'monitoring-model.js'), 'utf8');
 
 function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  // Zahlen kommen aus I18n.formatNumber, hier mit deutschem Tausenderpunkt.
+  dom.window.I18n = { formatNumber: (value) => Number(value).toLocaleString('de-DE') };
   vm.runInContext(source, dom.getInternalVMContext());
   return dom.window.MonitoringModel;
 }
@@ -113,4 +115,56 @@ test('weekRanges joins runs', () => {
   assert.equal(M.weekRanges([45, 4], tWeeks), '4 und 45');
   assert.equal(M.weekRanges([12], tWeeks), '12');
   assert.equal(M.weekRanges([], tWeeks), '');
+});
+
+const NOW = 1794000000;
+
+test('learnedGroups lists all five site keys and marks missing ones', () => {
+  const values = [{ key: 'site/day_start', kind: 'time', value: '06:10', n: 4, at: NOW - 60, changed_at: NOW - 300 }];
+  const groups = M.learnedGroups(values, NOW, t);
+  assert.equal(groups[0].id, 'site');
+  assert.equal(groups[0].total, 5);
+  assert.equal(groups[0].have, 1);
+  assert.deepEqual(groups[0].rows.map((r) => r.key), [
+    'site/day_start', 'site/night_rest', 'site/house_state', 'site/pv_reserve_w', 'site/surplus_left_wh',
+  ]);
+  const dayStart = groups[0].rows[0];
+  assert.equal(dayStart.have, true);
+  assert.equal(dayStart.value, '06:10 Uhr');
+  const missing = groups[0].rows[1];
+  assert.equal(missing.have, false);
+  assert.equal(missing.value, 'monitoring.learned.missing');
+  assert.equal(missing.meta, 'monitoring.learned.missing_days');
+  assert.equal(groups[0].rows[3].meta, 'monitoring.learned.missing_pv');
+});
+
+test('learnedGroups orders device values on, off, runtime, power, cycle', () => {
+  const values = [
+    { key: 'device/pump/usual_runtime_s', kind: 'duration', value: 600, device_name: 'Pumpe', device_icon: 'ico-pump' },
+    { key: 'device/pump/cycle_wh', kind: 'number', value: 90, unit: 'Wh', device_name: 'Pumpe', device_icon: 'ico-pump' },
+    { key: 'device/pump/usual_on', kind: 'time', value: '06:00', device_name: 'Pumpe', device_icon: 'ico-pump' },
+    { key: 'device/pump/op_power_w', kind: 'number', value: 1930, unit: 'W', device_name: 'Pumpe', device_icon: 'ico-pump' },
+    { key: 'device/pump/usual_off', kind: 'time', value: '07:00', device_name: 'Pumpe', device_icon: 'ico-pump' },
+  ];
+  const device = M.learnedGroups(values, NOW, t)[1];
+  assert.equal(device.id, 'device/pump');
+  assert.equal(device.label, 'Pumpe');
+  assert.equal(device.icon, 'ico-pump');
+  assert.deepEqual(device.rows.map((r) => r.key.split('/')[2]), ['usual_on', 'usual_off', 'usual_runtime_s', 'op_power_w', 'cycle_wh']);
+});
+
+test('origin uses singular for one day', () => {
+  const one = M.learnedGroups([{ key: 'site/day_start', kind: 'time', value: '06:10', n: 1, at: NOW - 60, changed_at: NOW - 300 }], NOW, t)[0].rows[0];
+  assert.equal(one.meta.split(' · ')[0], 'monitoring.learned.origin.days_one');
+  assert.equal(one.meta.split(' · ')[1], 'monitoring.learned.origin.changed{"age":"5 min"}');
+  const many = M.learnedGroups([{ key: 'site/day_start', kind: 'time', value: '06:10', n: 3, at: NOW - 60 }], NOW, t)[0].rows[0];
+  assert.equal(many.meta.split(' · ')[0], 'monitoring.learned.origin.days{"n":3}');
+});
+
+test('valueText formats time, duration, number and state', () => {
+  assert.equal(M.valueText({ kind: 'time', value: '22:30' }, t), '22:30 Uhr');
+  assert.equal(M.valueText({ kind: 'duration', value: 20520 }, t), '5 h 42 min');
+  assert.equal(M.valueText({ kind: 'number', value: 1930, unit: 'W' }, t), '1.930 W');
+  assert.equal(M.valueText({ kind: 'state', value: 'active' }, t), 'automations.learned.state.active');
+  assert.equal(M.valueText({ kind: 'state', value: 'quiet' }, t), 'automations.learned.state.quiet');
 });
