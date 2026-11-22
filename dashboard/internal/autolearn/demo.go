@@ -27,6 +27,8 @@ const (
 	demoPlugDry = "plug_entfeuchter"
 	// demoRelais ist das Kellerrelais, das die Balkonsteckdose mitschaltet.
 	demoRelais = "relais_keller"
+	// demoDryer ist der Wäschetrockner, der mittags aus der Sonne läuft, ohne Regel.
+	demoDryer = "waeschetrockner"
 	// demoHeatPump ist die Wärmepumpe, deren Modus die Demo-Regel schaltet.
 	demoHeatPump = "waermepumpe"
 	// demoRuleID ist die Regel „Akku leer, WP aus“ der Demo. Sie schaltet die
@@ -111,10 +113,11 @@ var demoEntities = map[string]string{
 	demoRelais:       "relais_keller_switch_1",
 	demoHeatPump:     "waermepumpe_mode",
 	demoWasherDevice: "waschmaschine_steckdose",
+	demoDryer:        "waeschetrockner_steckdose",
 }
 
 // demoWatts ist die Leistung der Demo-Geräte, wenn sie laufen.
-var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500, demoWasherDevice: 2000}
+var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500, demoWasherDevice: 2000, demoDryer: 500}
 
 // SeedDemo schreibt die Tagesdateien der letzten 21 Tage vor now in dir, für die
 // Geräte der Demo. Jede Datei trägt "fake": true, die Konsole der Demo entfernt
@@ -165,6 +168,8 @@ func demoDaysWith(now time.Time, loc *time.Location, rise bool) []DayFile {
 	wash := rand.New(rand.NewSource(demoSeed + 1))
 	// Die Wärmepumpenzyklen haben einen eigenen Zufallsstrom aus demselben Grund.
 	heat := rand.New(rand.NewSource(demoSeed + 3))
+	// Der Trockner hat einen eigenen Zufallsstrom.
+	dry := rand.New(rand.NewSource(demoSeed + 5))
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	out := make([]DayFile, 0, demoSeedDays)
 	for i := 0; i < demoSeedDays; i++ {
@@ -265,6 +270,7 @@ func demoDaysWith(now time.Time, loc *time.Location, rise bool) []DayFile {
 		b.battery()
 		if i < demoAwayFrom || i > demoAwayTo {
 			b.heatCycle(heat)
+			b.dryer(dry)
 		}
 		if demoCompetitionDays[i] {
 			b.competition()
@@ -282,7 +288,7 @@ func demoDaysWith(now time.Time, loc *time.Location, rise bool) []DayFile {
 // ist gedrosselt, ein Schatten liegt im Westen über dem Horizont. Der
 // Wetterfaktor k ist 0,9 an klaren Tagen und 0,4 an bedeckten.
 const (
-	demoPVPeakW     = 5000.0
+	demoPVPeakW     = 6500.0
 	demoPVTiltDeg   = 30.0
 	demoPVAzDeg     = 180.0
 	demoPVAzCellDeg = 5.0
@@ -386,6 +392,24 @@ func (b *demoBuilder) heatCycle(rng *rand.Rand) {
 	rec.DurS = int(wh / opW * 3600)
 	rec.End = "self"
 	b.f.Cycles = append(b.f.Cycles, rec)
+}
+
+// dryer schreibt den Lauf des Wäschetrockners: zwei Stunden um Mittag, 1000 Wh
+// bei 500 W, aus der Sonne. Der Lauf ist eine Messung, keine Schaltung, deshalb
+// entstehen dafür keine Ereignisse und keine Befunde der Gewohnheiten.
+func (b *demoBuilder) dryer(rng *rand.Rand) {
+	wh := 1000 + 30*rng.NormFloat64()
+	opW := 500 + 10*rng.NormFloat64()
+	start := 720 + 60*rng.Float64() - 30
+	rec := CycleRec{Device: demoDryer, Wh: float32(wh), OpW: float32(opW), PV: 1}
+	rec.Start = b.at(start).Unix()
+	rec.DurS = int(wh / opW * 3600)
+	rec.End = "self"
+	b.f.Cycles = append(b.f.Cycles, rec)
+	on := int(math.Round(start))
+	b.changes[demoDryer] = append(b.changes[demoDryer],
+		demoChange{minute: on, on: true},
+		demoChange{minute: on + rec.DurS/60, on: false})
 }
 
 // competition schreibt die Konkurrenz des Tages: die Regel der Wärmepumpe und die
@@ -671,6 +695,7 @@ func (b *demoBuilder) fill(rng *rand.Rand) {
 		b.f.Site.Seen[q] = dayCounterMax
 		b.f.Site.LoadTotal[q] = float32(300 + load[q] + 10*rng.NormFloat64())
 		b.f.Site.GridImport[q] = b.f.Site.LoadTotal[q]
+		b.f.Site.GridExport[q] = float32(math.Max(0, float64(b.f.Site.PV[q]-b.f.Site.LoadTotal[q])))
 	}
 }
 

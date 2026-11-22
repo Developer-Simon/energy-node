@@ -196,7 +196,7 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 	for _, d := range []Detector{SwitchTimeDetector, RuntimeDetector, CouplingDetector, OverriddenDetector,
 		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector,
 		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector, BaseLoadDetector,
-		ThresholdDetector, RegulatorDetector} {
+		ThresholdDetector, RegulatorDetector, SurplusDetector} {
 		e.Register(d)
 	}
 	// The energy checks read the operating powers the engine learned before them.
@@ -802,6 +802,21 @@ func TestDemoRegulatorScenariosShareNoOutputTopic(t *testing.T) {
 	}
 	if len(seen) < 2 {
 		t.Fatalf("demo regulator scenarios = %v, want two", seen)
+	}
+}
+
+// TestDemoSeedYieldsSurplusFinding checks that the demo dryer, which runs at
+// midday on solar power and no rule switches on surplus, gets a surplus window.
+func TestDemoSeedYieldsSurplusFinding(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]Candidate{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = c
+	}
+	const id = "surplus:" + demoDryer
+	if _, ok := ids[id]; !ok {
+		t.Errorf("no %s in the demo pipeline, ids %v", id, candidateIDs(ids))
 	}
 }
 
