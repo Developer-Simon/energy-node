@@ -113,3 +113,19 @@ regulator without an output, an output that another scenario already uses, a
 minimum above the maximum, a gain outside 0.1 to 1, an inverter without a
 fallback value, or a repeat that is shorter than the minimum interval for
 commands.
+
+### Regulator steps
+
+A regulating scenario publishes every step it calculates, whether or not the
+output changes. The node keeps the steps of each scenario, in memory and on the
+same place and for the same days as the
+[minute values](settings.md#learning-features). Each step has one of four
+reasons:
+
+- **sent**: the new output went to the device.
+- **deadband**: the error lies inside the tolerance band, so nothing was sent.
+- **unchanged**: the output would be the same as before, so nothing was sent.
+- **limit**: the output was held at its minimum or maximum.
+
+A step whose command was blocked counts as sent with the output unchanged,
+because nothing reached the device.
