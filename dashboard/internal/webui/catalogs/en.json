@@ -3131,6 +3131,7 @@
   "error.monitoring_ack_invalid": "The notice ID is not valid.",
   "error.monitoring_ack_unknown": "This notice no longer exists.",
   "error.monitoring_save_failed": "The acknowledgement could not be saved.",
+  "error.monitoring_unavailable": "Monitoring is not available on this instance.",
   "error.mqtt_config_forbidden": "You do not have permission for this MQTT action",
   "error.mqtt_config_forbidden.credentials": "You do not have permission for MQTT credentials",
   "error.mqtt_config_forbidden.reconnect": "You do not have permission to reconnect",

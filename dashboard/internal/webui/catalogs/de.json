@@ -3131,6 +3131,7 @@
   "error.monitoring_ack_invalid": "Die Kennung der Meldung ist ungültig.",
   "error.monitoring_ack_unknown": "Diese Meldung gibt es nicht mehr.",
   "error.monitoring_save_failed": "Die Quittung konnte nicht gespeichert werden.",
+  "error.monitoring_unavailable": "Monitoring ist auf dieser Instanz nicht verfügbar.",
   "error.mqtt_config_forbidden": "Für diese MQTT-Aktion fehlt die Berechtigung",
   "error.mqtt_config_forbidden.credentials": "Für MQTT-Zugangsdaten fehlt die Berechtigung",
   "error.mqtt_config_forbidden.reconnect": "Für den Reconnect fehlt die Berechtigung",
