@@ -21,7 +21,7 @@
     pv_reserve_w: 'automations.learned.key.pv_reserve_w',
     surplus_left_wh: 'automations.learned.key.surplus_left_wh',
   };
-  const FIELD_KIND = { start: 'time', end: 'time', hold_seconds: 'duration', threshold: 'number', value: 'number' };
+  const FIELD_KIND = { start: 'time', end: 'time', hold_seconds: 'duration', threshold: 'number', value: 'number', learned: 'number' };
   const LEARNABLE = {
     balance_threshold: ['threshold', 'hold_seconds'],
     topic_value: ['value', 'hold_seconds'],
@@ -29,6 +29,8 @@
     time_window: ['start', 'end', 'hold_seconds'],
     sun_window: ['hold_seconds'],
     learned_state: ['hold_seconds'],
+    // learned ist der gelernte Zahlwert selbst, threshold darf eine Bezugsangabe sein.
+    learned_value: ['learned', 'threshold', 'hold_seconds'],
   };
 
   const norm = (m) => ((m % DAY) + DAY) % DAY;
@@ -109,6 +111,14 @@
     if (type === 'learned_state' && field === 'learned') return 'state';
     const fields = LEARNABLE[type] || [];
     return fields.includes(field) ? FIELD_KIND[field] : null;
+  }
+
+  // Einheit aus dem Namensende eines Lernwerts: _w ist W, _wh ist Wh, sonst keine.
+  function unitOfKey(key) {
+    const name = String(key || '');
+    if (name.endsWith('_wh')) return 'Wh';
+    if (name.endsWith('_w')) return 'W';
+    return '';
   }
 
   // Vorbelegung der Bezugsangabe aus dem festen Wert. Ohne gueltigen Wert keine Vorbelegung.
@@ -326,5 +336,5 @@
     return coords.length >= YEAR_MIN_WEEKS ? coords.join(' ') : null;
   }
 
-  window.AutomationLearned = { isRef, kindOf, resolve, prefill, choices, keyLabel, validate, origin, valueSuffix, scale, yearLine, yearPlot };
+  window.AutomationLearned = { isRef, kindOf, resolve, prefill, choices, keyLabel, unitOfKey, validate, origin, valueSuffix, scale, yearLine, yearPlot };
 })();

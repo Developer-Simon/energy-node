@@ -1234,12 +1234,12 @@ test('save frischt den Geraetekatalog auf, bevor es die Auto-Praefixe bildet', a
 
 // --- Typ-Kacheln und Hilfetexte -------------------------------------------
 
-test('CONDITION_TYPES liefert genau die fuenf anbietbaren Bedingungstypen', () => {
+test('CONDITION_TYPES liefert genau die sechs anbietbaren Bedingungstypen', () => {
   const { component } = createAutomationsPanel();
   const types = component.conditionTypes();
   // Spread statt direktem .map()-Vergleich: das Array kommt aus dem vm-Sandbox-
   // Realm der Komponente, deepEqual vergleicht sonst auch das Array-Prototyp.
-  assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state']);
+  assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state', 'learned_value']);
   assert.equal(types[0].label, 'Energiewert');
   for (const entry of types) {
     assert.ok(entry.icon.startsWith('ico-'), `${entry.key} hat kein Sprite-Icon`);
@@ -3125,10 +3125,10 @@ const testChains = [{
 
 test('the chain tile is hidden without chains and shows with one', () => {
   const { component } = createAutomationsPanel();
-  assert.deepEqual([...component.conditionTypes().map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state']);
+  assert.deepEqual([...component.conditionTypes().map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state', 'learned_value']);
   component.chains = [...testChains];
   const keys = [...component.conditionTypes().map((entry) => entry.key)];
-  assert.deepEqual(keys, ['balance', 'entity', 'time', 'sun', 'chain', 'learned_state']);
+  assert.deepEqual(keys, ['balance', 'entity', 'time', 'sun', 'chain', 'learned_state', 'learned_value']);
   const tile = component.conditionTypes().find((entry) => entry.key === 'chain');
   assert.equal(tile.icon, 'ico-chain');
   assert.equal(tile.label, 'Messkette');

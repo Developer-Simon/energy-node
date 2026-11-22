@@ -2348,6 +2348,12 @@
                              hold_seconds: Math.max(LEARNED_STATE_HOLD_S, this.minPublishInterval()) });
     },
 
+    // Gelernter Zahlwert: PV-Reserve ueber 1500 W, mit Hysterese und Ersatzwert. Der Ausgangswert entspricht dem Beispiel im Plan.
+    addLearnedValueCondition(rule) {
+      rule.conditions.push({ type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500,
+                             hysteresis: 100, fallback: 0, max_age_s: 1800, hold_seconds: 0 });
+    },
+
     // Eintrag des Endpunkts zu einem Lernwert-Schluessel, sonst null.
     learnedEntry(key) {
       return this.learnedList().find((value) => value && value.key === key) || null;
@@ -2388,6 +2394,12 @@
     // Einheit der Lernwerte fuer ein Zahlfeld: Schwellen in W, sonst die Einheit der Entitaet.
     learnUnitOf(condition, field) {
       if (this.learnKind(condition, field) !== 'number') return undefined;
+      // Der gelernte Zahlwert selbst nimmt jede Einheit, die Schwelle die des Lernwerts oder ihrer Bezugsangabe.
+      if (field === 'learned') return undefined;
+      if (condition.type === 'learned_value') {
+        const ref = isRefValue(condition.threshold) ? condition.threshold.learned : condition.learned;
+        return window.AutomationLearned.unitOfKey(ref) || undefined;
+      }
       if (field === 'threshold') return 'W';
       const entity = this.entityForCondition(condition);
       return (entity && entity.unit_of_measurement) || undefined;
@@ -2535,7 +2547,9 @@
         const kind = AL.kindOf(condition.type, field);
         if (kind && AL.isRef(condition[field])) codes.push(...AL.validate(condition[field], kind));
       }
-      if (condition.type === 'learned_state') codes.push(...AL.validate({ learned: condition.learned }, 'state'));
+      if (condition.type === 'learned_state' || condition.type === 'learned_value') {
+        codes.push(...AL.validate({ learned: condition.learned }, 'state'));
+      }
       const keys = {
         'learned.min_max': 'automations.learned.error.min_max',
         'learned.fallback_range': 'automations.learned.error.fallback_range',
@@ -2716,6 +2730,7 @@
       if (key === 'time') result = this.addTimeWindowCondition(rule);
       if (key === 'sun') result = this.addSunWindowCondition(rule);
       if (key === 'learned_state') result = this.addLearnedStateCondition(rule);
+      if (key === 'learned_value') result = this.addLearnedValueCondition(rule);
       if (key === 'chain') result = this.addChainCondition(rule);
       this.loadEditLive(rule);
       return result;

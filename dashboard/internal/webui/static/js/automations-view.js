@@ -81,7 +81,7 @@
     return event.reason ? [{ kind: 'reason', title: '', text: event.reason }] : [];
   }
 
-  // i18n-keys: automations.condition_type.balance.hint, automations.condition_type.balance.label, automations.condition_type.entity.hint, automations.condition_type.entity.label, automations.condition_type.sun.hint, automations.condition_type.sun.label, automations.condition_type.time.hint, automations.condition_type.time.label, automations.condition_type.learned_state.short, automations.learned.state.condition, automations.learned.state.help
+  // i18n-keys: automations.condition_type.balance.hint, automations.condition_type.balance.label, automations.condition_type.entity.hint, automations.condition_type.entity.label, automations.condition_type.sun.hint, automations.condition_type.sun.label, automations.condition_type.time.hint, automations.condition_type.time.label, automations.condition_type.learned_state.short, automations.condition_type.learned_value.short, automations.learned.state.condition, automations.learned.state.help, automations.learned.value.condition, automations.learned.value.help
   // Was der Bearbeiten-Modus als Bedingung anbieten darf. "balance" heisst
   // bewusst Energiewert und nicht PV-Ueberschuss: der Typ balance_threshold
   // deckt jedes Bilanzfeld ab - Netzbezug, Autarkiegrad, Batterie-Fuellstand -,
@@ -102,6 +102,9 @@
     // kommen aus den Lernwert-Texten, die Kurzform hat eigene Texte.
     { key: 'learned_state', icon: 'ico-learning', label: 'automations.learned.state.condition',
       hint: 'automations.learned.state.help', short: 'automations.condition_type.learned_state.short' },
+    // Gelernter Zahlwert gegen eine feste Schwelle oder eine Bezugsangabe, etwa die PV-Reserve.
+    { key: 'learned_value', icon: 'ico-learning', label: 'automations.learned.value.condition',
+      hint: 'automations.learned.value.help', short: 'automations.condition_type.learned_value.short' },
   ];
 
   // i18n-keys: automations.chain.signal.finding, automations.chain.signal.loss_w, automations.chain.signal.efficiency_pct, automations.chain.signal.standby_w, automations.chain.kind.any, automations.chain.once, automations.chain.min_age, automations.chain.missing, automations.summary.chain_finding, automations.summary.chain_value, diagnostics.rule.chain_drift.title, diagnostics.rule.chain_frozen.title, diagnostics.rule.chain_contradiction.title, diagnostics.rule.chain_sign.title, diagnostics.rule.chain_unit.title
@@ -345,7 +348,8 @@
   function learnedValue(condition, field, learned) {
     const AL = window.AutomationLearned;
     const cond = condition || {};
-    const ref = cond.type === 'learned_state' && field === 'learned'
+    // learned_state und learned_value tragen den Lernwert flach am Typ.
+    const ref = (cond.type === 'learned_state' || cond.type === 'learned_value') && field === 'learned'
       ? { learned: cond.learned, fallback: cond.fallback, max_age_s: cond.max_age_s }
       : cond[field];
     if (!AL || !AL.isRef(ref)) return null;
@@ -477,6 +481,19 @@
       const to = formatSunPoint(condition.to, condition.to_offset_min);
       return { icon: 'ico-sun', title: t('automations.sun_window'), unit: '',
                summary: `${from} – ${to}${weekdaySuffix(condition)}` };
+    }
+    if (type === 'learned_value') {
+      // Einheit: die der Schwelle, wenn sie eine Bezugsangabe ist, sonst die des Lernwerts.
+      const AL = window.AutomationLearned;
+      const thresholdKey = AL && AL.isRef(condition.threshold) ? condition.threshold.learned : condition.learned;
+      const unit = AL ? AL.unitOfKey(thresholdKey) : '';
+      const name = AL ? AL.keyLabel(condition.learned, learned && learned.devices, t) : String(condition.learned || '');
+      const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
+      const threshold = shownValue(condition, 'threshold', learned);
+      const summaryKey = condition.hysteresis ? 'automations.summary.learned_value_hysteresis' : 'automations.summary.learned_value';
+      // i18n-keys: automations.summary.learned_value, automations.summary.learned_value_hysteresis
+      const summary = t(summaryKey, { name, comparison, threshold, unit, hysteresis: condition.hysteresis }).trim();
+      return { icon: 'ico-learning', title: t('automations.learned.value.condition'), unit, summary };
     }
     if (type === 'learned_state') {
       const state = condition.equals === 'active' ? 'automations.learned.state.active' : 'automations.learned.state.quiet';
