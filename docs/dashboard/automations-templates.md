@@ -65,6 +65,7 @@ When feed-in stays above the chosen power. Running: the charging power follows t
 
 - Start power: 1400, 2000 or 3000 W for 3 minutes
 - Plugged-in vehicle: required, if the option is on
+- Source: feed-in or PV reserve. PV reserve also uses the power the inverter curtails, and its rule compares the learned PV reserve
 
 ## Switch a device on surplus
 
@@ -85,6 +86,7 @@ When feed-in is high enough. Running: the device stays on while the condition ho
 ### Options
 
 - Feed-in: 1000, 1500 or 2500 W for 2 minutes
+- Source: feed-in or PV reserve. PV reserve also uses the power the inverter curtails, and its rule compares the learned PV reserve
 - Repeat: the switch command each minute, optional
 - Weekdays: chosen weekdays, optional
 
@@ -424,3 +426,54 @@ Needs a source switch that reports its state, and a target switch that you can c
 
 - Source state: switches on, or switches off
 - Target action: switch on, or switch off
+
+## Move load into the surplus
+
+Starts a device in the surplus of the day, once the surplus left today covers the cycle energy of the device. A second rule starts it at the latest start time if that did not happen.
+
+### Category
+
+Time
+
+### Creates
+
+Rule (two rules)
+
+### Phases
+
+When the surplus left today covers the cycle energy of the device, feed-in is there, and the time is before the latest start time. Then: the device switches on. The second rule switches the device on at the latest start time, once a day. The device switches itself off after its cycle.
+
+The cycle energy comes from the learned value of the device. Until it has been learned, 1000 Wh applies. The second rule does not know whether the device already ran today. A cooldown of 24 hours only prevents a repeat.
+
+### Requirements
+
+Needs a switchable device.
+
+### Options
+
+- Feed-in: 1000, 1500 or 2500 W for 2 minutes
+- Latest start: a clock time, default 18:00
+
+## Device after full battery
+
+Switches a device on as soon as the battery is full and feed-in is there. It switches off when grid import is high.
+
+### Category
+
+Switching
+
+### Creates
+
+Scenario
+
+### Phases
+
+When the battery is above 96 % and feed-in is above 100 W for 2 minutes. Running: the device stays on. Ends: when grid import stays above 100 W for 2 minutes. On start the switch turns on, on end it turns off.
+
+### Requirements
+
+Needs a switchable device and a battery with a state of charge.
+
+### Options
+
+- Minimum runtime: none, short (180 s), standard (300 s) or long (600 s)

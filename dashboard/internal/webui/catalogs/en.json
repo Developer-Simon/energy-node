@@ -4531,7 +4531,7 @@
   "settings.learning.auto.check_body": "always runs. Without the reliability checks it only needs the trigger history and writes nothing new.",
   "settings.learning.auto.check_title": "Rule check",
   "settings.learning.auto.energy": "Energy",
-  "settings.learning.auto.energy_help": "Heating season by outdoor temperature, device cycles, PV reserve and shade. Learns below which temperature the heating runs and how much power the devices draw.",
+  "settings.learning.auto.energy_help": "Heating season by outdoor temperature, device cycles, PV reserve and shade. Learns below which temperature the heating runs and how much power the devices draw. Suggests surplus windows, thresholds, load shifts, devices after a full battery and regulator values, each checked by a replay of the last days.",
   "settings.learning.auto.excluded": "Exclude devices",
   "settings.learning.auto.fine": "Fine-tuning",
   "settings.learning.auto.habits": "Habits",
