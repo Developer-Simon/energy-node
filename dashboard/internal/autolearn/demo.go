@@ -912,11 +912,18 @@ func seedDemoSteps(dataDir string, f DayFile, loc *time.Location, rng *rand.Rand
 // Totzeit 1, so wie der nächtliche Erkenner sie messen kann.
 const demoStepScenarioLast = "nulleinspeisung_last"
 
+// demoStepBaseLoadW ist die feste Grundlast der Regler-Schritte in W. Sie hängt
+// nicht am Lastprofil der Tage, damit Geräte der Demo die Schritte nicht ändern.
+const demoStepBaseLoadW = 300.0
+
+// demoStepJumpW ist der Sprung der Last je Viertelstunde in W.
+const demoStepJumpW = 15.0
+
 // seedDemoStepsLast schreibt die Reglerschritte des Szenarios mit der Basis
 // „last“ am Tag f, wenn die Datei fehlt. Die Schritte liegen von 09:00 bis 14:00,
 // dort liegt die PV über der Last, der Stellwert bestimmt also das Netz. Das Netz
 // ist das kleinere von PV und dem Stellwert des vorigen Schritts, abzüglich der
-// Last und einer langsam driftenden Last. So folgt die Netzänderung der
+// festen Grundlast und einer langsam driftenden Last. So folgt die Netzänderung der
 // Stellwertänderung im nächsten Schritt, K = 1 und Totzeit 1.
 func seedDemoStepsLast(dataDir string, f DayFile, loc *time.Location, rng *rand.Rand) error {
 	path := stepFileName(dataDir, f.Day, demoStepScenarioLast)
@@ -930,11 +937,16 @@ func seedDemoStepsLast(dataDir string, f DayFile, loc *time.Location, rng *rand.
 	var buf []byte
 	prev := demoStepLimitMax
 	drift := 0.0
+	load := demoStepBaseLoadW
 	for m := 9 * 60; m < 14*60; m++ {
 		q := m / 15
+		if m%15 == 0 {
+			// Die Last springt je Viertelstunde, wie die Verbraucher des Hauses.
+			load = demoStepBaseLoadW + demoStepJumpW*rng.NormFloat64()
+		}
 		// Die Last driftet langsam, so ändert der Regler den Stellwert regelmäßig.
 		drift += 4 * rng.NormFloat64()
-		net := math.Min(float64(f.Site.PV[q]), prev) - float64(f.Site.LoadTotal[q]) - drift
+		net := math.Min(float64(f.Site.PV[q]), prev) - load - drift
 		errW := net - demoStepTargetW
 		to, why := prev, StepUnchanged
 		switch {
