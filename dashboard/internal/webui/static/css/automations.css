@@ -976,6 +976,8 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-learn-is { display: grid; gap: .3rem; transform-origin: left center; animation: auto-learn-chart-in 180ms var(--ease-out) both; }
 .auto-learn-lane { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: .5rem; align-items: center; }
 .auto-learn-lane-label { font-size: .72rem; font-weight: 600; color: var(--text-muted); }
+.auto-learn-scale-bar { margin: .6rem 0 .25rem; font-size: .78rem; font-weight: 600; color: var(--text); }
+.auto-learn-scale-bar:first-child { margin-top: 0; }
 .auto-learn-lane.is-soll .auto-learn-lane-label { color: var(--accent-line); }
 .auto-learn-lane-svg { display: block; width: 100%; height: 16px; background: var(--sunken); border-radius: 5px; }
 .auto-learn-lane-svg .auto-learn-ist { fill: var(--flow-rest); }
