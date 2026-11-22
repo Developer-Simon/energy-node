@@ -91,6 +91,13 @@ type Scenario struct {
 type RegulatorSpec struct {
 	DeadbandW float64
 	MaxW      float64
+	// Gain is the regulator gain (gain, default 0.8).
+	Gain float64
+	// MaxChangeW is the largest change per step in W (max_change_w), nil for no limit.
+	MaxChangeW *float64
+	// BaseSource is the regulator base (base.source): last, entity or balance.
+	// Every base other than last is a measured base.
+	BaseSource string
 }
 
 // wireDoc mirrors the JSON of the rule document. Unknown fields are ignored.
@@ -195,7 +202,12 @@ type wireRegulator struct {
 		Topic string  `json:"topic"`
 		Max   float64 `json:"max"`
 	} `json:"output"`
-	DeadbandW *float64 `json:"deadband_w"`
+	DeadbandW  *float64 `json:"deadband_w"`
+	Gain       *float64 `json:"gain"`
+	MaxChangeW *float64 `json:"max_change_w"`
+	Base       struct {
+		Source string `json:"source"`
+	} `json:"base"`
 }
 
 // ParseDoc parses the rule document. Unknown fields are ignored.
@@ -243,9 +255,16 @@ func ParseDoc(raw []byte) (Doc, error) {
 // spec returns the learning view of the regulator block. A missing deadband_w
 // takes the schema default of 20 W.
 func (wr *wireRegulator) spec() *RegulatorSpec {
-	spec := &RegulatorSpec{DeadbandW: 20, MaxW: wr.Output.Max}
+	spec := &RegulatorSpec{DeadbandW: 20, MaxW: wr.Output.Max, Gain: 0.8, BaseSource: wr.Base.Source}
 	if wr.DeadbandW != nil {
 		spec.DeadbandW = *wr.DeadbandW
+	}
+	if wr.Gain != nil {
+		spec.Gain = *wr.Gain
+	}
+	if wr.MaxChangeW != nil {
+		v := *wr.MaxChangeW
+		spec.MaxChangeW = &v
 	}
 	return spec
 }

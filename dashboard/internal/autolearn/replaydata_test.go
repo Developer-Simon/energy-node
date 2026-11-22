@@ -284,3 +284,14 @@ func TestEngineInputCarriesTheMinuteReader(t *testing.T) {
 		t.Fatal("after SetMinutes the input has no reader")
 	}
 }
+
+func TestEngineInputCarriesTheSteps(t *testing.T) {
+	e := newTestEngine(t, learnrec.Limits{})
+	if got := e.input(replayTestNow(), learnrec.Limits{}, nil); got.Steps != nil {
+		t.Fatal("without SetSteps the input has a step reader")
+	}
+	e.SetSteps(func(string, time.Time, time.Time) []Step { return nil })
+	if got := e.input(replayTestNow(), learnrec.Limits{}, nil); got.Steps == nil {
+		t.Fatal("after SetSteps the input has no step reader")
+	}
+}

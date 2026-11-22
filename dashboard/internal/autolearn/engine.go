@@ -71,6 +71,7 @@ type Engine struct {
 	pv        func() (PVModel, *Raster, bool)
 	learned   func() map[string]LearnedEntry
 	minutes   func() learnrec.Reader
+	steps     func(scenario string, from, to time.Time) []Step
 	// recentC is the mean outdoor temperature of the last three days as the
 	// last round read it, nil when unknown.
 	recentC *float64
@@ -424,9 +425,13 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 	in.PV = e.pv
 	learned := e.learned
 	minutes := e.minutes
+	steps := e.steps
 	e.mu.Unlock()
 	if minutes != nil {
 		in.Minutes = minutes()
+	}
+	if steps != nil {
+		in.Steps = steps
 	}
 	if learned != nil {
 		in.Learned = learned()
@@ -460,6 +465,14 @@ func (e *Engine) SetMinutes(f func() learnrec.Reader) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.minutes = f
+}
+
+// SetSteps gives the engine the regulator steps. A round passes the reader
+// into Input.Steps. Without it the detectors that need the steps find nothing.
+func (e *Engine) SetSteps(f func(scenario string, from, to time.Time) []Step) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.steps = f
 }
 
 // SetOutdoor gives the engine the outdoor temperature entity. It is read on

@@ -47,6 +47,10 @@ type Input struct {
 	// Minutes reads the minute record. Nil when none is wired, and the replay
 	// then works from the quarter hours of the day files.
 	Minutes learnrec.Reader
+	// Steps reads the regulator steps of a scenario from and to, both ends
+	// included. Nil when no step log is wired, and the detectors that need the
+	// steps then find nothing.
+	Steps func(scenario string, from, to time.Time) []Step
 }
 
 // OutdoorSource names the outdoor temperature entity: its unique id, its state

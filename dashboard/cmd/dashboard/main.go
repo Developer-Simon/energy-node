@@ -788,6 +788,8 @@ func main() {
 	var minuteReader learnrec.Reader = minutes.store
 	// Die Minutenaufzeichnung fuer das Nachspielen der Engine.
 	automationEngine.SetMinutes(func() learnrec.Reader { return minuteReader })
+	// Die Reglerschritte fuer die Regelguete der Nulleinspeisung.
+	automationEngine.SetSteps(minutes.steps.Steps)
 	go runStorageResume(ctx, storageService)
 	// Die Belegung der Systemplatte: in der Demo feste Werte, sonst eine Messung
 	// im Hintergrund, die alle zehn Minuten erneuert wird.

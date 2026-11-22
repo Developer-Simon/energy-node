@@ -404,11 +404,11 @@ func TestParseDocReadsRegulatorSpec(t *testing.T) {
 	if len(doc.Scenarios) != 3 {
 		t.Fatalf("scenarios = %d, want 3", len(doc.Scenarios))
 	}
-	want := &RegulatorSpec{DeadbandW: 30, MaxW: 800}
+	want := &RegulatorSpec{DeadbandW: 30, MaxW: 800, Gain: 0.8, BaseSource: "balance"}
 	if got := doc.Scenarios[0].Regulator; got == nil || *got != *want {
 		t.Errorf("Regulator = %+v, want %+v", got, want)
 	}
-	wantDefault := &RegulatorSpec{DeadbandW: 20, MaxW: 11000}
+	wantDefault := &RegulatorSpec{DeadbandW: 20, MaxW: 11000, Gain: 0.8, BaseSource: "entity"}
 	if got := doc.Scenarios[1].Regulator; got == nil || *got != *wantDefault {
 		t.Errorf("entity base Regulator = %+v, want %+v", got, wantDefault)
 	}
@@ -463,5 +463,21 @@ func TestParseLearnedValueRules(t *testing.T) {
 	}
 	if bound.Learned["learned"].Key != "site/pv_reserve_w" {
 		t.Errorf("compared value reference = %+v", bound.Learned["learned"])
+	}
+}
+
+func TestParseDocReadsTheRegulatorTuning(t *testing.T) {
+	raw := []byte(`{"scenarios":[{"id":"a","enabled":true,"while":{"mode":"regulate","regulator":{"output":{"topic":"t","max":800},"gain":0.5,"max_change_w":40,"base":{"source":"balance","field":"pv"}}}},{"id":"b","enabled":true,"while":{"mode":"regulate","regulator":{"output":{"topic":"t","max":800},"base":{"source":"last"}}}}]}`)
+	doc, err := ParseDoc(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := doc.Scenarios[0].Regulator
+	if a.Gain != 0.5 || a.MaxChangeW == nil || *a.MaxChangeW != 40 || a.BaseSource != "balance" {
+		t.Fatalf("tuning = %+v, want gain 0.5, max change 40, base balance", a)
+	}
+	b := doc.Scenarios[1].Regulator
+	if b.Gain != 0.8 || b.MaxChangeW != nil || b.BaseSource != "last" {
+		t.Fatalf("defaults = %+v, want gain 0.8, no max change, base last", b)
 	}
 }
