@@ -196,7 +196,7 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 	for _, d := range []Detector{SwitchTimeDetector, RuntimeDetector, CouplingDetector, OverriddenDetector,
 		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector,
 		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector, BaseLoadDetector,
-		ThresholdDetector} {
+		ThresholdDetector, RegulatorDetector} {
 		e.Register(d)
 	}
 	// The energy checks read the operating powers the engine learned before them.
@@ -206,6 +206,19 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 		season.Put(w)
 	}
 	e.SetSeason(season)
+	pvRaster := DemoPVRasterYear(now, demoLat, demoLon)
+	pvModel := DemoPVModel(pvRaster)
+	e.SetPV(func() (PVModel, *Raster, bool) { return pvModel, pvRaster, true })
+	if err := SeedDemoMinutes(dir, now, loc); err != nil {
+		t.Fatalf("SeedDemoMinutes: %v", err)
+	}
+	minutes := learnrec.NewMinuteStore(loc,
+		func() learnrec.MinutePlan { return learnrec.MinutePlan{On: true, Days: demoSeedDays} },
+		func() learnrec.MinuteDirs { return learnrec.MinuteDirs{Drive: dir} },
+		func() bool { return true }, func() learnrec.Limits { return learnrec.Limits{} }, nil)
+	e.SetMinutes(func() learnrec.Reader { return minutes })
+	steps := NewStepLog(func() int { return demoSeedDays }, func() string { return dir }).WithRingDays(func() int { return 0 })
+	e.SetSteps(steps.Steps)
 	e.SetOutdoor(func() OutdoorSource {
 		return OutdoorSource{EntityID: demoOutdoorEntity, Topic: "outstation/outdoor/state", ValueTemplate: "{{ value_json.temp }}"}
 	})
@@ -746,6 +759,27 @@ func candidateIDs(m map[string]Candidate) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// TestDemoSeedYieldsRegulatorFinding checks that the demo regulator with the
+// last value as base, which follows the output with K = 1 and dead time 1,
+// gets a gain suggestion about 0,2 below its configured 0,8.
+func TestDemoSeedYieldsRegulatorFinding(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]Candidate{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = c
+	}
+	const id = "regulator:nulleinspeisung_last"
+	c, ok := ids[id]
+	if !ok {
+		t.Fatalf("no %s in the demo pipeline, ids %v", id, candidateIDs(ids))
+	}
+	soll := c.Finding.Evidence.SollValue
+	if soll == nil || math.Abs(*soll-0.2) > 0.1 {
+		t.Errorf("%s gain soll = %v, want about 0.2", id, soll)
+	}
 }
 
 // TestDemoSeedKeepsTheHabitSuggestions checks the suggestions the demo had

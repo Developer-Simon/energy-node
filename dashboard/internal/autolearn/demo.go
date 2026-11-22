@@ -781,6 +781,15 @@ func SeedDemoMinutes(dataDir string, now time.Time, loc *time.Location) error {
 	}
 	days := demoDays(now.In(loc), loc)
 	rng := rand.New(rand.NewSource(demoSeed + 4))
+	// Der Regler mit dem letzten Wert als Basis hat einen eigenen Zufallsstrom.
+	rngLast := rand.New(rand.NewSource(demoSeed + 6))
+	// Die Schritte des zweiten Reglers gibt es an allen Demo-Tagen, damit die
+	// Zahl der Stellwertänderungen im Fenster des Erkenners reicht.
+	for i := 0; i < demoSeedDays; i++ {
+		if err := seedDemoStepsLast(dataDir, days[i], loc, rngLast); err != nil {
+			return fmt.Errorf("autolearn: demo steps: %w", err)
+		}
+	}
 	for i := demoSeedDays - demoMinuteDays; i < demoSeedDays; i++ {
 		f := days[i]
 		path := minuteFileName(dataDir, f.Day)
@@ -894,6 +903,61 @@ func seedDemoSteps(dataDir string, f DayFile, loc *time.Location, rng *rand.Rand
 	var buf []byte
 	for _, st := range steps {
 		buf = append(buf, encodeStep(st)...)
+	}
+	return writeNewFile(path, buf)
+}
+
+// demoStepScenarioLast ist das zweite Szenario der Demo mit Regler, dessen
+// Basis der letzte Wert ist. Seine Strecke folgt dem Stellwert mit K = 1 und
+// Totzeit 1, so wie der nächtliche Erkenner sie messen kann.
+const demoStepScenarioLast = "nulleinspeisung_last"
+
+// seedDemoStepsLast schreibt die Reglerschritte des Szenarios mit der Basis
+// „last“ am Tag f, wenn die Datei fehlt. Die Schritte liegen von 09:00 bis 14:00,
+// dort liegt die PV über der Last, der Stellwert bestimmt also das Netz. Das Netz
+// ist das kleinere von PV und dem Stellwert des vorigen Schritts, abzüglich der
+// Last und einer langsam driftenden Last. So folgt die Netzänderung der
+// Stellwertänderung im nächsten Schritt, K = 1 und Totzeit 1.
+func seedDemoStepsLast(dataDir string, f DayFile, loc *time.Location, rng *rand.Rand) error {
+	path := stepFileName(dataDir, f.Day, demoStepScenarioLast)
+	if demoFileExists(path) {
+		return nil
+	}
+	day, err := time.ParseInLocation(dayLayout, f.Day, loc)
+	if err != nil {
+		return err
+	}
+	var buf []byte
+	prev := demoStepLimitMax
+	drift := 0.0
+	for m := 9 * 60; m < 14*60; m++ {
+		q := m / 15
+		// Die Last driftet langsam, so ändert der Regler den Stellwert regelmäßig.
+		drift += 4 * rng.NormFloat64()
+		net := math.Min(float64(f.Site.PV[q]), prev) - float64(f.Site.LoadTotal[q]) - drift
+		errW := net - demoStepTargetW
+		to, why := prev, StepUnchanged
+		switch {
+		case math.Abs(errW) <= demoStepDeadbandW:
+			why = StepDeadband
+		default:
+			raw := prev - demoStepGain*errW
+			switch {
+			case raw > demoStepLimitMax || raw < demoStepLimitMin:
+				to = math.Max(demoStepLimitMin, math.Min(demoStepLimitMax, math.Round(raw/10)*10))
+				why = StepLimit
+			default:
+				to = math.Round(raw/10) * 10
+				if to != prev {
+					why = StepSent
+				}
+			}
+		}
+		from32, to32 := float32(prev), float32(to)
+		at := time.Date(day.Year(), day.Month(), day.Day(), m/60, m%60, 0, 0, loc)
+		buf = append(buf, encodeStep(Step{At: at.Unix(), Err: float32(errW), Net: float32(net),
+			From: &from32, To: &to32, Why: why})...)
+		prev = to
 	}
 	return writeNewFile(path, buf)
 }

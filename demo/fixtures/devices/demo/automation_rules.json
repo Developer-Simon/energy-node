@@ -182,6 +182,45 @@
         }
       },
       "on_end": { "actions": [ { "type": "publish", "topic": "outstation/apsystems_dach/max_power_limit_w/set", "payload_source": "constant", "payload": "800" } ] }
+    },
+    {
+      "id": "nulleinspeisung_last",
+      "name": "Nulleinspeisung, Basis letzter Wert",
+      "enabled": true,
+      "template": "zero_feed",
+      "history_enabled": true,
+      "when": {
+        "conditions": [
+          {
+            "type": "sun_window",
+            "from": "sunrise",
+            "to": "sunset"
+          }
+        ]
+      },
+      "while": {
+        "mode": "regulate",
+        "regulator": {
+          "output": {
+            "topic": "outstation/apsystems_dach/max_power_limit_w/set",
+            "entity_id": "apsystems_dach_max_power_limit",
+            "min": 50,
+            "max": 800,
+            "step": 10,
+            "decimals": 0
+          },
+          "direction": "producer",
+          "target_w": 30,
+          "deadband_w": 20,
+          "gain": 0.8,
+          "base": {
+            "source": "last"
+          },
+          "fallback": {
+            "payload": "800"
+          }
+        }
+      }
     }
   ]
 }
