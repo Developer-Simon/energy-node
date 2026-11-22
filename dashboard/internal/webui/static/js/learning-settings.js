@@ -49,7 +49,54 @@
     return fresh.filter(key => Boolean(features[key] && features[key].on));
   }
 
-  window.LearningSettings = {usageText, sinceText, newFeatures};
+  // Minutenwerte (status.minutes). Schluessel und Schreibmenge wie in learnrec:
+  // 1440 Minuten am Tag, 4 Bytes je Wert.
+  const MINUTES_PER_DAY = 1440;
+  const BYTES_PER_VALUE = 4;
+  const MINUTES_DRIVE_KEY = 'minutes_drive';
+  const MINUTE_LOCATIONS = ['ram', 'drive', 'system'];
+
+  // Ort der Aufzeichnung: eine gewaehlte Zeile gilt, bei "auto" der aufgeloeste Ort aus dem Status.
+  function minutesLocation(choice, status) {
+    if (MINUTE_LOCATIONS.includes(choice)) return choice;
+    const resolved = status && status.minutes && status.minutes.location;
+    return MINUTE_LOCATIONS.includes(resolved) ? resolved : 'ram';
+  }
+
+  // Freier Platz des Zusatzlaufwerks aus GET /api/v1/storage/status (drive.size, drive.used).
+  function driveFreeBytes(storageStatus) {
+    const drive = storageStatus && storageStatus.drive;
+    const size = Number(drive && drive.size) || 0;
+    if (size <= 0) return 0;
+    return Math.max(0, size - (Number(drive.used) || 0));
+  }
+
+  // Schreibmenge am Tag fuer die Zeile Systemlaufwerk: Schluessel mal Minuten
+  // mal Bytes, mindestens die gemessene Rate.
+  function systemBytesPerDay(minutes) {
+    const keys = Math.max(0, Number(minutes && minutes.keys) || 0);
+    const measured = Math.max(0, Number(minutes && minutes.written_per_day) || 0);
+    return Math.max(keys * MINUTES_PER_DAY * BYTES_PER_VALUE, measured);
+  }
+
+  // Groesse fuer die Zeile Zusatzlaufwerk: Einheiten ab 1000, GB und TB mit einer
+  // Nachkommastelle, wie formatStorageBytes auf der Speicherseite (dort eine
+  // Methode, deshalb hier eigene Kopie der Regel).
+  function driveSizeText(bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let amount = Math.max(0, Number(bytes) || 0);
+    let unit = 0;
+    while (amount >= 1000 && unit < units.length - 1) { amount /= 1000; unit += 1; }
+    return `${numberText(amount, unit >= 3 ? 1 : 0)} ${units[unit]}`;
+  }
+
+  // Nur die Zahl in MB, die Einheit steht im Satz. Unter 10 MB mit einer Nachkommastelle.
+  function mbNumber(bytes) {
+    const mb = Math.max(0, Number(bytes) || 0) / MB;
+    return numberText(mb, mb < 10 ? 1 : 0);
+  }
+
+  window.LearningSettings = {usageText, sinceText, newFeatures, minutesLocation, driveFreeBytes, driveSizeText, systemBytesPerDay, mbNumber};
 
   // Gleiche Anfrage wie in settings.page.js: Basispfad vor die URL, JSON zurueck.
   const requestJSON = async (url, options) => {
@@ -107,6 +154,8 @@
     // Standort ist in den Automationen eingetragen (status.location_set). Solange
     // der Stand nicht geladen ist, bleibt der Hinweis verborgen.
     location_set: true,
+    // Freier Platz des Zusatzlaufwerks (GET /api/v1/storage/status), null solange nicht geladen.
+    storageStatus: null,
 
     // Die Auswahl gehoert der Seite (settings.page.js, speichert sie). Diese
     // Seite bekommt den Stand beim Laden und meldet jede Aenderung zurueck.
@@ -175,13 +224,15 @@
       this.loading = true;
       this.error = '';
       try {
-        const [status, session, settings, devices] = await Promise.all([
+        const [status, session, settings, devices, storageStatus] = await Promise.all([
           requestJSON('/api/v1/learning/status'),
           requestJSON('/api/v1/auth/session').catch(() => null),
           requestJSON('/api/v1/settings').catch(() => null),
           requestJSON('/api/v1/devices').catch(() => null),
+          requestJSON('/api/v1/storage/status').catch(() => null),
         ]);
         this.status = status;
+        this.storageStatus = storageStatus;
         this.csrfToken = (session && session.csrf_token) || '';
         this.learnCanEdit = session ? session.edit_setup === true : true;
         this.automation_outdoor_entity = settings && typeof settings.automation_outdoor_entity === 'string' ? settings.automation_outdoor_entity : '';
@@ -210,6 +261,53 @@
 
     get usage() {
       return usageText(this.status && this.status.usage, t);
+    },
+
+    // Aufzeichnung der Minutenwerte. Die Auswahl (Modus, Ort, Tage) steht in den
+    // Einstellungen der Seite; hier kommen nur der Status und die Texte dazu.
+    minutesLocationOf(choice) {
+      return minutesLocation(choice, this.status);
+    },
+
+    get minutesMeta() {
+      return (this.status && this.status.minutes) || {};
+    },
+
+    get minutesDriveConfigured() {
+      return Boolean(this.minutesMeta.drive_configured);
+    },
+
+    get minutesDriveDown() {
+      return Boolean(this.minutesMeta.drive_down);
+    },
+
+    // Der Hinweis "neu aktiv" zum Laufwerk. Er steht nicht in newKeys, weil er
+    // keine Lernfunktion mit Schalter ist.
+    get minutesDriveNew() {
+      return Array.isArray(this.status && this.status.new) && this.status.new.includes(MINUTES_DRIVE_KEY);
+    },
+
+    get minutesUsage() {
+      const minutes = this.minutesMeta;
+      return t('settings.learning.minutes.usage', {size: sizeText(minutes.bytes || 0, t), mb: mbNumber(minutes.written_per_day)});
+    },
+
+    get minutesUsageVisible() {
+      return Number(this.minutesMeta.bytes) > 0;
+    },
+
+    minutesDriveSub() {
+      return t('settings.learning.minutes.loc.drive_sub', {free: driveSizeText(driveFreeBytes(this.storageStatus))});
+    },
+
+    // Die Tage im RAM kommen aus dem Status, ohne Status die Tage der Einstellung.
+    minutesRamSub(days) {
+      const ram = Number(this.minutesMeta.ram_days) || Number(days) || 0;
+      return t('settings.learning.minutes.loc.ram_sub', {days: numberText(ram, 0)});
+    },
+
+    minutesSystemSub() {
+      return t('settings.learning.minutes.loc.system_sub', {mb: mbNumber(systemBytesPerDay(this.minutesMeta))});
     },
 
     get newKeys() {

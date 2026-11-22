@@ -44,6 +44,7 @@
     historyRetentionHours: {min: 1, max: 8760, step: 1},
     historyBudgetMb: {min: 16, max: 8192, step: 16},
     learningProfileDays: {min: 14, max: 365, step: 7},
+    learningMinutesDays: {min: 1, max: 365, step: 1},
   };
 
   const settingsPanel = () => ({
@@ -92,6 +93,10 @@
     learningSeasonYearDisabled: false,
     learningExcludedDevices: [],
     learningProfileDays: 56,
+    // Aufzeichnung der Minutenwerte: Modus auto/always/off, Ort auto/ram/drive/system, Tage 1 bis 365.
+    learningMinutesMode: 'auto',
+    learningMinutesLocation: 'auto',
+    learningMinutesDays: 60,
     learningAcknowledged: [],
     learningLevel: '',
     energyStatsRecording: 'always',
@@ -229,6 +234,9 @@
         this.learningSeasonYearDisabled = Boolean(value.learning_season_year_disabled);
         this.learningExcludedDevices = Array.isArray(value.learning_excluded_devices) ? [...value.learning_excluded_devices] : [];
         this.learningProfileDays = Number(value.learning_profile_days) || 56;
+        this.learningMinutesMode = ['auto', 'always', 'off'].includes(value.learning_minutes_mode) ? value.learning_minutes_mode : 'auto';
+        this.learningMinutesLocation = ['auto', 'ram', 'drive', 'system'].includes(value.learning_minutes_location) ? value.learning_minutes_location : 'auto';
+        this.learningMinutesDays = Number(value.learning_minutes_days) || 60;
         this.learningAcknowledged = Array.isArray(value.learning_acknowledged) ? [...value.learning_acknowledged] : [];
         this.learningLevel = typeof value.learning_level === 'string' ? value.learning_level : '';
         window.dispatchEvent(new CustomEvent('settings-learning-loaded', {detail: {ids: [...this.learningExcludedDevices]}}));
@@ -652,7 +660,8 @@
         this.liveUpdateIntervalSeconds >= 1 && this.liveUpdateIntervalSeconds <= 60 &&
         this.historySampleIntervalSeconds >= 5 && this.historySampleIntervalSeconds <= 3600 &&
         this.historyRetentionHours >= 1 && this.historyBudgetMb >= 16 &&
-        this.learningProfileDays >= 14 && this.learningProfileDays <= 365;
+        this.learningProfileDays >= 14 && this.learningProfileDays <= 365 &&
+        this.learningMinutesDays >= 1 && this.learningMinutesDays <= 365;
     },
 
     payload() {
@@ -684,6 +693,9 @@
         learning_season_year_disabled: Boolean(this.learningSeasonYearDisabled),
         learning_excluded_devices: [...this.learningExcludedDevices],
         learning_profile_days: Number(this.learningProfileDays),
+        learning_minutes_mode: this.learningMinutesMode,
+        learning_minutes_location: this.learningMinutesLocation,
+        learning_minutes_days: Number(this.learningMinutesDays),
         learning_acknowledged: [...this.learningAcknowledged],
         learning_level: this.learningLevel,
         history_views: [...this.historyViews],

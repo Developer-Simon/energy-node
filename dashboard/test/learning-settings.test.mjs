@@ -336,3 +336,93 @@ test('the location action opens the automations panel', () => {
   assert.equal(seen.length, 1);
   assert.equal(seen[0].panel, 'automations-panel');
 });
+
+// Aufzeichnung der Minutenwerte: Ort, Stepper, Verbrauch und der Hinweis zum Laufwerk.
+const minutesStatus = (minutes, extra = {}) => ({
+  ...statusBody,
+  minutes: { on: true, location: 'ram', auto_location: false, drive_configured: false, drive_down: false, days: 60, ram_days: 14, bytes: 412000, written_per_day: 0, since: 0, keys: 20, ...minutes },
+  ...extra,
+});
+const minutesRoutes = (status, storage = null) => ({
+  '/api/v1/learning/status': status,
+  '/api/v1/auth/session': { csrf_token: 'tok', roles: [] },
+  '/api/v1/storage/status': storage || { drive: { size: 0, used: 0 } },
+  '/api/v1/settings': { learning_acknowledged: [] },
+});
+
+test('the RAM choice ignores the stepper and "auto" follows the resolved location', async () => {
+  const { page } = createPage({ routes: minutesRoutes(minutesStatus({ location: 'ram' })) });
+  await page.load();
+  assert.equal(page.minutesLocationOf('auto'), 'ram');
+  assert.equal(page.minutesLocationOf('drive'), 'drive');
+  assert.equal(page.minutesLocationOf('system'), 'system');
+  assert.equal(page.minutesLocationOf('bogus'), 'ram');
+});
+
+test('without a drive the drive row is unavailable and the setup text names the next step', async () => {
+  const { page } = createPage({ routes: minutesRoutes(minutesStatus({ drive_configured: false })) });
+  await page.load();
+  assert.equal(page.minutesDriveConfigured, false);
+  assert.equal(page.minutesRamSub(60), 'Hält 14 Tage, geht beim Neustart verloren');
+});
+
+test('with a drive the drive sub line shows the free space', async () => {
+  const storage = { drive: { size: 8_000_000_000, used: 2_000_000_000 } };
+  const { page } = createPage({ routes: minutesRoutes(minutesStatus({ drive_configured: true, location: 'drive' }), storage) });
+  await page.load();
+  assert.equal(page.minutesDriveConfigured, true);
+  assert.equal(page.minutesDriveSub(), '6,0 GB frei');
+});
+
+test('the system estimate uses the keys and 1440 minutes at 4 bytes each', () => {
+  const window = load(new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' }));
+  const { systemBytesPerDay, mbNumber } = window.LearningSettings;
+  // 20 Schluessel, 1440 Minuten, 4 Bytes: 115200 Bytes am Tag.
+  assert.equal(systemBytesPerDay({ keys: 20, written_per_day: 0 }), 115200);
+  assert.equal(systemBytesPerDay({ keys: 20, written_per_day: 500000 }), 500000);
+  assert.equal(mbNumber(115200), '0,1');
+  assert.equal(mbNumber(12_000_000), '12');
+});
+
+test('the minute usage line states the size and the daily write', async () => {
+  const { page } = createPage({ routes: minutesRoutes(minutesStatus({ bytes: 412000, written_per_day: 96000 })) });
+  await page.load();
+  assert.equal(page.minutesUsage, 'Belegt 0,4 MB, schreibt 0,1 MB am Tag');
+});
+
+test('the minutes_drive hint is not a feature pill and stays out of the generic hint', async () => {
+  const status = minutesStatus({ location: 'drive', auto_location: true, drive_configured: true }, { new: ['minutes_drive'], setup_done: true });
+  const { page } = createPage({ routes: minutesRoutes(status) });
+  await page.load();
+  assert.equal(page.minutesDriveNew, true);
+  assert.deepEqual([...page.newKeys], []);
+  assert.equal(page.newHintVisible, false);
+});
+
+test('"Behalten" acknowledges minutes_drive with the CSRF header and reloads', async () => {
+  const status = minutesStatus({ location: 'drive', auto_location: true, drive_configured: true }, { new: ['minutes_drive'], setup_done: true, acknowledged: [] });
+  const { page, calls } = createPage({
+    routes: {
+      ...minutesRoutes(status),
+      'PUT /api/v1/settings': { ok: true },
+    },
+  });
+  await page.load();
+  calls.length = 0;
+  await page.acknowledge(['minutes_drive']);
+  const save = calls.find(call => call.method !== 'GET');
+  assert.ok(save, 'a settings write happened');
+  assert.equal(save.headers['X-CSRF-Token'], 'tok');
+  assert.ok(save.body.includes('minutes_drive'), save.body);
+});
+
+test('driveSizeText uses 1000 steps, GB and TB with one decimal and MB without', () => {
+  const window = load(new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' }));
+  const { driveSizeText } = window.LearningSettings;
+  assert.equal(driveSizeText(600_000_000), '600 MB');
+  assert.equal(driveSizeText(999_000_000), '999 MB');
+  assert.equal(driveSizeText(1_000_000_000), '1,0 GB');
+  assert.equal(driveSizeText(6_500_000_000), '6,5 GB');
+  assert.equal(driveSizeText(2_000_000_000_000), '2,0 TB');
+  assert.equal(driveSizeText(0), '0 B');
+});

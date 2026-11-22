@@ -1407,6 +1407,10 @@ class ScenarioRuntime:
 _SCENARIO_ACTIVE_PHASES = ("active", "fallback")
 
 
+def _one_decimal(value) -> Optional[float]:
+    return None if value is None else round(float(value), 1)
+
+
 def _finite_float(value) -> Optional[float]:
     if value is None or isinstance(value, bool):
         return None
@@ -1440,11 +1444,13 @@ class ScenarioEngine:
     """Zustandsmaschine fuer Szenarien (idle, active, fallback, disabled).
     Der Zustand lebt nur im RAM, wie bei Engine."""
 
-    def __init__(self, executor: ActionExecutor, *, started_at: float, event_sink, history_sink=None):
+    def __init__(self, executor: ActionExecutor, *, started_at: float, event_sink, history_sink=None,
+                 step_sink=None):
         self.executor = executor
         self.started_at = started_at
         self.event_sink = event_sink
         self.history_sink = history_sink
+        self.step_sink = step_sink
         self._runtime: dict[str, ScenarioRuntime] = {}
 
     def tick(self, doc: RulesDocument, *, balance: Optional[dict], balance_age: Optional[float],
@@ -1624,12 +1630,15 @@ class ScenarioEngine:
             chain_id = regulator_def["efficiency"]["chain_id"]
             rt.efficiency = ({"chain_id": chain_id, "from_w": best[0], "to_w": best[1]} if best is not None
                              else {"chain_id": chain_id, "reason": best_reason})
+        previous = rt.last_value
         step = regulator.compute_step(regulator_def, net=net, base=base, last_value=rt.last_value, best=best)
         rt.net = net
         rt.error = step.error
         rt.base = base
         rt.reason = step.reason
         if step.payload is None:
+            to_value = previous if step.reason == "unchanged" else None
+            self._emit_step(sid, now_ts, step, net, previous, to_value=to_value, why=step.reason)
             return
 
         outcomes = self._run_actions([{
@@ -1639,12 +1648,24 @@ class ScenarioEngine:
         outcome = outcomes[0]
         if outcome.get("blocked"):
             rt.reason = outcome.get("reason")
+            self._emit_step(sid, now_ts, step, net, previous, to_value=previous, why="sent")
             return
         rt.last_value = step.value
         rt.last_sent_at = now_ts
+        self._emit_step(sid, now_ts, step, net, previous, to_value=step.value, why=step.reason or "sent")
         deadband = regulator_def["deadband_w"]
         if deadband > 0 and abs(step.error) > 5 * deadband:
             self._record(sid, "jump", outcomes)
+
+    def _emit_step(self, sid: str, now_ts: float, step, net: float, previous: Optional[float], *,
+                   to_value: Optional[float], why: str) -> None:
+        """Meldet jeden berechneten Reglerschritt auf dem Schritt-Topic. Der Zustand
+        und die Historie bleiben davon unberuehrt."""
+        if self.step_sink is None:
+            return
+        self.step_sink(sid, {"at": _one_decimal(now_ts), "err": _one_decimal(step.error),
+                             "net": _one_decimal(net), "from": _one_decimal(previous),
+                             "to": _one_decimal(to_value), "why": why})
 
     def _run_actions(self, actions: list, *, balance, topic_values) -> list[dict]:
         outcomes = []
@@ -1850,6 +1871,10 @@ def scenario_state_topic(base_topic: str, scenario_id: str) -> str:
     return f"{base_topic}/scenario/{scenario_id}/state"
 
 
+def scenario_step_topic(base_topic: str, scenario_id: str) -> str:
+    return f"{base_topic}/scenario/{scenario_id}/step"
+
+
 def scenario_discovery(device_id: str, base_topic: str, device_block: dict, scenario: dict) -> list:
     """Phase ist immer da, der Stellwert nur bei Szenarien mit Regler."""
     sid = scenario["id"]
@@ -1909,7 +1934,7 @@ class AutomationService:
         self.engine = Engine(self.executor, started_at=started_at, event_sink=self._on_event,
                               history_sink=self._on_fired)
         self.scenario_engine = ScenarioEngine(self.executor, started_at=started_at, event_sink=self._on_event,
-                                              history_sink=self._on_fired)
+                                              history_sink=self._on_fired, step_sink=self._on_scenario_step)
         self.scenario_publishers: dict[str, ChangeGatedPublisher] = {}
         self._scenario_discovery: set[tuple[str, str]] = set()
         self._scenario_ids: set[str] = set()
@@ -2000,6 +2025,10 @@ class AutomationService:
 
     def _publish_raw_json(self, topic: str, payload: str) -> None:
         self.client.publish(topic, payload, qos=0, retain=True)
+
+    def _on_scenario_step(self, sid: str, record: dict) -> None:
+        self.client.publish(scenario_step_topic(self.base_topic, sid),
+                            json.dumps(record, separators=(",", ":")), qos=0, retain=False)
 
     def _on_event(self, message: str) -> None:
         self.events.push(message, at=time.time())

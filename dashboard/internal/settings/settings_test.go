@@ -3229,6 +3229,43 @@ func TestLearningLevelInvalidIsRejected(t *testing.T) {
 	}
 }
 
+func TestLearningMinutesDefaultsWhenMissing(t *testing.T) {
+	got := normalizeSettings(Settings{})
+	if got.LearningMinutesMode != "auto" || got.LearningMinutesLocation != "auto" || got.LearningMinutesDays != 60 {
+		t.Fatalf("learning minutes = %q, %q, %d, want auto, auto, 60", got.LearningMinutesMode, got.LearningMinutesLocation, got.LearningMinutesDays)
+	}
+}
+
+func TestLearningMinutesOutOfRangeIsRejected(t *testing.T) {
+	value := Default()
+	value.LearningMinutesDays = 366
+	if err := validateSettings(value); err == nil {
+		t.Fatal("learning_minutes_days 366 accepted, want rejection")
+	}
+	// normalizeSettings maps 0 to the default, so the schema only sees 0 when
+	// the raw document is validated.
+	raw, err := json.Marshal(Settings{LearningMinutesMode: "auto", LearningMinutesLocation: "auto", LearningMinutesDays: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := config.ValidateDocument(raw, settingsSchema); err == nil {
+		t.Fatal("learning_minutes_days 0 accepted by the schema, want rejection")
+	}
+}
+
+func TestLearningMinutesInvalidEnumIsRejected(t *testing.T) {
+	for _, mutate := range []func(*Settings){
+		func(v *Settings) { v.LearningMinutesMode = "pause_with_companion" },
+		func(v *Settings) { v.LearningMinutesLocation = "cloud" },
+	} {
+		value := Default()
+		mutate(&value)
+		if err := validateSettings(value); err == nil {
+			t.Fatalf("invalid learning minutes value accepted: %+v", value)
+		}
+	}
+}
+
 func TestLearningAcknowledgedDropsDuplicatesAndKeepsUnknown(t *testing.T) {
 	got := normalizeSettings(Settings{LearningAcknowledged: []string{"auto_patterns", "future_x", "auto_patterns"}}).LearningAcknowledged
 	if !reflect.DeepEqual(got, []string{"auto_patterns", "future_x"}) {

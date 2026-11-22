@@ -82,3 +82,13 @@ def test_compute_step_below_the_range_falls_back_to_the_output_minimum():
 def test_compute_step_without_range_is_unchanged():
     args = dict(net=-470, base=800, last_value=800)
     assert regulator.compute_step(reg(), **args) == regulator.compute_step(reg(), **args, best=None)
+
+
+def test_clamped_value_reports_limit_reason():
+    step = regulator.compute_step(reg(), net=5000, base=800, last_value=None)
+    assert (step.payload, step.reason) == ("800", "limit")
+
+
+def test_value_inside_the_range_has_no_reason():
+    step = regulator.compute_step(reg(), net=-470, base=800, last_value=None)
+    assert (step.payload, step.reason) == ("400", None)

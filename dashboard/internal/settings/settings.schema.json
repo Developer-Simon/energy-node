@@ -3,7 +3,7 @@
   "description": "Operational settings for the Energy Node dashboard.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["health_score_threshold", "sweep_interval_seconds", "show_runtime_status", "device_view_mode", "theme", "number_format", "number_grouping", "show_config_entities_on_tile", "show_diagnostic_entities_on_tile", "live_update_interval_seconds", "wide_panels", "status_bar_items", "history_sample_interval_seconds", "history_retention_mode", "history_retention_hours", "history_budget_mb", "history_raw_window_hours", "history_minute_window_days", "history_extra_entities", "history_exchange_disabled", "history_views", "energy_stats_recording", "changelog_history", "update_check_disabled", "language_switch_hidden", "dashboard_title", "dashboard_subtitle", "dashboard_title_hidden", "dashboard_subtitle_hidden", "performance_target_pct", "automation_patterns_disabled", "automation_habits_disabled", "automation_reliability_disabled", "automation_energy_disabled", "learning_season_year_disabled", "learning_excluded_devices", "learning_profile_days", "learning_acknowledged", "learning_level", "automation_outdoor_entity"],
+  "required": ["health_score_threshold", "sweep_interval_seconds", "show_runtime_status", "device_view_mode", "theme", "number_format", "number_grouping", "show_config_entities_on_tile", "show_diagnostic_entities_on_tile", "live_update_interval_seconds", "wide_panels", "status_bar_items", "history_sample_interval_seconds", "history_retention_mode", "history_retention_hours", "history_budget_mb", "history_raw_window_hours", "history_minute_window_days", "history_extra_entities", "history_exchange_disabled", "history_views", "energy_stats_recording", "changelog_history", "update_check_disabled", "language_switch_hidden", "dashboard_title", "dashboard_subtitle", "dashboard_title_hidden", "dashboard_subtitle_hidden", "performance_target_pct", "automation_patterns_disabled", "automation_habits_disabled", "automation_reliability_disabled", "automation_energy_disabled", "learning_season_year_disabled", "learning_excluded_devices", "learning_profile_days", "learning_acknowledged", "learning_level", "learning_minutes_mode", "learning_minutes_location", "learning_minutes_days", "automation_outdoor_entity"],
   "properties": {
     "health_score_threshold": {
       "type": "integer",
@@ -222,6 +222,28 @@
       "default": "auto",
       "title": "Lernstufe",
       "description": "Wie viel Last das Lernen erzeugen darf. auto waehlt die Stufe nach der Kernzahl des Geraets."
+    },
+    "learning_minutes_mode": {
+      "type": "string",
+      "enum": ["auto", "always", "off"],
+      "default": "auto",
+      "title": "Minutenaufzeichnung",
+      "description": "Ob die Minutenwerte aufgezeichnet werden. auto folgt dem Lernen."
+    },
+    "learning_minutes_location": {
+      "type": "string",
+      "enum": ["auto", "ram", "drive", "system"],
+      "default": "auto",
+      "title": "Ort der Minutenaufzeichnung",
+      "description": "Wo die Minutenwerte liegen. auto nimmt das Laufwerk, wenn eines eingerichtet ist, sonst den Arbeitsspeicher."
+    },
+    "learning_minutes_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 365,
+      "default": 60,
+      "title": "Tage der Minutenaufzeichnung",
+      "description": "Wie viele Tage die Minutenwerte behalten werden. Gilt fuer Laufwerk und Systemlaufwerk."
     },
     "history_views": {
       "type": "array",

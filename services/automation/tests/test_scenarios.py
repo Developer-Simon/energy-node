@@ -197,7 +197,7 @@ def normalized(raw):
     return result
 
 
-def scenario_engine_with(scenarios, settings=None, started_at=0.0, history_sink=None):
+def scenario_engine_with(scenarios, settings=None, started_at=0.0, history_sink=None, step_sink=None):
     doc = automation.RulesDocument(version=1, settings=settings or automation.Settings(settling_seconds=0),
                                    rules=[], scenarios=scenarios)
     published = []
@@ -205,7 +205,7 @@ def scenario_engine_with(scenarios, settings=None, started_at=0.0, history_sink=
     executor = automation.ActionExecutor(publish_fn=lambda t, p, r: published.append((t, p, r)),
                                           publish_allowed_prefixes=["werkstatt/"])
     engine = automation.ScenarioEngine(executor, started_at=started_at, event_sink=events.append,
-                                       history_sink=history_sink)
+                                       history_sink=history_sink, step_sink=step_sink)
     return doc, engine, published, events
 
 
@@ -1009,3 +1009,71 @@ def test_required_topics_includes_the_learned_topics_of_scenarios():
     service = automation.AutomationService.__new__(automation.AutomationService)
     service.test_command_topic = "outstation/automation/test/set"
     assert "outstation/energy_node/learned/site/house_state" in service.required_topics(doc)
+
+
+def step_recorder():
+    steps = []
+    return steps, lambda sid, record: steps.append((sid, record))
+
+
+def test_step_topic_is_scenario_step():
+    assert automation.scenario_step_topic("werkstatt/automation", "nulleinspeisung") == \
+        "werkstatt/automation/scenario/nulleinspeisung/step"
+
+
+def test_every_regulator_step_is_reported_with_its_reason():
+    steps, sink = step_recorder()
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings(),
+                                                     step_sink=sink)
+    regulate_tick(engine, doc, 1000, grid_export=470)            # 800 -> 400, sent
+    regulate_tick(engine, doc, 1010, grid_export=470)            # 400 again, unchanged
+    regulate_tick(engine, doc, 1020, grid_import=30, grid_export=0)  # net 30 inside the deadband
+    assert [record["why"] for _sid, record in steps] == ["sent", "unchanged", "deadband"]
+    assert payloads(published) == ["400"]
+    first = steps[0][1]
+    assert first == {"at": 1000.0, "err": -500.0, "net": -470.0, "from": None, "to": 400.0, "why": "sent"}
+    assert steps[1][1]["from"] == 400.0 and steps[1][1]["to"] == 400.0
+    assert steps[2][1]["to"] is None
+
+
+def test_clamped_setpoint_reports_limit():
+    steps, sink = step_recorder()
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings(),
+                                                     step_sink=sink)
+    regulate_tick(engine, doc, 1000, grid_import=5000, grid_export=0)
+    assert payloads(published) == ["800"]
+    assert steps[0][1]["why"] == "limit"
+    assert steps[0][1]["to"] == 800.0
+
+
+def test_blocked_publish_reports_sent_without_movement():
+    steps, sink = step_recorder()
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings(),
+                                                     step_sink=sink)
+    engine.executor.publish_allowed_prefixes = ["andere/"]
+    regulate_tick(engine, doc, 1000)
+    assert published == []
+    record = steps[0][1]
+    assert record["why"] == "sent"
+    assert record["to"] == record["from"]
+
+
+def test_step_payload_stays_under_120_bytes():
+    steps, sink = step_recorder()
+    doc, engine, _, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings(),
+                                             step_sink=sink)
+    regulate_tick(engine, doc, 1000, grid_import=99999, grid_export=0)
+    regulate_tick(engine, doc, 1010, grid_export=470)
+    for _sid, record in steps:
+        assert len(json.dumps(record, separators=(",", ":")).encode()) < 120
+
+
+def test_service_publishes_steps_on_the_step_topic_not_retained():
+    service = scenario_service([regulate_scenario()])
+    service.topic_values["werkstatt/bkw/state"] = '{"power": 800}'
+    fresh_balance(service, grid_export=470)
+    service.poll_core()
+    topic, payload, retain = next(p for p in service.client.published if p[0].endswith("/scenario/nulleinspeisung/step"))
+    assert topic.endswith("/scenario/nulleinspeisung/step")
+    assert retain is False
+    assert json.loads(payload)["why"] == "sent"

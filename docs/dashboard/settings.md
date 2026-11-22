@@ -77,10 +77,41 @@ from which calendar week a PV threshold is reached again. When it is off, the
 sun course stays as long as the profiles. In the first year, while the summer
 sun is still missing, a PV threshold is never reported as **Never triggers**.
 
+**Record minute values** is on by default. The node keeps the power of each
+device and the grid balance for every minute. The chain suggestions use this
+record. After a restart they catch up on the minutes they missed, if the record
+is kept on the drive or the system drive. Switch it off and the node stops
+recording minutes.
+
+**Where minute values are kept** chooses the place:
+
+- **Memory** keeps the minutes in RAM, for up to 3 days on the economical level
+  and up to 14 days on the full level. They are lost on restart, so the node
+  cannot catch up from memory.
+- **Extra drive** keeps the minutes on the drive. It is the recommended place
+  once a drive is set up. The row shows the free space of the drive.
+- **System drive** keeps the minutes on the SD card of the node. It writes
+  about the amount shown on the row each day, so it is never the default.
+
+Without an extra drive the node records in memory. With a drive, the node
+records on the drive. When you set up a drive while the place is on automatic,
+the recording moves there by itself, and the page shows the note **An extra
+drive is set up. Minute values are now kept there.** with the button **Keep**.
+A place you chose yourself is never changed.
+
+If the drive fails, the recording goes on in memory and the row says **Drive
+not available, still recording in memory**. When the drive comes back, the
+missing minutes are added, so the day has no gap and no minute twice.
+
+**Keep minute values** sets how many days stay on the drive or the system drive,
+from 1 to 365 days. The default is 60 days. Minute values are large and the node
+can learn them again, so they are not part of a backup. **Delete learned data**
+removes them too.
+
 **Delete learned data** asks for confirmation first. It deletes the day
 profiles, the reaction times, the sums of the chain suggestions and the learned
-loss values of the chains. Dismissed suggestions, ignored hints and the counters
-of the rule check stay.
+loss values of the chains. It also deletes the minute values. Dismissed
+suggestions, ignored hints and the counters of the rule check stay.
 
 ### New features
 

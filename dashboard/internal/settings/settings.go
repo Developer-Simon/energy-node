@@ -125,6 +125,12 @@ type Settings struct {
 	LearningProfileDays        int      `json:"learning_profile_days"`
 	LearningAcknowledged       []string `json:"learning_acknowledged"`
 	LearningLevel              string   `json:"learning_level"`
+	// LearningMinutesMode, LearningMinutesLocation und LearningMinutesDays
+	// steuern die Minutenaufzeichnung. Modus auto folgt dem Lernen, Ort auto
+	// folgt der Lage (Laufwerk, wenn eingerichtet, sonst RAM). Leer heisst auto.
+	LearningMinutesMode     string `json:"learning_minutes_mode"`
+	LearningMinutesLocation string `json:"learning_minutes_location"`
+	LearningMinutesDays     int    `json:"learning_minutes_days"`
 	// AutomationOutdoorEntity ist die unique_id der Aussentemperatur-Entitaet
 	// fuers Saisonlernen. Leer heisst: keine Temperatur wird gesammelt.
 	AutomationOutdoorEntity string `json:"automation_outdoor_entity"`
@@ -214,6 +220,10 @@ const (
 	LearningProfileDaysMin     = 14
 	LearningProfileDaysMax     = 365
 	LearningLevelAuto          = "auto"
+	LearningMinutesAuto        = "auto"
+	LearningMinutesDaysDefault = 60
+	LearningMinutesDaysMin     = 1
+	LearningMinutesDaysMax     = 365
 
 	ChangelogHistoryRecent   = "recent"
 	ChangelogHistoryExtended = "extended"
@@ -654,6 +664,9 @@ func Default() Settings {
 		LearningProfileDays:          LearningProfileDaysDefault,
 		LearningAcknowledged:         []string{},
 		LearningLevel:                LearningLevelAuto,
+		LearningMinutesMode:          LearningMinutesAuto,
+		LearningMinutesLocation:      LearningMinutesAuto,
+		LearningMinutesDays:          LearningMinutesDaysDefault,
 	}
 }
 
@@ -2113,6 +2126,15 @@ func normalizeSettings(value Settings) Settings {
 	}
 	if value.LearningLevel == "" {
 		value.LearningLevel = LearningLevelAuto
+	}
+	if value.LearningMinutesMode == "" {
+		value.LearningMinutesMode = LearningMinutesAuto
+	}
+	if value.LearningMinutesLocation == "" {
+		value.LearningMinutesLocation = LearningMinutesAuto
+	}
+	if value.LearningMinutesDays == 0 {
+		value.LearningMinutesDays = LearningMinutesDaysDefault
 	}
 	if value.LearningExcludedDevices == nil {
 		value.LearningExcludedDevices = []string{}

@@ -472,6 +472,7 @@ func main() {
 		return ""
 	})
 	learnHub.AddMinute("chainsuggest", chainSuggest)
+	learnHub.AddReplay("chainsuggest", chainSuggest)
 	learnHub.AddTick("chainwatch", learnrec.TickFunc(chainMonitor.Observe))
 	learnHub.AddTick("autolearn", learnrec.TickFunc(func(at time.Time, snap energy.Snapshot) {
 		automationChecker.ObserveTick(at, automationState(), balanceRuleValues(snap.Balance), automationEntityValue)
@@ -505,6 +506,11 @@ func main() {
 			} else {
 				log.Printf("autolearn: demo profiles written to %s", demoDir)
 			}
+		}
+		// Die Minutenaufzeichnung liegt im Datenordner, dort liest der MinuteStore sie
+		// am Ort System. Die Demo schreibt sie bei jedem Start, vorhandene Dateien bleiben.
+		if err := autolearn.SeedDemoMinutes(dataDir, time.Now(), time.Local); err != nil {
+			log.Printf("autolearn: demo minutes: %v", err)
 		}
 	}
 	// PV-Himmelsraster: nur ungedrosselte PV-Minuten zaehlen. Standort und Regler
@@ -769,6 +775,17 @@ func main() {
 		}
 		return storageWatcher.Tick(ctx)
 	}
+	// Minutenaufzeichnung: MinuteStore und StepLog. Der Zehn-Sekunden-Takt erneuert
+	// den Schnappschuss mit Einstellungen, Laufwerk und Lernstufe.
+	minutes := newMinuteRecording(minuteSources{
+		settings: settingsStore.LoadSettings,
+		status:   storageStatus,
+		limits:   learnLimits,
+		dataDir:  dataDir,
+		mount:    storageMountPoint,
+	})
+	learnHub.AddMinute("minutes", minutes.store)
+	var minuteReader learnrec.Reader = minutes.store
 	go runStorageResume(ctx, storageService)
 	// Die Belegung der Systemplatte: in der Demo feste Werte, sonst eine Messung
 	// im Hintergrund, die alle zehn Minuten erneuert wird.
@@ -904,7 +921,12 @@ func main() {
 		log.Printf("energy-node-dashboard: manifests unreadable: %v", err)
 	}
 	nodeAgent.SetServiceCatalog(serviceIDs, cfg.Services)
-	client.WatchTopics(nodeAgent.WatchTopicsFor(), nodeAgent.ObserveLiveness)
+	// Ein einziger Aufruf, WatchTopics ersetzt die ganze Liste. Dazu kommen die
+	// Reglerschritte der Automationen fuer die Minutenaufzeichnung.
+	client.WatchTopics(
+		append(nodeAgent.WatchTopicsFor(), stepTopic(automationServiceID)),
+		watchHandler(automationServiceID, minutes.steps, nodeAgent.ObserveLiveness),
+	)
 
 	// Leistungsmessung: Messung alle 15 s, Fenster 6 h, Anlaufphase 5 min.
 	// ENERGY_NODE_PERFORMANCE_FAKE=1 liefert erfundene Werte (Demo, Smoke).
@@ -1339,9 +1361,11 @@ func main() {
 		ChainLearnInfo:   chainMonitor.LearnedSpan,
 		SetupDone:        func() bool { return onboardingStore.Load().SetupDone },
 		Rules:            func() ([]byte, error) { return configManager.Read("automation_rules") },
+		Minutes:          minutes.store.Usage,
+		DriveConfigured:  minutes.DriveConfigured,
 		Reset: func() error {
 			resetLearned(learnedStore, client)
-			return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset())
+			return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset(), minutes.Reset())
 		},
 	}
 	handler := perfTiming.Middleware(basepath.Middleware(httpapi.NewAuthenticatedRouter(reg, configManager, settingsStore, tinytuya.NewClient(
@@ -1466,6 +1490,42 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	// Nachlesen der Minuten nach dem Neustart, einmal und vor der ersten Live-Minute.
+	// Die Vorschlaege bekommen vorher ihren Schalter, sonst zaehlt ein abgeschalteter
+	// Speicher die nachgelesenen Minuten mit.
+	if minuteReader != nil {
+		suggestionsOn := true
+		if value, err := settingsStore.LoadSettings(); err == nil {
+			suggestionsOn = !value.ChainSuggestionsDisabled
+		}
+		chainSuggest.SetEnabled(suggestionsOn)
+		learnHub.Replay(minuteReader, time.Now())
+	}
+
+	// Minuten und Reglerschritte alle fuenf Minuten an den Ort schreiben, beim Beenden
+	// noch einmal.
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				if err := minutes.Flush(time.Now()); err != nil {
+					log.Printf("energy-node-dashboard: learning minutes not flushed on shutdown: %v", err)
+				}
+				return
+			case <-ticker.C:
+				start := time.Now()
+				if err := minutes.Flush(start); err != nil {
+					log.Printf("energy-node-dashboard: learning minutes not flushed: %v", err)
+				}
+				if took := time.Since(start); took > 2*time.Second {
+					log.Printf("energy-node-dashboard: learning minutes flush took %s", took.Round(time.Millisecond))
+				}
+			}
+		}
+	}()
+
 	go func() {
 		// Eigene Monotonuhr: time.Since(monoStart) laeuft auch dann
 		// gleichmaessig weiter, wenn NTP die Wanduhr stellt. Daran erkennt
@@ -1484,6 +1544,7 @@ func main() {
 			case <-ticker.C:
 				start := time.Now()
 				now := time.Now()
+				minutes.Refresh()
 				snapshot := energy.Aggregate(reg.Snapshot(), energyResolver, now.UTC()).WithInterpretation(energyResolver.Interpretation())
 				energyRecorder.Observe(now, time.Since(monoStart), snapshot)
 				// Ohne gestellte Uhr waere FirstSeen falsch. Der Modus off

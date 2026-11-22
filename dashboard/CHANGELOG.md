@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.22-pre.31 (2026-11-06)
+## v0.11.22-pre.32 (2026-11-06)
 
 ### Features
 
@@ -31,6 +31,19 @@
 - **automations:** Learning knows the seasons, the sun and the outdoor temperature (#287) (8812dc2)
 - **automations:** Learning knows device cycles, the PV reserve and the remaining surplus of the day (#289) (5d86b6b)
 - **monitoring:** A Monitoring tab with notices, acknowledgement and all learned values (#291) (7ae50a9)
+- **autolearn:** The rule check finds feedback, competition for the surplus, a rising base load and battery problems (#292) (142387b)
+- **learnrec:** resolve where the minute recording lives (972c4aa)
+- **learnrec:** add the binary day format of the minute recording (f0e0eec)
+- **learnrec:** keep minute values in RAM and append them to the chosen drive (64aff34)
+- **learnrec:** read ranges from the minute recording and replay them to one consumer (cfb599f)
+- **learnrec:** let chain suggestions catch up from the recording (9ca1843)
+- **autolearn:** keep the regulator steps of each scenario (cb5a507)
+- **dashboard:** wire the minute recording and step log into the main program (885314a)
+- **dashboard:** report the minute recording in learning status (744091f)
+- **settings:** add the texts for the minute recording card (81d9b09)
+- **settings:** choose where minute values are kept (d6e14c7)
+- **autolearn:** seed minute values and regulator steps in the demo (956b559)
+- **autolearn:** The node records minute values and keeps every regulator step as a base for learning (#293)
 - **autolearn:** let a fix change several rules and estimate signal noise (80c444e)
 - **autolearn:** flag rules whose own load flips their condition (67cbc32)
 - **autolearn:** name feedback as the cause of flapping rules (f6ea384)
@@ -54,7 +67,6 @@
 - **automations:** draw Ist and Soll curves in one chart (5f880ad)
 - **monitoring:** open the suggestion from its notice (9eaa37c)
 - **monitoring:** collect the suggestions under their own filter (add1bab)
-- **autolearn:** The rule check finds feedback, competition for the surplus, a rising base load and battery problems (#292)
 - **i18n:** add the view_monitoring texts (0385648)
 - **auth:** add the view_monitoring right (44c40f9)
 - **monitoring:** collect notices from energy, chains and learning (e85d98c)
@@ -287,10 +299,13 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **autolearn:** write step files per scenario and day, drop deadband from figures (8f2a75a)
+- **dashboard:** bound the step ring by the RAM days and log slow flushes (0046eee)
+- **settings:** format the drive free space in GB (2c55808)
+- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** drop findings whose fix is saved and show an early full battery in Monitoring (cb2d65b)
 - **automations:** keep learned findings while a fix sits in the draft (715cbfd)
 - **automations:** preselect the switch of night off and quiet off suggestions (e3a0952)
-- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **webui:** translate the time value of the monitoring model (d55ca28)
 - **webui:** add labels and load error to the monitoring panel (79ad0f3)
 - **energy:** keep monitoring jumps and refresh the summary line (9ad7b8a)
@@ -423,8 +438,9 @@
 
 ### Chores
 
+- **dashboard:** bump the cache-bust marks for the minute recording (604eb49)
+- **dashboard:** bump the cache-bust mark of the settings page (84aa771)
 - **dashboard:** bump the cache-bust marks for energy findings (85a44b4)
-- **dashboard:** bump the cache-bust mark of the settings page (a590474)
 - **dashboard:** bump the cache-bust marks for the curve chart and suggestion notices (e4c86cb)
 - **webui:** bump the lazy asset marks of the monitoring page (79de377)
 - **dashboard:** bump the cache-bust marks for energy learning (8bd6f10)

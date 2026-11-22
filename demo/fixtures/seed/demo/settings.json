@@ -2,6 +2,7 @@
   "theme": "mint",
   "automation_outdoor_entity": "aussentemperatur",
   "learning_level": "eco",
+  "learning_minutes_location": "system",
   "show_runtime_status": true,
   "device_view_mode": "analysis",
   "show_config_entities_on_tile": true,

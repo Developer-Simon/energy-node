@@ -23,6 +23,9 @@ type suggestFile struct {
 	Days      map[string][]suggestEntry `json:"days"`
 	Devices   map[string]string         `json:"devices"`
 	Dismissed [][2]string               `json:"dismissed"`
+	// LastMinute ist die letzte gezaehlte Minute im RFC3339-Format. Fehlt sie,
+	// liest Replay nichts nach.
+	LastMinute string `json:"last_minute,omitempty"`
 }
 
 // suggestEntry ist ein Paar an einem Tag: s = [n, Σa, Σb, Σa², Σb², Σab, Σ|a−b|].
@@ -85,6 +88,15 @@ func (c *Collector) restore(data []byte) error {
 		}
 	}
 
+	var last time.Time
+	if f.LastMinute != "" {
+		t, err := time.Parse(time.RFC3339, f.LastMinute)
+		if err != nil {
+			return fmt.Errorf("last minute %q: %w", f.LastMinute, err)
+		}
+		last = t
+	}
+
 	dismissed := map[pairKey]bool{}
 	for _, d := range f.Dismissed {
 		if d[0] == "" || d[1] == "" || d[0] == d[1] {
@@ -104,6 +116,7 @@ func (c *Collector) restore(data []byte) error {
 	c.sums = totals
 	c.dismissed = dismissed
 	c.owner = owner
+	c.lastMinute = last
 	return nil
 }
 
@@ -211,6 +224,9 @@ func (c *Collector) saveLocked() error {
 	}
 	for id, dev := range c.owner {
 		f.Devices[id] = dev
+	}
+	if !c.lastMinute.IsZero() {
+		f.LastMinute = c.lastMinute.UTC().Format(time.RFC3339)
 	}
 	for key := range c.dismissed {
 		f.Dismissed = append(f.Dismissed, [2]string{key.a, key.b})

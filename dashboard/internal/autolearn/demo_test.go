@@ -766,3 +766,66 @@ func TestDemoPVYearRestsTheFeedInRule(t *testing.T) {
 		t.Fatalf("week = %v, want a spring week", got.Summary.Params["week"])
 	}
 }
+
+// TestSeedDemoMinutesAndSteps checks that the demo writes three days of minute
+// values and the regulator steps of the last day, and that both read back.
+func TestSeedDemoMinutesAndSteps(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, loc)
+	dir := t.TempDir()
+	if err := SeedDemoMinutes(dir, now, loc); err != nil {
+		t.Fatalf("SeedDemoMinutes: %v", err)
+	}
+	for i := 1; i <= demoMinuteDays; i++ {
+		day := now.AddDate(0, 0, -i).Format(dayLayout)
+		f, err := os.Open(filepath.Join(dir, "learnrec", "minutes", day+".enm"))
+		if err != nil {
+			t.Fatalf("minute file of %s: %v", day, err)
+		}
+		keys, values, err := learnrec.ReadDay(f)
+		f.Close()
+		if err != nil {
+			t.Fatalf("ReadDay %s: %v", day, err)
+		}
+		for _, key := range []string{"e:plug_balkon_steckdose", "b:load_total", "b:pv", "t:outdoor"} {
+			if _, ok := values[key]; !ok {
+				t.Errorf("%s: key %s missing, keys %v", day, key, keys)
+			}
+		}
+		if v := values["b:load_total"]; v == nil || math.IsNaN(float64(v[12*60])) {
+			t.Errorf("%s: no load_total value at 12:00", day)
+		}
+	}
+
+	yesterday := now.AddDate(0, 0, -1)
+	from := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 0, 0, 0, 0, loc)
+	to := from.Add(24*time.Hour - time.Second)
+	// Ring of one day: yesterday is read from the step file, not from RAM.
+	steps := NewStepLog(func() int { return 60 }, func() string { return dir }).WithRingDays(func() int { return 1 })
+	got := steps.Steps(demoStepScenario, from, to)
+	if len(got) < 100 {
+		t.Fatalf("steps of %s on the last day = %d, want at least 100", demoStepScenario, len(got))
+	}
+	for _, st := range got {
+		if st.At < from.Unix() || st.At > to.Unix() {
+			t.Fatalf("step at %d outside the last day", st.At)
+		}
+	}
+
+	// A second seed keeps the existing files unchanged.
+	name := filepath.Join(dir, "learnrec", "minutes", from.Format(dayLayout)+".enm")
+	before, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := SeedDemoMinutes(dir, now, loc); err != nil {
+		t.Fatalf("second SeedDemoMinutes: %v", err)
+	}
+	after, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("second seed changed an existing minute file")
+	}
+}

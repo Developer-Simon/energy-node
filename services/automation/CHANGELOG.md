@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.3-pre.4 (2026-11-21)
+## v0.7.3-pre.5 (2026-11-22)
 
 ### Features
 
@@ -8,6 +8,8 @@
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 - **automations:** flag rules that do not work and offer a fix (#278) (d369133)
 - **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284) (8aae55b)
+- **automation:** publish every regulator step of a scenario (b82ff94)
+- **autolearn:** The node records minute values and keeps every regulator step as a base for learning (#293)
 - **automation:** resolve learned values with bounds and a fallback (1049a08)
 - **automation:** compare against learned values and the learned house state (e27f41c)
 - **automations:** accept learned values in the rule schema (a8c404d)

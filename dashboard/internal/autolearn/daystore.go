@@ -39,6 +39,8 @@ type DayFile struct {
 	Events  []EventRec            `json:"events"`
 	Actions []ActionRec           `json:"actions"`
 	Cycles  []CycleRec            `json:"cycles,omitempty"`
+	// Steps sind die Reglerschritte je Szenario. Alte Dateien haben das Feld nicht.
+	Steps map[string]*StepDay `json:"steps,omitempty"`
 	// Fake markiert die Demo-Profile. Die Konsole der Demo entfernt nur solche
 	// Dateien. Echte Tage tragen das Feld nicht.
 	Fake bool `json:"fake,omitempty"`
@@ -750,7 +752,8 @@ func (s *DayStore) writeLocked() error {
 // gerundet.
 func (s *DayStore) snapshotLocked() DayFile {
 	out := DayFile{V: dayFileVersion, Day: s.day, Devices: make(map[string]*DeviceDay, len(s.file.Devices)),
-		Site: s.file.Site, Events: s.file.Events, Actions: s.file.Actions, Cycles: s.file.Cycles}
+		Site: s.file.Site, Events: s.file.Events, Actions: s.file.Actions, Cycles: s.file.Cycles,
+		Steps: s.file.Steps}
 	for id, dd := range s.file.Devices {
 		c := *dd
 		for q := range c.AvgW {
