@@ -5169,7 +5169,7 @@
   "users.role.view_logs.desc": "Die Protokolle der Dienste lesen.",
   "users.role.view_logs.label": "Dienstprotokolle lesen",
   "users.role.view_monitoring.desc": "Meldungen zu Energie, Messketten und Lernfunktionen und alle Lernwerte ansehen.",
-  "users.role.view_monitoring.label": "Monitoring ansehen",
+  "users.role.view_monitoring.label": "Monitoring",
   "users.role.view_overview.desc": "Die Übersicht sehen.",
   "users.role.view_overview.label": "Übersicht",
   "users.role.view_stats.desc": "Die Statistik sehen.",

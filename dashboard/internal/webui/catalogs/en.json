@@ -5169,7 +5169,7 @@
   "users.role.view_logs.desc": "Read the logs of the services.",
   "users.role.view_logs.label": "Read service logs",
   "users.role.view_monitoring.desc": "See notices about energy, measurement chains and learning, and all learned values.",
-  "users.role.view_monitoring.label": "View monitoring",
+  "users.role.view_monitoring.label": "Monitoring",
   "users.role.view_overview.desc": "See the overview.",
   "users.role.view_overview.label": "Overview",
   "users.role.view_stats.desc": "See the statistics.",
