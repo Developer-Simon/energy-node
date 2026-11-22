@@ -141,7 +141,7 @@
       "enabled": true,
       "cooldown_seconds": 600,
       "conditions": [
-        {"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 2200, "hysteresis": 100, "hold_seconds": 60}
+        {"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 2600, "hysteresis": 100, "hold_seconds": 60}
       ],
       "actions": [
         {"type": "publish", "topic": "plug/entfeuchter/output/set", "payload_source": "constant", "payload": "ON"}

@@ -43,10 +43,13 @@ const (
 	// die Grundlast um demoRiseW hebt. TUNABLE
 	demoRiseFrom = 12
 	// demoRiseW ist der Anstieg der Grundlast in W. TUNABLE
-	demoRiseW = 80.0
+	demoRiseW = 200.0
 	// demoPriorWeeks ist die Zahl der Wochen vor now, für die das Vorjahr einen
-	// Anteil leerer Morgen trägt. Sie deckt die 42 Demo-Tage ab.
-	demoPriorWeeks = 8
+	// Anteil leerer Morgen trägt. Sie deckt die 21 Demo-Tage plus die Nachbarwoche ab.
+	demoPriorWeeks = 5
+	// demoSeasonBaseW ist die Grundlast der Vorjahreswochen in W, so hoch wie die
+	// Nächte der Demo vor dem Anstieg. TUNABLE
+	demoSeasonBaseW = 290.0
 
 	// demoPlugOffMin ist die Abschaltzeit der Balkonsteckdose, 22:30 in Minuten.
 	demoPlugOffMin = 1350
@@ -110,8 +113,8 @@ var demoEntities = map[string]string{
 // demoWatts ist die Leistung der Demo-Geräte, wenn sie laufen.
 var demoWatts = map[string]float64{demoPlugBalkon: 60, demoPlugDry: 300, demoRelais: 500, demoHeatPump: 1500, demoWasherDevice: 2000}
 
-// SeedDemo schreibt die Tagesdateien der letzten 42 Tage vor now in dir (zweimal
-// das 21-Tage-Muster), für die Geräte der Demo. Jede Datei trägt "fake": true, die Konsole der Demo entfernt
+// SeedDemo schreibt die Tagesdateien der letzten 21 Tage vor now in dir, für die
+// Geräte der Demo. Jede Datei trägt "fake": true, die Konsole der Demo entfernt
 // nur solche. Das Ergebnis ist fest, derselbe Aufruf schreibt dieselben Bytes.
 // Der Aufrufer prüft, ob dir leer ist.
 func SeedDemo(dir string, now time.Time, loc *time.Location) error {
@@ -119,11 +122,7 @@ func SeedDemo(dir string, now time.Time, loc *time.Location) error {
 		loc = time.Local
 	}
 	store := &DayStore{dir: dir}
-	// Vor den 21 Tagen liegt dasselbe Muster ein zweites Mal, ohne Anstieg. So hat
-	// die Grundlast genug Nächte für ihre Referenz.
-	days := demoDaysWith(now.In(loc).AddDate(0, 0, -demoSeedDays), loc, false)
-	days = append(days, demoDays(now.In(loc), loc)...)
-	for _, f := range days {
+	for _, f := range demoDays(now.In(loc), loc) {
 		if err := store.writeFile(f.Day, f); err != nil {
 			return fmt.Errorf("autolearn: demo seed: %w", err)
 		}
@@ -689,13 +688,19 @@ func DemoSeason(now time.Time) []Week {
 			Learned:  map[string]float64{demoBedtimeKey: demoBedtimeMin + 6*math.Sin(float64(k))},
 		})
 	}
-	// Dieselben Wochen ein Jahr früher: der Akku war damals selten leer. Damit
-	// meldet die Demo „Akku ist nachts leer“.
-	share := 0.1
-	for k := 0; k <= demoPriorWeeks; k++ {
-		y, w := now.AddDate(0, 0, -7*k).ISOWeek()
-		s := share
-		out = append(out, Week{Key: fmt.Sprintf("%d-W%02d", y-1, w), Source: seasonSourceDays, Days: 7, EmptyShare: &s})
+	// Dieselben Wochen in den zwei Jahren davor: der Akku war damals selten leer,
+	// und die Grundlast lag nachts bei demoSeasonBaseW. Damit meldet die Demo
+	// „Akku ist nachts leer“ und „Grundlast steigt“ schon nach 21 Tagen.
+	for back := 1; back <= 2; back++ {
+		for k := 0; k <= demoPriorWeeks; k++ {
+			y, w := now.AddDate(0, 0, -7*k).ISOWeek()
+			week := Week{Key: fmt.Sprintf("%d-W%02d", y-back, w), Source: seasonSourceDays, Days: 7, BaseW: demoSeasonBaseW}
+			if back == 1 {
+				share := 0.1
+				week.EmptyShare = &share
+			}
+			out = append(out, week)
+		}
 	}
 	return out
 }

@@ -339,8 +339,8 @@ func TestDemoSeedWritesGzipDayFilesAndIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 2*demoSeedDays {
-		t.Fatalf("files = %d, want %d", len(entries), 2*demoSeedDays)
+	if len(entries) != demoSeedDays {
+		t.Fatalf("files = %d, want %d", len(entries), demoSeedDays)
 	}
 	for _, e := range entries {
 		a, err := os.ReadFile(filepath.Join(dirA, e.Name()))
@@ -450,8 +450,8 @@ func TestDemoOutdoorSensorIsInBrokerAndSettings(t *testing.T) {
 func TestDemoSeasonYearCourseOfBedtime(t *testing.T) {
 	now := time.Date(2026, 11, 21, 9, 0, 0, 0, berlinLoc(t))
 	weeks := DemoSeason(now)
-	if len(weeks) != demoSeasonWeeks+demoPriorWeeks+1 || demoSeasonWeeks < 20 {
-		t.Fatalf("season weeks = %d, want %d (at least 20)", len(weeks), demoSeasonWeeks+demoPriorWeeks+1)
+	if len(weeks) != demoSeasonWeeks+2*(demoPriorWeeks+1) || demoSeasonWeeks < 20 {
+		t.Fatalf("season weeks = %d, want %d (at least 20)", len(weeks), demoSeasonWeeks+2*(demoPriorWeeks+1))
 	}
 	count := 0
 	for _, w := range weeks {
@@ -530,11 +530,10 @@ func TestDemoSeedClockAndSunHabitsContrast(t *testing.T) {
 			codes[c.Finding.ID] = c.Finding.Summary.Code
 		}
 	}
-	// With 42 days the relay carries the sun habit of switching on, the balcony plug follows it by coupling.
 	want := map[string]string{
 		"switch_time:" + demoRelais + ":off:0:1830":     "switch_time.sun_off",
 		"switch_time:" + demoPlugBalkon + ":off:0:2230": "switch_time.off",
-		"switch_time:" + demoRelais + ":on:0:1700":      "switch_time.sun_on",
+		"switch_time:" + demoPlugBalkon + ":on:0:1700":  "switch_time.sun_on",
 	}
 	for id, code := range want {
 		if codes[id] != code {
@@ -706,6 +705,30 @@ func TestDemoSeedYieldsEnergyFindings(t *testing.T) {
 	for _, id := range []string{"battery:full", "battery:empty"} {
 		if !ids[id] {
 			t.Errorf("no %s finding in the demo pipeline, ids %v", id, ids)
+		}
+	}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		if c.Finding.Kind == "baseload" && (c.Finding.Device != "" || c.Finding.Group != "check") {
+			t.Errorf("baseload finding device %q group %q, want no culprit and group check", c.Finding.Device, c.Finding.Group)
+		}
+		if c.Finding.ID == "battery:empty" && c.Finding.Group != "check" {
+			t.Errorf("battery:empty group %q, want check without culprit", c.Finding.Group)
+		}
+	}
+}
+
+// TestDemoSeedKeepsTheHabitSuggestions checks the suggestions the demo had
+// before the energy findings: run time of the dehumidifier and the away standby.
+func TestDemoSeedKeepsTheHabitSuggestions(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]bool{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = true
+	}
+	for _, id := range []string{"runtime:plug_entfeuchter", "away_standby:waermepumpe"} {
+		if !ids[id] {
+			t.Errorf("no %s in the demo pipeline, ids %v", id, ids)
 		}
 	}
 }
