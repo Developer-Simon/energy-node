@@ -28,41 +28,7 @@
                 </span>
               </span>
 
-              <template x-if="findingFor(rule.id)">
-                <button class="auto-learn-mark" type="button" aria-haspopup="dialog" data-tour="rule-finding-mark"
-                        x-bind:class="'is-' + findingFor(rule.id)?.severity + (findingOpen === findingFor(rule.id)?.id ? ' is-open' : '')"
-                        x-bind:aria-expanded="findingOpen === findingFor(rule.id)?.id ? 'true' : 'false'"
-                        x-on:click.stop="toggleFinding(rule.id, $el)"
-                        aria-label="{{t "automations.learn.mark_label"}}">
-                  <svg class="automation-icon" aria-hidden="true"><use x-bind:href="findingFor(rule.id)?.severity === 'info' ? '#ico-info' : '#ico-warning'"></use></svg>
-                </button>
-              </template>
-              <template x-teleport="body">
-                <div class="auto-learn-layer">
-                  <template x-for="finding in [findingFor(rule.id)].filter((entry) => entry && entry.id === findingOpen)" x-bind:key="finding.id">
-                    <div class="auto-learn-pop" role="dialog" aria-modal="false" x-ref="findingPop" data-tour="rule-finding-pop"
-                         x-bind:aria-label="findingText(finding).title" x-bind:style="findingStyle"
-                         x-on:click.outside="closeFinding()" x-on:keydown.escape.window="closeFinding()">
-                      <div class="auto-learn-pop-head">
-                        <svg class="automation-icon" aria-hidden="true" x-bind:class="'is-' + finding.severity"><use x-bind:href="finding.severity === 'info' ? '#ico-info' : '#ico-warning'"></use></svg>
-                        <h4 x-text="findingText(finding).title"></h4>
-                        <button class="auto-learn-pop-close" type="button" aria-label="{{t "automations.learn.close"}}" x-on:click="closeFinding()">
-                          <svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg>
-                        </button>
-                      </div>
-                      <p class="auto-learn-pop-text" x-text="findingText(finding).text"></p>
-                      <div class="auto-learn-evidence" x-html="window.AutomationEvidence.render(finding.evidence, $t)"></div>
-                      <div class="auto-learn-pop-actions">
-                        <template x-for="(fix, index) in (finding.apply || [])" x-bind:key="index">
-                          <button class="auto-btn-text auto-learn-fix" type="button" x-bind:class="{ 'is-primary': index === 0 }" x-bind:data-tour="index === 0 ? 'rule-finding-fix' : null"
-                                  x-on:click="applyFix(fix, finding)" x-text="fixLabel(fix)"></button>
-                        </template>
-                        <button class="auto-btn-text is-ghost auto-learn-ignore" type="button" x-on:click="ignoreFinding(finding)">{{t "automations.learn.ignore"}}</button>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-              </template>
+              {{template "automations-finding" (dict "key" "rule" "tour" "rule")}}
 
               <span class="auto-rule-edit-status" x-show="editing[rule.id]" x-text="ruleEditStatus(rule)"></span>
               <button class="auto-btn-text is-ghost" type="button" x-show="canEditAutomations && expanded[rule.id] && !editing[rule.id]" x-on:click="testRule(rule)"

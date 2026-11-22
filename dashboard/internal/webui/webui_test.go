@@ -5052,3 +5052,42 @@ func TestInitialPanelMonitoringOnly(t *testing.T) {
 		t.Fatalf("nur view_monitoring: got %q, want monitoring-panel", got)
 	}
 }
+
+// Szenario-Karten zeigen Befunde wie Regeln: Marke und Popover kommen aus derselben
+// Vorlage, die Szenario-Karte prueft ihre eigene Id und hat keine Tour-Ziele.
+func TestScenarioCardsShareTheFindingMark(t *testing.T) {
+	scenario, err := fs.ReadFile(templateFS, "templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule, err := fs.ReadFile(templateFS, "templates/automations-rule.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	partial, err := fs.ReadFile(templateFS, "templates/automations-finding.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(string(scenario), `{{template "automations-finding" (dict "key" "scenario" "tour" "")}}`); got != 2 {
+		t.Fatalf("Szenario-Karte: %d Befundmarken, erwartet 2 (Zeile und offener Kopf)", got)
+	}
+	if !strings.Contains(string(scenario), "'has-finding': !!findingFor(scenario.id)") {
+		t.Fatal("Szenario-Karte: die Zeile traegt keine has-finding-Klasse")
+	}
+	if !strings.Contains(string(rule), `{{template "automations-finding" (dict "key" "rule" "tour" "rule")}}`) {
+		t.Fatal("Regelkarte: die gemeinsame Befundmarke fehlt")
+	}
+	if strings.Contains(string(rule), "findingFor(rule.id)?.severity") {
+		t.Fatal("Regelkarte: die Befundmarke steht noch inline")
+	}
+	for _, want := range []string{
+		`findingFor({{.key}}.id)`,
+		`{{if eq .tour "rule"}}data-tour="rule-finding-mark"{{end}}`,
+		`{{if eq .tour "rule"}}data-tour="rule-finding-pop"{{end}}`,
+		`x-on:click.outside="closeFinding()"`,
+	} {
+		if !strings.Contains(string(partial), want) {
+			t.Fatalf("Befundmarke: %q fehlt in automations-finding.html", want)
+		}
+	}
+}

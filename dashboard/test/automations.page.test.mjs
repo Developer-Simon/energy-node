@@ -3349,6 +3349,37 @@ test('findingFor finds the finding that lists the rule id', () => {
   assert.equal(component.findingFor('r9'), null);
 });
 
+// Ein Regler-Befund nennt die Id seines Szenarios. Die Szenario-Karte zeigt ihn, und
+// der Fix schreibt in den Szenario-Entwurf.
+test('findingFor finds a regulator finding by its scenario id and the fix writes the scenario draft', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [], scenarios: [
+    { id: 'nulleinspeisung_last', name: 'Nulleinspeisung', while: { mode: 'regulate', gain: 0.8 } },
+    { id: 'andere', name: 'Andere', while: { mode: 'regulate', gain: 0.2 } },
+  ] };
+  const regulatorFinding = {
+    id: 'regulator:nulleinspeisung_last',
+    kind: 'regulator',
+    group: 'check',
+    rule_ids: ['nulleinspeisung_last'],
+    severity: 'warn',
+    summary: { code: 'check.regulator', params: {} },
+    evidence: {},
+    apply: [{ code: 'fix.set_gain', rule_id: 'nulleinspeisung_last', ops: [{ path: ['while', 'gain'], value: 0.5 }] }],
+  };
+  component.findings = [regulatorFinding];
+  assert.equal(component.findingFor('nulleinspeisung_last').id, 'regulator:nulleinspeisung_last');
+  assert.equal(component.findingFor('andere'), null);
+  component.findingOpen = regulatorFinding.id;
+  component.applyFix(regulatorFinding.apply[0], regulatorFinding);
+  assert.equal(component.document.scenarios[0].while.gain, 0.5);
+  assert.equal(component.document.scenarios[1].while.gain, 0.2);
+  assert.equal(component.view, 'scenarios');
+  assert.equal(component.scenarioEditing.nulleinspeisung_last, true);
+  assert.equal(component.scenarioExpanded.nulleinspeisung_last, true);
+  assert.equal(component.findingOpen, null);
+});
+
 test('findingText builds the title and text keys from summary.code', () => {
   const { component, window } = createAutomationsPanel();
   window.I18n.t = (key, params) => `${key}|${params ? params.other : ''}`;
