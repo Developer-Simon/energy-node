@@ -58,6 +58,7 @@ management page shows them. The source is `internal/auth/roles.go`.
 | `view_device_map` | view | – | no | yes |
 | `view_config` | view | – | no | yes |
 | `view_automations` | view | – | no | yes |
+| `view_monitoring` | view | – | no | yes |
 | `view_diagnostics` | view | – | no | yes |
 | `operate_devices` | operate | `view_devices` | no | yes |
 | `operate_automations` | operate | `view_automations` | no | yes |

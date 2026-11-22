@@ -196,6 +196,9 @@ type RouterDependencies struct {
 	// LearnedSeason liefert die Wochen fuer den Jahresverlauf der gelernten
 	// Werte. nil heisst: kein Jahresverlauf.
 	LearnedSeason learnedSeasonSource
+	// Monitoring liefert Meldungen, Quittungen und Lernwerte fuer die
+	// Ueberwachung (GET /api/v1/monitoring). nil heisst 501.
+	Monitoring *MonitoringDeps
 	// HistorySampler fuellt den Ringpuffer der Verlaufsvermittlung einmal
 	// pro Minute mit role:grid und den Szenario-Ausgaben. nil heisst: nur
 	// der Browser schreibt in den Puffer.
@@ -413,6 +416,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/automations/suggestions", handleAutomationSuggestions(dependencies.Learning, dependencies.AutomationSuggestions, suggestionDeviceExists))
 	g.HandleFunc("/api/v1/automations/suggestions/", handleAutomationSuggestionAction(dependencies.Auth, dependencies.AutomationSuggestions))
 	g.HandleFunc("/api/v1/automations/learned", handleAutomationLearned(dependencies.Learning, dependencies.LearnedValues, suggestionDeviceExists, dependencies.LearnedSeason))
+	g.HandleFunc("/api/v1/monitoring", handleMonitoring(dependencies.Monitoring))
+	g.HandleFunc("/api/v1/monitoring/ack", handleMonitoringAck(dependencies.Auth, dependencies.Monitoring))
 	g.HandleFunc("/api/v1/learning/status", handleLearningStatus(dependencies.Learning))
 	g.HandleFunc("/api/v1/learning/reset", handleLearningReset(dependencies.Auth, dependencies.Learning))
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
