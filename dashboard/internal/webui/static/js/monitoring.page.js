@@ -61,7 +61,15 @@
       flashKey: '',
 
       init() {
+        // Eine Anfrage, die vor dem Laden der Seite kam, liegt auf window.
+        const request = window.__monitoringOpenRequest__;
+        if (request) {
+          delete window.__monitoringOpenRequest__;
+          this.view = 'notices';
+          this.filter = request.filter || 'all';
+        }
         window.addEventListener('monitoring-open', (event) => {
+          delete window.__monitoringOpenRequest__;
           this.view = 'notices';
           this.filter = (event.detail && event.detail.filter) || 'all';
           this.pick = '';

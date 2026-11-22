@@ -4780,6 +4780,7 @@ func TestPanelPlaceholdersCarrySkeletons(t *testing.T) {
 		{"settings-panel", []string{"sk-form", "sk-line"}},
 		{"devices-panel", []string{"sk-chips", "sk-shell"}},
 		{"efficiency-panel", []string{"sk-chart", "sk-list"}},
+		{"monitoring-panel", []string{"sk-chart", "sk-list"}},
 	}
 	for _, panel := range panels {
 		marker := `id="` + panel.id + `"`
@@ -5002,5 +5003,48 @@ func TestSettingsSubpageBackupForbiddenWithoutRight(t *testing.T) {
 	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=settings-page&page=backup", auth.RoleBackupExport))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("settings-page backup mit backup_export muss rendern, war %d", rec.Code)
+	}
+}
+
+// Reiter und Panel Monitoring hängen am Recht view_monitoring, nicht am Manager.
+func TestMonitoringTabAndPanelFollowTheRight(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(rec, efficiencyUserRequest(t, "/", auth.RoleViewMonitoring, auth.RoleViewOverview))
+	for _, want := range []string{`id="tab-monitoring"`, `id="monitoring-panel"`, `data-tour="monitoring-tab"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("view_monitoring: %s fehlt", want)
+		}
+	}
+
+	without := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(without, efficiencyUserRequest(t, "/", auth.RoleViewOverview))
+	for _, gone := range []string{`id="tab-monitoring"`, `id="monitoring-panel"`} {
+		if strings.Contains(without.Body.String(), gone) {
+			t.Fatalf("ohne view_monitoring darf %s nicht erscheinen", gone)
+		}
+	}
+}
+
+func TestMonitoringFragmentNeedsTheRight(t *testing.T) {
+	denied := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(denied, efficiencyUserRequest(t, "/?fragment=panel&panel=monitoring", auth.RoleViewOverview))
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("Fragment ohne Recht: got status %d, want 403", denied.Code)
+	}
+
+	granted := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(granted, efficiencyUserRequest(t, "/?fragment=panel&panel=monitoring", auth.RoleViewMonitoring))
+	if granted.Code != http.StatusOK {
+		t.Fatalf("Fragment mit view_monitoring: got status %d, want 200", granted.Code)
+	}
+	if !strings.Contains(granted.Body.String(), `class="monitoring-bar"`) {
+		t.Fatal("Fragment mit view_monitoring muss die Monitoring-Leiste enthalten")
+	}
+}
+
+func TestInitialPanelMonitoringOnly(t *testing.T) {
+	can := map[string]bool{auth.RoleViewMonitoring: true}
+	if got := initialPanel(can, false, false, false); got != "monitoring-panel" {
+		t.Fatalf("nur view_monitoring: got %q, want monitoring-panel", got)
 	}
 }

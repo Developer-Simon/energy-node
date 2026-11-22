@@ -165,7 +165,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 	for name, fn := range translator.FuncMap(lang) {
 		funcs[name] = fn
 	}
-	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/settings-subpages.html", "templates/automations.html", "templates/automations-rule.html", "templates/automations-rows.html", "templates/automations-scenario.html", "templates/automations-assistant.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/users.html", "templates/settings-stepper.html", "templates/checklist.html", "templates/highlight-details.html", "templates/diagnostics.html", "templates/network.html", "templates/stats.html", "templates/efficiency.html"))
+	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/settings-subpages.html", "templates/automations.html", "templates/automations-rule.html", "templates/automations-rows.html", "templates/automations-scenario.html", "templates/automations-assistant.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/users.html", "templates/settings-stepper.html", "templates/checklist.html", "templates/highlight-details.html", "templates/diagnostics.html", "templates/network.html", "templates/stats.html", "templates/efficiency.html", "templates/monitoring.html"))
 }
 
 var overviewSets = newTemplateSets(buildOverviewTemplate)
@@ -760,6 +760,7 @@ var panelViewRole = map[string]string{
 	"history":              auth.RoleViewHistory,
 	"stats":                auth.RoleViewStats,
 	"efficiency":           auth.RoleViewEfficiency,
+	"monitoring":           auth.RoleViewMonitoring,
 	"diagnostics":          auth.RoleViewDiagnostics,
 	"config":               auth.RoleViewConfig,
 	"energy":               auth.RoleViewEnergy,
@@ -791,6 +792,7 @@ func initialPanel(can map[string]bool, manager, automationsInstalled, hasChains 
 		{"config-panel", auth.RoleViewConfig, manager},
 		{"energy-panel", auth.RoleViewEnergy, manager},
 		{"devicemap-panel", auth.RoleViewDeviceMap, manager},
+		{"monitoring-panel", auth.RoleViewMonitoring, true},
 		{"diagnostics-panel", auth.RoleViewDiagnostics, manager},
 		{"automations-panel", auth.RoleViewAutomations, automationsInstalled},
 	}
@@ -817,7 +819,7 @@ func templateNameForRequest(r *http.Request) (name string, ok bool) {
 		return "device-card-fragment", true
 	case "panel":
 		switch panel := r.URL.Query().Get("panel"); panel {
-		case "devices", "history", "stats", "efficiency", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
+		case "devices", "history", "stats", "efficiency", "monitoring", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
 			return panel, true
 		default:
 			return "", false
