@@ -283,6 +283,24 @@
     },
     surplus_switch(prefill) { return surplusPrefill(prefill, 'on', true); },
     surplus_wallbox(prefill) { return surplusPrefill(prefill, 'start', false); },
+    after_battery_full(prefill) {
+      const out = {};
+      // Geraet per Geraete-Id vor der Entitaet, wie bei shift_start.
+      const device = prefill.device !== undefined ? prefill.device : prefill.entity;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
+      }
+      if (prefill.min_run_s !== undefined) {
+        if (typeof prefill.min_run_s !== 'number' || !Number.isFinite(prefill.min_run_s) || prefill.min_run_s < 0) return null;
+        // Die Auswahl des Schritts: keine 0, kurz 180, standard 300 und lang 600 Sekunden.
+        const steps = [['none', 0], ['short', 180], ['standard', 300], ['long', 600]];
+        out.min_run_s = steps.reduce((best, step) => (
+          Math.abs(step[1] - prefill.min_run_s) < Math.abs(best[1] - prefill.min_run_s) ? step : best
+        ))[0];
+      }
+      return out;
+    },
     shift_start(prefill) {
       const out = {};
       // Der Erkenner nennt die Geraete-Id und eine Entitaet, die nicht zwingend ein Schalter ist.

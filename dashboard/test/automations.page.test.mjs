@@ -3841,6 +3841,43 @@ test('openAssistantWith on a shift suggestion creates the two rules of the templ
   assert.equal(component.assistant.open, false);
 });
 
+test('prefillToAnswers maps a battery full suggestion to device and the nearest run time step', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = JSON.parse(JSON.stringify(prefillToAnswers('after_battery_full', {
+    device: 'lampe', entity: 'lamp_switch', min_run_s: 290,
+  })));
+  assert.deepEqual(answers, { device: 'lampe', min_run_s: 'standard' });
+  const long = JSON.parse(JSON.stringify(prefillToAnswers('after_battery_full', { entity: 'lamp_switch', min_run_s: 600 })));
+  assert.deepEqual(long, { device: 'lamp_switch', min_run_s: 'long' }, 'without a device id the entity is used');
+  assert.equal(JSON.parse(JSON.stringify(prefillToAnswers('after_battery_full', { device: 'lampe', min_run_s: 40 }))).min_run_s, 'none');
+});
+
+test('prefillToAnswers returns null for an invalid battery full run time or device', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.equal(prefillToAnswers('after_battery_full', { device: 'lampe', min_run_s: '300' }), null);
+  assert.equal(prefillToAnswers('after_battery_full', { device: 'lampe', min_run_s: -60 }), null);
+  assert.equal(prefillToAnswers('after_battery_full', { device: 7 }), null);
+});
+
+test('openAssistantWith on a battery full suggestion creates a valid scenario', async () => {
+  const { component } = await prefillPanel();
+  const before = component.document.scenarios.length;
+  await component.openAssistantWith('after_battery_full', { device: 'lampe', min_run_s: 180 });
+  assert.equal(component.assistant.templateId, 'after_battery_full');
+  assert.equal(component.assistant.answers.device, 'lamp_switch');
+  assert.equal(component.assistant.answers.min_run_s, 'short');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+  assert.equal(component.document.scenarios.length, before + 1);
+  const created = component.document.scenarios[component.document.scenarios.length - 1];
+  assert.equal(created.template, 'after_battery_full');
+  assert.equal(created.min_run_s, 180);
+  assert.equal(created.on_start.actions[0].payload, 'ON');
+  assert.equal(component.assistant.open, false);
+});
+
 test('prefillToAnswers maps a runtime limit to minutes', () => {
   const { window } = createAutomationsPanel();
   const answers = window.__automationsPrefill.prefillToAnswers('runtime_off', { device: 'lamp_switch', minutes: 120 });
