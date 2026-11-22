@@ -2920,34 +2920,34 @@ const switchDevices = [
   },
 ];
 
-test('creating shift_start inserts both rules and one undo removes them', async () => {
+test('creating shift_start inserts one scenario and undo removes it', async () => {
   const { component } = await assistantPanel(switchDevices);
   await component.openAssistant();
-  component.view = 'scenarios';
+  component.view = 'rules';
   component.startTemplate('shift_start');
   component.assistantGoTo('summary');
-  const before = component.document.rules.length;
+  const before = component.document.scenarios.length;
   component.assistantCreate();
-  assert.equal(component.document.rules.length, before + 2);
-  const added = component.document.rules.slice(before).map((rule) => rule.id);
-  assert.equal(new Set(added).size, 2, 'the two rules get different ids');
-  assert.equal(component.view, 'rules');
+  assert.equal(component.document.scenarios.length, before + 1);
+  const added = component.document.scenarios[before];
+  assert.equal(added.id, 'shift_start');
+  assert.equal(component.view, 'scenarios');
   assert.equal(component.assistant.open, false);
-  assert.deepEqual(component.undo.ids, added);
+  assert.deepEqual([...component.undo.ids], ['shift_start']);
   component.undoInsert();
-  assert.equal(component.document.rules.length, before);
-  assert.equal(added.some((id) => component.newIds[id]), false);
+  assert.equal(component.document.scenarios.length, before);
+  assert.equal(component.newIds.shift_start, undefined);
 });
 
-test('creating shift_start is blocked when only one rule place is left', async () => {
+test('creating shift_start is blocked when the scenario list is full', async () => {
   const { component } = await assistantPanel(switchDevices);
   await component.openAssistant();
   component.startTemplate('shift_start');
   component.assistantGoTo('summary');
-  component.document.rules = Array.from({ length: 15 }, (_, index) => ({ id: `regel_${index}`, name: 'Voll', enabled: true }));
+  component.document.scenarios = Array.from({ length: 8 }, (_, index) => ({ id: `szenario_${index}`, name: 'Voll', enabled: true }));
   assert.equal(component.assistantListFull(), true);
   component.assistantCreate();
-  assert.equal(component.document.rules.length, 15);
+  assert.equal(component.document.scenarios.length, 8);
   assert.equal(component.undo, null);
   assert.equal(component.assistant.open, true, 'the dialog stays open');
 });
@@ -3877,16 +3877,17 @@ test('prefillToAnswers returns null for an invalid shift latest time or start po
   assert.equal(prefillToAnswers('shift_start', { device: 'lampe', on_w: -1 }), null);
 });
 
-test('openAssistantWith on a shift suggestion creates the two rules of the template', async () => {
+test('openAssistantWith on a shift suggestion creates the scenario of the template', async () => {
   const { component } = await prefillPanel();
-  const before = component.document.rules.length;
+  const before = component.document.scenarios.length;
   await component.openAssistantWith('shift_start', { device: 'lampe', on_w: 1500, latest: '20:00' });
   assert.equal(component.assistant.templateId, 'shift_start');
   assert.equal(component.assistant.answers.device, 'lamp_switch');
   assert.equal(component.assistant.answers.latest.from, '20:00');
   component.assistantGoTo('summary');
   component.assistantCreate();
-  assert.equal(component.document.rules.length, before + 2);
+  assert.equal(component.document.scenarios.length, before + 1);
+  assert.equal(component.document.scenarios[before].template, 'shift_start');
   assert.equal(component.assistant.open, false);
 });
 

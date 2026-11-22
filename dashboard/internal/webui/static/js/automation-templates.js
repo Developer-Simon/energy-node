@@ -2118,27 +2118,29 @@
       const latest = answers.latest.from;
       // Der Zyklusbedarf kommt aus dem Lernwert, ohne Lernwert gilt der Ersatz von 1000 Wh.
       const cycle = { learned: `device/${entry.deviceId}/cycle_wh`, min: 100, max: 6000, fallback: 1000 };
-      const first = {
+      // Ein Szenario: Start nur im Fenster bis zur spaetesten Zeit bei Ueberschuss. Das Ende
+      // schaltet nichts ab (on_end leer), das Geraet beendet den Zyklus selbst. Ein Netzbezug
+      // beendet nur das Szenario, und cooldown_s verhindert einen zweiten Start am selben Tag.
+      const scenario = {
         id: uniqueId('shift_start', ctx.usedIds),
         name: t('automations.templates.shift_start.title'),
         enabled: true,
-        conditions: [
-          { type: 'learned_value', learned: 'site/surplus_left_wh', comparison: 'above', threshold: cycle, fallback: 0 },
-          B('grid_export', 'above', answers.on_w, 120),
-          { type: 'time_window', start: '00:00', end: latest, weekdays: [] },
-        ],
-        actions: [Sw(entity, true)],
+        template: 'shift_start',
+        when: {
+          conditions: [
+            { type: 'learned_value', learned: 'site/surplus_left_wh', comparison: 'above', threshold: cycle, fallback: 0 },
+            B('grid_export', 'above', answers.on_w, 120),
+            { type: 'time_window', start: '00:00', end: latest, weekdays: [] },
+          ],
+        },
+        until: { conditions: [B('grid_import', 'above', 300, 600)] },
+        max_duration_s: 14400,
+        cooldown_s: 86400,
+        on_start: { actions: [Sw(entity, true)] },
+        on_end: { actions: [] },
+        while: { mode: 'none' },
       };
-      // Zweite Regel: zur spaetesten Startzeit, einmal am Tag. Das Geraet schaltet nach dem Zyklus selbst ab.
-      const late = {
-        id: uniqueId('shift_start', [...(ctx.usedIds || []), first.id]),
-        name: t('automations.templates.shift_start.late.title'),
-        enabled: true,
-        cooldown_seconds: 86400,
-        conditions: [{ type: 'time_window', start: latest, end: clockAfter(latest, 1), weekdays: [] }],
-        actions: [Sw(entity, true)],
-      };
-      return { kind: 'rules', entries: [first, late] };
+      return { kind: 'scenario', entry: scenario };
     },
     summary(answers) {
       return [
@@ -2149,7 +2151,7 @@
         },
         { label: phase('when'), text: t('automations.assistant.summary.shift.surplus'), step: 'device' },
         { label: phase('run'), text: t('automations.assistant.summary.shift.run', { time: answers.latest.from }), step: 'latest' },
-        { label: phase('then'), text: t('automations.assistant.summary.shift.late', { time: answers.latest.from }), step: 'latest' },
+        { label: phase('then'), text: t('automations.assistant.summary.shift.limit'), step: 'latest' },
         { label: phase('end'), text: t('automations.assistant.summary.shift.end'), step: 'device' },
       ];
     },

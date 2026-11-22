@@ -1992,7 +1992,7 @@ test('night_off offers only switches and shows the night window in its summary',
   assert.ok(rows.some((row) => row.text === catalog('de')['automations.assistant.summary.night.learned']));
 });
 
-test('shift_start builds two rules: the surplus against the cycle energy, then the latest start', () => {
+test('shift_start builds one scenario: surplus against the cycle energy, until the latest time, no switch off on end', () => {
   const { wizard, templates } = load();
   const template = templateById(templates, 'shift_start');
   const ctx = plain(contextFor(wizard));
@@ -2000,12 +2000,11 @@ test('shift_start builds two rules: the surplus against the cycle energy, then t
     device: 'lamp_switch', on_w: 1500, latest: { from: '20:00', to: '20:05', days: [0, 1, 2, 3, 4, 5, 6] },
   });
   const result = plain(template.build(answers, ctx));
-  assert.equal(result.kind, 'rules');
-  assert.equal(result.entries.length, 2);
-  const [first, late] = result.entries;
-  assert.equal(first.id, 'shift_start');
-  assert.equal(late.id, 'shift_start_2');
-  assert.deepEqual(first.conditions, [
+  assert.equal(result.kind, 'scenario');
+  const entry = result.entry;
+  assert.equal(entry.id, 'shift_start');
+  assert.equal(entry.template, 'shift_start');
+  assert.deepEqual(entry.when.conditions, [
     {
       type: 'learned_value',
       learned: 'site/surplus_left_wh',
@@ -2020,10 +2019,14 @@ test('shift_start builds two rules: the surplus against the cycle energy, then t
     },
     { type: 'time_window', start: '00:00', end: '20:00', weekdays: [] },
   ]);
-  assert.equal(first.actions[0].payload, 'ON');
-  assert.deepEqual(late.conditions, [{ type: 'time_window', start: '20:00', end: '20:01', weekdays: [] }]);
-  assert.equal(late.cooldown_seconds, 86400);
-  assert.equal(late.actions[0].payload, 'ON');
+  assert.deepEqual(entry.until.conditions, [
+    { type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 300, hysteresis: 0, hold_seconds: 600 },
+  ]);
+  assert.equal(entry.max_duration_s, 14400);
+  assert.equal(entry.cooldown_s, 86400);
+  assert.equal(entry.on_start.actions[0].payload, 'ON');
+  assert.deepEqual(entry.on_end.actions, [], 'the end never switches the device off');
+  assert.equal(entry.while.mode, 'none');
 });
 
 test('after_battery_full builds a valid scenario with the chosen minimum run time', () => {
