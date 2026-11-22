@@ -337,7 +337,7 @@ test('unknown shape or missing evidence renders an empty string', () => {
 
 const quarters = (fn) => Array.from({ length: 96 }, (_, i) => fn(i));
 
-test('curve shape draws exactly one dashed line, the best curve, in the Soll lane', () => {
+test('curve shape draws exactly one dashed line, the best curve, in the Soll layer', () => {
   const { api, document } = load();
   const html = api.render({
     shape: 'curve',
@@ -349,7 +349,7 @@ test('curve shape draws exactly one dashed line, the best curve, in the Soll lan
   const dashed = host.querySelectorAll('polyline[stroke-dasharray]');
   assert.equal(dashed.length, 1);
   assert.equal(dashed[0].classList.contains('auto-learn-best'), true);
-  assert.equal(dashed[0].closest('.auto-learn-lane.is-soll') !== null, true);
+  assert.equal(dashed[0].closest('.auto-learn-plot-svg.is-soll') !== null, true);
   assert.equal(dashed[0].getAttribute('points').trim().split(/\s+/).length, 96);
   assert.equal(host.querySelectorAll('polyline.auto-learn-ist').length, 1);
 });
@@ -390,4 +390,30 @@ test('prototype keys are not shapes', () => {
   ['constructor', 'toString', 'hasOwnProperty', 'valueOf', '__proto__'].forEach((shape) => {
     assert.equal(api.render({ shape }, t), '', shape);
   });
+});
+
+test('curve shape puts Ist and Soll into one plot as high as two lanes', () => {
+  const { api, document } = load();
+  const host = mount(document, api.render({
+    shape: 'curve',
+    unit: '%',
+    ist_q: quarters((i) => (i < 40 ? 10 : 97)),
+    soll_q: quarters((i) => (i < 48 ? 10 + i : 97)),
+  }, t));
+  assert.equal(host.querySelectorAll('.auto-learn-plot').length, 1);
+  assert.equal(host.querySelectorAll('.auto-learn-lane').length, 0, 'no separate lanes');
+  const svgs = host.querySelectorAll('.auto-learn-plot-area > svg.auto-learn-plot-svg');
+  assert.equal(svgs.length, 2);
+  svgs.forEach((svg) => assert.equal(svg.getAttribute('viewBox'), '0 0 100 20'));
+  assert.equal(svgs[1].classList.contains('is-soll'), true);
+  assert.equal(svgs[1].querySelectorAll('polyline.auto-learn-soll-line').length, 1);
+  assert.equal(svgs[0].querySelectorAll('polyline.auto-learn-ist').length, 1);
+  assert.equal(host.querySelectorAll('.auto-learn-plot-key').length, 2);
+});
+
+test('curve shape without Soll draws only the Ist layer and one legend key', () => {
+  const { api, document } = load();
+  const host = mount(document, api.render({ shape: 'curve', ist_q: quarters(() => 50) }, t));
+  assert.equal(host.querySelectorAll('svg.auto-learn-plot-svg').length, 1);
+  assert.equal(host.querySelectorAll('.auto-learn-plot-key').length, 1);
 });
