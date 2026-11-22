@@ -630,3 +630,21 @@ def test_twenty_one_days_have_the_pattern_counts():
     profiles = _pattern_profiles()
     assert len(profiles) == 21
     assert sum(1 for p in profiles if _device_events(p, "plug_balkon", on=False)) == 18
+
+
+def test_pv_throttle_posts_to_the_broker(rules_path, broker):
+    url, posts = broker
+    tab = AutolearnTab(Log(), rules_path, url)
+
+    tab.act("pv_throttle", {"on": True})
+    tab.act("pv_throttle", {"on": False})
+
+    assert posts == [("/pv_throttle", {"on": True}), ("/pv_throttle", {"on": False})]
+
+
+def test_pv_throttle_needs_a_bool_and_the_broker(rules_path, broker):
+    url, _ = broker
+    with pytest.raises(ValueError):
+        AutolearnTab(Log(), rules_path, url).act("pv_throttle", {"on": "ja"})
+    with pytest.raises(ValueError):
+        AutolearnTab(Log(), rules_path).act("pv_throttle", {"on": True})
