@@ -96,3 +96,21 @@
 @media (max-width: 30rem) {
   .learn-hint .learn-pick-action { display: none; }
 }
+
+/* Ort der Minutenwerte: Radiozeilen auf der Karte Aufzeichnung. Das Radio
+   sitzt unsichtbar im Label, die Zeile zeigt den Punkt und den Rahmen. */
+.learn-radio-group { display: grid; gap: 0; }
+.learn-radio-row { flex-wrap: wrap; }
+.learn-radio-row.is-checked { border-color: var(--accent-line); }
+.learn-radio-row:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.learn-radio-label { box-sizing: border-box; flex: 1 1 12rem; display: flex; align-items: center; gap: .6rem; min-width: 0; cursor: pointer; }
+.learn-radio-label:has(input:disabled) { cursor: not-allowed; }
+.learn-radio-dot { flex: none; width: .95rem; height: .95rem; border: 2px solid var(--border); border-radius: 50%; box-sizing: border-box; }
+.learn-radio-row.is-checked .learn-radio-dot { border-color: var(--accent-line);
+  background: radial-gradient(circle, var(--accent-line) 0 40%, transparent 46%); }
+.learn-radio-row.is-unavailable { opacity: .55; }
+.learn-radio-row .learn-link { flex: none; margin: 0; }
+.learn-minutes-hint { margin: .2rem 0 .7rem; }
+@media (prefers-reduced-motion: reduce) {
+  .learn-radio-dot { transition: none; }
+}
