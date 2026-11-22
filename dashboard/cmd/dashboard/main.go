@@ -785,11 +785,13 @@ func main() {
 	// Minutenaufzeichnung: MinuteStore und StepLog. Der Zehn-Sekunden-Takt erneuert
 	// den Schnappschuss mit Einstellungen, Laufwerk und Lernstufe.
 	minutes := newMinuteRecording(minuteSources{
-		settings: settingsStore.LoadSettings,
-		status:   storageStatus,
-		limits:   learnLimits,
-		dataDir:  dataDir,
-		mount:    storageMountPoint,
+		settings:        settingsStore.LoadSettings,
+		status:          storageStatus,
+		limits:          learnLimits,
+		companionPaired: func() bool { return authManager.CompanionStatus().Paired },
+		ha:              learnHA,
+		dataDir:         dataDir,
+		mount:           storageMountPoint,
 	})
 	learnHub.AddMinute("minutes", minutes.store)
 	var minuteReader learnrec.Reader = minutes.store
@@ -1374,6 +1376,8 @@ func main() {
 		Rules:            func() ([]byte, error) { return configManager.Read("automation_rules") },
 		Minutes:          minutes.store.Usage,
 		DriveConfigured:  minutes.DriveConfigured,
+		CompanionPaired:  func() bool { return authManager.CompanionStatus().Paired },
+		MinutesPaused:    func() bool { return minutes.plan().Paused },
 		Reset: func() error {
 			resetLearned(learnedStore, client)
 			return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset(), minutes.Reset())

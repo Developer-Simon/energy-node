@@ -131,6 +131,9 @@ type Settings struct {
 	LearningMinutesMode     string `json:"learning_minutes_mode"`
 	LearningMinutesLocation string `json:"learning_minutes_location"`
 	LearningMinutesDays     int    `json:"learning_minutes_days"`
+	// LearningHAReconcileDisabled schaltet den Abgleich mit Home Assistant ab.
+	// Invertiert benannt, damit fehlend „an“ heisst. Wirkt nur mit gekoppeltem Companion.
+	LearningHAReconcileDisabled bool `json:"learning_ha_reconcile_disabled"`
 	// AutomationOutdoorEntity ist die unique_id der Aussentemperatur-Entitaet
 	// fuers Saisonlernen. Leer heisst: keine Temperatur wird gesammelt.
 	AutomationOutdoorEntity string `json:"automation_outdoor_entity"`
@@ -216,14 +219,15 @@ const (
 
 	// LearningProfileDaysDefault gilt, wenn LearningProfileDays 0 ist. Die
 	// Grenzen spiegeln das Schema (learning_profile_days).
-	LearningProfileDaysDefault = 56
-	LearningProfileDaysMin     = 14
-	LearningProfileDaysMax     = 365
-	LearningLevelAuto          = "auto"
-	LearningMinutesAuto        = "auto"
-	LearningMinutesDaysDefault = 60
-	LearningMinutesDaysMin     = 1
-	LearningMinutesDaysMax     = 365
+	LearningProfileDaysDefault        = 56
+	LearningProfileDaysMin            = 14
+	LearningProfileDaysMax            = 365
+	LearningLevelAuto                 = "auto"
+	LearningMinutesAuto               = "auto"
+	LearningMinutesPauseWithCompanion = "pause_with_companion"
+	LearningMinutesDaysDefault        = 60
+	LearningMinutesDaysMin            = 1
+	LearningMinutesDaysMax            = 365
 
 	ChangelogHistoryRecent   = "recent"
 	ChangelogHistoryExtended = "extended"

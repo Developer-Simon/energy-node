@@ -38,6 +38,7 @@ var settingsFieldRoles = map[string]string{
 	"learning_acknowledged":           auth.RoleEditSetup,
 	"learning_level":                  auth.RoleEditSetup,
 	"learning_minutes_mode":           auth.RoleEditSetup,
+	"learning_ha_reconcile_disabled":  auth.RoleEditSetup,
 	"learning_minutes_location":       auth.RoleEditSetup,
 	"learning_minutes_days":           auth.RoleEditSetup,
 	"energy_stats_recording":          auth.RoleEditSetup,

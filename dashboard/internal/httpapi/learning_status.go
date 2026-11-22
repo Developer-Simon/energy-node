@@ -30,7 +30,16 @@ type LearningDeps struct {
 	// DriveConfigured reports whether a storage drive is set up. It resolves
 	// the automatic location of the minute recording. Nil reads as no drive.
 	DriveConfigured func() bool
-	Reset           func() error
+	// CompanionPaired reports whether a Home Assistant companion is paired. It
+	// resolves the automatic mode and the reconcile. Nil reads as not paired.
+	CompanionPaired func() bool
+	// MinutesPaused reports whether the own minute recording is paused while
+	// Home Assistant delivers minutes. Nil reads as not paused.
+	MinutesPaused func() bool
+	// HAMinuteDays is the number of days Home Assistant minutes are cached for
+	// the reconcile. Nil reads as 0.
+	HAMinuteDays func() int
+	Reset        func() error
 }
 
 // minutesDriveKey is the new-hint of the minute recording that moved to the drive.
@@ -58,6 +67,10 @@ type minutesBody struct {
 	AutoLocation    bool   `json:"auto_location"`
 	DriveConfigured bool   `json:"drive_configured"`
 	DriveDown       bool   `json:"drive_down"`
+	Paused          bool   `json:"paused"`
+	Companion       bool   `json:"companion"`
+	Reconcile       bool   `json:"reconcile"`
+	HADays          int    `json:"ha_days"`
 	Days            int    `json:"days"`
 	RAMDays         int    `json:"ram_days"`
 	Bytes           int64  `json:"bytes"`
@@ -133,17 +146,25 @@ func learningStatus(value settings.Settings, deps *LearningDeps, cores int) lear
 		"auto_patterns":     patterns.On,
 	}
 	driveConfigured := deps.DriveConfigured != nil && deps.DriveConfigured()
+	companionPaired := deps.CompanionPaired != nil && deps.CompanionPaired()
 	plan := learnrec.ResolveMinutes(learnrec.MinuteSettings{
-		Mode:     value.LearningMinutesMode,
-		Location: value.LearningMinutesLocation,
-		Days:     value.LearningMinutesDays,
-	}, driveConfigured)
+		Mode:         value.LearningMinutesMode,
+		Location:     value.LearningMinutesLocation,
+		Days:         value.LearningMinutesDays,
+		ReconcileOff: value.LearningHAReconcileDisabled,
+	}, driveConfigured, companionPaired)
 	minutes := minutesBody{
 		On:              plan.On,
 		Location:        string(plan.Location),
 		AutoLocation:    plan.AutoLocation,
 		DriveConfigured: driveConfigured,
 		Days:            plan.Days,
+		Paused:          deps.MinutesPaused != nil && deps.MinutesPaused(),
+		Companion:       companionPaired,
+		Reconcile:       plan.Reconcile,
+	}
+	if deps.HAMinuteDays != nil {
+		minutes.HADays = deps.HAMinuteDays()
 	}
 	if deps.Minutes != nil {
 		store := deps.Minutes()
