@@ -55,7 +55,7 @@
                       <div class="auto-learn-pop-actions">
                         <template x-for="(fix, index) in (finding.apply || [])" x-bind:key="index">
                           <button class="auto-btn-text auto-learn-fix" type="button" x-bind:class="{ 'is-primary': index === 0 }" x-bind:data-tour="index === 0 ? 'rule-finding-fix' : null"
-                                  x-on:click="applyFix(fix)" x-text="fixLabel(fix)"></button>
+                                  x-on:click="applyFix(fix, finding)" x-text="fixLabel(fix)"></button>
                         </template>
                         <button class="auto-btn-text is-ghost auto-learn-ignore" type="button" x-on:click="ignoreFinding(finding)">{{t "automations.learn.ignore"}}</button>
                       </div>

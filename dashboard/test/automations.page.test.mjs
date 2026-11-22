@@ -3623,15 +3623,47 @@ test('a stale preview response does not overwrite a newer one', async () => {
   assert.deepEqual(component.draftFindings, [draftDuplicate]);
 });
 
-test('observed kinds of the saved list stay while a draft preview exists', () => {
+test('every non-static kind of the saved list stays while a draft preview exists', () => {
   const { component } = createAutomationsPanel();
   const frequent = { id: 'o-freq', kind: 'frequent', rule_ids: ['r1'], severity: 'info', summary: {}, apply: [] };
   const neverFired = { id: 'o-never', kind: 'never_fired', rule_ids: ['r2'], severity: 'info', summary: {}, apply: [] };
-  component.findings = [sampleFinding, frequent, neverFired];
+  const feedback = { id: 'o-feed', kind: 'feedback', rule_ids: ['r1', 'r2'], severity: 'warn', summary: {}, apply: [] };
+  const competition = { id: 'o-comp', kind: 'competition', rule_ids: ['r2'], severity: 'warn', summary: {}, apply: [] };
+  component.findings = [sampleFinding, frequent, neverFired, feedback, competition];
   component.draftFindings = [draftDuplicate];
   const ids = component.allFindings().map((finding) => finding.id).sort();
-  assert.equal(ids.join(','), 'd-dup,o-freq,o-never');
+  assert.equal(ids.join(','), 'd-dup,o-comp,o-feed,o-freq,o-never');
   assert.equal(component.findingFor('r1').id, 'd-dup');
+});
+
+test('applyFix with its finding hides only that finding until the next load', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+    { id: 'r2', name: 'Anderes', conditions: [], actions: [] },
+  ] };
+  const other = { id: 'o-feed', kind: 'feedback', rule_ids: ['r2'], severity: 'warn', summary: {}, apply: [] };
+  component.findings = [sampleFinding, other];
+  component.startEditing = () => {};
+  component.applyFix(sampleFinding.apply[0], sampleFinding);
+  assert.deepEqual([...component.appliedFindingIds], ['f-hyst']);
+  assert.deepEqual([...component.allFindings().map((finding) => finding.id)], ['o-feed']);
+  component.draftFindings = [];
+  assert.deepEqual([...component.allFindings().map((finding) => finding.id)], ['o-feed']);
+  window.fetch = async () => ({ ok: true, json: async () => ({ findings: [sampleFinding, other] }) });
+  component.refreshDraftPreview = async () => {};
+  await component.loadFindings();
+  assert.deepEqual([...component.appliedFindingIds], []);
+});
+
+test('applyFix keeps the finding visible when the rule changed and nothing was written', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [{ id: 'r1', name: 'Pumpe', conditions: [], actions: [] }] };
+  component.findings = [sampleFinding];
+  component.startEditing = () => {};
+  component.applyFix(sampleFinding.apply[0], sampleFinding);
+  assert.deepEqual([...component.appliedFindingIds], []);
+  assert.equal(component.allFindings().length, 1);
 });
 
 test('ignoreFinding removes a draft finding from the draft list', async () => {
