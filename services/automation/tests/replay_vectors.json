@@ -1,0 +1,375 @@
+[
+  {
+    "name": "balance_above_fires_once_per_episode",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 800, "hysteresis": 0, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T10:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 500}},
+      {"t": 30, "balance": {"grid_export": 900}},
+      {"t": 60, "balance": {"grid_export": 900}},
+      {"t": 90, "balance": {"grid_export": 700}}
+    ],
+    "expect": {"fires": [30], "phases": ["conditions_not_met", "fired", "fired", "conditions_not_met"]}
+  },
+  {
+    "name": "balance_below_keeps_fired_inside_the_hysteresis_band",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "balance_threshold", "field": "grid_import", "comparison": "below", "threshold": 100, "hysteresis": 20, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T10:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_import": 150}},
+      {"t": 30, "balance": {"grid_import": 90}},
+      {"t": 60, "balance": {"grid_import": 110}},
+      {"t": 90, "balance": {"grid_import": 125}}
+    ],
+    "expect": {"fires": [30], "phases": ["conditions_not_met", "fired", "fired", "conditions_not_met"]}
+  },
+  {
+    "name": "balance_above_hysteresis_latches_until_the_band_is_left",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 800, "hysteresis": 100, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T10:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 700}},
+      {"t": 30, "balance": {"grid_export": 850}},
+      {"t": 60, "balance": {"grid_export": 750}},
+      {"t": 90, "balance": {"grid_export": 650}},
+      {"t": 120, "balance": {"grid_export": 750}},
+      {"t": 150, "balance": {"grid_export": 850}}
+    ],
+    "expect": {"fires": [30, 150], "phases": ["conditions_not_met", "fired", "fired", "conditions_not_met", "conditions_not_met", "fired"]}
+  },
+  {
+    "name": "hold_seconds_fires_after_the_full_hold",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 800, "hysteresis": 0, "hold_seconds": 60}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T10:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 900}},
+      {"t": 30, "balance": {"grid_export": 900}},
+      {"t": 60, "balance": {"grid_export": 900}}
+    ],
+    "expect": {"fires": [60], "phases": ["hold_pending", "hold_pending", "fired"]}
+  },
+  {
+    "name": "hold_seconds_restarts_when_the_condition_breaks",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 800, "hysteresis": 0, "hold_seconds": 60}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T10:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 900}},
+      {"t": 30, "balance": {"grid_export": 700}},
+      {"t": 60, "balance": {"grid_export": 900}},
+      {"t": 110, "balance": {"grid_export": 900}},
+      {"t": 120, "balance": {"grid_export": 900}}
+    ],
+    "expect": {"fires": [120], "phases": ["hold_pending", "conditions_not_met", "hold_pending", "hold_pending", "fired"]}
+  },
+  {
+    "name": "cooldown_blocks_a_new_episode_until_it_ends",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 120,
+      "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 800, "hysteresis": 0, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T10:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 900}},
+      {"t": 30, "balance": {"grid_export": 500}},
+      {"t": 60, "balance": {"grid_export": 900}},
+      {"t": 110, "balance": {"grid_export": 900}},
+      {"t": 120, "balance": {"grid_export": 900}}
+    ],
+    "expect": {"fires": [0, 120], "phases": ["fired", "conditions_not_met", "cooldown", "cooldown", "fired"]}
+  },
+  {
+    "name": "repeat_seconds_refires_while_the_condition_holds",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0, "repeat_seconds": 60,
+      "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 800, "hysteresis": 0, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T10:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 900}},
+      {"t": 30, "balance": {"grid_export": 900}},
+      {"t": 60, "balance": {"grid_export": 900}},
+      {"t": 90, "balance": {"grid_export": 900}},
+      {"t": 120, "balance": {"grid_export": 900}}
+    ],
+    "expect": {"fires": [0, 60, 120], "phases": ["fired", "fired", "fired", "fired", "fired"]}
+  },
+  {
+    "name": "repeat_runs_on_its_own_clock_during_a_cooldown",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 100, "repeat_seconds": 60,
+      "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 800, "hysteresis": 0, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T10:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 900}},
+      {"t": 60, "balance": {"grid_export": 900}},
+      {"t": 100, "balance": {"grid_export": 900}},
+      {"t": 120, "balance": {"grid_export": 900}}
+    ],
+    "expect": {"fires": [0, 60, 120], "phases": ["fired", "fired", "fired", "fired"]}
+  },
+  {
+    "name": "stale_balance_ends_the_episode",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 800, "hysteresis": 0, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T10:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 900}},
+      {"t": 30, "balance": null},
+      {"t": 60, "balance": {"grid_export": 900}}
+    ],
+    "expect": {"fires": [0, 60], "phases": ["fired", "balance_stale", "fired"]}
+  },
+  {
+    "name": "time_window_across_midnight",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "time_window", "start": "22:00", "end": "06:00"}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T21:50:00",
+    "steps": [
+      {"t": 0},
+      {"t": 600},
+      {"t": 7800},
+      {"t": 10200},
+      {"t": 29400}
+    ],
+    "expect": {"fires": [600], "phases": ["conditions_not_met", "fired", "fired", "fired", "conditions_not_met"]}
+  },
+  {
+    "name": "time_window_across_midnight_belongs_to_the_start_day",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "time_window", "start": "22:00", "end": "06:00", "weekdays": [4]}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-20T21:00:00",
+    "steps": [
+      {"t": 0},
+      {"t": 3600},
+      {"t": 21600},
+      {"t": 32400}
+    ],
+    "expect": {"fires": [3600], "phases": ["conditions_not_met", "fired", "fired", "conditions_not_met"]}
+  },
+  {
+    "name": "time_window_weekday_filter_starts_on_the_first_matching_day",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "time_window", "start": "08:00", "end": "18:00", "weekdays": [0]}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T09:00:00",
+    "steps": [
+      {"t": 0},
+      {"t": 172800}
+    ],
+    "expect": {"fires": [169200], "phases": ["conditions_not_met", "fired"]}
+  },
+  {
+    "name": "sun_window_edges_at_sunrise_and_sunset",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "sun_window", "from": "sunrise", "to": "sunset"}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T07:00:00",
+    "steps": [
+      {"t": 0},
+      {"t": 2280},
+      {"t": 2400},
+      {"t": 32700},
+      {"t": 32820}
+    ],
+    "expect": {"fires": [2330], "phases": ["conditions_not_met", "conditions_not_met", "fired", "fired", "conditions_not_met"]}
+  },
+  {
+    "name": "learned_value_is_not_met_while_the_value_is_absent",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "learned_value", "learned": "site/pv_reserve_w", "comparison": "above", "threshold": 1500, "hysteresis": 0, "fallback": 0, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "learned": {"site/pv_reserve_w": null}},
+      {"t": 30, "learned": {"site/pv_reserve_w": 1600}},
+      {"t": 60, "learned": {"site/pv_reserve_w": null}}
+    ],
+    "expect": {"fires": [30], "phases": ["conditions_not_met", "fired", "conditions_not_met"]}
+  },
+  {
+    "name": "learned_value_older_than_max_age_uses_the_fallback",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "learned_value", "learned": "site/pv_reserve_w", "comparison": "above", "threshold": 1500, "hysteresis": 0, "fallback": 0, "max_age_s": 1800, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "learned": {"site/pv_reserve_w": 1600}},
+      {"t": 1800},
+      {"t": 1810}
+    ],
+    "expect": {"fires": [0], "phases": ["fired", "fired", "conditions_not_met"]}
+  },
+  {
+    "name": "learned_threshold_reference_uses_its_fallback_when_absent",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "learned_value", "learned": "site/surplus_left_wh", "comparison": "above",
+        "threshold": {"learned": "device/heater/cycle_wh", "min": 0, "max": 5000, "fallback": 1000},
+        "hysteresis": 0, "fallback": 0, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "learned": {"site/surplus_left_wh": 1200}},
+      {"t": 30, "learned": {"device/heater/cycle_wh": 1500}}
+    ],
+    "expect": {"fires": [0], "phases": ["fired", "conditions_not_met"]}
+  },
+  {
+    "name": "learned_value_hysteresis_holds_the_fired_state",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "learned_value", "learned": "site/pv_reserve_w", "comparison": "above", "threshold": 1500, "hysteresis": 100, "fallback": 0, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "learned": {"site/pv_reserve_w": 1000}},
+      {"t": 30, "learned": {"site/pv_reserve_w": 1600}},
+      {"t": 60, "learned": {"site/pv_reserve_w": 1450}},
+      {"t": 90, "learned": {"site/pv_reserve_w": 1350}}
+    ],
+    "expect": {"fires": [30], "phases": ["conditions_not_met", "fired", "fired", "conditions_not_met"]}
+  },
+  {
+    "name": "learned_value_below_uses_the_fallback_as_the_value_when_absent",
+    "rule": {"id": "r1", "name": "R1", "enabled": true, "cooldown_seconds": 0,
+      "conditions": [{"type": "learned_value", "learned": "site/pv_reserve_w", "comparison": "below", "threshold": 300, "hysteresis": 0, "fallback": 200, "hold_seconds": 0}],
+      "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0},
+      {"t": 60, "learned": {"site/pv_reserve_w": 400}}
+    ],
+    "expect": {"fires": [0], "phases": ["fired", "conditions_not_met"]}
+  },
+  {
+    "name": "scenario_when_and_until_with_hold",
+    "scenario": {"id": "s1", "name": "S1", "enabled": true,
+      "when": {"conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 500, "hysteresis": 0, "hold_seconds": 0}]},
+      "until": {"conditions": [{"type": "balance_threshold", "field": "grid_import", "comparison": "above", "threshold": 100, "hysteresis": 0, "hold_seconds": 60}]},
+      "on_start": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "on_end": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "while": {"mode": "none"}},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 0, "grid_import": 0}},
+      {"t": 30, "balance": {"grid_export": 600, "grid_import": 0}},
+      {"t": 60, "balance": {"grid_export": 600, "grid_import": 150}},
+      {"t": 90, "balance": {"grid_export": 600, "grid_import": 0}},
+      {"t": 120, "balance": {"grid_export": 600, "grid_import": 150}},
+      {"t": 180, "balance": {"grid_export": 100, "grid_import": 150}}
+    ],
+    "expect": {"fires": [30], "phases": ["idle", "active", "active", "active", "active", "idle"]}
+  },
+  {
+    "name": "scenario_without_until_ends_after_min_run",
+    "scenario": {"id": "s1", "name": "S1", "enabled": true,
+      "when": {"conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 500, "hysteresis": 0, "hold_seconds": 0}]},
+      "until": null, "min_run_s": 60,
+      "on_start": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "on_end": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "while": {"mode": "none"}},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 600}},
+      {"t": 30, "balance": {"grid_export": 100}},
+      {"t": 50, "balance": {"grid_export": 100}},
+      {"t": 60, "balance": {"grid_export": 100}},
+      {"t": 70, "balance": {"grid_export": 100}}
+    ],
+    "expect": {"fires": [0], "phases": ["active", "active", "active", "idle", "idle"]}
+  },
+  {
+    "name": "scenario_max_duration_ends_before_min_run",
+    "scenario": {"id": "s1", "name": "S1", "enabled": true,
+      "when": {"conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 500, "hysteresis": 0, "hold_seconds": 0}]},
+      "until": null, "min_run_s": 120, "max_duration_s": 60,
+      "on_start": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "on_end": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "while": {"mode": "none"}},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 600}},
+      {"t": 60, "balance": {"grid_export": 600}},
+      {"t": 70, "balance": {"grid_export": 100}}
+    ],
+    "expect": {"fires": [0], "phases": ["active", "idle", "idle"]}
+  },
+  {
+    "name": "scenario_rearms_after_duration_only_once_the_when_is_false",
+    "scenario": {"id": "s1", "name": "S1", "enabled": true,
+      "when": {"conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 500, "hysteresis": 0, "hold_seconds": 0}]},
+      "until": null, "max_duration_s": 120,
+      "on_start": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "on_end": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "while": {"mode": "none"}},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 600}},
+      {"t": 60, "balance": {"grid_export": 600}},
+      {"t": 120, "balance": {"grid_export": 600}},
+      {"t": 130, "balance": {"grid_export": 600}},
+      {"t": 140, "balance": {"grid_export": 100}},
+      {"t": 150, "balance": {"grid_export": 600}}
+    ],
+    "expect": {"fires": [0, 150], "phases": ["active", "active", "idle", "idle", "idle", "active"]}
+  },
+  {
+    "name": "scenario_cooldown_s_blocks_the_restart",
+    "scenario": {"id": "s1", "name": "S1", "enabled": true,
+      "when": {"conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 500, "hysteresis": 0, "hold_seconds": 0}]},
+      "until": null, "cooldown_s": 60,
+      "on_start": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "on_end": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "while": {"mode": "none"}},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 600}},
+      {"t": 10, "balance": {"grid_export": 100}},
+      {"t": 30, "balance": {"grid_export": 600}},
+      {"t": 70, "balance": {"grid_export": 600}}
+    ],
+    "expect": {"fires": [0, 70], "phases": ["active", "idle", "idle", "active"]}
+  },
+  {
+    "name": "scenario_stale_balance_keeps_it_active",
+    "scenario": {"id": "s1", "name": "S1", "enabled": true,
+      "when": {"conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 500, "hysteresis": 0, "hold_seconds": 0}]},
+      "until": null,
+      "on_start": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "on_end": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "while": {"mode": "none"}},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 600}},
+      {"t": 30, "balance": null},
+      {"t": 60, "balance": {"grid_export": 100}}
+    ],
+    "expect": {"fires": [0], "phases": ["active", "active", "idle"]}
+  },
+  {
+    "name": "scenario_when_waits_for_hold_seconds",
+    "scenario": {"id": "s1", "name": "S1", "enabled": true,
+      "when": {"conditions": [{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 500, "hysteresis": 0, "hold_seconds": 60}]},
+      "until": null,
+      "on_start": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "on_end": {"actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]},
+      "while": {"mode": "none"}},
+    "start": "2026-11-21T12:00:00",
+    "steps": [
+      {"t": 0, "balance": {"grid_export": 600}},
+      {"t": 30, "balance": {"grid_export": 600}},
+      {"t": 60, "balance": {"grid_export": 600}},
+      {"t": 90, "balance": {"grid_export": 100}}
+    ],
+    "expect": {"fires": [60], "phases": ["idle", "idle", "active", "idle"]}
+  }
+]
