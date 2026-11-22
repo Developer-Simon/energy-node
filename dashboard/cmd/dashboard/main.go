@@ -646,12 +646,18 @@ func main() {
 	learnHub.AddSaver("learned", learnedStore)
 	// Monitoring: Meldungen aus Energie, Ketten und Regelpruefung, je Minute
 	// gesammelt, beim Abruf frisch und mit dem Hub gespeichert.
+	// Vorschlaege fuer das Monitoring. Die Funktion wird unten gesetzt, sobald das
+	// Vorschlagsbuch steht, und vor dem Start der Lernschleifen.
+	var monitoringSuggestions func() []autolearn.Finding
 	collectMonitoring := func() monitoring.Input {
 		in := monitoring.Input{Snapshot: energy.Aggregate(reg.Snapshot(), energyResolver, time.Now().UTC())}
 		if value, err := settingsStore.LoadEnergy(); err == nil {
 			in.Config = value
 		}
 		in.Findings = automationChecker.Findings(time.Now())
+		if monitoringSuggestions != nil {
+			in.Suggestions = monitoringSuggestions()
+		}
 		return in
 	}
 	monitoringStore := monitoring.OpenStore(filepath.Join(autolearnDir, "monitoring.json"), log.Printf)
@@ -694,6 +700,13 @@ func main() {
 		}
 		_, ok := reg.Get(device)
 		return ok
+	}
+	monitoringSuggestions = func() []autolearn.Finding {
+		// Wie der Vorschlags-Endpunkt: bei abgeschaltetem Muster-Lernen keine Vorschlaege.
+		if value, err := settingsStore.LoadSettings(); err == nil && value.AutomationPatternsDisabled {
+			return nil
+		}
+		return suggestions.Visible(time.Now(), suggestionExists)
 	}
 
 	origin := newOriginLearner(originTracker, dayStore, reg, func() ([]byte, error) { return configManager.Read("automation_rules") })
