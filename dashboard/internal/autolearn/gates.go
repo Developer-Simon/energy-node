@@ -144,7 +144,7 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 
 // displayFinding returns f with the stabilised values in its summary params
 // and in the prefills of its fixes. Only keys that exist in those maps change,
-// the key "time" is shown as HH:MM. f and its maps are not modified.
+// the keys "time" and "latest" are shown as HH:MM. f and its maps are not modified.
 func displayFinding(f Finding, values map[string]float64) Finding {
 	if len(values) == 0 {
 		return f
@@ -184,7 +184,7 @@ func displayFinding(f Finding, values map[string]float64) Finding {
 // displayValue formats a stabilised value for display. Times are minutes of
 // the day and shown as HH:MM, like the detectors do.
 func displayValue(key string, v float64) any {
-	if key == "time" {
+	if key == "time" || key == "latest" {
 		return switchTimeClock(v)
 	}
 	return v

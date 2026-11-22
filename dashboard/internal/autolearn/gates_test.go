@@ -261,3 +261,27 @@ func TestBenefitKWhDropsNaN(t *testing.T) {
 		t.Error("benefit at the minimum was dropped")
 	}
 }
+
+// TestGateShowsStabilisedLatestAsClock checks the shift suggestion: its latest
+// start is a minute of the day in Values, and the summary and the prefill show
+// it as HH:MM, not as a number the assistant cannot read.
+func TestGateShowsStabilisedLatestAsClock(t *testing.T) {
+	cand := gateCand("shift:spuelmaschine", "shift", 1, 2, 2, true)
+	cand.Finding.Summary = Text{Code: "shift.load", Params: map[string]any{"device": "spuelmaschine", "latest": "20:45"}}
+	cand.Finding.Apply = []Fix{{Code: "shift_start", Template: "shift_start",
+		Prefill: map[string]any{"device": "spuelmaschine", "latest": "20:45", "on_w": 500.0}}}
+	cand.Values = map[string]float64{"latest": 1245}
+	cand.Spread = map[string]float64{"latest": 8}
+	prev := map[string]Shown{"shift:spuelmaschine": {Lower: 2, Values: map[string]float64{"latest": 1245}}}
+
+	out, _ := Gate([]Candidate{cand}, Doc{}, prev)
+	if len(out) != 1 {
+		t.Fatalf("got %v, want one finding", gateIDs(out))
+	}
+	if got := out[0].Summary.Params["latest"]; got != "20:45" {
+		t.Errorf("summary latest = %v, want 20:45", got)
+	}
+	if got := out[0].Apply[0].Prefill["latest"]; got != "20:45" {
+		t.Errorf("prefill latest = %v, want 20:45", got)
+	}
+}
