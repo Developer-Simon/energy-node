@@ -667,6 +667,7 @@
   "automations.learned.state.stale": "The last value is older than {age}. This applies: {state}.",
   "automations.learned.value.condition": "Learned value",
   "automations.learned.value.help": "A learned number, such as the PV reserve, compared with a fixed threshold or another reference. Without a fresh value the fallback applies.",
+  "automations.learned.value.max_age": "Value counts for at most",
   "automations.learned.year.line": "The value was {high} in {high_month} and {low} in {low_month}",
   "automations.limit.rules": "At most {max} rules",
   "automations.limit.scenarios": "At most {max} scenarios",

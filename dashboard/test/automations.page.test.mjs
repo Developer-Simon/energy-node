@@ -3947,6 +3947,59 @@ test('learned_state is offered as a condition type and gets the default referenc
   ]);
 });
 
+test('learned_value is added with a half hour hold, so a publishing rule is not rejected', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', name: 'R', conditions: [], actions: [] };
+  component.addCondition(rule, 'learned_value');
+  assert.deepEqual(JSON.parse(JSON.stringify(rule.conditions)), [
+    { type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500, hysteresis: 100,
+      fallback: 0, max_age_s: 1800, hold_seconds: 1800 },
+  ]);
+});
+
+test('learned_value fields edit the condition and the picker keeps the current key', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500,
+    hysteresis: 100, fallback: 0, max_age_s: 1800, hold_seconds: 1800 };
+  component.learned = { enabled: true, values: [
+    { key: 'site/pv_reserve_w', kind: 'number', unit: 'W', value: 1200, n: 5, at: 1794000000 },
+    { key: 'device/wb/cycle_wh', kind: 'number', unit: 'Wh', value: 900, n: 5, at: 1794000000 },
+  ] };
+  // Der gewaehlte Wert steht in der Auswahl, auch wenn er nicht im Endpunkt liegt.
+  assert.deepEqual(component.learnedValueOptions(condition).map((option) => option.key),
+    ['site/pv_reserve_w', 'device/wb/cycle_wh']);
+  component.learned.values = [];
+  condition.learned = 'site/gone';
+  assert.deepEqual(component.learnedValueOptions(condition).map((option) => option.key), ['site/gone']);
+  // Vergleich, Schwelle und Ersatzwert schreiben in die Bedingung.
+  component.setComparison(condition, 'below');
+  assert.equal(condition.comparison, 'below');
+  component.stepValue(condition, 'max_age_s', 1, { min: 1, step: 60 });
+  assert.equal(condition.max_age_s, 1860);
+  component.stepValue(condition, 'fallback', 1, { step: 1 });
+  assert.equal(condition.fallback, 1);
+});
+
+test('the learned_value block renders the fields the editor needs as one root', () => {
+  const rows = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'automations-rows.html'), 'utf8');
+  const start = rows.indexOf(`<template x-if="condition.type === 'learned_value'">`);
+  assert.ok(start > 0, 'learned_value block missing');
+  const block = rows.slice(start, rows.indexOf(`<template x-if="condition.type === 'chain_finding'">`, start));
+  for (const marker of [
+    `learnedValueOptions(condition)`,
+    `{{template "auto-comparison" "balance"}}`,
+    `{{template "auto-learn" (dict "field" "threshold"`,
+    `stepKey: 'hysteresis'`,
+    `stepKey: 'fallback'`,
+    `stepKey: 'max_age_s'`,
+    `{{template "auto-learn" (dict "field" "hold_seconds"`,
+  ]) {
+    assert.ok(block.includes(marker), `learned_value block without ${marker}`);
+  }
+  // Ein Wurzelelement: genau ein oeffnendes auto-fields direkt nach dem x-if.
+  assert.equal(block.match(/<div class="auto-fields">/g).length, 1);
+});
+
 test('learned_state editor shows the learned state, the fallback without data and a stale value', () => {
   const { component } = createAutomationsPanel();
   const condition = { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 1800 };

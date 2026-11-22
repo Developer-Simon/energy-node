@@ -667,6 +667,7 @@
   "automations.learned.state.stale": "Der letzte Wert ist älter als {age}. Es gilt: {state}.",
   "automations.learned.value.condition": "Lernwert",
   "automations.learned.value.help": "Ein gelernter Zahlwert, etwa die PV-Reserve, gegen eine feste Schwelle oder eine andere Bezugsangabe. Ohne frischen Wert gilt die Ersatzwahl.",
+  "automations.learned.value.max_age": "Wert gilt höchstens",
   "automations.learned.year.line": "Der Wert lag im {high_month} bei {high} und im {low_month} bei {low}",
   "automations.limit.rules": "Höchstens {max} Regeln",
   "automations.limit.scenarios": "Höchstens {max} Szenarien",

@@ -2351,7 +2351,20 @@
     // Gelernter Zahlwert: PV-Reserve ueber 1500 W, mit Hysterese und Ersatzwert. Der Ausgangswert entspricht dem Beispiel im Plan.
     addLearnedValueCondition(rule) {
       rule.conditions.push({ type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500,
-                             hysteresis: 100, fallback: 0, max_age_s: 1800, hold_seconds: 0 });
+                             hysteresis: 100, fallback: 0, max_age_s: 1800,
+                             hold_seconds: Math.max(LEARNED_STATE_HOLD_S, this.minPublishInterval()) });
+    },
+
+    // Lernwerte fuer das Feld learned eines gelernten Zahlwerts. Der gewaehlte Schluessel bleibt auch ohne Eintrag sichtbar.
+    learnedValueOptions(condition) {
+      const AL = window.AutomationLearned;
+      const options = this.learnedChoices(condition, 'learned')
+        .map((entry) => ({ key: entry.key, label: AL.keyLabel(entry.key, this.devices, t) }));
+      const key = condition.learned;
+      if (key && !options.some((option) => option.key === key)) {
+        options.push({ key, label: AL.keyLabel(key, this.devices, t) });
+      }
+      return options;
     },
 
     // Eintrag des Endpunkts zu einem Lernwert-Schluessel, sonst null.
