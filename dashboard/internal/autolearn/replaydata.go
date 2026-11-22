@@ -35,21 +35,101 @@ func ReplayDays(in *Input, days int) (minutes []ReplayMinute, estimate bool) {
 		byDay[in.Days[i].Day] = &in.Days[i]
 	}
 	learned := numericLearned(in.Learned)
+	type dayPlan struct {
+		start time.Time
+		file  *DayFile // nil for a minute day
+	}
+	var plan []dayPlan
+	var minuteStarts []time.Time
 	for k := days; k >= 1; k-- {
 		start := first.AddDate(0, 0, -k)
 		end := start.AddDate(0, 0, 1)
 		if in.Minutes != nil && in.Minutes.Coverage(start, end) >= 1 {
-			minutes = append(minutes, minuteDay(in.Minutes, start, learned)...)
+			plan = append(plan, dayPlan{start: start})
+			minuteStarts = append(minuteStarts, start)
 			continue
 		}
-		f := byDay[start.Format(dayLayout)]
-		if f == nil {
+		if f := byDay[start.Format(dayLayout)]; f != nil {
+			plan = append(plan, dayPlan{start: start, file: f})
+		}
+	}
+	var pool map[string][]minuteShape
+	if in.Minutes != nil {
+		pool = shapePool(in.Minutes, minuteStarts)
+	}
+	for _, p := range plan {
+		if p.file == nil {
+			minutes = append(minutes, minuteDay(in.Minutes, p.start, learned)...)
 			continue
 		}
 		estimate = true
-		minutes = append(minutes, stretchedDay(f, start, learned)...)
+		minutes = append(minutes, stretchedDay(p.file, p.start, learned, pool)...)
 	}
 	return minutes, estimate
+}
+
+// minuteShape is one quarter hour of a minute day: its mean and the ratio of
+// each minute to that mean. A quarter with mean 0 has the shape of ones.
+type minuteShape struct {
+	mean  float64
+	shape [15]float64
+}
+
+// shapePool collects the quarter hours of the minute days per balance key,
+// ordered by mean. Quarters with a gap are left out.
+func shapePool(r learnrec.Reader, days []time.Time) map[string][]minuteShape {
+	pool := make(map[string][]minuteShape, len(replayBalanceKeys))
+	for _, start := range days {
+		series := daySeries(r, start)
+		for _, k := range replayBalanceKeys {
+			v := series[k]
+			for q := 0; q < dayQuarters && (q+1)*15 <= len(v); q++ {
+				var vals [15]float64
+				sum, gap := 0.0, false
+				for m := 0; m < 15; m++ {
+					x := float64(v[q*15+m])
+					if math.IsNaN(x) {
+						gap = true
+						break
+					}
+					vals[m] = x
+					sum += x
+				}
+				if gap {
+					continue
+				}
+				mean := sum / 15
+				ms := minuteShape{mean: mean}
+				for m := range ms.shape {
+					ms.shape[m] = 1
+					if mean > 0 {
+						ms.shape[m] = vals[m] / mean
+					}
+				}
+				pool[k] = append(pool[k], ms)
+			}
+		}
+	}
+	for k := range pool {
+		sort.SliceStable(pool[k], func(i, j int) bool { return pool[k][i].mean < pool[k][j].mean })
+	}
+	return pool
+}
+
+// nearestShape returns the shape of the pooled quarter whose mean is closest
+// to v. Ties go to the lower mean. ok is false for an empty pool.
+func nearestShape(pool []minuteShape, v float64) (minuteShape, bool) {
+	if len(pool) == 0 {
+		return minuteShape{}, false
+	}
+	i := sort.Search(len(pool), func(i int) bool { return pool[i].mean >= v })
+	best := i
+	if i == len(pool) {
+		best = len(pool) - 1
+	} else if i > 0 && v-pool[i-1].mean <= pool[i].mean-v {
+		best = i - 1
+	}
+	return pool[best], true
 }
 
 // replayLoc is the location of the input, local time when none is set.
@@ -113,10 +193,7 @@ func learnedAt(entries []learnedEntry, t time.Time) map[string]float64 {
 // minuteDay reads one day of minutes from r. A minute without load total is
 // a stale tick, the other keys are left out when they have no value.
 func minuteDay(r learnrec.Reader, start time.Time, learned []learnedEntry) []ReplayMinute {
-	series := make(map[string][]float32, len(replayBalanceKeys))
-	for _, k := range replayBalanceKeys {
-		series[k] = r.Range("b:"+k, start, start.Add(24*time.Hour)).Values
-	}
+	series := daySeries(r, start)
 	out := make([]ReplayMinute, 0, 1440)
 	for i := 0; i < 1440; i++ {
 		at := start.Add(time.Duration(i) * time.Minute)
@@ -134,10 +211,22 @@ func minuteDay(r learnrec.Reader, start time.Time, learned []learnedEntry) []Rep
 	return out
 }
 
+// daySeries reads the minutes of every balance key of one day.
+func daySeries(r learnrec.Reader, start time.Time) map[string][]float32 {
+	series := make(map[string][]float32, len(replayBalanceKeys))
+	for _, k := range replayBalanceKeys {
+		series[k] = r.Range("b:"+k, start, start.Add(24*time.Hour)).Values
+	}
+	return series
+}
+
 // stretchedDay turns the quarter hours of a day file into 1440 minutes. Each
-// quarter hour keeps its mean: the noise of the quarter is drawn around zero
-// and centred, so the 15 minutes average to the quarter value exactly.
-func stretchedDay(f *DayFile, start time.Time, learned []learnedEntry) []ReplayMinute {
+// quarter hour keeps its mean. Where the pool holds minute days for the key,
+// the minutes take the shape of the quarter with the closest mean (the minute
+// divided by the quarter mean, times the quarter value). Without such a day
+// the noise of the quarter is drawn around zero from a seed of the date and
+// centred, so the 15 minutes average to the quarter value exactly.
+func stretchedDay(f *DayFile, start time.Time, learned []learnedEntry, pool map[string][]minuteShape) []ReplayMinute {
 	rng := rand.New(rand.NewSource(dayNumber(start)))
 	quarters := make([][dayQuarters]float64, len(replayBalanceKeys))
 	noise := make([][dayQuarters][15]float64, len(replayBalanceKeys))
@@ -168,7 +257,13 @@ func stretchedDay(f *DayFile, start time.Time, learned []learnedEntry) []ReplayM
 		if !math.IsNaN(quarters[0][q]) {
 			m.Balance = make(map[string]float64, len(replayBalanceKeys))
 			for ki, k := range replayBalanceKeys {
-				if v := quarters[ki][q]; !math.IsNaN(v) {
+				v := quarters[ki][q]
+				if math.IsNaN(v) {
+					continue
+				}
+				if ps, ok := nearestShape(pool[k], v); ok {
+					m.Balance[k] = v * ps.shape[mi]
+				} else {
 					m.Balance[k] = v + noise[ki][q][mi]
 				}
 			}

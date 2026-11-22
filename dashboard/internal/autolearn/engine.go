@@ -70,6 +70,7 @@ type Engine struct {
 	outdoor   func() OutdoorSource
 	pv        func() (PVModel, *Raster, bool)
 	learned   func() map[string]LearnedEntry
+	minutes   func() learnrec.Reader
 	// recentC is the mean outdoor temperature of the last three days as the
 	// last round read it, nil when unknown.
 	recentC *float64
@@ -422,7 +423,11 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 	outdoor := e.outdoor
 	in.PV = e.pv
 	learned := e.learned
+	minutes := e.minutes
 	e.mu.Unlock()
+	if minutes != nil {
+		in.Minutes = minutes()
+	}
 	if learned != nil {
 		in.Learned = learned()
 	}
@@ -447,6 +452,14 @@ func (e *Engine) SetLearned(f func() map[string]LearnedEntry) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.learned = f
+}
+
+// SetMinutes gives the engine the minute record. A round reads it into
+// Input.Minutes. Without it the replay works from the quarter hours.
+func (e *Engine) SetMinutes(f func() learnrec.Reader) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.minutes = f
 }
 
 // SetOutdoor gives the engine the outdoor temperature entity. It is read on

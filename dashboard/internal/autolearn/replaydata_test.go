@@ -234,3 +234,53 @@ func TestReplayLastYearNeedsHourlyValues(t *testing.T) {
 		t.Fatalf("minutes of the hour at 500 W = %d, want 60", found)
 	}
 }
+
+func TestStretchedDayBorrowsTheMinuteShape(t *testing.T) {
+	loc := time.UTC
+	// The minute day has a ramp of 10 W per minute inside every quarter hour,
+	// mean 170 W. The stretched day has 170 W in every quarter hour.
+	ramp := make([]float32, 1440)
+	for i := range ramp {
+		ramp[i] = float32(100 + 10*(i%15))
+	}
+	minutes := fakeMinutes{loc: loc, days: map[string]map[string][]float32{
+		"2026-11-21": {"b:load_total": ramp},
+	}}
+	in := &Input{Now: replayTestNow(), Loc: loc, Minutes: minutes,
+		Days: []DayFile{quarterDay("2026-11-20", func(int) float32 { return 170 })}}
+
+	got, est := ReplayDays(in, 2)
+	if !est {
+		t.Fatal("estimate = false, want true for the stretched day")
+	}
+	if len(got) != 2*1440 {
+		t.Fatalf("len = %d, want %d", len(got), 2*1440)
+	}
+	for q := 0; q < dayQuarters; q++ {
+		sum := 0.0
+		for m := 0; m < 15; m++ {
+			want := float64(100 + 10*m)
+			v := got[q*15+m].Balance["load_total"]
+			if math.Abs(v-want) > 1e-6 {
+				t.Fatalf("quarter %d minute %d = %v, want the ramp value %v", q, m, v, want)
+			}
+			sum += v
+		}
+		if mean := sum / 15; math.Abs(mean-170) > 0.01*170 {
+			t.Fatalf("quarter %d mean = %v, want 170 within 1 %%", q, mean)
+		}
+	}
+}
+
+func TestEngineInputCarriesTheMinuteReader(t *testing.T) {
+	loc := time.UTC
+	e := newTestEngine(t, learnrec.Limits{})
+	reader := fakeMinutes{loc: loc, days: map[string]map[string][]float32{}}
+	if got := e.input(replayTestNow(), learnrec.Limits{}, nil); got.Minutes != nil {
+		t.Fatal("without SetMinutes the input has a reader")
+	}
+	e.SetMinutes(func() learnrec.Reader { return reader })
+	if got := e.input(replayTestNow(), learnrec.Limits{}, nil); got.Minutes == nil {
+		t.Fatal("after SetMinutes the input has no reader")
+	}
+}
