@@ -549,6 +549,16 @@ test('the temperature limit title and line show the rule, device, knee and weekl
   assert.equal(api.legend(s, t), catalogs.de['automations.learn.legend.scale']);
 });
 
+test('the baseload drift line names the cause, or an unmeasured consumer without a device', () => {
+  const { api } = load(germanI18n);
+  const t = catalogT('de');
+  const measured = suggestion('baseload.drift', { w: 80, kwh_month: 57.6, candidate: 'Heizlüfter' }, 'scale');
+  assert.equal(api.line(measured, t), 'Nachts 80 W mehr, rund 57,6 kWh im Monat');
+  assert.ok(api.text(measured, t).endsWith('Verursacher ist Heizlüfter.'));
+  const unmeasured = suggestion('baseload.drift', { w: 80, kwh_month: 57.6, candidate: '' }, 'scale');
+  assert.ok(api.text(unmeasured, t).endsWith('Verursacher ist ein nicht gemessener Verbraucher.'));
+});
+
 test('a scale evidence with the weekly unit shows the catalog unit on the axis', () => {
   const { evidence } = load();
   const t = catalogT('de');

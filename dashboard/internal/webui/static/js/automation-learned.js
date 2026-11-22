@@ -11,6 +11,7 @@
     usual_off: 'automations.learned.key.usual_off',
     usual_runtime_s: 'automations.learned.key.usual_runtime_s',
     day_start: 'automations.learned.key.day_start',
+    base_w: 'automations.learned.key.base_w',
     night_rest: 'automations.learned.key.night_rest',
     house_state: 'automations.learned.key.house_state',
     op_power_w: 'automations.learned.key.op_power_w',

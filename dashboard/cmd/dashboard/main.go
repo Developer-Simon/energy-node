@@ -571,6 +571,7 @@ func main() {
 	forecastCheck := autolearn.LoadForecastCheck(filepath.Join(autolearnDir, "forecast.json"), log.Printf)
 	learnHub.AddSaver("forecast", forecastCheck)
 	registerEnergyDetectors(automationEngine, pvReserve.Current, forecastCheck)
+	automationEngine.Register(autolearn.BaseLoadDetector)
 	automationEngine.Register(autolearn.NewPVModelDetector(pvTracker.Snapshot, pvModelStore))
 	automationEngine.Register(autolearn.NewShadeDetector(pvTracker.Snapshot, pvModelStore.Model))
 	// Modell und Himmelsraster fuer den Rest-Ueberschuss. Der Raster-Schnappschuss

@@ -31,6 +31,8 @@
     let code = (summary && summary.code) || '';
     const params = Object.assign({}, (summary && summary.params) || {});
     if (typeof params.share === 'number') params.share = Math.round(params.share * 100);
+    // Ohne gemessenen Verbraucher bleibt der Name leer, der Text nennt dann den Verbraucher ohne Messung.
+    if (code === 'baseload.drift' && !params.candidate) params.candidate = t('automations.learn.baseload.candidate.none');
     if (/^switch_time\.sun_(on|off)$/.test(code)) {
       const offset = Number(params.offset_min) || 0;
       params.minutes = Math.abs(offset);
