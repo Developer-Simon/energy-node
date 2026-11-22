@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Die Node zeichnet Minutenwerte auf und behält jeden Reglerschritt als Grundlage zum Lernen"
+  },
+  "en": {
+    "*": "The node records minute values and keeps every regulator step as a base for learning"
+  }
+}
