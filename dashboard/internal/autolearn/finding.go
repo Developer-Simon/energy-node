@@ -54,6 +54,15 @@ type Fix struct {
 	Ops      []Op           `json:"ops"`
 	Template string         `json:"template,omitempty"`
 	Prefill  map[string]any `json:"prefill,omitempty"`
+	Rules    []RuleOps      `json:"rules,omitempty"`
+}
+
+// RuleOps is the ops of one rule. A fix that changes several rules at once
+// carries one RuleOps per rule in Fix.Rules. The browser applies all of them
+// or none.
+type RuleOps struct {
+	RuleID string `json:"rule_id"`
+	Ops    []Op   `json:"ops"`
 }
 
 // Op sets Value at Path, relative to the rule, for example

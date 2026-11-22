@@ -37,6 +37,9 @@ type Input struct {
 	// exists. Nil means no model is wired, and the detectors that need one
 	// return nothing.
 	PV func() (PVModel, *Raster, bool)
+	// Learned holds the learned values by key, such as site/base_w. Nil when
+	// no store is wired.
+	Learned map[string]LearnedEntry
 }
 
 // OutdoorSource names the outdoor temperature entity: its unique id, its state

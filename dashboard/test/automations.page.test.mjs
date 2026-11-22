@@ -3442,6 +3442,40 @@ test('applying a temperature limit suggestion adds the condition to the draft an
   assert.deepEqual(posted, []);
 });
 
+test('applyFix with rules changes every listed rule in the draft', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+    { id: 'r2', name: 'Heizstab', conditions: [{ type: 'balance_threshold', threshold: 300, hysteresis: 0 }], actions: [] },
+  ] };
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  component.applyFix({ code: 'shift_thresholds', rule_id: 'r1', ops: [], rules: [
+    { rule_id: 'r1', ops: [{ path: ['conditions', 0, 'threshold'], value: 120 }] },
+    { rule_id: 'r2', ops: [{ path: ['conditions', 0, 'threshold'], value: 320 }] },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].threshold, 120);
+  assert.equal(component.document.rules[1].conditions[0].threshold, 320);
+  assert.deepEqual(started, ['r1']);
+  assert.equal(component.expanded.r1, true);
+  assert.equal(component.expanded.r2, true);
+});
+
+test('applyFix with rules changes none when a path of the second rule does not resolve', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+    { id: 'r2', name: 'Heizstab', conditions: [{ type: 'balance_threshold', threshold: 300, hysteresis: 0 }], actions: [] },
+  ] };
+  component.startEditing = () => {};
+  component.applyFix({ code: 'shift_thresholds', rule_id: 'r1', ops: [], rules: [
+    { rule_id: 'r1', ops: [{ path: ['conditions', 0, 'threshold'], value: 120 }] },
+    { rule_id: 'r2', ops: [{ path: ['conditions', 4, 'threshold'], value: 320 }] },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].threshold, 100);
+  assert.equal(component.document.rules[1].conditions[0].threshold, 300);
+});
+
 test('applyFix writes nothing and still opens the rule when a path element is missing', () => {
   const { component, window } = createAutomationsPanel();
   component.document = { version: 1, settings: {}, rules: [

@@ -2188,10 +2188,12 @@
     // Schreibt die Ops als Pfade in den Entwurf der Regel. Gespeichert wird nicht.
     // Alle Ziele werden zuerst aufgeloest. Fehlt ein Pfadteil (die Regel hat sich
     // seit dem Befund geaendert), wird nichts geschrieben, die Regel oeffnet sich trotzdem.
+    // Ein Befund mit fix.rules aendert mehrere Regeln: alle oder keine.
     applyFix(fix) {
-      const rule = this.document.rules.find((entry) => entry.id === fix.rule_id);
-      if (!rule) return;
-      const targetOf = (path) => {
+      const groups = Array.isArray(fix.rules) && fix.rules.length
+        ? fix.rules.map((entry) => ({ code: fix.code, rule_id: entry.rule_id, ops: entry.ops || [] }))
+        : [{ code: fix.code, rule_id: fix.rule_id, ops: fix.ops || [] }];
+      const targetOf = (rule, path) => {
         let node = rule;
         path.slice(0, -1).forEach((key) => {
           node = node && typeof node === 'object' ? node[key] : undefined;
@@ -2199,23 +2201,30 @@
         if (path.length === 0 || !node || typeof node !== 'object') return null;
         return { parent: node, key: path[path.length - 1] };
       };
-      // Ein add_condition nennt den Index, den die Bedingung beim Befund hatte.
-      // Seitdem kann eine Bedingung dazugekommen sein, deshalb wird angehaengt.
-      const writes = (fix.ops || []).map((op) => {
-        const target = targetOf(op.path || []);
-        if (fix.code === 'add_condition') {
-          return { target: target && Array.isArray(target.parent) ? { parent: target.parent, append: true } : null, value: op.value };
-        }
-        return { target, value: op.value };
+      const plans = groups.map((group) => {
+        const rule = this.document.rules.find((entry) => entry.id === group.rule_id);
+        if (!rule) return { rule: null, writes: [] };
+        // Ein add_condition nennt den Index, den die Bedingung beim Befund hatte.
+        // Seitdem kann eine Bedingung dazugekommen sein, deshalb wird angehaengt.
+        const writes = group.ops.map((op) => {
+          const target = targetOf(rule, op.path || []);
+          if (group.code === 'add_condition') {
+            return { target: target && Array.isArray(target.parent) ? { parent: target.parent, append: true } : null, value: op.value };
+          }
+          return { target, value: op.value };
+        });
+        return { rule, writes };
       });
-      if (writes.every((write) => write.target)) {
-        writes.forEach((write) => {
+      const opened = plans.map((plan) => plan.rule).filter(Boolean);
+      if (opened.length === 0) return;
+      if (plans.every((plan) => plan.rule && plan.writes.every((write) => write.target))) {
+        plans.forEach((plan) => plan.writes.forEach((write) => {
           if (write.target.append) write.target.parent.push(write.value);
           else write.target.parent[write.target.key] = write.value;
-        });
+        }));
       }
-      this.startEditing(rule);
-      this.expanded[rule.id] = true;
+      this.startEditing(opened[0]);
+      opened.forEach((rule) => { this.expanded[rule.id] = true; });
       this.closeFinding();
     },
     postFindingIgnore(id, undo) {
