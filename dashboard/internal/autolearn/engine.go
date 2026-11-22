@@ -412,7 +412,7 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 			in.Doc = doc
 		}
 	}
-	in.Base = BuildBase(in.Days, e.loc)
+	in.Base = BuildBaseAt(in.Days, e.loc, now)
 	e.mu.Lock()
 	e.recentC = in.Base.RecentOutdoorC
 	outdoor := e.outdoor
