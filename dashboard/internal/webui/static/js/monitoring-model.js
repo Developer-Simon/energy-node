@@ -71,6 +71,14 @@
     return t('monitoring.weeks.and', { a: items.slice(0, -1).join(', '), b: items[items.length - 1] });
   }
 
+  // Platzhalter eines Lernbefunds ohne Verursacher, wie im Vorschlagsband.
+  function learnParams(notice, t) {
+    const p = { ...(notice.params || {}) };
+    if (notice.code === 'baseload.drift' && !p.candidate) p.candidate = t('automations.learn.baseload.candidate.none');
+    if (notice.code === 'battery.empty_early' && !p.candidates) p.candidates = t('automations.learn.battery.candidate.none');
+    return p;
+  }
+
   function shadeIdParts(id) {
     const m = SHADE_ID_RE.exec(id || '');
     return m ? { az: Number(m[1]), el: Number(m[2]) } : null;
@@ -101,12 +109,12 @@
     const key = sourceOf(notice) === 'learn'
       ? 'automations.learn.' + notice.code + '.title'
       : 'monitoring.notice.' + notice.code + '.title';
-    return t(key, notice.params);
+    return t(key, sourceOf(notice) === 'learn' ? learnParams(notice, t) : notice.params);
   }
 
   function text(notice, t) {
     const p = notice.params || {};
-    if (sourceOf(notice) === 'learn') return t(`automations.learn.${notice.code}.text`, notice.params);
+    if (sourceOf(notice) === 'learn') return t(`automations.learn.${notice.code}.text`, learnParams(notice, t));
     if (notice.code === 'measured_no_meter') return t('energy.roles.notices.measured_warning');
     if (notice.code === 'role_needed') return t('energy.chains.role_needed');
     if (notice.code === 'chain') {

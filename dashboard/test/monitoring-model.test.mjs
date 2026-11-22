@@ -181,3 +181,17 @@ test('valueText formats time, duration, number and state', () => {
   assert.equal(M.valueText({ kind: 'state', value: 'active' }, t), 'automations.learned.state.active');
   assert.equal(M.valueText({ kind: 'state', value: 'quiet' }, t), 'automations.learned.state.quiet');
 });
+
+test('learn findings without a culprit name the placeholder instead of the template field', () => {
+  const calls = [];
+  const spy = (key, params) => { calls.push(key); return key + JSON.stringify(params || {}); };
+  const drift = { source: 'learn', code: 'baseload.drift', params: { w: 80, kwh_month: 57.6, candidate: '' } };
+  const text = M.text(drift, spy);
+  assert.ok(text.includes('automations.learn.baseload.candidate.none'));
+  assert.ok(!text.includes('{candidate}'));
+  assert.ok(calls.includes('automations.learn.baseload.candidate.none'));
+  const empty = { source: 'learn', code: 'battery.empty_early', params: { time: '05:10', kwh_missing: 3.2, candidates: '' } };
+  const emptyText = M.text(empty, spy);
+  assert.ok(emptyText.includes('automations.learn.battery.candidate.none'));
+  assert.ok(!emptyText.includes('{candidates}'));
+});

@@ -138,6 +138,9 @@ func TestBaseLoadDriftWithoutMeasuredDeviceHasNoCandidate(t *testing.T) {
 	if f := findings[0]; f.Device != "" || len(f.Apply) != 0 {
 		t.Errorf("Device %q, Apply %+v: want no candidate and no fix", f.Device, f.Apply)
 	}
+	if f := findings[0]; f.Group != "check" {
+		t.Errorf("Group %q, want check without a fix", f.Group)
+	}
 }
 
 func TestBaseLoadSingleNightIsNoFinding(t *testing.T) {

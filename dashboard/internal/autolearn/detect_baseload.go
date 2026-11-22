@@ -227,6 +227,11 @@ func baseLoadDrift(in *Input, ns []baseloadNight) []Candidate {
 		finding.Apply = []Fix{{Code: "night_off", Template: "night_off",
 			Prefill: withEntity(map[string]any{"device": device}, "entity", switchEntityOf(in, device))}}
 	}
+	// Without a switchable culprit there is no rule to suggest: the finding goes
+	// to the rule check and from there to Monitoring as a notice.
+	if len(finding.Apply) == 0 {
+		finding.Group = "check"
+	}
 	return []Candidate{{
 		Finding:     finding,
 		Detector:    "baseload",

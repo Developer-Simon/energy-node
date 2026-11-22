@@ -409,6 +409,11 @@ func batteryEmpty(in *Input, days []*batteryDay) []Candidate {
 		Apply:    apply,
 		Benefit:  &Benefit{Unit: "kwh_week", Value: kwh * batteryWeekDays},
 	}
+	// Without a switchable culprit there is no rule to suggest: the finding goes
+	// to the rule check and from there to Monitoring as a notice.
+	if len(finding.Apply) == 0 {
+		finding.Group = "check"
+	}
 	return []Candidate{{
 		Finding:     finding,
 		Detector:    "battery",
