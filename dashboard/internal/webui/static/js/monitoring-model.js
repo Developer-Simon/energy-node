@@ -90,7 +90,7 @@
     const id = shadeIdParts(notice.id);
     if (id) {
       rows.push([t('monitoring.fact.direction'), t('monitoring.fact.direction_value', {
-        az: id.az, compass: t('monitoring.compass.' + compass(id.az)), el: id.el,
+        az: id.az, compass: t(`monitoring.compass.${compass(id.az)}`), el: id.el,
       })]);
     }
     rows.push([t('monitoring.fact.loss'), t('monitoring.fact.loss_value', { kwh: kwhText(p.kwh_lost) })]);
@@ -106,13 +106,13 @@
 
   function text(notice, t) {
     const p = notice.params || {};
-    if (sourceOf(notice) === 'learn') return t('automations.learn.' + notice.code + '.text', notice.params);
+    if (sourceOf(notice) === 'learn') return t(`automations.learn.${notice.code}.text`, notice.params);
     if (notice.code === 'measured_no_meter') return t('energy.roles.notices.measured_warning');
     if (notice.code === 'role_needed') return t('energy.chains.role_needed');
     if (notice.code === 'chain') {
-      return t('chains.finding.' + p.kind, { chain: p.chain, from: p.from, to: p.to, since: shortDate(p.since) });
+      return t(`chains.finding.${p.kind}`, { chain: p.chain, from: p.from, to: p.to, since: shortDate(p.since) });
     }
-    return t('monitoring.notice.' + notice.code + '.text', notice.params);
+    return t(`monitoring.notice.${notice.code}.text`, notice.params);
   }
 
   function facts(notice, t) {
@@ -144,7 +144,7 @@
       const key = 'monitoring.step.' + s.code;
       const ok = allowed(s.target, rights);
       const params = s.code === 'shade_look' && shade
-        ? { direction: t('monitoring.compass.' + compass(shade.az)), height: shade.el }
+        ? { direction: t(`monitoring.compass.${compass(shade.az)}`), height: shade.el }
         : undefined;
       return {
         text: t(key, params),
@@ -208,8 +208,8 @@
     } else if (entry.n) {
       const kind = RUN_KEYS.includes(name) ? 'runs' : 'days';
       parts.push(entry.n === 1
-        ? t('monitoring.learned.origin.' + kind + '_one')
-        : t('monitoring.learned.origin.' + kind, { n: entry.n }));
+        ? t(`monitoring.learned.origin.${kind}_one`)
+        : t(`monitoring.learned.origin.${kind}`, { n: entry.n }));
     }
     const since = entry.changed_at || entry.at;
     if (since) parts.push(t('monitoring.learned.origin.changed', { age: ageText(now - since) }));
@@ -234,7 +234,7 @@
   function learnedRow(key, name, entry, now, t) {
     return {
       key,
-      label: t('monitoring.learned.short.' + name),
+      label: t(`monitoring.learned.short.${name}`),
       icon: VALUE_ICON[name] || 'ico-learning',
       have: !!entry,
       value: entry ? valueText(entry, t) : t('monitoring.learned.missing'),
