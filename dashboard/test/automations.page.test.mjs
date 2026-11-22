@@ -3805,6 +3805,42 @@ test('openAssistantWith resolves a surplus suggestion by device id to the switch
   assert.equal(component.assistant.answers.runtime, 10);
 });
 
+test('prefillToAnswers maps a shift suggestion to device, start power and a five minute latest window', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = JSON.parse(JSON.stringify(prefillToAnswers('shift_start', {
+    device: 'lampe', entity: 'lamp_switch', on_w: 1480, latest: '20:00', min_run_s: 5400,
+  })));
+  assert.deepEqual(answers, {
+    device: 'lampe', on_w: 1500, latest: { from: '20:00', to: '20:05', days: [0, 1, 2, 3, 4, 5, 6] },
+  });
+  const entityOnly = JSON.parse(JSON.stringify(prefillToAnswers('shift_start', { entity: 'lamp_switch', latest: '23:58' })));
+  assert.equal(entityOnly.device, 'lamp_switch', 'without a device id the entity is used');
+  assert.equal(entityOnly.latest.to, '00:03', 'the window wraps over midnight');
+});
+
+test('prefillToAnswers returns null for an invalid shift latest time or start power', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.equal(prefillToAnswers('shift_start', { device: 'lampe', latest: '7:00' }), null);
+  assert.equal(prefillToAnswers('shift_start', { device: 'lampe', latest: 2000 }), null);
+  assert.equal(prefillToAnswers('shift_start', { device: 'lampe', on_w: '1500' }), null);
+  assert.equal(prefillToAnswers('shift_start', { device: 'lampe', on_w: -1 }), null);
+});
+
+test('openAssistantWith on a shift suggestion creates the two rules of the template', async () => {
+  const { component } = await prefillPanel();
+  const before = component.document.rules.length;
+  await component.openAssistantWith('shift_start', { device: 'lampe', on_w: 1500, latest: '20:00' });
+  assert.equal(component.assistant.templateId, 'shift_start');
+  assert.equal(component.assistant.answers.device, 'lamp_switch');
+  assert.equal(component.assistant.answers.latest.from, '20:00');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+  assert.equal(component.document.rules.length, before + 2);
+  assert.equal(component.assistant.open, false);
+});
+
 test('prefillToAnswers maps a runtime limit to minutes', () => {
   const { window } = createAutomationsPanel();
   const answers = window.__automationsPrefill.prefillToAnswers('runtime_off', { device: 'lamp_switch', minutes: 120 });

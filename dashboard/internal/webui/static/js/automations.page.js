@@ -283,6 +283,25 @@
     },
     surplus_switch(prefill) { return surplusPrefill(prefill, 'on', true); },
     surplus_wallbox(prefill) { return surplusPrefill(prefill, 'start', false); },
+    shift_start(prefill) {
+      const out = {};
+      // Der Erkenner nennt die Geraete-Id und eine Entitaet, die nicht zwingend ein Schalter ist.
+      // Vorrang hat daher die Geraete-Id, die Aufloesung nimmt den Schalter des Geraets.
+      const device = prefill.device !== undefined ? prefill.device : prefill.entity;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
+      }
+      if (prefill.on_w !== undefined) {
+        if (typeof prefill.on_w !== 'number' || !Number.isFinite(prefill.on_w) || prefill.on_w < 0) return null;
+        out.on_w = Math.round(prefill.on_w / 100) * 100;
+      }
+      if (prefill.latest !== undefined) {
+        if (!isPrefillClock(prefill.latest)) return null;
+        out.latest = { from: prefill.latest, to: prefillClockAfter(prefill.latest, 5), days: [0, 1, 2, 3, 4, 5, 6] };
+      }
+      return out;
+    },
   };
   // Vorbelegung der Ueberschuss-Vorlagen aus dem Erkenner: Geraet, Startleistung (auf 100 W
   // gerundet, Schritt onStep), Quelle export oder reserve. Nur surplus_switch hat eine
