@@ -575,13 +575,14 @@ func main() {
 	automationEngine.Register(autolearn.NewShadeDetector(pvTracker.Snapshot, pvModelStore.Model))
 	// Modell und Himmelsraster fuer den Rest-Ueberschuss. Der Raster-Schnappschuss
 	// entsteht nur, wenn ein Modell da ist.
-	automationEngine.SetPV(func() (autolearn.PVModel, *autolearn.Raster, bool) {
+	pvSource := func() (autolearn.PVModel, *autolearn.Raster, bool) {
 		m, ok := pvModelStore.Model()
 		if !ok {
 			return autolearn.PVModel{}, nil, false
 		}
 		return m, pvTracker.Snapshot(), true
-	})
+	}
+	automationEngine.SetPV(pvSource)
 	// Die Aussentemperatur fuer den Heizzeit-Erkenner: die Entitaet aus den
 	// Einstellungen, aufgeloest ueber die Registry wie beim Lernhub.
 	automationEngine.SetOutdoor(func() autolearn.OutdoorSource {
@@ -603,6 +604,8 @@ func main() {
 	automationChecker.SetEngineSource(automationEngine.Candidates, func() bool {
 		return engineGroups()["reliability"]
 	})
+	// Die Regelpruefung prueft PV-Schwellen gegen dieselbe Bestkurve wie die Engine.
+	automationChecker.SetPV(pvSource)
 	// Herabstufung: nur bei automatischer Stufe rueckt die gemerkte Stufe eine
 	// nach unten. Eine feste Stufe der Einstellungen bleibt unberuehrt.
 	engineDowngrade := func() {

@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 const (
@@ -14,6 +16,10 @@ const (
 	// seasonWindow is the period the seasonal maximum is taken from.
 	seasonWindow = 365 * 24 * time.Hour
 )
+
+// PVSource returns the stored roof model, the sky raster and whether a model
+// exists, as Input.PV does.
+type PVSource func() (PVModel, *Raster, bool)
 
 // Thresholds are the limits of the observed checks.
 type Thresholds struct {
@@ -55,14 +61,21 @@ func ObservedFindings(doc Doc, st ObserverState, season SeasonalSource, now time
 	return ObservedFindingsWith(doc, st, season, now, DefaultThresholds())
 }
 
-// ObservedFindingsWith checks the rules against what was observed. A rule that
+// ObservedFindingsWith is ObservedFindingsWithPV without a PV source.
+func ObservedFindingsWith(doc Doc, st ObserverState, season SeasonalSource, now time.Time, th Thresholds) []Finding {
+	return ObservedFindingsWithPV(doc, st, season, nil, now, th)
+}
+
+// ObservedFindingsWithPV checks the rules against what was observed. A rule that
 // fires at least th.FrequentMinCount times in one hour of the last 24 h is
 // frequent. An enabled rule that did not fire within th.NeverFiredWindow,
 // although it is at least th.NeverFiredMinAge known and its value has been seen
 // for th.MinRangeDays, is never fired. A threshold the value never reached is
 // reported as a seasonal rest when the season had a higher maximum. season may
-// be nil, which skips the seasonal check.
-func ObservedFindingsWith(doc Doc, st ObserverState, season SeasonalSource, now time.Time, th Thresholds) []Finding {
+// be nil, which skips the seasonal check. pv may be nil. With a safe PV model
+// and the site location, a PV or grid export threshold is checked against the
+// clear-sky curve instead of the seasonal maximum.
+func ObservedFindingsWithPV(doc Doc, st ObserverState, season SeasonalSource, pv PVSource, now time.Time, th Thresholds) []Finding {
 	var findings []Finding
 	for _, rule := range doc.Rules {
 		if !rule.Enabled {
@@ -75,7 +88,7 @@ func ObservedFindingsWith(doc Doc, st ObserverState, season SeasonalSource, now 
 		if f, ok := frequentFinding(rule, stats, now, th.FrequentMinCount); ok {
 			findings = append(findings, f)
 		}
-		if f, ok := neverFiredFinding(rule, stats, st, season, now, th); ok {
+		if f, ok := neverFiredFinding(rule, stats, st, season, pv, doc.Location, now, th); ok {
 			findings = append(findings, f)
 		}
 	}
@@ -159,7 +172,7 @@ func hysteresisFor(threshold float64) int {
 
 // neverFiredFinding checks the first number condition of the rule whose value
 // never reached the threshold in the last 30 days.
-func neverFiredFinding(rule Rule, stats RuleStats, st ObserverState, season SeasonalSource, now time.Time, th Thresholds) (Finding, bool) {
+func neverFiredFinding(rule Rule, stats RuleStats, st ObserverState, season SeasonalSource, pv PVSource, loc *sun.Location, now time.Time, th Thresholds) (Finding, bool) {
 	if now.Sub(stats.FirstSeen) < th.NeverFiredMinAge || firedSince(stats, now.Add(-th.NeverFiredWindow)) {
 		return Finding{}, false
 	}
@@ -181,7 +194,7 @@ func neverFiredFinding(rule Rule, stats RuleStats, st ObserverState, season Seas
 			lo, hi = min(lo, r.Min), max(hi, r.Max)
 		}
 		if c.Comparison == "above" && hi < x {
-			return aboveFinding(rule, i, c, x, lo, hi, season, now)
+			return aboveFinding(rule, i, c, x, lo, hi, season, pv, loc, now)
 		}
 		if c.Comparison == "below" && lo > x {
 			return belowFinding(rule, i, c, x, lo, hi)
@@ -190,9 +203,14 @@ func neverFiredFinding(rule Rule, stats RuleStats, st ObserverState, season Seas
 	return Finding{}, false
 }
 
-func aboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, season SeasonalSource, now time.Time) (Finding, bool) {
+func aboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, season SeasonalSource, pv PVSource, loc *sun.Location, now time.Time) (Finding, bool) {
 	var seasonMax *float64
 	var months []int
+	if c.Type == "balance_threshold" && (c.Field == "pv" || c.Field == "grid_export") && pv != nil && loc != nil {
+		if m, r, ok := pv(); ok && m.Safe {
+			return pvAboveFinding(rule, i, c, x, lo, hi, m, r, *loc, now)
+		}
+	}
 	if c.Type == "balance_threshold" && season != nil {
 		if maxW, m, _, ok := season.MaxW(c.Field, now.Add(-seasonWindow), now); ok {
 			seasonMax, months = &maxW, m
@@ -232,6 +250,67 @@ func aboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, season Seaso
 		Apply: []Fix{{Code: "set_threshold", RuleID: rule.ID, Ops: []Op{
 			{Path: []any{"conditions", i, thresholdKey(c)}, Value: int(s)}}}},
 	}, true
+}
+
+// pvAboveFinding is a PV or grid export threshold above the clear-sky curve of
+// a safe model. A threshold the curve reaches later in the year is a seasonal
+// rest with the first week that reaches it. One the curve never reaches is
+// never fired and gets the threshold fix.
+func pvAboveFinding(rule Rule, i int, c Condition, x, lo, hi float64, m PVModel, r *Raster, loc sun.Location, now time.Time) (Finding, bool) {
+	scale := Evidence{Shape: "scale", Seen: [2]float64{lo, hi}, IstValue: &x, Unit: unitOf(c)}
+	if week, ok := SeasonWeekFor(x, m, r, loc, now); ok {
+		scale.Max = scaleMax(hi, x)
+		return Finding{
+			ID:         FindingID("never_fired", rule.ID),
+			Kind:       "never_fired",
+			Group:      "check",
+			RuleIDs:    []string{rule.ID},
+			Severity:   "info",
+			Confidence: "estimate",
+			Summary: Text{Code: "check.never_fired_season", Params: map[string]any{
+				"rule": rule.Name, "threshold": x, "week": week}},
+			Evidence: scale,
+			Facts:    []Fact{{Code: "season_week", Value: week}},
+		}, true
+	}
+
+	s := math.Max(50, math.Floor(0.75*hi/50)*50)
+	scale.SollValue = &s
+	scale.Max = scaleMax(hi, x, s)
+	return Finding{
+		ID:         FindingID("never_fired", rule.ID),
+		Kind:       "never_fired",
+		Group:      "check",
+		RuleIDs:    []string{rule.ID},
+		Severity:   "warn",
+		Confidence: "estimate",
+		Summary: Text{Code: "check.never_fired", Params: map[string]any{
+			"rule": rule.Name, "threshold": x}},
+		Evidence: scale,
+		Apply: []Fix{{Code: "set_threshold", RuleID: rule.ID, Ops: []Op{
+			{Path: []any{"conditions", i, thresholdKey(c)}, Value: int(s)}}}},
+	}, true
+}
+
+// seasonWeeks is how many weeks ahead SeasonWeekFor looks.
+const seasonWeeks = 53
+
+// seasonStep is the sampling step of the sun elevation within a week.
+const seasonStep = 15 * time.Minute
+
+// SeasonWeekFor is the first ISO week, counted from now, in which the clear-sky
+// curve reaches the threshold at the highest sun elevation of that week. ok is
+// false when no week within seasonWeeks reaches it.
+func SeasonWeekFor(threshold float64, m PVModel, r *Raster, loc sun.Location, now time.Time) (week int, ok bool) {
+	for k := 0; k <= seasonWeeks; k++ {
+		start := now.Add(time.Duration(k) * 7 * 24 * time.Hour)
+		az, el := weekNoon(start, loc)
+		if m.Best(az, el, r) >= threshold {
+			_, w := start.ISOWeek()
+			return w, true
+		}
+	}
+	return 0, false
 }
 
 func belowFinding(rule Rule, i int, c Condition, y, lo, hi float64) (Finding, bool) {
@@ -288,4 +367,18 @@ func scaleMax(values ...float64) float64 {
 		largest = max(largest, v)
 	}
 	return math.Round(largest*1.2/100) * 100
+}
+
+// weekNoon is the sun position az/el at the highest elevation of the 7 days
+// from start, sampled every seasonStep. It returns the sky position used by
+// PVModel.Best.
+func weekNoon(start time.Time, loc sun.Location) (az, el float64) {
+	el = -90
+	for s := time.Duration(0); s < 7*24*time.Hour; s += seasonStep {
+		a, e := sun.Position(start.Add(s), loc.Lat, loc.Lon)
+		if e > el {
+			az, el = a, e
+		}
+	}
+	return az, el
 }

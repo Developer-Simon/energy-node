@@ -24,6 +24,7 @@ var learnLineGaps = map[string]bool{
 	"check.feedback":           true,
 	"check.frequent":           true,
 	"check.never_fired":        true,
+	"check.never_fired_season": true,
 	"check.orphan":             true,
 	"check.regulator_conflict": true,
 	"check.seasonal_rest":      true,

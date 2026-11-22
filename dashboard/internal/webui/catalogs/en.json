@@ -490,6 +490,8 @@
   "automations.learn.check.frequent.title": "Triggers very often",
   "automations.learn.check.never_fired.text": "“{rule}” has not triggered for a long time. The threshold {threshold} lies outside what was measured recently.",
   "automations.learn.check.never_fired.title": "Never triggers",
+  "automations.learn.check.never_fired_season.text": "“{rule}” does not trigger right now, the threshold is reached again from calendar week {week} on. That is probably normal.",
+  "automations.learn.check.never_fired_season.title": "Resting for the season",
   "automations.learn.check.no_effect.line": "{failures} times without effect on {device} ({share} %)",
   "automations.learn.check.no_effect.text": "“{rule}” tried {failures} times to switch {device} and nothing changed. That is {share} % of its actions.",
   "automations.learn.check.no_effect.title": "“{rule}” often achieves nothing",

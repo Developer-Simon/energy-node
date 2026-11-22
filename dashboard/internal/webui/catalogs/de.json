@@ -490,6 +490,8 @@
   "automations.learn.check.frequent.title": "Löst sehr oft aus",
   "automations.learn.check.never_fired.text": "„{rule}“ hat lange nicht ausgelöst. Die Schwelle {threshold} liegt außerhalb dessen, was zuletzt gemessen wurde.",
   "automations.learn.check.never_fired.title": "Löst nie aus",
+  "automations.learn.check.never_fired_season.text": "„{rule}“ löst gerade nicht aus, die Schwelle wird ab Kalenderwoche {week} wieder erreicht. Das ist wohl normal.",
+  "automations.learn.check.never_fired_season.title": "Ruht saisonal",
   "automations.learn.check.no_effect.line": "{failures} Mal ohne Wirkung auf {device} ({share} %)",
   "automations.learn.check.no_effect.text": "„{rule}“ hat {failures} Mal versucht, {device} zu schalten, ohne dass sich etwas geändert hat. Das sind {share} % der Aktionen.",
   "automations.learn.check.no_effect.title": "„{rule}“ erreicht oft nichts",
