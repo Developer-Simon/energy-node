@@ -311,6 +311,52 @@ func appendStepFile(path string, steps []Step) error {
 	return f.Close()
 }
 
+// Reset leert den Speicher und loescht die Schrittdateien am aktuellen Ort und
+// in den extra Basisverzeichnissen, etwa dem Ort vor einem Wechsel.
+func (l *StepLog) Reset(extra ...string) error {
+	l.flushMu.Lock()
+	defer l.flushMu.Unlock()
+	l.mu.Lock()
+	l.steps = map[string][]Step{}
+	l.written = map[string]int{}
+	l.mu.Unlock()
+
+	var errs []error
+	seen := map[string]bool{}
+	for _, dir := range append([]string{l.dir()}, extra...) {
+		if dir == "" || seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		if err := removeStepFiles(dir); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// removeStepFiles loescht alle Schrittdateien unter dir.
+func removeStepFiles(dir string) error {
+	sub := filepath.Join(dir, "learnrec", "minutes")
+	entries, err := os.ReadDir(sub)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var errs []error
+	for _, e := range entries {
+		if _, ok := strings.CutSuffix(e.Name(), ".steps"); !ok || e.IsDir() {
+			continue
+		}
+		if err := os.Remove(filepath.Join(sub, e.Name())); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // pruneStepFiles loescht die Schrittdateien, deren Tag vor cutoffDay liegt.
 func pruneStepFiles(dir, cutoffDay string) error {
 	sub := filepath.Join(dir, "learnrec", "minutes")

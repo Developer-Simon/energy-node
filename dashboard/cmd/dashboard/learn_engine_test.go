@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/storage"
 )
 
 func TestEngineRunnerDropsTickWhenChannelIsFull(t *testing.T) {
@@ -144,5 +146,71 @@ func TestPVKeepDaysFollowsTheSeasonSwitch(t *testing.T) {
 	}
 	if got := pvKeepDays(settings.Settings{LearningSeasonYearDisabled: true}); got != settings.LearningProfileDaysDefault {
 		t.Fatalf("switch off without profile days = %d, want the default", got)
+	}
+}
+
+func TestMinuteSnapshotWithoutDriveIsRAM(t *testing.T) {
+	snap := minuteSnapshotFor(settings.Default(), "", storage.Status{Mode: storage.ModeNone}, "/data", "/mnt/data", learnrec.Limits{})
+	if snap.plan.Location != learnrec.LocRAM || !snap.plan.AutoLocation {
+		t.Fatalf("plan = %+v, want auto ram", snap.plan)
+	}
+	if snap.dirs.Drive != "" {
+		t.Fatalf("drive dir = %q without a drive", snap.dirs.Drive)
+	}
+	if dir := snap.stepDir(); dir != "" {
+		t.Fatalf("step dir = %q, want ram", dir)
+	}
+}
+
+func TestMinuteSnapshotWithDriveFollowsStorageMode(t *testing.T) {
+	value := settings.Default()
+	up := minuteSnapshotFor(value, "uuid", storage.Status{Mode: storage.ModeDrive}, "/data", "/mnt/data", learnrec.Limits{})
+	if up.plan.Location != learnrec.LocDrive || !up.driveUp {
+		t.Fatalf("plan = %+v driveUp = %v, want drive", up.plan, up.driveUp)
+	}
+	if up.dirs.Drive != "/mnt/data/runtime" || up.stepDir() != "/mnt/data/runtime" {
+		t.Fatalf("drive dir = %q, step dir = %q", up.dirs.Drive, up.stepDir())
+	}
+	down := minuteSnapshotFor(value, "uuid", storage.Status{Mode: storage.ModeFallbackSystem}, "/data", "/mnt/data", learnrec.Limits{})
+	if down.driveUp || down.dirs.Drive != "" || down.stepDir() != "" {
+		t.Fatalf("fallback keeps drive out: driveUp = %v drive = %q step = %q", down.driveUp, down.dirs.Drive, down.stepDir())
+	}
+}
+
+func TestMinuteSnapshotSystemLocationUsesDataDir(t *testing.T) {
+	value := settings.Default()
+	value.LearningMinutesLocation = "system"
+	snap := minuteSnapshotFor(value, "uuid", storage.Status{Mode: storage.ModeDrive}, "/data", "/mnt/data", learnrec.Limits{})
+	if snap.plan.Location != learnrec.LocSystem || snap.stepDir() != "/data" {
+		t.Fatalf("location = %q step dir = %q, want system /data", snap.plan.Location, snap.stepDir())
+	}
+}
+
+func TestWatchHandlerRoutesStepsAndKeepsOtherTopics(t *testing.T) {
+	steps := autolearn.NewStepLog(func() int { return 3 }, func() string { return "" })
+	var others []string
+	handler := watchHandler(automationServiceID, steps, func(topic string, _ []byte) {
+		others = append(others, topic)
+	})
+	if got := stepTopic(automationServiceID); got != "outstation/automation/scenario/+/step" {
+		t.Fatalf("step topic = %q", got)
+	}
+	now := time.Now()
+	payload := []byte(fmt.Sprintf(`{"at":%d,"err":-5,"net":-5,"from":1200,"to":1200,"why":"unchanged"}`, now.Unix()))
+	handler("outstation/automation/scenario/heizung/step", payload)
+	if got := steps.Steps("heizung", now.Add(-time.Hour), now.Add(time.Hour)); len(got) != 1 {
+		t.Fatalf("steps routed to the log = %d, want 1", len(got))
+	}
+	handler("outstation/automation/status/online", []byte("online"))
+	handler("outstation/energy_node/scenario/heizung/step", payload)
+	handler("outstation/automation/scenario/heizung/extra/step", payload)
+	want := []string{"outstation/automation/status/online", "outstation/energy_node/scenario/heizung/step", "outstation/automation/scenario/heizung/extra/step"}
+	if len(others) != len(want) {
+		t.Fatalf("other topics = %v, want %v", others, want)
+	}
+	for i := range want {
+		if others[i] != want[i] {
+			t.Fatalf("other topics = %v, want %v", others, want)
+		}
 	}
 }

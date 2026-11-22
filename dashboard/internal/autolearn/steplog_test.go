@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -330,5 +331,33 @@ func TestStepLogRAMOnlyWritesNoFiles(t *testing.T) {
 	}
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
 		t.Errorf("entries = %d, want none", len(entries))
+	}
+}
+
+func TestStepLogResetClearsRAMAndStepFiles(t *testing.T) {
+	dir := t.TempDir()
+	start := time.Date(2026, 11, 20, 10, 0, 0, 0, time.Local)
+	l := NewStepLog(func() int { return 3 }, func() string { return dir })
+	l.now = func() time.Time { return start }
+	if err := l.Add("heizung", stepPayload(float64(start.Unix()), -5, -5, fptr(1200), fptr(1200), "unchanged")); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Flush(start); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.Steps("heizung", start.Add(-time.Hour), start.Add(time.Hour)); len(got) != 0 {
+		t.Fatalf("steps survived reset: %d", len(got))
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "learnrec", "minutes"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".steps") {
+			t.Fatalf("step file survived reset: %s", e.Name())
+		}
 	}
 }
