@@ -795,8 +795,17 @@ func main() {
 	})
 	learnHub.AddMinute("minutes", minutes.store)
 	var minuteReader learnrec.Reader = minutes.store
-	// Die Minutenaufzeichnung fuer das Nachspielen der Engine.
-	automationEngine.SetMinutes(func() learnrec.Reader { return minuteReader })
+	// Der schwere Lauf liest eigene Minuten zuerst, dann Home Assistant. Vor dem Lauf
+	// holt der Vorlauf fehlende Tage beim Companion und verwirft sie danach.
+	automationEngine.SetMinutes(func() learnrec.Reader { return learnrec.NewMergedReader(minutes.store, learnHA) })
+	automationEngine.SetPreparer(&haPreparer{
+		own: minutes.store,
+		ha:  learnHA,
+		active: func() bool {
+			return minutes.plan().Reconcile && authManager.CompanionStatus().Paired
+		},
+		loc: time.Local,
+	})
 	// Die Reglerschritte fuer die Regelguete der Nulleinspeisung.
 	automationEngine.SetSteps(minutes.steps.Steps)
 	go runStorageResume(ctx, storageService)
@@ -1378,6 +1387,7 @@ func main() {
 		DriveConfigured:  minutes.DriveConfigured,
 		CompanionPaired:  func() bool { return authManager.CompanionStatus().Paired },
 		MinutesPaused:    func() bool { return minutes.plan().Paused },
+		HAMinuteDays:     learnHA.Days,
 		Reset: func() error {
 			resetLearned(learnedStore, client)
 			return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset(), minutes.Reset())

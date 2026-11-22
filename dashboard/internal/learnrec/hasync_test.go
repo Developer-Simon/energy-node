@@ -1,6 +1,7 @@
 package learnrec
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"testing"
@@ -257,5 +258,64 @@ func TestHASyncAnswerWithOtherTierIsDiscarded(t *testing.T) {
 	values, _ := s.Day("2026-11-20")
 	if len(values) != 0 || len(c.sent) != 1 {
 		t.Fatalf("Lieferung mit anderer Stufe wurde uebernommen: %v, gesendet %d", values, len(c.sent))
+	}
+}
+
+func TestHASyncDaysCountsCachedDays(t *testing.T) {
+	s, c := hsSetup(t, 1<<30)
+	if s.Days() != 0 {
+		t.Fatalf("leerer Abgleich: Days = %d, erwartet 0", s.Days())
+	}
+	s.OnOffer("companion", map[string]map[string]historyexchange.Census{
+		"1m": {"pv": hsFull(hsDayStart(t, "2026-11-18"), 3600000, 72)},
+	})
+	s.Prefetch([]string{"e:pv"}, []string{"2026-11-19", "2026-11-20"}, hsNow.Add(time.Hour))
+	day := hsDayStart(t, "2026-11-20")
+	hsAnswer(s, c, []historyexchange.Row{{Series: "pv", TS: day.UnixMilli(), Avg: 100}}, true)
+	if s.Days() != 1 {
+		t.Fatalf("ein Tag mit Werten: Days = %d, erwartet 1", s.Days())
+	}
+}
+
+func TestHASyncWaitIdleBlocksUntilAnswered(t *testing.T) {
+	s, c := hsSetup(t, 1<<30)
+	s.OnOffer("companion", map[string]map[string]historyexchange.Census{
+		"1m": {"pv": hsFull(hsDayStart(t, "2026-11-18"), 3600000, 72)},
+	})
+	s.Prefetch([]string{"e:pv"}, []string{"2026-11-20"}, hsNow.Add(time.Hour))
+	if len(c.sent) != 1 {
+		t.Fatalf("Nachfrage fehlt: %d gesendet", len(c.sent))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if s.WaitIdle(ctx) {
+		t.Fatal("WaitIdle meldet Leerlauf, obwohl eine Nachfrage offen ist")
+	}
+
+	done := make(chan bool, 1)
+	go func() {
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel2()
+		done <- s.WaitIdle(ctx2)
+	}()
+	time.Sleep(20 * time.Millisecond)
+	hsDrain(s, c)
+	select {
+	case idle := <-done:
+		if !idle {
+			t.Fatal("WaitIdle endet ohne Leerlauf, obwohl alle Antworten da sind")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("WaitIdle kehrt nach der letzten Antwort nicht zurueck")
+	}
+}
+
+func TestHASyncWaitIdleTrueWithoutWork(t *testing.T) {
+	s, _ := hsSetup(t, 1<<30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if !s.WaitIdle(ctx) {
+		t.Fatal("ohne Nachfragen muss WaitIdle sofort Leerlauf melden")
 	}
 }

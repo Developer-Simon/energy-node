@@ -1,6 +1,7 @@
 package learnrec
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -214,6 +215,55 @@ func (s *HASync) Day(day string) (map[string]*[minutesPerDay]float32, map[string
 		fiveMin[key] = ok
 	}
 	return values, fiveMin
+}
+
+// Days zaehlt die Tage, zu denen der Zwischenspeicher Werte hat.
+func (s *HASync) Days() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.days)
+}
+
+// WaitIdle blockiert, bis keine Nachfrage mehr offen ist und die Queue leer
+// ist. Liefert true bei Leerlauf, false wenn ctx vorher endet.
+func (s *HASync) WaitIdle(ctx context.Context) bool {
+	for {
+		s.mu.Lock()
+		idle := s.pending == nil && len(s.queue) == 0
+		s.mu.Unlock()
+		if idle {
+			return true
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+}
+
+// keyMinutes liefert die Minuten eines Schluessels an einem Tag als Kopie und
+// ob die Werte aus 5m stammen. Ohne Werte liefert es nil.
+func (s *HASync) keyMinutes(day, key string) (*[minutesPerDay]float32, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	arr := s.days[day][key]
+	if arr == nil {
+		return nil, false
+	}
+	c := *arr
+	return &c, s.fiveMin[day][key]
+}
+
+// keysOf nennt die Schluessel mit Werten an einem Tag.
+func (s *HASync) keysOf(day string) []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.days[day]))
+	for key := range s.days[day] {
+		out = append(out, key)
+	}
+	return out
 }
 
 // Fresh1m meldet, ob der Companion innerhalb der letzten 10 Minuten eine
