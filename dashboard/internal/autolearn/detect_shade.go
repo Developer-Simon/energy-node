@@ -304,13 +304,14 @@ func shadeSunPath(r *Raster, comp []*shadeCell, year int, loc *time.Location, si
 }
 
 // shadeEvidence builds the curve form of the most recent clear day with PV
-// power: the measured quarters, the clear sky curve and the best curve with the
-// raster, each per quarter of the day in W.
-func shadeEvidence(r *Raster, m PVModel, days []DayFile, clearDays map[string]bool, loc *time.Location, site *sun.Location) (Evidence, bool) {
+// power before today: the measured quarters, the clear sky curve and the best
+// curve with the raster, each per quarter of the day in W. Today is still
+// running and would show a cut curve.
+func shadeEvidence(r *Raster, m PVModel, days []DayFile, clearDays map[string]bool, today string, loc *time.Location, site *sun.Location) (Evidence, bool) {
 	var pick *DayFile
 	for i := range days {
 		f := &days[i]
-		if !clearDays[f.Day] || (pick != nil && f.Day <= pick.Day) {
+		if f.Day >= today || !clearDays[f.Day] || (pick != nil && f.Day <= pick.Day) {
 			continue
 		}
 		for _, pv := range f.Site.PV {
@@ -353,7 +354,7 @@ func shadeCandidate(r *Raster, m PVModel, cells map[[2]int]*shadeCell, comp []*s
 	if len(path.weeks) == 0 {
 		return Candidate{}, false
 	}
-	ev, ok := shadeEvidence(r, m, in.Days, clearDays, loc, site)
+	ev, ok := shadeEvidence(r, m, in.Days, clearDays, in.Now.In(loc).Format(dayLayout), loc, site)
 	if !ok {
 		return Candidate{}, false
 	}
