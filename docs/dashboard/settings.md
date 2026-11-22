@@ -75,7 +75,7 @@ is written per day.
 when the profiles are kept for a shorter time. The rule check needs it to tell
 from which calendar week a PV threshold is reached again. When it is off, the
 sun course stays as long as the profiles. In the first year, while the summer
-sun is still missing, a PV threshold is never reported as **Can never be met**.
+sun is still missing, a PV threshold is never reported as **Never triggers**.
 
 **Delete learned data** asks for confirmation first. It deletes the day
 profiles, the reaction times, the sums of the chain suggestions and the learned

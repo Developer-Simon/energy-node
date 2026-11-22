@@ -467,7 +467,7 @@ house. They are shown as soon as the data is there. None of them adds a load.
   staircase to all rules at once.
 - **Resting for the season until week n**: A PV threshold that the learned PV
   curve reaches again in a later calendar week shows that week. A threshold the
-  plant never reaches stays **Can never be met**.
+  plant never reaches stays **Never triggers**.
 - **Base load rises**: The night load of the house stays higher than expected
   for several weeks. The finding names a device that explains at least half of
   the rise and, for a switchable device, offers the template **Night off**.
