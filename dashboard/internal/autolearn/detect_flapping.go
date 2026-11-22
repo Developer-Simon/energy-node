@@ -90,12 +90,32 @@ func flappingRun(ctx context.Context, in *Input, device string) []Candidate {
 	if offCount[ids[1]] > offCount[ids[0]] {
 		offRule = ids[1]
 	}
-	return []Candidate{flappingCandidate(device, info, rules, ids, offRule, minRun, period, gaps, events)}
+	feedback := flappingFeedback(in, device, ids)
+	return []Candidate{flappingCandidate(device, info, rules, ids, offRule, minRun, period, gaps, events, feedback)}
+}
+
+// flappingFeedback reports whether an unstable feedback finding of the device
+// names the two rules of the flapping pair. Then the switch-ons follow the load
+// jump, and the cause is the feedback (spec 15.4 "Takten").
+func flappingFeedback(in *Input, device string, ids []string) bool {
+	want := append([]string(nil), ids...)
+	sort.Strings(want)
+	for _, f := range FeedbackFindings(in) {
+		if f.Device != device || len(f.RuleIDs) != len(want) {
+			continue
+		}
+		got := append([]string(nil), f.RuleIDs...)
+		sort.Strings(got)
+		if got[0] == want[0] && got[1] == want[1] {
+			return true
+		}
+	}
+	return false
 }
 
 // flappingCandidate builds the finding of a flapping device.
 func flappingCandidate(device string, info DeviceInfo, rules map[string]Rule, ids []string, offRule string,
-	minRun, period float64, gaps []float64, events []ruleEvent) Candidate {
+	minRun, period float64, gaps []float64, events []ruleEvent, feedback bool) Candidate {
 	hold := math.Ceil(math.Max(minRun, 3*period))
 	apply := []Fix{{Code: "open_rule", RuleID: offRule}}
 	if len(rules[offRule].Conditions) > 0 {
@@ -132,6 +152,9 @@ func flappingCandidate(device string, info DeviceInfo, rules map[string]Rule, id
 		Facts:    []Fact{{Code: "min_runtime", Value: int(minRun)}},
 		Apply:    apply,
 		Device:   device,
+	}
+	if feedback {
+		finding.Facts = append(finding.Facts, Fact{Code: "cause", Value: "feedback"})
 	}
 	return Candidate{
 		Finding:  finding,
