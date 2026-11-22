@@ -2,6 +2,7 @@ package autolearn
 
 import (
 	"encoding/json"
+	"math"
 	"reflect"
 )
 
@@ -91,4 +92,97 @@ func conditionMatches(c Condition, want map[string]any) bool {
 		}
 	}
 	return true
+}
+
+// OpsApplied reports whether the saved rule document already holds every
+// value the ops of fix would write: for its one rule, or for every rule of
+// fix.Rules. The engine keeps a finding until its detector runs again, so a
+// finding whose fix was saved is stale. A fix without ops, a missing rule and
+// a path it cannot read report false.
+func OpsApplied(fix Fix, doc Doc) bool {
+	groups := fix.Rules
+	if len(groups) == 0 {
+		groups = []RuleOps{{RuleID: fix.RuleID, Ops: fix.Ops}}
+	}
+	seen := false
+	for _, g := range groups {
+		rule := ruleNamed(doc, g.RuleID)
+		if rule == nil {
+			return false
+		}
+		for _, op := range g.Ops {
+			got, ok := ruleValueAt(*rule, op.Path)
+			if !ok || !sameValue(got, op.Value) {
+				return false
+			}
+			seen = true
+		}
+	}
+	return seen
+}
+
+// ruleNamed returns the rule with the given ID, nil without one.
+func ruleNamed(doc Doc, id string) *Rule {
+	for i := range doc.Rules {
+		if doc.Rules[i].ID == id {
+			return &doc.Rules[i]
+		}
+	}
+	return nil
+}
+
+// ruleValueAt reads a rule field or a field of one condition, the paths the
+// fixes write. Any other path reports false.
+func ruleValueAt(rule Rule, path []any) (any, bool) {
+	if len(path) == 1 {
+		switch path[0] {
+		case "enabled":
+			return rule.Enabled, true
+		case "cooldown_seconds":
+			return rule.CooldownSeconds, true
+		case "repeat_seconds":
+			return rule.RepeatSeconds, true
+		}
+		return nil, false
+	}
+	if len(path) != 3 || path[0] != "conditions" {
+		return nil, false
+	}
+	idx, ok := pathIndex(path[1])
+	key, isKey := path[2].(string)
+	if !ok || !isKey || idx < 0 || idx >= len(rule.Conditions) {
+		return nil, false
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(rule.Conditions[idx].Raw, &fields); err != nil {
+		return nil, false
+	}
+	v, found := fields[key]
+	return v, found
+}
+
+// pathIndex is a list index of a path, as Go int or as JSON number.
+func pathIndex(v any) (int, bool) {
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case float64:
+		return int(n), n == math.Trunc(n)
+	}
+	return 0, false
+}
+
+// sameValue compares two values the way JSON sees them, so 1000 and 1000.0
+// are equal.
+func sameValue(a, b any) bool {
+	ra, errA := json.Marshal(a)
+	rb, errB := json.Marshal(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	var na, nb any
+	if json.Unmarshal(ra, &na) != nil || json.Unmarshal(rb, &nb) != nil {
+		return false
+	}
+	return reflect.DeepEqual(na, nb)
 }

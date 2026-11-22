@@ -306,10 +306,12 @@ func batteryFull(days []*batteryDay) []Candidate {
 		}
 		kwh = append(kwh, wh/1000)
 	}
+	// The finding has no rule and no fix. In the group check it reaches the
+	// rule check and from there the Monitoring page as a notice, like shade.
 	finding := Finding{
 		ID:         "battery:full",
 		Kind:       "battery",
-		Group:      "energy",
+		Group:      "check",
 		Severity:   "info",
 		Confidence: "high",
 		Summary: Text{Code: "battery.full_early", Params: map[string]any{

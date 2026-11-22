@@ -113,8 +113,8 @@ func TestBatteryFullBeforeNoonFindsAndLearnsTime(t *testing.T) {
 	if !ok {
 		t.Fatalf("want a battery:full finding, got %d findings", len(findings))
 	}
-	if f.Summary.Code != "battery.full_early" || f.Group != "energy" || f.Severity != "info" {
-		t.Errorf("summary %q in %q with severity %q, want battery.full_early info in energy", f.Summary.Code, f.Group, f.Severity)
+	if f.Summary.Code != "battery.full_early" || f.Group != "check" || f.Severity != "info" {
+		t.Errorf("summary %q in %q with severity %q, want battery.full_early info in check", f.Summary.Code, f.Group, f.Severity)
 	}
 	if got := f.Summary.Params["time"]; got != "11:15" {
 		t.Errorf("time = %v, want 11:15", got)

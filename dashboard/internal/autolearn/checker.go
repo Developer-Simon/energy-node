@@ -294,7 +294,7 @@ func (c *Checker) reliabilityLocked() []Finding {
 	var out []Finding
 	for _, cand := range c.engineCandidates() {
 		f := cand.Finding
-		if f.Group != "check" || cand.NEff < cand.MinNEff || !rulesCurrent(f.RuleIDs, current) {
+		if f.Group != "check" || cand.NEff < cand.MinNEff || !rulesCurrent(f.RuleIDs, current) || fixSaved(f, c.doc) {
 			continue
 		}
 		out = append(out, f)
@@ -310,6 +310,13 @@ func rulesCurrent(ruleIDs []string, current map[string]bool) bool {
 		}
 	}
 	return true
+}
+
+// fixSaved reports whether the first fix of f is already in the saved
+// document. The engine keeps a finding until its detector runs again, so the
+// rule check drops it as soon as its fix is saved.
+func fixSaved(f Finding, doc Doc) bool {
+	return len(f.Apply) > 0 && OpsApplied(f.Apply[0], doc)
 }
 
 // dropOrphansLocked removes ignored IDs that are neither in the unfiltered

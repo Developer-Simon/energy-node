@@ -74,3 +74,45 @@ func TestFixAppliedOnlyAddCondition(t *testing.T) {
 		t.Fatal("empty document counted as applied")
 	}
 }
+
+// opsDoc has two rules with one balance threshold each.
+const opsDoc = `{"rules":[
+ {"id":"on","name":"An","enabled":true,"conditions":[{"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":1200}],"actions":[]},
+ {"id":"off","name":"Aus","enabled":true,"cooldown_seconds":600,"conditions":[{"type":"balance_threshold","field":"grid_export","comparison":"below","threshold":300}],"actions":[]}]}`
+
+func TestOpsAppliedNeedsEveryRuleOfTheFix(t *testing.T) {
+	doc, err := ParseDoc([]byte(opsDoc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fix := Fix{Code: "feedback_thresholds", Rules: []RuleOps{
+		{RuleID: "on", Ops: []Op{{Path: []any{"conditions", 0, "threshold"}, Value: 1200}}},
+		{RuleID: "off", Ops: []Op{{Path: []any{"conditions", 0, "threshold"}, Value: 300.0}}},
+	}}
+	if !OpsApplied(fix, doc) {
+		t.Fatal("both thresholds are saved, want applied")
+	}
+	fix.Rules[1].Ops[0].Value = 400
+	if OpsApplied(fix, doc) {
+		t.Fatal("one threshold differs, want not applied")
+	}
+}
+
+func TestOpsAppliedSingleRuleAndOddCases(t *testing.T) {
+	doc, err := ParseDoc([]byte(opsDoc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !OpsApplied(Fix{Code: "set_cooldown", RuleID: "off", Ops: []Op{{Path: []any{"cooldown_seconds"}, Value: 600}}}, doc) {
+		t.Fatal("cooldown 600 is saved, want applied")
+	}
+	if OpsApplied(Fix{Code: "set_threshold", RuleID: "gone", Ops: []Op{{Path: []any{"conditions", 0, "threshold"}, Value: 1200}}}, doc) {
+		t.Fatal("missing rule, want not applied")
+	}
+	if OpsApplied(Fix{Code: "open_rule", RuleID: "on"}, doc) {
+		t.Fatal("fix without ops, want not applied")
+	}
+	if OpsApplied(Fix{Code: "set_threshold", RuleID: "on", Ops: []Op{{Path: []any{"conditions", 3, "threshold"}, Value: 1200}}}, doc) {
+		t.Fatal("index out of range, want not applied")
+	}
+}

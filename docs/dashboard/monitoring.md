@@ -30,7 +30,7 @@ Notices come from three sources:
 |---|---|
 | Energy balance | The house load is set to measured, but no meter has the role house meter. A battery level exists without a capacity in kWh. Power values have no role. Values were left without a role by a measurement chain. |
 | Measurement chains | A finding of a [measurement chain](energy.md#measurement-chains), such as a unit error, a frozen value, a contradiction or a sign error. The card shows the time since the finding started. |
-| Learning | A finding that belongs to no rule and to no suggestion, for example a fixed shade that reduces the PV power. The card shows the direction and height of the shade, the calendar weeks, the loss per year and a daily curve. |
+| Learning | A finding that belongs to no rule and to no suggestion, for example a fixed shade that reduces the PV power or a battery that is full early. The card shows the direction and height of the shade, the calendar weeks, the loss per year and a daily curve. |
 
 Findings that belong to a rule stay on the rule card in
 [Automations](automations-rules.md). Findings with a suggestion to apply stay in

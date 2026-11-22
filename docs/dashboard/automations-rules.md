@@ -472,7 +472,8 @@ house. They are shown as soon as the data is there. None of them adds a load.
   for several weeks. The finding names a device that explains at least half of
   the rise and, for a switchable device, offers the template **Night off**.
 - **Battery full early**: The battery reaches 97 % before the sun is highest, on
-  most of the last days. This is information only.
+  most of the last days. This is information only and appears as a notice on
+  the [Monitoring](monitoring.md) page.
 - **Battery empty before morning**: The battery is empty before sunrise, and it
   was not just as empty in the same weeks of the year before. The finding names
   the devices that use most of the missing night energy. It needs a record of
