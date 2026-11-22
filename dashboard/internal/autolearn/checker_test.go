@@ -393,3 +393,16 @@ func TestCheckerDropsReliabilityFindingWhoseFixIsSaved(t *testing.T) {
 		t.Fatalf("finding with an open fix = %d findings, want 1", len(got))
 	}
 }
+
+func TestCheckerReadsReplaySourceOnFindings(t *testing.T) {
+	c := NewChecker(NewObserver(time.UTC), nil, staticRead(unsatisfiableDoc), nil, "", t.Logf)
+	calls := 0
+	c.SetReplaySource(func() *Input {
+		calls++
+		return &Input{Now: testBase}
+	})
+	c.Findings(testBase)
+	if calls != 1 {
+		t.Fatalf("replay source calls = %d, want 1", calls)
+	}
+}

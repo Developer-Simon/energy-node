@@ -623,6 +623,10 @@ func main() {
 	})
 	// Die Regelpruefung prueft PV-Schwellen gegen dieselbe Bestkurve wie die Engine.
 	automationChecker.SetPV(pvSource)
+	// Die Regelpruefung liest fuer Nachspiel und Minutenrauschen dieselben Daten wie die Engine.
+	automationChecker.SetReplaySource(func() *autolearn.Input {
+		return automationEngine.ReplayInput(time.Now())
+	})
 	// Herabstufung: nur bei automatischer Stufe rueckt die gemerkte Stufe eine
 	// nach unten. Eine feste Stufe der Einstellungen bleibt unberuehrt.
 	engineDowngrade := func() {

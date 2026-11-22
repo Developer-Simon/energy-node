@@ -752,7 +752,7 @@ func TestDemoPVYearRestsTheFeedInRule(t *testing.T) {
 	st.Rules["regel_einspeisung_entfeuchter"] = RuleStats{FirstSeen: now.Add(-40 * 24 * time.Hour), Hours: map[int64]int{}}
 	src := func() (PVModel, *Raster, bool) { return m, r, true }
 	var got *Finding
-	for _, f := range ObservedFindingsWithPV(doc, st, nil, src, now, DefaultThresholds()) {
+	for _, f := range ObservedFindingsWithPV(doc, st, nil, src, nil, now, DefaultThresholds()) {
 		if f.ID == FindingID("never_fired", "regel_einspeisung_entfeuchter") {
 			f := f
 			got = &f

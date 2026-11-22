@@ -63,7 +63,7 @@ func ObservedFindings(doc Doc, st ObserverState, season SeasonalSource, now time
 
 // ObservedFindingsWith is ObservedFindingsWithPV without a PV source.
 func ObservedFindingsWith(doc Doc, st ObserverState, season SeasonalSource, now time.Time, th Thresholds) []Finding {
-	return ObservedFindingsWithPV(doc, st, season, nil, now, th)
+	return ObservedFindingsWithPV(doc, st, season, nil, nil, now, th)
 }
 
 // ObservedFindingsWithPV checks the rules against what was observed. A rule that
@@ -74,8 +74,10 @@ func ObservedFindingsWith(doc Doc, st ObserverState, season SeasonalSource, now 
 // reported as a seasonal rest when the season had a higher maximum. season may
 // be nil, which skips the seasonal check. pv may be nil. With a safe PV model
 // and the site location, a PV or grid export threshold is checked against the
-// clear-sky curve instead of the seasonal maximum.
-func ObservedFindingsWithPV(doc Doc, st ObserverState, season SeasonalSource, pv PVSource, now time.Time, th Thresholds) []Finding {
+// clear-sky curve instead of the seasonal maximum. in may be nil, which keeps
+// the hysteresis of the frequent check to its fallback and leaves out the
+// replay evidence.
+func ObservedFindingsWithPV(doc Doc, st ObserverState, season SeasonalSource, pv PVSource, in *Input, now time.Time, th Thresholds) []Finding {
 	var findings []Finding
 	for _, rule := range doc.Rules {
 		if !rule.Enabled {

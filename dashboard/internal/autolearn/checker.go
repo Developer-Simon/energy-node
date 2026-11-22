@@ -39,6 +39,8 @@ type Checker struct {
 	reliabilityOn    func() bool
 	// pv gives the roof model for the PV thresholds, nil until SetPV is called.
 	pv PVSource
+	// replay gives the input of the replay checks, nil until SetReplaySource is called.
+	replay func() *Input
 
 	mu sync.Mutex
 	// doc is the last rule document that parsed. docOK is false when the last
@@ -101,6 +103,15 @@ func (c *Checker) SetEngineSource(candidates func() []Candidate, reliabilityOn f
 	c.reliabilityOn = reliabilityOn
 }
 
+// SetReplaySource gives the checker the input the replay evidence and the
+// minute noise are read from, the same data the engine reads. Without it the
+// frequent check keeps its fallback hysteresis and no replay evidence.
+func (c *Checker) SetReplaySource(replay func() *Input) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.replay = replay
+}
+
 // Findings returns the static, observed and reliability findings without the
 // ignored ones, ordered by severity and ID, at most 20. Ignored IDs of rules that no longer
 // exist are removed from the ignored file here.
@@ -112,7 +123,11 @@ func (c *Checker) Findings(now time.Time) []Finding {
 	// must follow at once, not up to checkerDocEvery later.
 	c.refreshLocked(now, true)
 	all := StaticFindings(c.doc, c.entityExists)
-	all = append(all, ObservedFindingsWithPV(c.doc, c.obs.Snapshot(), c.season, c.pv, now, c.thresholds)...)
+	var in *Input
+	if c.replay != nil {
+		in = c.replay()
+	}
+	all = append(all, ObservedFindingsWithPV(c.doc, c.obs.Snapshot(), c.season, c.pv, in, now, c.thresholds)...)
 	all = append(all, c.reliabilityLocked()...)
 	sort.SliceStable(all, func(i, j int) bool {
 		ri, rj := severityRank[all[i].Severity], severityRank[all[j].Severity]

@@ -442,6 +442,12 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 	return in
 }
 
+// ReplayInput builds the input of a round at now for the checks that replay a
+// rule. It reads the same days, learned values and minutes as a round does.
+func (e *Engine) ReplayInput(now time.Time) *Input {
+	return e.input(now, e.limits(), e.devices())
+}
+
 // SetPV gives the engine the roof model and the sky raster. A round reads them
 // through Input.PV. The function is called by the detectors that need the
 // model, so it should return a copy of the raster. Without it no model exists.

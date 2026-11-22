@@ -327,7 +327,7 @@ func TestObservedNeverFiredPVSeasonalWeekIsInfo(t *testing.T) {
 		t.Fatal("SeasonWeekFor(3000) from testNow: not ok, want a week")
 	}
 
-	findings := ObservedFindingsWithPV(doc, st, fakeSeason{ok: false}, pvSource(pvRoof(), true), testNow, DefaultThresholds())
+	findings := ObservedFindingsWithPV(doc, st, fakeSeason{ok: false}, pvSource(pvRoof(), true), nil, testNow, DefaultThresholds())
 	got := findKind(findings, "never_fired")
 	if len(got) != 1 {
 		t.Fatalf("never_fired findings = %d, want 1: %+v", len(got), findings)
@@ -349,7 +349,7 @@ func TestObservedNeverFiredPVAboveRoofIsWarnWithFix(t *testing.T) {
 	st := neverFiredStateFor("pv", testNow.Add(-40*24*time.Hour), 1850)
 
 	findings := ObservedFindingsWithPV(doc, st, fakeSeason{maxW: 5000, months: []int{6}, days: 300, ok: true},
-		pvSourceWith(pvRoof(), rasterAt(180, 61, 5000)), testNow, DefaultThresholds())
+		pvSourceWith(pvRoof(), rasterAt(180, 61, 5000)), nil, testNow, DefaultThresholds())
 	got := findKind(findings, "never_fired")
 	if len(got) != 1 {
 		t.Fatalf("never_fired findings = %d, want 1: %+v", len(got), findings)
@@ -373,7 +373,7 @@ func TestObservedNeverFiredPVWithoutModelUsesSeasonMax(t *testing.T) {
 		"no model":  pvSource(PVModel{}, false),
 		"not safe":  pvSource(PVModel{Surfaces: pvRoof().Surfaces, CapW: 5250}, true),
 	} {
-		findings := ObservedFindingsWithPV(doc, st, season, src, testNow, DefaultThresholds())
+		findings := ObservedFindingsWithPV(doc, st, season, src, nil, testNow, DefaultThresholds())
 		got := findKind(findings, "never_fired")
 		if len(got) != 1 || got[0].Summary.Code != "check.seasonal_rest" {
 			t.Errorf("%s: findings = %+v, want check.seasonal_rest", name, got)
@@ -389,13 +389,13 @@ func TestObservedNeverFiredPVWinterRasterFallsBack(t *testing.T) {
 	winter := rasterAt(180, 14, 1800)
 
 	findings := ObservedFindingsWithPV(doc, st, fakeSeason{maxW: 5000, months: []int{6}, days: 300, ok: true},
-		pvSourceWith(pvRoof(), winter), testNow, DefaultThresholds())
+		pvSourceWith(pvRoof(), winter), nil, testNow, DefaultThresholds())
 	if got := findKind(findings, "never_fired"); len(got) != 0 {
 		t.Fatalf("never_fired with a winter raster = %+v, want none", got)
 	}
 
 	findings = ObservedFindingsWithPV(doc, st, fakeSeason{maxW: 6500, months: []int{6}, days: 300, ok: true},
-		pvSourceWith(pvRoof(), winter), testNow, DefaultThresholds())
+		pvSourceWith(pvRoof(), winter), nil, testNow, DefaultThresholds())
 	got := findKind(findings, "never_fired")
 	if len(got) != 1 || got[0].Summary.Code != "check.seasonal_rest" {
 		t.Fatalf("findings = %+v, want check.seasonal_rest from the seasonal maximum", got)
