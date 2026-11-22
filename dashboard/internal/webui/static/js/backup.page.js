@@ -62,6 +62,8 @@
   const ENV_LABELS = { broker: 'backup.env.row.broker', port: 'backup.env.row.port', bridge: 'backup.env.row.bridge', tailscale: 'backup.env.row.tailscale' };
   const ENV_OFF = { bridge: 'backup.env.off.bridge', tailscale: 'backup.env.off.tailscale' };
   const IMPORT_CODES = { interrupted: 'backup.import.code.interrupted', apply_failed: 'backup.import.code.apply_failed' };
+  // A restore that worked but left a part out. The title stays the success one.
+  const PARTIAL_CODES = { partial_battery: 'backup.import.code.partial_battery', partial_stats: 'backup.import.code.partial_stats' };
 
   // Bytes as KB, MB or GB with the language's decimal separator.
   const formatSize = (bytes) => {
@@ -124,10 +126,13 @@
     envRows: [],
     importFailed: false,
     importCode: '',
+    importDetail: '',
     disabledUsers: [],
     rollbackId: '',
     restarting: false,
     awaiting: false,
+    // finished_at of the newest result before this import started, so an older result is not mistaken for the new one.
+    prevResultAt: '',
 
     async init() {
       this.blocked = this.$el.dataset.blocked === '1';
@@ -353,6 +358,7 @@
       this.source = null;
       this.importFailed = false;
       this.importCode = '';
+      this.importDetail = '';
       this.disabledUsers = [];
       this.rollbackId = '';
       this.restarting = false;
@@ -534,6 +540,7 @@
       this.flowError = '';
       const areas = Object.fromEntries(this.previewAreas.map((area) => [area.key, Boolean(area.on)]));
       const useArchive = Object.fromEntries(this.envRows.map((row) => [row.key, row.use === 'archive']));
+      this.prevResultAt = await this.currentResultAt();
       let started;
       try {
         started = await this.send('POST', '/api/v1/backup/import/apply', { areas, use_archive: useArchive });
@@ -547,6 +554,12 @@
       }
       this.jobId = started.job;
       this.run(IMPORT_TASKS.map((key) => t(key)), 'import');
+    },
+
+    // finished_at of the result on the node right now, empty when there is none or it cannot be read.
+    async currentResultAt() {
+      const result = await requestJSON('/api/v1/backup/import/result').catch(() => null); // i18n-ignore
+      return (result && result.finished_at) || '';
     },
 
     // Sends the export. The server answers with a job, whose phases the
@@ -665,15 +678,14 @@
       this.stopPolling();
       this.taskIndex = this.tasks.length - 1;
       const deadline = Date.now() + RESTART_MAX_MS;
-      let down = false;
       while (Date.now() < deadline) {
         const up = await requestJSON('/api/v1/health').then(() => true, () => false); // i18n-ignore
-        if (!up) {
-          down = true;
-        } else if (down) {
+        if (up) {
+          // The restart can be over before the first check, so the outage itself is not required.
+          // Only a result newer than the one from before the import counts, the old process
+          // answers with the previous one until it stops. An empty answer is {}.
           const result = await requestJSON('/api/v1/backup/import/result').catch(() => null); // i18n-ignore
-          // An empty answer is {}, a written result always carries finished_at.
-          if (result && result.finished_at) {
+          if (result && result.finished_at && result.finished_at !== this.prevResultAt) {
             await this.finishImport(result);
             return;
           }
@@ -689,6 +701,7 @@
       this.stopPolling();
       this.importFailed = !result.ok;
       this.importCode = result.code || '';
+      this.importDetail = result.ok ? '' : (result.detail || '');
       this.disabledUsers = result.disabled_users || [];
       this.rollbackId = '';
       this.taskIndex = this.tasks.length;
@@ -724,6 +737,7 @@
     doneNote() {
       if (this.doneKind === 'import') {
         if (this.importFailed) return t(IMPORT_CODES[this.importCode] || IMPORT_CODES.apply_failed);
+        if (PARTIAL_CODES[this.importCode]) return t(PARTIAL_CODES[this.importCode]);
         if (this.disabledUsers.length) return t('backup.done.import.users');
         return t('backup.done.import.note');
       }

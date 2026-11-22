@@ -1603,6 +1603,8 @@
   "backup.https_only.title": "Backup needs HTTPS",
   "backup.import.code.apply_failed": "Part of the archive could not be written. The previous state was restored.",
   "backup.import.code.interrupted": "The restore was interrupted. The previous state was restored.",
+  "backup.import.code.partial_battery": "The battery state could not be written because its target folder is not writable on this device. Everything else was restored.",
+  "backup.import.code.partial_stats": "Some monthly statistics files were unreadable and were skipped. Everything else was restored.",
   "backup.import.corrupt.text": "The file is incomplete or changed. Nothing was changed.",
   "backup.import.corrupt.title": "This archive is damaged.",
   "backup.import.failed": "The archive could not be restored.",

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.21-pre.28 (2026-11-06)
+## v0.11.22-pre.28 (2026-11-06)
 
 ### Features
 
@@ -28,6 +28,7 @@
 - **installer:** apply a changed service selection without a full update (#282) (ab11a7a)
 - **automations:** suggest rules from learned habits and check rule reliability (#283) (318066c)
 - **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284) (8aae55b)
+- **automations:** Learning knows the seasons, the sun and the outdoor temperature (#287) (8812dc2)
 - **sun:** compute sunrise, sunset and the sun position in Go (053ac08)
 - **autolearn:** keep weekly figures for three years and backfill them from the energy statistics (a7b5800)
 - **autolearn:** wire the season store into the learning run (2a532e4)
@@ -55,7 +56,6 @@
 - **automations:** show an explanation text on suggestion cards (b7a63f8)
 - **performance:** count the learning effort in the total and inside the dashboard (8a54711)
 - **demo:** cover every learning season feature and document how to test it (eca8289)
-- **automations:** Learning knows the seasons, the sun and the outdoor temperature (#287)
 - **automations:** accept learned values in the rule schema (a8c404d)
 - **autolearn:** read learned values from the rule file (59b796e)
 - **autolearn:** learn usual switch times and runtimes (b982d6c)
@@ -225,6 +225,7 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** use the median night load and the median learned value in the weekly figures (9d1bac8)
 - **autolearn:** close the previous season week on any weekday and test the closing (0ff36cc)
 - **automations:** open sun suggestions with the sun anchor and word negative offsets (bca2a79)
