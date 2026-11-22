@@ -562,7 +562,7 @@ func main() {
 	for _, det := range []autolearn.Detector{
 		autolearn.SwitchTimeDetector, autolearn.RuntimeDetector, autolearn.CouplingDetector,
 		autolearn.FlappingDetector, autolearn.FeedbackDetector, autolearn.NoEffectDetector, autolearn.OverriddenDetector, autolearn.OfflineDetector,
-		autolearn.AwayStandbyDetector,
+		autolearn.AwayStandbyDetector, autolearn.CompetitionDetector,
 	} {
 		automationEngine.Register(det)
 	}

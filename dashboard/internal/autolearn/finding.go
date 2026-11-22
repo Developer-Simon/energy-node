@@ -99,6 +99,15 @@ type Evidence struct {
 	IstNames  []string   `json:"ist_names,omitempty"`
 	SollNames []string   `json:"soll_names,omitempty"`
 	Missing   bool       `json:"missing,omitempty"`
+	// Marks holds the steps of a scale, such as the stages of staggered thresholds.
+	Marks []Mark `json:"marks,omitempty"`
+}
+
+// Mark is one step on the scale of a finding. Dormant marks a step that the
+// current season reaches on too few days.
+type Mark struct {
+	Value   float64 `json:"value"`
+	Dormant bool    `json:"dormant,omitempty"`
 }
 
 // FindingID builds the stable ID of a finding from its kind and rule IDs. The
