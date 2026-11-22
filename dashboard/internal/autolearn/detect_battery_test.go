@@ -325,3 +325,77 @@ func TestBatteryEmptyEvidenceKeepsTheFloorUntilSunrise(t *testing.T) {
 		t.Errorf("Soll after the charge rose = %v, want the Ist %v", ev.SollQ[50], ev.Quarters[50])
 	}
 }
+
+// btFullAt1120 is a battery that is full from 11:20 on, the quarters before stay at 40 %.
+func btFullAt1120(i, q int) (float32, bool) {
+	if float64(q)*baseQuarterMin >= 11*60+20 {
+		return 98, true
+	}
+	return 40, true
+}
+
+// btAfterFull sets the export after 11:15 and the heater power on every day.
+func btAfterFull(in *Input, exportW, heaterW float32) {
+	for i := range in.Days {
+		f := &in.Days[i]
+		for q := 0; q < dayQuarters; q++ {
+			if float64(q)*baseQuarterMin >= 11*60+15 {
+				f.Site.GridExport[q] = exportW
+			}
+			f.Devices["plug.heater"].AvgW[q] = heaterW
+		}
+	}
+}
+
+// TestBatteryFullOffersHeaterThatFitsTheExport: 3 kW export after "voll", a
+// 2 kW heater is offered with the after_battery_full template and the role
+// minimum run time of a device without role (300 s).
+func TestBatteryFullOffersHeaterThatFitsTheExport(t *testing.T) {
+	in := btInput(14, btNovStart, btFullAt1120, 1000, nil)
+	btAfterFull(in, 3000, 2000)
+	findings, _ := btSplit(in)
+	f, ok := btFindingByID(findings, "battery:full")
+	if !ok {
+		t.Fatalf("want a battery:full finding, got %d findings", len(findings))
+	}
+	if len(f.Apply) != 1 {
+		t.Fatalf("Apply = %+v, want one offer for the heater", f.Apply)
+	}
+	fix := f.Apply[0]
+	if fix.Code != "after_battery_full" || fix.Template != "after_battery_full" {
+		t.Errorf("Apply code %q template %q, want after_battery_full", fix.Code, fix.Template)
+	}
+	if fix.Prefill["device"] != "plug.heater" || fix.Prefill["min_run_s"] != float64(300) {
+		t.Errorf("Prefill = %+v, want plug.heater with min_run_s 300", fix.Prefill)
+	}
+	if f.Benefit == nil || f.Benefit.Unit != "kwh_week" || f.Benefit.Value <= 0 {
+		t.Errorf("Benefit = %+v, want kwh_week above zero from the replay", f.Benefit)
+	}
+}
+
+// TestBatteryFullNoOfferForLoadAboveExport: a 4 kW heater does not fit 3 kW export.
+func TestBatteryFullNoOfferForLoadAboveExport(t *testing.T) {
+	in := btInput(14, btNovStart, btFullAt1120, 1000, nil)
+	btAfterFull(in, 3000, 4000)
+	findings, _ := btSplit(in)
+	f, ok := btFindingByID(findings, "battery:full")
+	if !ok {
+		t.Fatalf("want a battery:full finding, got %d findings", len(findings))
+	}
+	if len(f.Apply) != 0 {
+		t.Errorf("Apply = %+v, want none for a 4 kW load and 3 kW export", f.Apply)
+	}
+}
+
+// TestBatteryReplayRejectsMoreGridImport: a replay that adds more grid energy
+// than the export it saves takes the offer away, a small extra import does not.
+func TestBatteryReplayRejectsMoreGridImport(t *testing.T) {
+	more := ReplayVerdict{Base: ReplayResult{GridWh: 100, ExportWh: 1000}, Alt: ReplayResult{GridWh: 500, ExportWh: 900}}
+	if !replayAddsGrid(more) {
+		t.Errorf("extra 400 Wh grid over 100 Wh export saved: want the offer dropped")
+	}
+	small := ReplayVerdict{Base: ReplayResult{GridWh: 0, ExportWh: 500000}, Alt: ReplayResult{GridWh: 1700, ExportWh: 185000}}
+	if replayAddsGrid(small) {
+		t.Errorf("1.7 kWh grid over 315 kWh export saved: want the offer kept")
+	}
+}
