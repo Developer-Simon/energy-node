@@ -44,6 +44,9 @@ type Input struct {
 	// before that were empty before sunrise, and whether a record of that week
 	// exists. Nil, or a week without a record, means the empty finding is not made.
 	PriorEmptyShare func(week int) (float64, bool)
+	// Minutes reads the minute record. Nil when none is wired, and the replay
+	// then works from the quarter hours of the day files.
+	Minutes learnrec.Reader
 }
 
 // OutdoorSource names the outdoor temperature entity: its unique id, its state
