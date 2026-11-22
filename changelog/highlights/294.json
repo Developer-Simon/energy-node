@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Die Lernfunktionen können Minutenwerte aus Home Assistant übernehmen und ihre eigene Aufzeichnung pausieren, solange Home Assistant sie liefert"
+  },
+  "en": {
+    "*": "The learning functions can take minute values from Home Assistant and pause their own recording while it delivers them"
+  }
+}
