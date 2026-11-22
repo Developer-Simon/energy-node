@@ -84,11 +84,10 @@ type Scenario struct {
 }
 
 // RegulatorSpec is the part of a scenario regulator that the learning steps
-// read. Target is the balance field the regulator reads (base.field), empty
-// when the base is not a balance field. DeadbandW is the regulator deadband
-// (deadband_w, default 20). MaxW is the upper end of the output range (output.max).
+// read. Every regulator regulates on the grid net. DeadbandW is the regulator
+// deadband (deadband_w, default 20). MaxW is the upper end of the output range
+// (output.max).
 type RegulatorSpec struct {
-	Target    string
 	DeadbandW float64
 	MaxW      float64
 }
@@ -188,10 +187,6 @@ type wireRegulator struct {
 		Max   float64 `json:"max"`
 	} `json:"output"`
 	DeadbandW *float64 `json:"deadband_w"`
-	Base      struct {
-		Source string `json:"source"`
-		Field  string `json:"field"`
-	} `json:"base"`
 }
 
 // ParseDoc parses the rule document. Unknown fields are ignored.
@@ -242,9 +237,6 @@ func (wr *wireRegulator) spec() *RegulatorSpec {
 	spec := &RegulatorSpec{DeadbandW: 20, MaxW: wr.Output.Max}
 	if wr.DeadbandW != nil {
 		spec.DeadbandW = *wr.DeadbandW
-	}
-	if wr.Base.Source == "balance" {
-		spec.Target = wr.Base.Field
 	}
 	return spec
 }

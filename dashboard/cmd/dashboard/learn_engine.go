@@ -419,17 +419,17 @@ func (c *pvSiteCache) refresh() {
 		site.lat = doc.Location.Lat
 		site.lon = doc.Location.Lon
 	}
-	// The first enabled scenario with a regulator decides. Only a regulator
-	// that regulates a balance field (grid_export or net) counts as present.
+	// The first enabled scenario with a regulator decides. The automation
+	// service regulates every regulator on the grid net, base is only the
+	// start value of the output, so each one counts as present.
 	for _, sc := range doc.Scenarios {
 		if !sc.Enabled || sc.Regulator == nil {
 			continue
 		}
-		target := sc.Regulator.Target
 		site.reg = &autolearn.RegulatorView{
 			DeadbandW: sc.Regulator.DeadbandW,
 			MaxW:      sc.Regulator.MaxW,
-			Present:   target == "grid_export" || target == "net",
+			Present:   true,
 		}
 		break
 	}

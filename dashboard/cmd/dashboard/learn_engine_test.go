@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -107,5 +109,27 @@ func TestEngineGroupsFollowTheSwitches(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestPVSiteRegulatorCountsEveryRegulator checks that a regulator with an entity
+// base, as the zero feed template writes it, counts as present. The automation
+// service regulates every regulator on the grid net.
+func TestPVSiteRegulatorCountsEveryRegulator(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "demo", "fixtures", "devices", "demo", "automation_rules.json"))
+	if err != nil {
+		t.Fatalf("read demo rules: %v", err)
+	}
+	c := &pvSiteCache{readDoc: func() ([]byte, error) { return raw, nil }, logf: t.Logf}
+	c.refresh()
+	reg := c.regulator()
+	if reg == nil || !reg.Present || reg.MaxW != 800 || reg.DeadbandW != 20 {
+		t.Fatalf("regulator = %+v, want present with max 800 W and deadband 20 W", reg)
+	}
+	off := []byte(`{"version":1,"scenarios":[{"id":"a","enabled":false,"while":{"mode":"regulate","regulator":{"output":{"max":800},"base":{"source":"balance","field":"pv"}}}}]}`)
+	c = &pvSiteCache{readDoc: func() ([]byte, error) { return off, nil }, logf: t.Logf}
+	c.refresh()
+	if reg := c.regulator(); reg != nil {
+		t.Errorf("disabled scenario gives regulator %+v, want none", reg)
 	}
 }

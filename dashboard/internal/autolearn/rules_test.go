@@ -404,11 +404,11 @@ func TestParseDocReadsRegulatorSpec(t *testing.T) {
 	if len(doc.Scenarios) != 3 {
 		t.Fatalf("scenarios = %d, want 3", len(doc.Scenarios))
 	}
-	want := &RegulatorSpec{Target: "grid_export", DeadbandW: 30, MaxW: 800}
+	want := &RegulatorSpec{DeadbandW: 30, MaxW: 800}
 	if got := doc.Scenarios[0].Regulator; got == nil || *got != *want {
 		t.Errorf("Regulator = %+v, want %+v", got, want)
 	}
-	wantDefault := &RegulatorSpec{Target: "", DeadbandW: 20, MaxW: 11000}
+	wantDefault := &RegulatorSpec{DeadbandW: 20, MaxW: 11000}
 	if got := doc.Scenarios[1].Regulator; got == nil || *got != *wantDefault {
 		t.Errorf("entity base Regulator = %+v, want %+v", got, wantDefault)
 	}
