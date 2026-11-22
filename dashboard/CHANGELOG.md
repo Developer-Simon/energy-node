@@ -268,6 +268,7 @@
 - **energy:** keep monitoring jumps and refresh the summary line (9ad7b8a)
 - **settings:** offer efficiency and monitoring in the wide tabs (8c6e470)
 - **webui:** match the monitoring skeleton to the page and bump marks (bd91d58)
+- **users:** label the monitoring right just Monitoring (35f718e)
 - **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** pass the battery level into the learning frames (be60d22)
 - **autolearn:** harden cycle gap, runs and long cycles (a3b5f6f)
