@@ -281,7 +281,37 @@
       }
       return out;
     },
+    surplus_switch(prefill) { return surplusPrefill(prefill, 'on', true); },
+    surplus_wallbox(prefill) { return surplusPrefill(prefill, 'start', false); },
   };
+  // Vorbelegung der Ueberschuss-Vorlagen aus dem Erkenner: Geraet, Startleistung (auf 100 W
+  // gerundet, Schritt onStep), Quelle export oder reserve. Nur surplus_switch hat eine
+  // Laufzeit: min_run_s in Sekunden wird zu Minuten im Raster 10 und setzt die feste Laufzeit.
+  // Eine ungueltige Laufzeit laesst den Schritt leer, ungueltige Leistung oder Quelle ergibt null.
+  function surplusPrefill(prefill, onStep, withRuntime) {
+    const out = {};
+    const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+    if (device !== undefined) {
+      if (!isPrefillText(device)) return null;
+      out.device = device;
+    }
+    if (prefill.on_w !== undefined) {
+      if (typeof prefill.on_w !== 'number' || !Number.isFinite(prefill.on_w) || prefill.on_w < 0) return null;
+      out[onStep] = Math.round(prefill.on_w / 100) * 100;
+    }
+    if (prefill.source !== undefined) {
+      if (prefill.source !== 'export' && prefill.source !== 'reserve') return null;
+      out.source = prefill.source;
+    }
+    if (withRuntime && typeof prefill.min_run_s === 'number' && Number.isFinite(prefill.min_run_s)) {
+      const minutes = Math.round(prefill.min_run_s / 600) * 10;
+      if (minutes >= 10 && minutes <= 600) {
+        out.runtime = minutes;
+        out.off = 'runtime';
+      }
+    }
+    return out;
+  }
   // Reine Funktion: Vorlage und Vorbelegung zu Antworten, oder null bei unbekannter
   // Vorlage oder falscher Form.
   function prefillToAnswers(templateId, prefill) {
@@ -1560,8 +1590,11 @@
       this.assistant.answers = answers;
       for (const step of this.assistantSteps()) {
         if (step.type !== 'device') continue;
-        const usable = this.assistantDevices(step).some((item) => item.id === answers[step.id] && !item.disabled);
-        if (!usable) answers[step.id] = '';
+        const options = this.assistantDevices(step).filter((item) => !item.disabled);
+        if (options.some((item) => item.id === answers[step.id])) continue;
+        // Der Erkenner nennt oft nur die Geraete-Id. Dann gilt der erste nutzbare Eintrag des Geraets.
+        const byDevice = options.find((item) => item.deviceId !== undefined && item.deviceId === answers[step.id]);
+        answers[step.id] = byDevice ? byDevice.id : '';
       }
       const steps = this.assistantSteps();
       const open = steps.findIndex((step) => !window.__automationWizard.stepComplete(step, answers[step.id]));

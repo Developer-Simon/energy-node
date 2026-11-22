@@ -3760,6 +3760,51 @@ test('prefillToAnswers opens a sun suggestion with the sun anchor and the offset
   assert.equal(prefillToAnswers('time_point', { device: 'lamp_switch', anchor: 'sunrise', offset_min: 2.5 }), null);
 });
 
+test('prefillToAnswers maps a surplus switch suggestion to device, start, source and a fixed runtime', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = JSON.parse(JSON.stringify(prefillToAnswers('surplus_switch', {
+    device: 'plug', on_w: 1720, source: 'reserve', min_run_s: 7200,
+  })));
+  assert.deepEqual(answers, { device: 'plug', on: 1700, source: 'reserve', runtime: 120, off: 'runtime' });
+  const entity = JSON.parse(JSON.stringify(prefillToAnswers('surplus_switch', { entity: 'lamp_switch', device: 'lampe', on_w: 1000 })));
+  assert.equal(entity.device, 'lamp_switch', 'the entity wins over the device id');
+  assert.equal('runtime' in entity, false, 'without min_run_s the runtime step stays empty');
+});
+
+test('prefillToAnswers maps a surplus wallbox suggestion to its start step and drops the runtime', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = JSON.parse(JSON.stringify(prefillToAnswers('surplus_wallbox', {
+    device: 'wb', on_w: 2450, source: 'export', min_run_s: 3600,
+  })));
+  assert.deepEqual(answers, { device: 'wb', start: 2500, source: 'export' });
+});
+
+test('prefillToAnswers returns null for an invalid surplus power or source and leaves an invalid runtime empty', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.equal(prefillToAnswers('surplus_switch', { device: 'plug', on_w: '1500' }), null);
+  assert.equal(prefillToAnswers('surplus_switch', { device: 'plug', on_w: -5 }), null);
+  assert.equal(prefillToAnswers('surplus_switch', { device: 'plug', source: 'sonne' }), null);
+  assert.equal(prefillToAnswers('surplus_wallbox', { device: 'wb', source: 'sonne' }), null);
+  const tooShort = JSON.parse(JSON.stringify(prefillToAnswers('surplus_switch', { device: 'plug', min_run_s: 30 })));
+  assert.equal('runtime' in tooShort, false, 'a run under 10 minutes leaves the runtime step empty');
+  const tooLong = JSON.parse(JSON.stringify(prefillToAnswers('surplus_switch', { device: 'plug', min_run_s: 40000 })));
+  assert.equal('runtime' in tooLong, false, 'a run over 600 minutes leaves the runtime step empty');
+});
+
+test('openAssistantWith resolves a surplus suggestion by device id to the switch entity', async () => {
+  const { component } = await prefillPanel();
+  await component.openAssistantWith('surplus_switch', { device: 'lampe', on_w: 1500, source: 'reserve', min_run_s: 600 });
+  assert.equal(component.assistant.templateId, 'surplus_switch');
+  assert.equal(component.assistant.answers.device, 'lamp_switch');
+  assert.equal(component.assistant.answers.on, 1500);
+  assert.equal(component.assistant.answers.source, 'reserve');
+  assert.equal(component.assistant.answers.off, 'runtime');
+  assert.equal(component.assistant.answers.runtime, 10);
+});
+
 test('prefillToAnswers maps a runtime limit to minutes', () => {
   const { window } = createAutomationsPanel();
   const answers = window.__automationsPrefill.prefillToAnswers('runtime_off', { device: 'lamp_switch', minutes: 120 });
