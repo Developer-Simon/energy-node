@@ -83,6 +83,9 @@ func handleMonitoringAck(manager *auth.Manager, deps *MonitoringDeps) http.Handl
 		if !requireRole(w, r, manager, auth.RoleEditSetup, "monitoring_ack_forbidden", "error.monitoring_ack_forbidden", "Quittieren braucht das Recht Einrichten") {
 			return
 		}
+		if !requireCSRF(w, r, manager) {
+			return
+		}
 		var body monitoringAckBody
 		if err := decodeBody(r, &body); err != nil || body.ID == "" {
 			writeErrorKey(w, http.StatusBadRequest, "monitoring_ack_invalid", "error.monitoring_ack_invalid", nil, "Die Kennung der Meldung ist ungültig.")

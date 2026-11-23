@@ -840,9 +840,16 @@ func (s *Store) ReadSettingsRevision(revision string) (json.RawMessage, error) {
 	return s.readRevisionLocked("settings", revision)
 }
 
-func (s *Store) RestoreSettings(revision string) (Settings, error) {
+// SettingsRevisionValue returns a revision normalized and validated, without
+// changing the stored settings. The restore path compares it with the current
+// settings before it writes.
+func (s *Store) SettingsRevisionValue(revision string) (Settings, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.settingsRevisionLocked(revision)
+}
+
+func (s *Store) settingsRevisionLocked(revision string) (Settings, error) {
 	data, err := s.readRevisionLocked("settings", revision)
 	if err != nil {
 		return Settings{}, err
@@ -853,6 +860,16 @@ func (s *Store) RestoreSettings(revision string) (Settings, error) {
 	}
 	value = normalizeSettings(value)
 	if err := validateSettings(value); err != nil {
+		return Settings{}, err
+	}
+	return value, nil
+}
+
+func (s *Store) RestoreSettings(revision string) (Settings, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	value, err := s.settingsRevisionLocked(revision)
+	if err != nil {
 		return Settings{}, err
 	}
 	if err := s.saveJSONLocked("settings.json", value); err != nil {

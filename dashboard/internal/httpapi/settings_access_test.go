@@ -47,3 +47,75 @@ func TestSettingsAccessAutomationGroupSwitchesNeedEditSetup(t *testing.T) {
 		t.Fatalf("automation_habits_disabled saved despite 403: %+v (err=%v)", value.AutomationHabitsDisabled, err)
 	}
 }
+
+// TestSettingsRestoreChecksFieldRoles covers the restore path: the roles come
+// from the fields that differ between the revision and the current settings,
+// the same way the PUT path decides them.
+func TestSettingsRestoreChecksFieldRoles(t *testing.T) {
+	restore := func(t *testing.T, store *settings.Store, roles []string) *httptest.ResponseRecorder {
+		t.Helper()
+		revisions, err := store.SettingsRevisions()
+		if err != nil || len(revisions) != 1 {
+			t.Fatalf("revisions = %+v (err=%v), want exactly one", revisions, err)
+		}
+		body := `{"revision":"` + revisions[0].Name + `"}`
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/settings/restore", strings.NewReader(body))
+		request = request.WithContext(auth.WithUser(context.Background(), auth.User{Roles: roles}))
+		recorder := httptest.NewRecorder()
+		handleSettingsRevision(store).ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	t.Run("setup field needs edit_setup", func(t *testing.T) {
+		store := settings.NewStore(t.TempDir())
+		base, err := store.LoadSettings()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.SaveSettings(base); err != nil {
+			t.Fatal(err)
+		}
+		changed := base
+		changed.AutomationPatternsDisabled = true
+		if err := store.SaveSettings(changed); err != nil {
+			t.Fatal(err)
+		}
+
+		if recorder := restore(t, store, []string{auth.RoleEditSettings}); recorder.Code != http.StatusForbidden {
+			t.Fatalf("restore of automation_patterns_disabled with edit_settings only: %d %s", recorder.Code, recorder.Body.String())
+		}
+		if value, err := store.LoadSettings(); err != nil || !value.AutomationPatternsDisabled {
+			t.Fatalf("setting restored despite 403: %+v (err=%v)", value.AutomationPatternsDisabled, err)
+		}
+
+		if recorder := restore(t, store, []string{auth.RoleEditSettings, auth.RoleEditSetup}); recorder.Code != http.StatusOK {
+			t.Fatalf("restore with edit_setup: %d %s", recorder.Code, recorder.Body.String())
+		}
+		if value, err := store.LoadSettings(); err != nil || value.AutomationPatternsDisabled {
+			t.Fatalf("setting not restored with edit_setup: %+v (err=%v)", value.AutomationPatternsDisabled, err)
+		}
+	})
+
+	t.Run("design field needs only edit_settings", func(t *testing.T) {
+		store := settings.NewStore(t.TempDir())
+		base, err := store.LoadSettings()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := store.SaveSettings(base); err != nil {
+			t.Fatal(err)
+		}
+		changed := base
+		changed.ShowRuntimeStatus = !base.ShowRuntimeStatus
+		if err := store.SaveSettings(changed); err != nil {
+			t.Fatal(err)
+		}
+
+		if recorder := restore(t, store, []string{auth.RoleEditSettings}); recorder.Code != http.StatusOK {
+			t.Fatalf("restore of a design field with edit_settings: %d %s", recorder.Code, recorder.Body.String())
+		}
+		if value, err := store.LoadSettings(); err != nil || value.ShowRuntimeStatus != base.ShowRuntimeStatus {
+			t.Fatalf("design field not restored: %+v (err=%v)", value.ShowRuntimeStatus, err)
+		}
+	})
+}
