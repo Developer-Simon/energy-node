@@ -481,7 +481,7 @@
   "automations.learn.away.standby.title": "{device} bei Abwesenheit ausschalten",
   "automations.learn.band.count_many": "{count} offen",
   "automations.learn.band.count_one": "1 offen",
-  "automations.learn.band.learning": "Lernt seit {days} Tagen mit {devices} Geräten. Ein Vorschlag erscheint, sobald sich ein Muster an mindestens 10 Tagen gezeigt hat.",
+  "automations.learn.band.learning": "Lernt seit {days} Tagen aus {devices} Geräten. Erste Vorschläge kommen, sobald ein Muster an mindestens 10 Tagen sicher ist.",
   "automations.learn.band.less": "Weniger",
   "automations.learn.band.more": "+{count}",
   "automations.learn.band.title": "Vorschläge aus dem Verhalten deiner Geräte",

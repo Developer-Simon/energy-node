@@ -481,7 +481,7 @@
   "automations.learn.away.standby.title": "Switch off {device} while away",
   "automations.learn.band.count_many": "{count} open",
   "automations.learn.band.count_one": "1 open",
-  "automations.learn.band.learning": "Learning for {days} days from {devices} devices. A suggestion appears once a pattern has shown up on at least 10 days.",
+  "automations.learn.band.learning": "Learning for {days} days from {devices} devices. First suggestions appear once a pattern is reliable on at least 10 days.",
   "automations.learn.band.less": "Less",
   "automations.learn.band.more": "+{count}",
   "automations.learn.band.title": "Suggestions from how your devices are used",

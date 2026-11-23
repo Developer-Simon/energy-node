@@ -106,7 +106,7 @@
              x-on:resize.window.debounce.100ms="placeCaret()">
           <div class="auto-learn-detail-clip">
             <template x-if="current">
-              <article class="auto-learn-card" data-tour="auto-learn-card" x-bind:style="caret ? '--auto-learn-caret: ' + caret : ''">
+              <article class="auto-learn-card" data-tour="auto-learn-card" x-bind:class="{ 'is-enter': enter }" x-bind:style="caret ? '--auto-learn-caret: ' + caret : ''">
                 <div class="auto-learn-card-tags">
                   <span class="auto-learn-group" x-bind:class="'is-' + current.group" x-text="groupLabel(current, $t)"></span>
                   <span class="auto-learn-card-device" x-text="current.device"></span>

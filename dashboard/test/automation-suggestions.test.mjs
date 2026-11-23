@@ -517,6 +517,52 @@ test('toggle points the card caret at the middle of the chosen tile', async () =
   close();
 });
 
+test('opening a card sets enter for the trace entrance, switching cards does not, and it clears after the entrance', async () => {
+  const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [finding('a:1'), finding('b:2')], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  assert.equal(band.enter, false);
+  band.toggle('a:1');
+  assert.equal(band.enter, true, 'expanding from closed starts the entrance');
+  band.toggle('b:2');
+  assert.equal(band.open, 'b:2');
+  assert.equal(band.enter, true, 'switching to another card keeps the entrance as it is');
+  band.toggle('b:2');
+  assert.equal(band.enter, false, 'closing ends the entrance');
+  band.toggle('a:1');
+  assert.equal(band.enter, true, 'opening again starts the entrance again');
+  await new Promise((resolve) => setTimeout(resolve, 450));
+  assert.equal(band.enter, false, 'the entrance clears after 400 ms');
+  close();
+});
+
+test('the band card carries the enter class and the trace has 280 ms with a 120 ms delay', () => {
+  const template = fs.readFileSync(path.join(webui, 'templates', 'automations.html'), 'utf8');
+  assert.match(template, /class="auto-learn-card" data-tour="auto-learn-card" x-bind:class="\{ 'is-enter': enter \}"/);
+  const css = fs.readFileSync(path.join(webui, 'static', 'css', 'automations.css'), 'utf8');
+  assert.match(css, /\.auto-learn-card\.is-enter \.auto-learn-plot-svg\.is-soll \{ animation: auto-learn-trace 280ms cubic-bezier\(0\.23, 1, 0\.32, 1\) 120ms both; \}/);
+  assert.match(css, /\.auto-learn-card\.is-enter \.auto-learn-shape-events \.auto-learn-lane\.is-soll \.auto-learn-lane-svg \{ animation: auto-learn-trace 280ms cubic-bezier\(0\.23, 1, 0\.32, 1\) 120ms both; \}/);
+  // Reduzierte Bewegung: nur Deckkraft, ohne Spur-Maske
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)', css.indexOf('.auto-learn-card.is-enter')));
+  assert.match(reduced, /\.auto-learn-card\.is-enter \.auto-learn-plot-svg\.is-soll[^{]*\{ animation: auto-learn-chart-fade 280ms ease-out 120ms both; \}/);
+});
+
+test('the learning text in de and en is the agreed wording with both placeholders', () => {
+  assert.equal(
+    catalogs.de['automations.learn.band.learning'],
+    'Lernt seit {days} Tagen aus {devices} Geräten. Erste Vorschläge kommen, sobald ein Muster an mindestens 10 Tagen sicher ist.',
+  );
+  for (const lang of ['de', 'en']) {
+    assert.match(catalogs[lang]['automations.learn.band.learning'], /\{days\}/);
+    assert.match(catalogs[lang]['automations.learn.band.learning'], /\{devices\}/);
+  }
+  assert.match(catalogs.en['automations.learn.band.learning'], /10 days/);
+});
+
+test('the energy group is drawn in the pv flow colour', () => {
+  const css = fs.readFileSync(path.join(webui, 'static', 'css', 'automations.css'), 'utf8');
+  assert.match(css, /\.auto-learn-group\.is-energy \{ color: var\(--flow-pv\); \}/);
+});
+
 // Fact values as the card shows them, for one language.
 function factText(code, value, lang = 'de') {
   const { band, close } = loadBand(listRoutes({ enabled: true, suggestions: [], learning: { since: 1, devices: 1, days: 1 } }));
