@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
@@ -100,4 +102,27 @@ func monitoringLearned(learned httpapi.MonitoringLearned, devices []registry.Dev
 		learned.Values[i].DeviceIcon = monitoringDeviceIcon(roles[id], infos[id].Switchable)
 	}
 	return learned
+}
+
+// monitoringForecast collects the forecast check and the season weeks for
+// GET /api/v1/monitoring/forecast. The weeks run from the first ISO week two
+// years back up to the ISO week of now. Without a readable rule document the
+// readers stay empty.
+func monitoringForecast(check *autolearn.ForecastCheck, season *autolearn.SeasonStore, doc func() (autolearn.Doc, bool), now time.Time) httpapi.MonitoringForecast {
+	year, week := now.ISOWeek()
+	from := fmt.Sprintf("%04d-W01", year-2)
+	to := fmt.Sprintf("%04d-W%02d", year, week)
+	readers := []autolearn.RuleRef{}
+	if d, ok := doc(); ok {
+		readers = autolearn.LearnedReaders(d, "site/surplus_left_wh")
+	}
+	return httpapi.MonitoringForecast{
+		Forecast: httpapi.MonitoringForecastCheck{
+			Needed:    autolearn.ForecastWindow,
+			UseMedian: check.UseSeasonMedian(),
+			Days:      check.Days(),
+			Readers:   readers,
+		},
+		Season: httpapi.SeasonView(year, week, season.Weeks(from, to)),
+	}
 }

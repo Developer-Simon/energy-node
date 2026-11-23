@@ -1,6 +1,8 @@
 package main
 
 import (
+	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -56,4 +58,41 @@ func findMonitoringNotice(notices []monitoring.Notice, id string) *monitoring.No
 		}
 	}
 	return nil
+}
+
+func TestMonitoringForecastCollects(t *testing.T) {
+	now := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	season := autolearn.LoadSeasonStore(filepath.Join(t.TempDir(), "season.json"), t.Logf)
+	season.Put(autolearn.Week{Key: "2024-W01", Source: "days", Days: 7})
+	season.Put(autolearn.Week{Key: "2022-W10", Source: "days", Days: 7})
+	check := autolearn.LoadForecastCheck(filepath.Join(t.TempDir(), "forecast.json"), t.Logf)
+
+	doc := func() (autolearn.Doc, bool) {
+		return autolearn.Doc{Rules: []autolearn.Rule{{
+			ID:         "a",
+			Name:       "Wallbox",
+			Conditions: []autolearn.Condition{{Learned: map[string]autolearn.LearnedRef{"threshold": {Key: "site/surplus_left_wh"}}}},
+		}}}, true
+	}
+	got := monitoringForecast(check, season, doc, now)
+
+	if got.Forecast.Needed != autolearn.ForecastWindow {
+		t.Errorf("Needed = %d, want %d", got.Forecast.Needed, autolearn.ForecastWindow)
+	}
+	if got.Season.Year != 2026 {
+		t.Errorf("Season.Year = %d, want 2026", got.Season.Year)
+	}
+	if len(got.Season.Weeks) != 1 || got.Season.Weeks[0].Key != "2024-W01" {
+		t.Fatalf("Season.Weeks = %+v, want only 2024-W01", got.Season.Weeks)
+	}
+	want := []autolearn.RuleRef{{ID: "a", Name: "Wallbox"}}
+	if !reflect.DeepEqual(got.Forecast.Readers, want) {
+		t.Errorf("Readers = %+v, want %+v", got.Forecast.Readers, want)
+	}
+
+	none := func() (autolearn.Doc, bool) { return autolearn.Doc{}, false }
+	got = monitoringForecast(check, season, none, now)
+	if got.Forecast.Readers == nil || len(got.Forecast.Readers) != 0 {
+		t.Errorf("without document Readers = %#v, want empty", got.Forecast.Readers)
+	}
 }

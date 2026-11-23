@@ -1487,6 +1487,9 @@ func main() {
 				snap := energy.Aggregate(devices, energyResolver, time.Now().UTC())
 				return monitoringLearned(learned, devices, snap, energyResolver)
 			},
+			Forecast: func(now time.Time) httpapi.MonitoringForecast {
+				return monitoringForecast(forecastCheck, seasonStore, suggestions.currentDoc, now)
+			},
 		},
 		CommandObserver: origin.observeCommand,
 		StorageFallback: storageFallback,
