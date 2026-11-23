@@ -189,7 +189,7 @@ func baseLoadDrift(in *Input, ns []baseloadNight) []Candidate {
 	for i, n := range ns {
 		z[i] = (n.night - exp[i]) / sigma
 	}
-	at, ok := baseLoadCUSUM(z)
+	at, rising, ok := CUSUM(z, 0, 1)
 	if !ok || at < 1 {
 		return nil
 	}
@@ -202,8 +202,11 @@ func baseLoadDrift(in *Input, ns []baseloadNight) []Candidate {
 		}
 	}
 	shift := Median(after) - Median(before)
-	if shift <= 0 {
+	if shift == 0 || rising != (shift > 0) {
 		return nil
+	}
+	if !rising {
+		return baseloadFall(ns, at, before, after, shift)
 	}
 	device := baseloadDevice(in, ns, at, shift)
 	date := ns[at].date
@@ -245,6 +248,34 @@ func baseLoadDrift(in *Input, ns []baseloadNight) []Candidate {
 		Limit:       1,
 		HalvesAgree: true,
 		Benefit:     benefit,
+	}}
+}
+
+// baseloadFall reports a sustained fall of the nights from before to after. It
+// names no device and suggests no rule: a lower base load is a notice for the
+// monitoring, with no saving to win back, so the benefit stays empty.
+func baseloadFall(ns []baseloadNight, at int, before, after []float64, shift float64) []Candidate {
+	w := baseloadRound(-shift, baseloadRoundW)
+	after0, before0 := Median(after), Median(before)
+	finding := Finding{
+		ID:         FindingID("baseload", ns[at].date),
+		Kind:       "baseload",
+		Group:      "check",
+		Severity:   "info",
+		Confidence: "high",
+		Summary: Text{Code: "baseload.drift.down", Params: map[string]any{
+			"w": w, "kwh_month": round1(-shift * baseloadMonthH / 1000),
+		}},
+		Evidence: Evidence{Shape: "scale", Unit: "W", IstValue: &after0, SollValue: &before0},
+	}
+	return []Candidate{{
+		Finding:     finding,
+		Detector:    "baseload",
+		NEff:        float64(len(after)),
+		MinNEff:     baseloadLearnMin,
+		Lower:       1,
+		Limit:       1,
+		HalvesAgree: true,
 	}}
 }
 
@@ -326,30 +357,6 @@ func baseloadDevice(in *Input, ns []baseloadNight, at int, shift float64) string
 		}
 	}
 	return best
-}
-
-// baseLoadCUSUM looks for an upward shift in the residuals z, with the slack
-// and the threshold of CUSUM and a baseline of 0. It returns the index where
-// the shift starts. A run that goes over the threshold counts only when the
-// residuals from its start on stay above the slack, so a single night does
-// not count as a drift.
-func baseLoadCUSUM(z []float64) (int, bool) {
-	s, start := 0.0, 0
-	for t, x := range z {
-		prev := s
-		s = math.Max(0, s+x-cusumK)
-		if prev == 0 && s > 0 {
-			start = t
-		}
-		if s > cusumH {
-			tail := z[start:]
-			if len(tail) >= 3 && Median(tail) > cusumK {
-				return start, true
-			}
-			s = 0
-		}
-	}
-	return 0, false
 }
 
 // baseloadRound rounds v to a multiple of step.

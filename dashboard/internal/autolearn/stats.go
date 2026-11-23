@@ -193,33 +193,50 @@ func CircSpread(minutes []float64, center float64) float64 {
 	return madToSigma * Median(dist)
 }
 
-// CUSUM looks for an upward shift of the mean in the sequence r. The baseline
-// is the median of r, the slack is 0.5 and the threshold 5. changeAt is the
-// index where the shift starts. ok is false when there is no alarm, or when the
-// values from changeAt on do not stay above the baseline plus the slack (so a
-// single outlier does not count as a change).
-func CUSUM(r []float64) (changeAt int, ok bool) {
-	if len(r) < 4 {
-		return 0, false
+// CUSUM looks for a change of the mean in values, both ways (Spec 15.3). Each value
+// is standardised as (v - expect) / spread, then S+ and S- run with the slack
+// cusumK and the threshold cusumH. The first alarm is reported at index, the start
+// of the run that crossed the threshold, and up tells the direction. A run only
+// counts when its tail from index on stays beyond the slack in that direction, so a
+// single outlier does not count as a change. ok is false when there is no change
+// or spread is not positive.
+func CUSUM(values []float64, expect, spread float64) (index int, up bool, ok bool) {
+	if len(values) < 4 || spread <= 0 {
+		return 0, false, false
 	}
-	base := Median(r)
-	s := 0.0
-	start := 0
-	for t, x := range r {
-		prev := s
-		s = math.Max(0, s+x-base-cusumK)
-		if prev == 0 && s > 0 {
-			start = t
+	z := make([]float64, len(values))
+	for i, v := range values {
+		z[i] = (v - expect) / spread
+	}
+	sp, sm := 0.0, 0.0
+	startP, startM := 0, 0
+	for t, x := range z {
+		prevP := sp
+		sp = math.Max(0, sp+x-cusumK)
+		if prevP == 0 && sp > 0 {
+			startP = t
 		}
-		if s > cusumH {
-			tail := append([]float64(nil), r[start:]...)
-			if len(tail) >= 3 && Median(tail) > base+cusumK {
-				return start, true
+		if sp > cusumH {
+			tail := z[startP:]
+			if len(tail) >= 3 && Median(tail) > cusumK {
+				return startP, true, true
 			}
-			return 0, false
+			sp = 0
+		}
+		prevM := sm
+		sm = math.Max(0, sm-x-cusumK)
+		if prevM == 0 && sm > 0 {
+			startM = t
+		}
+		if sm > cusumH {
+			tail := z[startM:]
+			if len(tail) >= 3 && Median(tail) < -cusumK {
+				return startM, false, true
+			}
+			sm = 0
 		}
 	}
-	return 0, false
+	return 0, false, false
 }
 
 // TheilSen returns the Theil-Sen estimate of slope and intercept: the median of

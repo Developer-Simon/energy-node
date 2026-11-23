@@ -157,10 +157,11 @@ func TestBaseLoadSingleNightIsNoFinding(t *testing.T) {
 	}
 }
 
-// TestBaseLoadFridgeSwapIsNoFindingOnlyBaseFollows is review focus 4: the base
-// load falls after a fridge is swapped. A fall is no finding, the learned
-// site/base_w follows the new level.
-func TestBaseLoadFridgeSwapIsNoFindingOnlyBaseFollows(t *testing.T) {
+// TestBaseLoadFridgeSwapGivesDownNoticeAndBaseFollows is review focus 4: the base
+// load falls after a fridge is swapped. The earlier "no finding on a fall" was
+// replaced by Task 7 of PR 6a, so the fall is one downward notice without a fix,
+// and the learned site/base_w follows the new level.
+func TestBaseLoadFridgeSwapGivesDownNoticeAndBaseFollows(t *testing.T) {
 	in := blInput(60, func(i int) float64 {
 		if i < 40 {
 			return 260
@@ -168,8 +169,11 @@ func TestBaseLoadFridgeSwapIsNoFindingOnlyBaseFollows(t *testing.T) {
 		return 180
 	}, nil)
 	findings, values := blSplit(in)
-	if len(findings) != 0 {
-		t.Fatalf("a falling base load gave %d findings, want none", len(findings))
+	if len(findings) != 1 {
+		t.Fatalf("a falling base load gave %d findings, want exactly one", len(findings))
+	}
+	if f := findings[0]; f.Summary.Code != "baseload.drift.down" || len(f.Apply) != 0 {
+		t.Errorf("finding %q with Apply %+v, want baseload.drift.down without a fix", f.Summary.Code, f.Apply)
 	}
 	if v, ok := values["site/base_w"]; !ok || v.Num != 180 {
 		t.Errorf("site/base_w = %+v, want 180 after the swap", v)
@@ -198,7 +202,7 @@ func TestBaseLoadDetectorIsEnergyDaily(t *testing.T) {
 	}
 }
 
-func TestBaseLoadCUSUMFindsSustainedRiseOnly(t *testing.T) {
+func TestCUSUMFindsSustainedShiftInBothDirections(t *testing.T) {
 	up := make([]float64, 40)
 	down := make([]float64, 40)
 	for i := range up {
@@ -207,11 +211,34 @@ func TestBaseLoadCUSUMFindsSustainedRiseOnly(t *testing.T) {
 			down[i] = -1.4
 		}
 	}
-	if at, ok := baseLoadCUSUM(up); !ok || at != 20 {
-		t.Errorf("rise: got (%d, %v), want (20, true)", at, ok)
+	if at, rising, ok := CUSUM(up, 0, 1); !ok || !rising || at != 20 {
+		t.Errorf("rise: got (%d, %v, %v), want (20, true, true)", at, rising, ok)
 	}
-	if _, ok := baseLoadCUSUM(down); ok {
-		t.Errorf("fall gave a drift")
+	if at, rising, ok := CUSUM(down, 0, 1); !ok || rising || at != 20 {
+		t.Errorf("fall: got (%d, %v, %v), want (20, false, true)", at, rising, ok)
+	}
+}
+
+func TestBaseLoadDriftFallingNightsReportsDown(t *testing.T) {
+	in := blInput(60, func(i int) float64 {
+		if i < 20 {
+			return 260
+		}
+		return 180
+	}, func(i int) (float64, bool) { return 0, false })
+	findings, _ := blSplit(in)
+	if len(findings) != 1 {
+		t.Fatalf("want one drift finding for falling nights, got %d", len(findings))
+	}
+	f := findings[0]
+	if f.Summary.Code != "baseload.drift.down" {
+		t.Errorf("summary %q, want baseload.drift.down", f.Summary.Code)
+	}
+	if w := f.Summary.Params["w"]; w != 80.0 {
+		t.Errorf("w = %v, want 80 (the size of the fall)", w)
+	}
+	if len(f.Apply) != 0 {
+		t.Errorf("Apply = %+v, want none for a fall", f.Apply)
 	}
 }
 
