@@ -39,16 +39,19 @@
   const reduced = () => Boolean(window.matchMedia) && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const narrow = () => Boolean(window.matchMedia) && window.matchMedia('(max-width: 640px)').matches;
   const num = (v, d) => (window.I18n && window.I18n.formatNumber ? window.I18n.formatNumber(v, d) : Number(v).toFixed(d));
-  const locale = () => (window.I18n && window.I18n.locale) || undefined;
-  const fmtDate = (date, opts) => (window.I18n && window.I18n.formatDate
-    ? window.I18n.formatDate(date, opts)
-    : date.toLocaleDateString(locale(), opts));
+  // Datum und Monatsnamen nur ueber I18n, damit Sprache und Zahlenformat der Oberflaeche gelten.
+  // Ohne I18n bleibt ein schlichter Text (Jahr-Monat-Tag, Monatsnummer), kein eigenes Format.
+  const fmtDate = (date, opts) => {
+    if (window.I18n && window.I18n.formatDate) return window.I18n.formatDate(date, opts);
+    const p2 = (v) => String(v).padStart(2, '0');
+    return date.getFullYear() + '-' + p2(date.getMonth() + 1) + '-' + p2(date.getDate());
+  };
   const metricList = () => window.MonitoringInsight.METRICS;
 
   // Monatsnamen kurz, aus der Sprache der Oberflaeche
   function monthLabels() {
-    const f = new Intl.DateTimeFormat(locale(), { month: 'short' });
-    return Array.from({ length: 12 }, (_, m) => f.format(new Date(2026, m, 15)));
+    if (!(window.I18n && window.I18n.formatDate)) return Array.from({ length: 12 }, (_, m) => String(m + 1).padStart(2, '0'));
+    return Array.from({ length: 12 }, (_, m) => fmtDate(new Date(2026, m, 15), { month: 'short' }));
   }
 
   // ISO-Woche: Montag der Woche w im Jahr y

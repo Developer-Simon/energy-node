@@ -194,7 +194,7 @@ test('yearBand needs four weeks', () => {
   assert.ok(!band.svg.includes('NaN'));
 });
 
-test('dayRows house row without locale keeps the name key and no name', () => {
+test('dayRows house row without names keeps the name key and no name', () => {
   const rows = M.dayRows([lv('site/night_rest', '23:15'), lv('site/day_start', '06:30')]);
   assert.equal(rows[0].kind, 'night');
   assert.equal(rows[0].name, null);
@@ -204,15 +204,18 @@ test('dayRows house row without locale keeps the name key and no name', () => {
   assert.equal(free[0].nameKey, 'monitoring.day.house');
 });
 
-test('dayRows sorts devices by name with the given locale', () => {
+test('dayRows sorts devices with the given compare function', () => {
   const values = [
     lv('device/b/usual_runtime_s', 600, 12, { device_name: 'Zisterne' }),
     lv('device/a/usual_runtime_s', 600, 12, { device_name: 'Ahorn' }),
   ];
-  const withLocale = M.dayRows(values, 'de').slice(1).map((r) => r.name);
-  assert.deepEqual(withLocale, ['Ahorn', 'Zisterne']);
-  const noLocale = M.dayRows(values).slice(1).map((r) => r.name);
-  assert.deepEqual(noLocale, ['Ahorn', 'Zisterne']);
+  const seen = [];
+  const reverse = (a, b) => { seen.push([a, b]); return a < b ? 1 : a > b ? -1 : 0; };
+  const reversed = M.dayRows(values, reverse).slice(1).map((r) => r.name);
+  assert.deepEqual(reversed, ['Zisterne', 'Ahorn']);
+  assert.ok(seen.length > 0);
+  const plain = M.dayRows(values).slice(1).map((r) => r.name);
+  assert.deepEqual(plain, ['Ahorn', 'Zisterne']);
 });
 
 test('dayRows with equal on and off minute is a point, not a full day', () => {

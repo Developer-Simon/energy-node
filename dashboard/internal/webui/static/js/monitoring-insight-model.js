@@ -199,8 +199,11 @@
     return parts.filter(([x, y]) => y > x).map(([x, y]) => ({ left: x / DAY_STEP, width: (y - x) / DAY_STEP }));
   }
 
-  // Geraete aus den gelernten Werten, nach Name sortiert (locale optional, sonst Standard der Umgebung).
-  function collectDevices(values, locale) {
+  // Vergleich fuer Namen, standardmaessig einfach nach Zeichen. Die Sortierung der Oberflaeche kommt von I18n.compare.
+  const plainCompare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+  // Geraete aus den gelernten Werten, nach Name sortiert.
+  function collectDevices(values, compare) {
     const by = new Map();
     for (const v of values || []) {
       if (!v.key || !v.key.startsWith('device/')) continue;
@@ -211,12 +214,13 @@
       if (v.device_icon) d.icon = v.device_icon;
       d.f[field] = v;
     }
-    return [...by.values()].sort((a, b) => a.name.localeCompare(b.name, locale));
+    const cmp = typeof compare === 'function' ? compare : plainCompare;
+    return [...by.values()].sort((a, b) => cmp(a.name, b.name));
   }
 
   // Zeilen des ueblichen Tages: erst das Haus (Nachtruhe), dann Geraete.
   // kind: night (Haus), on (Fenster), point (nur Beginn oder Ende, 15 Minuten), free (nur Laufzeit).
-  function dayRows(values, locale) {
+  function dayRows(values, compare) {
     const by = new Map();
     for (const v of values || []) by.set(v.key, v);
     const nr = by.get('site/night_rest'); const ds = by.get('site/day_start');
@@ -231,7 +235,7 @@
       rows.push({ id: 'house', kind: 'free', name: null, nameKey: 'monitoring.day.house', icon: 'ico-user', segs: [], from: null, to: null, minutes: null,
         sure: false, n: 0, keys: present.map((v) => v.key), year: null, entries: present });
     }
-    for (const d of collectDevices(values, locale)) {
+    for (const d of collectDevices(values, compare)) {
       const on = d.f.usual_on; const off = d.f.usual_off; const rt = d.f.usual_runtime_s;
       const base = { id: d.id, name: d.name, icon: d.icon };
       // Gleiche Minute fuer Beginn und Ende ist ein Punkt, kein volles Fenster.
@@ -267,9 +271,9 @@
   }
 
   // Laufzeiten der Geraete mit Zyklus oder Leistung, relativ zum groessten Wert.
-  function runRows(values, locale) {
+  function runRows(values, compare) {
     const list = [];
-    for (const d of collectDevices(values, locale)) {
+    for (const d of collectDevices(values, compare)) {
       const e = d.f.cycle_wh; const p = d.f.op_power_w; const rt = d.f.usual_runtime_s;
       if (!e && !p) continue;
       const wh = e ? e.value : null;
