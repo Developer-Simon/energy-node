@@ -199,8 +199,8 @@
     return parts.filter(([x, y]) => y > x).map(([x, y]) => ({ left: x / DAY_STEP, width: (y - x) / DAY_STEP }));
   }
 
-  // Geraete aus den gelernten Werten, nach Name sortiert (Sprache aus I18n).
-  function collectDevices(values) {
+  // Geraete aus den gelernten Werten, nach Name sortiert (locale optional, sonst Standard der Umgebung).
+  function collectDevices(values, locale) {
     const by = new Map();
     for (const v of values || []) {
       if (!v.key || !v.key.startsWith('device/')) continue;
@@ -211,13 +211,12 @@
       if (v.device_icon) d.icon = v.device_icon;
       d.f[field] = v;
     }
-    const locale = (window.I18n && window.I18n.locale) || 'de';
     return [...by.values()].sort((a, b) => a.name.localeCompare(b.name, locale));
   }
 
   // Zeilen des ueblichen Tages: erst das Haus (Nachtruhe), dann Geraete.
   // kind: night (Haus), on (Fenster), point (nur Beginn oder Ende, 15 Minuten), free (nur Laufzeit).
-  function dayRows(values) {
+  function dayRows(values, locale) {
     const by = new Map();
     for (const v of values || []) by.set(v.key, v);
     const nr = by.get('site/night_rest'); const ds = by.get('site/day_start');
@@ -225,17 +224,18 @@
     const a = nr ? clock(nr.value) : null; const b = ds ? clock(ds.value) : null;
     if (nr && ds && a != null && b != null) {
       const n = Math.min(nr.n || 0, ds.n || 0);
-      rows.push({ id: 'house', kind: 'night', name: 'Haus', icon: 'ico-user', segs: segs(a, b), from: nr.value, to: ds.value,
+      rows.push({ id: 'house', kind: 'night', name: null, nameKey: 'monitoring.day.house', icon: 'ico-user', segs: segs(a, b), from: nr.value, to: ds.value,
         minutes: (b - a + 1440) % 1440, sure: n >= 10, n, keys: ['site/night_rest', 'site/day_start'], year: [nr, ds], entries: [nr, ds] });
     } else {
       const present = [nr, ds].filter(Boolean);
-      rows.push({ id: 'house', kind: 'free', name: 'Haus', icon: 'ico-user', segs: [], from: null, to: null, minutes: null,
+      rows.push({ id: 'house', kind: 'free', name: null, nameKey: 'monitoring.day.house', icon: 'ico-user', segs: [], from: null, to: null, minutes: null,
         sure: false, n: 0, keys: present.map((v) => v.key), year: null, entries: present });
     }
-    for (const d of collectDevices(values)) {
+    for (const d of collectDevices(values, locale)) {
       const on = d.f.usual_on; const off = d.f.usual_off; const rt = d.f.usual_runtime_s;
       const base = { id: d.id, name: d.name, icon: d.icon };
-      if (on && off) {
+      // Gleiche Minute fuer Beginn und Ende ist ein Punkt, kein volles Fenster.
+      if (on && off && clock(on.value) !== clock(off.value)) {
         const s = clock(on.value); const e = clock(off.value);
         const n = Math.min(on.n || 0, off.n || 0);
         rows.push({ ...base, kind: 'on', segs: segs(s, e), from: on.value, to: off.value, minutes: (e - s + 1440) % 1440,
@@ -243,8 +243,10 @@
       } else if (on || off) {
         const only = on || off; const t = clock(only.value);
         const s = on ? t : (t - 15 + 1440) % 1440;
-        rows.push({ ...base, kind: 'point', segs: segs(s, (s + 15) % 1440), from: on ? only.value : null, to: off ? only.value : null,
-          minutes: null, sure: (only.n || 0) >= 10, n: only.n || 0, keys: [only.key], year: null, entries: [only] });
+        const ents = [on, off].filter(Boolean);
+        const n = Math.min(...ents.map((x) => x.n || 0));
+        rows.push({ ...base, kind: 'point', segs: segs(s, (s + 15) % 1440), from: on ? on.value : null, to: off ? off.value : null,
+          minutes: null, sure: n >= 10, n, keys: ents.map((x) => x.key), year: null, entries: ents });
       } else if (rt) {
         rows.push({ ...base, kind: 'free', segs: [], from: null, to: null, minutes: Math.round(rt.value / 60),
           sure: (rt.n || 0) >= 10, n: rt.n || 0, keys: [rt.key], year: null, entries: [rt] });
@@ -265,9 +267,9 @@
   }
 
   // Laufzeiten der Geraete mit Zyklus oder Leistung, relativ zum groessten Wert.
-  function runRows(values) {
+  function runRows(values, locale) {
     const list = [];
-    for (const d of collectDevices(values)) {
+    for (const d of collectDevices(values, locale)) {
       const e = d.f.cycle_wh; const p = d.f.op_power_w; const rt = d.f.usual_runtime_s;
       if (!e && !p) continue;
       const wh = e ? e.value : null;

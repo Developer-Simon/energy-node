@@ -125,6 +125,8 @@ test('dayRows splits windows over midnight', () => {
   assert.equal(rows[0].id, 'house');
   assert.equal(rows[0].kind, 'night');
   assert.equal(rows[0].sure, true);
+  assert.equal(rows[0].name, null);
+  assert.equal(rows[0].nameKey, 'monitoring.day.house');
   const dev = rows.find((r) => r.id === 'w1');
   assert.equal(dev.kind, 'on');
   assert.equal(dev.name, 'Waschmaschine');
@@ -190,4 +192,37 @@ test('yearBand needs four weeks', () => {
   assert.ok(band.svg.includes('mi-yr-band'));
   assert.ok(band.svg.includes('mi-yr-line'));
   assert.ok(!band.svg.includes('NaN'));
+});
+
+test('dayRows house row without locale keeps the name key and no name', () => {
+  const rows = M.dayRows([lv('site/night_rest', '23:15'), lv('site/day_start', '06:30')]);
+  assert.equal(rows[0].kind, 'night');
+  assert.equal(rows[0].name, null);
+  assert.equal(rows[0].nameKey, 'monitoring.day.house');
+  const free = M.dayRows([]);
+  assert.equal(free[0].name, null);
+  assert.equal(free[0].nameKey, 'monitoring.day.house');
+});
+
+test('dayRows sorts devices by name with the given locale', () => {
+  const values = [
+    lv('device/b/usual_runtime_s', 600, 12, { device_name: 'Zisterne' }),
+    lv('device/a/usual_runtime_s', 600, 12, { device_name: 'Ahorn' }),
+  ];
+  const withLocale = M.dayRows(values, 'de').slice(1).map((r) => r.name);
+  assert.deepEqual(withLocale, ['Ahorn', 'Zisterne']);
+  const noLocale = M.dayRows(values).slice(1).map((r) => r.name);
+  assert.deepEqual(noLocale, ['Ahorn', 'Zisterne']);
+});
+
+test('dayRows with equal on and off minute is a point, not a full day', () => {
+  const rows = M.dayRows([
+    lv('device/e1/usual_on', '12:00', 12, { device_name: 'Gleich' }),
+    lv('device/e1/usual_off', '12:00', 12, { device_name: 'Gleich' }),
+  ]);
+  const r = rows.find((x) => x.id === 'e1');
+  assert.equal(r.kind, 'point');
+  assert.equal(r.segs.length, 1);
+  assert.ok(Math.abs(r.segs[0].width - 15 / 14.4) < 1e-9, String(r.segs[0].width));
+  assert.equal(M.onAt(rows, 12 * 60 + 5).on.includes('Gleich'), false);
 });
