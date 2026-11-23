@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.22-pre.33 (2026-11-06)
+## v0.11.22-pre.34 (2026-11-06)
 
 ### Features
 
@@ -33,6 +33,12 @@
 - **monitoring:** A Monitoring tab with notices, acknowledgement and all learned values (#291) (7ae50a9)
 - **autolearn:** The rule check finds feedback, competition for the surplus, a rising base load and battery problems (#292) (142387b)
 - **autolearn:** The node records minute values and keeps every regulator step as a base for learning (#293) (19e65e7)
+- **autolearn:** Automation suggestions for surplus and load shifts are checked against your data (#295) (6c255ad)
+- **learnrec:** fetch minute values from Home Assistant through the companion (97e2665)
+- **learnrec:** pause the own recording while Home Assistant delivers minutes (4086c45)
+- **learnrec:** read own minutes first, then Home Assistant, and fetch gaps before the heavy run (44ee05d)
+- **settings:** let Home Assistant fill the minute recording (3d7d231)
+- **autolearn:** Learning functions can take minute values from Home Assistant (#294)
 - **autolearn:** parse the learned_value condition (da541e8)
 - **automations:** edit the learned_value condition (672ca29)
 - **automations:** edit the learned_value fields in the rule card (ae0c8e1)
@@ -62,7 +68,6 @@
 - **automations:** build the shift start as one scenario (4b75e8f)
 - **automations:** show findings on scenario cards (054b01a)
 - **automations:** ease the target curve and the scale bars into the evidence (0134794)
-- **autolearn:** Automation suggestions for surplus and load shifts are checked against your data (#295)
 - **learnrec:** resolve where the minute recording lives (972c4aa)
 - **learnrec:** add the binary day format of the minute recording (f0e0eec)
 - **learnrec:** keep minute values in RAM and append them to the chosen drive (64aff34)
@@ -329,6 +334,7 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** harden the replay against unsupported fields and absent keys (f762aae)
 - **automations:** prefill the surplus templates from a suggestion (d977098)
 - **automations:** prefill the shift start template from a suggestion (d1b835a)
@@ -348,7 +354,6 @@
 - **autolearn:** read the regulator steps from the files after a start (0edcbe0)
 - **automations:** open the scenario finding with its own key (5116883)
 - **automations:** keep the target bar at its own opacity after the entrance (2bb3b06)
-- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** write step files per scenario and day, drop deadband from figures (8f2a75a)
 - **dashboard:** bound the step ring by the RAM days and log slow flushes (0046eee)
 - **settings:** format the drive free space in GB (2c55808)
@@ -488,6 +493,8 @@
 
 ### Chores
 
+- **dashboard:** bump the cache-bust marks for the Home Assistant source (8b3bb59)
+- **dashboard:** refresh the cache-bust history after the rebase (33c7bcb)
 - **dashboard:** bump the cache-bust marks for energy suggestions (5e08c00)
 - **dashboard:** bump the cache-bust marks for the evidence animation (a185d8b)
 - **dashboard:** bump the cache-bust marks for the minute recording (604eb49)
