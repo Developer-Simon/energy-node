@@ -342,7 +342,7 @@ func (c *Checker) reliabilityLocked() []Finding {
 	var out []Finding
 	for _, cand := range c.engineCandidates() {
 		f := cand.Finding
-		if f.Group != "check" || cand.NEff < cand.MinNEff || !rulesCurrent(f.RuleIDs, current) || fixSaved(f, c.doc) {
+		if !notRule(f) || cand.NEff < cand.MinNEff || !rulesCurrent(f.RuleIDs, current) || fixSaved(f, c.doc) {
 			continue
 		}
 		out = append(out, f)
@@ -465,4 +465,15 @@ func triggerCounts(payload string) map[string]int {
 		counts[id] = r.TriggerCount
 	}
 	return counts
+}
+
+// notRule reports whether a finding belongs to the rule check and to Monitoring
+// instead of the suggestion band. That holds for the check group and for every
+// finding that has no rule to offer and no rule it belongs to: without an Apply
+// fix it is a notice, never a suggestion. A candidate without an ID only carries learned values.
+func notRule(f Finding) bool {
+	if f.ID == "" {
+		return false
+	}
+	return f.Group == "check" || (len(f.Apply) == 0 && len(f.RuleIDs) == 0)
 }

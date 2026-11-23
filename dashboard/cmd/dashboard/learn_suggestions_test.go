@@ -30,7 +30,7 @@ var (
 // habitCandidate is a candidate that passes every gate of the habit group.
 func habitCandidate(id, device string, kwh float64) autolearn.Candidate {
 	return autolearn.Candidate{
-		Finding:     autolearn.Finding{ID: id, Kind: "switchtime", Group: "habit", Device: device, Severity: "info", Confidence: "high"},
+		Finding:     autolearn.Finding{ID: id, Kind: "switchtime", Group: "habit", Device: device, Severity: "info", Confidence: "high", Apply: []autolearn.Fix{{Code: "time_point", Template: "time_point"}}},
 		Detector:    "switchtime",
 		NEff:        10,
 		MinNEff:     5,

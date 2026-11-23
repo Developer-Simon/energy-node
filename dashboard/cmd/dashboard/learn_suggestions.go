@@ -116,6 +116,10 @@ func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc 
 		if (g != "habit" && g != "energy") || !groups[g] {
 			continue
 		}
+		// A finding without a fix is a notice for Monitoring, not a suggestion.
+		if len(c.Finding.Apply) == 0 {
+			continue
+		}
 		if c.Finding.Device != "" && exists != nil && !exists(c.Finding.Device) {
 			continue
 		}
