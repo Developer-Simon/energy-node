@@ -598,7 +598,7 @@ func main() {
 	forecastCheck := autolearn.LoadForecastCheck(filepath.Join(autolearnDir, "forecast.json"), log.Printf)
 	learnHub.AddSaver("forecast", forecastCheck)
 	learnHub.AddResetter("forecast", forecastCheck)
-	registerEnergyDetectors(automationEngine, pvReserve.Current, forecastCheck)
+	registerEnergyDetectors(automationEngine, pvReserve.Current, pvReserve.DayCount, forecastCheck)
 	automationEngine.Register(autolearn.BaseLoadDetector)
 	automationEngine.Register(autolearn.BatteryDetector)
 	automationEngine.Register(autolearn.NewPVModelDetector(pvTracker.Snapshot, pvModelStore))

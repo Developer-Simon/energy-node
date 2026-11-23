@@ -221,10 +221,10 @@ func anyGroupOn(groups map[string]bool) bool {
 
 // registerEnergyDetectors meldet die Erkenner der Gruppe Energie bei der Engine.
 // Sie laufen nur, wenn der Schalter Energie an ist. reserve liefert die PV-Reserve
-// der letzten Minute, check ist die Selbstpruefung der Prognose des Rest-Ueberschusses.
-func registerEnergyDetectors(e *autolearn.Engine, reserve func() (float64, bool, bool), check *autolearn.ForecastCheck) {
+// der letzten Minute, days zaehlt die Tage der PV-Daten fuer das Tor, check ist die Selbstpruefung der Prognose des Rest-Ueberschusses.
+func registerEnergyDetectors(e *autolearn.Engine, reserve func() (float64, bool, bool), days func() int, check *autolearn.ForecastCheck) {
 	e.Register(autolearn.TemperatureDetector)
-	e.Register(autolearn.PVReserveDetector(reserve))
+	e.Register(autolearn.PVReserveDetectorWithDays(reserve, days))
 	e.Register(autolearn.LearnCyclesDetector)
 	e.Register(autolearn.NewLearnSurplusDetector(check))
 	e.Register(autolearn.SurplusDetector)
