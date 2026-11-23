@@ -103,10 +103,17 @@ type reloadStatus struct {
 	err    string
 }
 
+// SaveCheck is run on a saved document after the schema check and before the
+// file is written. An error rejects the save. It lets a package that the config
+// package cannot import check the document, such as the learned bounds of the
+// automation rules.
+type SaveCheck func(name string, data []byte) error
+
 type Manager struct {
 	mu          sync.Mutex
 	dir         string
 	reload      ReloadFunc
+	saveCheck   SaveCheck
 	excluded    map[string]bool
 	reloadState map[string]reloadStatus
 }
@@ -157,6 +164,13 @@ func (m *Manager) SetReloadFunc(reload ReloadFunc) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.reload = reload
+}
+
+// SetSaveCheck sets the check that runs on every save, see SaveCheck.
+func (m *Manager) SetSaveCheck(check SaveCheck) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.saveCheck = check
 }
 
 func (m *Manager) Scan() ([]Document, error) {
@@ -329,6 +343,11 @@ func (m *Manager) Save(name string, data []byte) (Document, error) {
 	}
 	if err := Validate(data, doc.SchemaPath); err != nil {
 		return Document{}, err
+	}
+	if m.saveCheck != nil {
+		if err := m.saveCheck(name, data); err != nil {
+			return Document{}, err
+		}
 	}
 	old, err := os.ReadFile(doc.Path)
 	if err != nil {

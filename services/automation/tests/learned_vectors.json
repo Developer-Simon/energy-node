@@ -1,4 +1,5 @@
-[
+{
+"resolve": [
   {"name": "time_clamp_over_midnight_late",
    "kind": "time",
    "ref": {"learned": "site/day_start", "min": "23:00", "max": "01:00", "fallback": "00:00"},
@@ -173,4 +174,40 @@
    "payload": null,
    "now": 1794000060,
    "expect": {"value": "active", "source": "fallback"}}
+],
+"bounds": [
+  {"name": "time_arc_over_midnight_valid", "kind": "time",
+   "ref": {"learned": "site/day_start", "min": "23:00", "max": "01:00", "fallback": "00:00"},
+   "errors": []},
+  {"name": "time_arc_fallback_on_min_valid", "kind": "time",
+   "ref": {"learned": "site/day_start", "min": "23:00", "max": "01:00", "fallback": "23:00"},
+   "errors": []},
+  {"name": "time_arc_fallback_on_max_valid", "kind": "time",
+   "ref": {"learned": "site/day_start", "min": "23:00", "max": "01:00", "fallback": "01:00"},
+   "errors": []},
+  {"name": "time_arc_fallback_outside", "kind": "time",
+   "ref": {"learned": "site/day_start", "min": "23:00", "max": "01:00", "fallback": "12:00"},
+   "errors": ["fallback must lie between min and max"]},
+  {"name": "time_plain_arc_valid", "kind": "time",
+   "ref": {"learned": "site/day_start", "min": "06:00", "max": "22:00", "fallback": "12:00"},
+   "errors": []},
+  {"name": "time_plain_arc_fallback_outside", "kind": "time",
+   "ref": {"learned": "site/day_start", "min": "06:00", "max": "22:00", "fallback": "23:00"},
+   "errors": ["fallback must lie between min and max"]},
+  {"name": "number_valid", "kind": "number",
+   "ref": {"learned": "device/pump_1/usual_runtime_s", "min": 0, "max": 100, "fallback": 50},
+   "errors": []},
+  {"name": "number_equal_bounds_valid", "kind": "number",
+   "ref": {"learned": "device/pump_1/usual_runtime_s", "min": 5, "max": 5, "fallback": 5},
+   "errors": []},
+  {"name": "number_min_above_max", "kind": "number",
+   "ref": {"learned": "device/pump_1/usual_runtime_s", "min": 100, "max": 0, "fallback": 50},
+   "errors": ["min must not be above max"]},
+  {"name": "number_fallback_above_max", "kind": "number",
+   "ref": {"learned": "device/pump_1/usual_runtime_s", "min": 0, "max": 100, "fallback": 150},
+   "errors": ["fallback must lie between min and max"]},
+  {"name": "number_fallback_below_min", "kind": "number",
+   "ref": {"learned": "device/pump_1/usual_runtime_s", "min": 0, "max": 100, "fallback": -1},
+   "errors": ["fallback must lie between min and max"]}
 ]
+}

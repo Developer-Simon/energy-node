@@ -350,7 +350,8 @@ func learnedValueRef(rawCond json.RawMessage, learned map[string]LearnedRef) err
 // whether it was one.
 // An object is a reference only with a non empty text under learned, as the
 // service's is_ref reads it. Any other object is not stored, so the numeric
-// fields reject it and start and end ignore it.
+// fields reject it and start and end ignore it. The bounds of a reference are
+// checked on save by ValidateLearnedBounds.
 func learnedRef(raw json.RawMessage, name string, learned map[string]LearnedRef) (bool, error) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 || trimmed[0] != '{' {

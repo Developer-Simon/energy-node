@@ -1238,6 +1238,7 @@ func main() {
 	} else if len(bridgeCfg.Connections) > 0 {
 		client.SetBridgeWatch(bridgeCfg.Connections[0].RemoteClientID)
 	}
+	configManager.SetSaveCheck(autolearn.CheckLearnedBoundsOnSave)
 	configManager.SetReloadFunc(func(name string, _ []byte) error {
 		if serviceID, ok := config.ServiceIDForConfig(name); ok {
 			return client.ReloadService(serviceID)
