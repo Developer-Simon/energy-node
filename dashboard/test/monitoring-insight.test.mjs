@@ -144,11 +144,11 @@ test('monitoringYear shows the gap legend only when the current year misses a we
 
 // monitoringDay: getValues and getFocus stand in for learned.values and learnedFocus.
 function dayComponent(values, initialFocus = '') {
-  const { factories } = create();
+  const { dom, factories } = create();
   let focus = initialFocus;
   const component = factories.monitoringDay(() => values, () => focus);
   component.$refs = {};
-  return { component, setFocus: (value) => { focus = value; } };
+  return { component, dom, setFocus: (value) => { focus = value; } };
 }
 
 const PLUG_VALUES = [
@@ -206,4 +206,77 @@ test('monitoringDay shows the window as a label', () => {
   const { component } = dayComponent(PLUG_VALUES);
   const plug = component.rows.find((row) => row.id === 'plug');
   assert.equal(plug.label, '16:45 bis 22:30');
+});
+
+test('monitoringDay clears a swipe after the click that follows pointerup', async () => {
+  const { component, dom } = dayComponent(PLUG_VALUES);
+  const rows = dom.window.document.createElement('div');
+  component.$refs = { rows };
+  component.$watch = () => {};
+  component.init();
+  component.moved = true;
+  rows.dispatchEvent(new dom.window.Event('pointerup'));
+  assert.equal(component.moved, true, 'still set in the same task, so the click is ignored');
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(component.moved, false);
+  component.toggle('plug');
+  assert.equal(component.open, 'plug');
+});
+
+test('monitoringDay reads the rows once for the same values array', () => {
+  const { component, dom } = dayComponent(PLUG_VALUES);
+  const M = dom.window.MonitoringInsight;
+  const original = M.dayRows;
+  let calls = 0;
+  M.dayRows = (...args) => { calls += 1; return original(...args); };
+  component.rows;
+  component.rows;
+  component.readText;
+  assert.equal(calls, 1);
+});
+
+// Fake observer and listener spies, to see what destroy() releases.
+function fakeResizeObserver(dom) {
+  const log = { disconnects: 0 };
+  dom.window.ResizeObserver = class {
+    observe() {}
+    disconnect() { log.disconnects += 1; }
+  };
+  return log;
+}
+function spyListeners(el) {
+  const log = { added: 0, removed: 0 };
+  const add = el.addEventListener.bind(el);
+  const remove = el.removeEventListener.bind(el);
+  el.addEventListener = (type, fn, opts) => { log.added += 1; add(type, fn, opts); };
+  el.removeEventListener = (type, fn, opts) => { log.removed += 1; remove(type, fn, opts); };
+  return log;
+}
+
+test('monitoringDay destroy disconnects the observer and removes its listeners', () => {
+  const { component, dom } = dayComponent(PLUG_VALUES);
+  const observer = fakeResizeObserver(dom);
+  const rows = dom.window.document.createElement('div');
+  const listeners = spyListeners(rows);
+  component.$refs = { rows };
+  component.$watch = () => {};
+  component.init();
+  assert.equal(listeners.added, 4);
+  component.destroy();
+  assert.equal(observer.disconnects, 1);
+  assert.equal(listeners.removed, 4);
+});
+
+test('monitoringForecast destroy disconnects the observer and removes its listeners', () => {
+  const { component, dom } = forecastComponent();
+  const observer = fakeResizeObserver(dom);
+  const plot = dom.window.document.createElement('div');
+  const listeners = spyListeners(plot);
+  component.$refs = { plot };
+  component.$watch = () => {};
+  component.init();
+  assert.equal(listeners.added, 4);
+  component.destroy();
+  assert.equal(observer.disconnects, 1);
+  assert.equal(listeners.removed, 4);
 });

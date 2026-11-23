@@ -39,6 +39,8 @@
   const base = () => window.__DASHBOARD_BASE_PATH__ || '';
   const reduced = () => Boolean(window.matchMedia) && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const narrow = () => Boolean(window.matchMedia) && window.matchMedia('(max-width: 640px)').matches;
+  // Achsenzahlen ueber I18n, ohne I18n bleibt der Standard der Modelle
+  const axisFmt = () => (window.I18n && window.I18n.formatNumber ? (n) => window.I18n.formatNumber(n, 0) : undefined);
   const num = (v, d) => (window.I18n && window.I18n.formatNumber ? window.I18n.formatNumber(v, d) : Number(v).toFixed(d));
   // Datum und Monatsnamen nur ueber I18n, damit Sprache und Zahlenformat der Oberflaeche gelten.
   // Ohne I18n bleibt ein schlichter Text (Jahr-Monat-Tag, Monatsnummer), kein eigenes Format.
@@ -74,23 +76,34 @@
       : [{ opacity: 0.35, transform: 'translateY(4px)' }, { opacity: 1, transform: 'translateY(0)' }];
     el.animate(frames, { duration: 160, easing: EASE_OUT });
   }
-  function onFirstView(el, fn) {
+  function onFirstView(el, fn, w) {
     if (!el) return;
     if (!('IntersectionObserver' in window)) { fn(); return; }
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) { io.disconnect(); fn(); }
     }, { threshold: 0.4 });
     io.observe(el);
+    if (w) w.observe(io);
+  }
+  // Beobachter und Zuhoerer merken, damit destroy() sie loest
+  function watchers() {
+    const undo = [];
+    return {
+      observe(obs) { undo.push(() => obs.disconnect()); return obs; },
+      listen(el, type, fn) { el.addEventListener(type, fn); undo.push(() => el.removeEventListener(type, fn)); },
+      release() { undo.splice(0).forEach((f) => f()); },
+    };
   }
   // Zeiger auf eine Spalte abbilden, mit Zeiger-Capture. touch-action: pan-y laesst
   // senkrechtes Scrollen beim Browser, dann kommt pointercancel und die Auswahl bleibt.
-  function scrubber(el, pick) {
+  function scrubber(el, pick, w) {
     let down = false;
-    el.addEventListener('pointerdown', (e) => { down = true; try { el.setPointerCapture(e.pointerId); } catch (err) { /* egal */ } pick(e.clientX); });
-    el.addEventListener('pointermove', (e) => { if (down || e.pointerType === 'mouse') pick(e.clientX); });
+    const on = (type, fn) => { if (w) w.listen(el, type, fn); else el.addEventListener(type, fn); };
+    on('pointerdown', (e) => { down = true; try { el.setPointerCapture(e.pointerId); } catch (err) { /* egal */ } pick(e.clientX); });
+    on('pointermove', (e) => { if (down || e.pointerType === 'mouse') pick(e.clientX); });
     const up = () => { down = false; };
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
+    on('pointerup', up);
+    on('pointercancel', up);
   }
 
   // Prognose: Tagesbalken gegen Messung, Lernphase, Median oder Prognose.
@@ -107,6 +120,7 @@
       get days() { return (this.check && this.check.days) || []; },
       get readers() { return (this.check && this.check.readers) || []; },
       get state() { return this.check ? window.MonitoringInsight.forecastState(this.check) : null; },
+      get needed() { return (this.data && this.data.forecast && this.data.forecast.needed) || 14; },
       get learning() { return Boolean(this.state) && this.state.kind === 'learning'; },
       get failedText() { return t('monitoring.forecast.load_failed'); },
       kwh(wh) { return num(wh / 1000, 1) + ' kWh'; },
@@ -176,18 +190,20 @@
 
       init() {
         const el = this.$refs.plot;
+        const w = (this._w = watchers());
         if ('ResizeObserver' in window) {
-          new ResizeObserver(() => { const w = el.clientWidth; if (w && w !== this.width) { this.width = w; this.draw(); } }).observe(el);
+          w.observe(new ResizeObserver(() => { const width = el.clientWidth; if (width && width !== this.width) { this.width = width; this.draw(); } })).observe(el);
         }
-        onFirstView(el, () => reveal(el.querySelector('.mi-cols')));
+        onFirstView(el, () => reveal(el.querySelector('.mi-cols')), w);
         this.$watch('data', () => { this.sel = -1; this.draw(); });
-        scrubber(el, (x) => this.pickX(x));
+        scrubber(el, (x) => this.pickX(x), w);
       },
+      destroy() { if (this._w) this._w.release(); this._w = null; },
       draw() {
         const el = this.$refs && this.$refs.plot; if (!el) return;
         const s = this.state;
         if (!s) { el.innerHTML = ''; this.geo = null; return; }
-        const chart = window.MonitoringInsight.forecastChart(this.days, s.needed, this.width || 600, narrow());
+        const chart = window.MonitoringInsight.forecastChart(this.days, s.needed, this.width || 600, narrow(), axisFmt());
         el.innerHTML = chart.svg;
         this.geo = chart.geo;
         this.mark();
@@ -324,18 +340,20 @@
       },
       init() {
         const el = this.$refs.plot;
+        const w = (this._w = watchers());
         if ('ResizeObserver' in window) {
-          new ResizeObserver(() => { const w = el.clientWidth; if (w && w !== this.width) { this.width = w; this.draw(false); } }).observe(el);
+          w.observe(new ResizeObserver(() => { const width = el.clientWidth; if (width && width !== this.width) { this.width = width; this.draw(false); } })).observe(el);
         }
-        onFirstView(el, () => reveal(el.querySelector('.mi-cur')));
+        onFirstView(el, () => reveal(el.querySelector('.mi-cur')), w);
         this.$watch('season', () => this.draw(false));
-        scrubber(el, (x) => this.pickX(x));
+        scrubber(el, (x) => this.pickX(x), w);
       },
+      destroy() { if (this._w) this._w.release(); this._w = null; },
       draw(fade) {
         const el = this.$refs && this.$refs.plot; if (!el) return;
         const s = this.season;
         if (!s || !this.years.length) { el.innerHTML = ''; this.geo = null; return; }
-        const chart = window.MonitoringInsight.seasonChart(s, this.metric, this.years.length, this.width || 600, narrow(), monthLabels());
+        const chart = window.MonitoringInsight.seasonChart(s, this.metric, this.years.length, this.width || 600, narrow(), monthLabels(), axisFmt());
         el.innerHTML = chart.svg;
         this.geo = chart.geo;
         this.moveCursor();
@@ -450,7 +468,10 @@
   }
 
   function monitoringDay(getValues, getFocus) {
-    const values = () => (typeof getValues === 'function' && getValues()) || [];
+    const EMPTY = [];
+    const values = () => (typeof getValues === 'function' && getValues()) || EMPTY;
+    // Ergebnisse je Werte-Array, damit Lesen ohne neue Werte nichts neu rechnet
+    const cache = { rowsSrc: null, rows: null, runsSrc: null, runs: null };
     const focusKey = () => (typeof getFocus === 'function' && getFocus()) || '';
     const compare = () => (window.I18n && window.I18n.compare) || undefined;
     const find = (key) => values().find((v) => v.key === key);
@@ -463,8 +484,13 @@
       get at() { return this.t == null ? this.nowMin : this.t; },
       get readTime() { return hhmm(this.at); },
       get rows() {
-        const M = window.MonitoringInsight;
-        return M.dayRows(values(), compare()).map((r) => decorateRow(r, M.yearBand));
+        const src = values();
+        if (src !== cache.rowsSrc) {
+          const M = window.MonitoringInsight;
+          cache.rowsSrc = src;
+          cache.rows = M.dayRows(src, compare()).map((r) => decorateRow(r, M.yearBand));
+        }
+        return cache.rows;
       },
       get house() {
         const nr = find('site/night_rest'); const st = find('site/house_state');
@@ -476,13 +502,17 @@
         };
       },
       get runs() {
-        return window.MonitoringInsight.runRows(values(), compare()).map((r) => {
+        const src = values();
+        if (src === cache.runsSrc) return cache.runs;
+        cache.runsSrc = src;
+        cache.runs = window.MonitoringInsight.runRows(src, compare()).map((r) => {
           const power = r.powerW ? num(r.powerW / 1000, 1) + ' kW' : '';
           const time = r.seconds ? durText(r.seconds) : '';
           const sub = power && time ? t('monitoring.run.power_for', { power, duration: time }) : (power || time);
           const value = r.wh ? num(r.wh / 1000, r.wh < 1000 ? 2 : 1) + ' kWh' : '';
           return { ...r, value, sub };
         });
+        return cache.runs;
       },
       get site() {
         const reserve = find('site/pv_reserve_w'); const left = find('site/surplus_left_wh');
@@ -545,24 +575,27 @@
       },
       init() {
         const el = this.$refs.rows;
-        onFirstView(el, () => this.reveal());
+        const w = (this._w = watchers());
+        onFirstView(el, () => this.reveal(), w);
         this.$watch(() => focusKey(), () => this.follow());
         this.follow();
         let down = false; let x0 = 0;
-        el.addEventListener('pointerdown', (e) => { down = true; x0 = e.clientX; this.moved = false; this.pick(e.clientX); });
-        el.addEventListener('pointermove', (e) => {
+        w.listen(el, 'pointerdown', (e) => { down = true; x0 = e.clientX; this.moved = false; this.pick(e.clientX); });
+        w.listen(el, 'pointermove', (e) => {
           if (down && !this.moved && Math.abs(e.clientX - x0) > 6) {
             this.moved = true;
             try { el.setPointerCapture(e.pointerId); } catch (err) { /* egal */ }
           }
           if (down || e.pointerType === 'mouse') this.pick(e.clientX);
         });
-        const up = () => { down = false; };
-        el.addEventListener('pointerup', up);
-        el.addEventListener('pointercancel', up);
-        if ('ResizeObserver' in window) new ResizeObserver(() => this.place()).observe(el);
+        // Der Klick nach dem Loslassen kommt noch vor dem Timer, danach ist der Wisch vorbei
+        const up = () => { down = false; window.setTimeout(() => { this.moved = false; }, 0); };
+        w.listen(el, 'pointerup', up);
+        w.listen(el, 'pointercancel', up);
+        if ('ResizeObserver' in window) w.observe(new ResizeObserver(() => this.place())).observe(el);
         if (this.$nextTick) this.$nextTick(() => this.place()); else this.place();
       },
+      destroy() { if (this._w) this._w.release(); this._w = null; },
     };
   }
 

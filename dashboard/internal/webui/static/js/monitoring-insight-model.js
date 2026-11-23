@@ -76,7 +76,7 @@
   }
 
   // Jahresdiagramm: years ist 2 oder 3 (wie viele Jahre gezeigt werden, das aktuelle zuerst).
-  function seasonChart(season, metricId, years, width, narrow, monthLabels) {
+  function seasonChart(season, metricId, years, width, narrow, monthLabels, fmt) {
     const m = metricOf(metricId);
     const y = season.year;
     const yearList = years === 3 ? [y, y - 1, y - 2] : [y, y - 1];
@@ -88,7 +88,8 @@
     if (!isFinite(lo)) { lo = 0; hi = 1; }
     const step = niceStep((hi - Math.min(0, lo)) / 3);
     const y0 = lo < 0 || m.id === 'temp' ? Math.floor(Math.min(0, lo) / step) * step : 0;
-    const y1 = Math.ceil(hi / step) * step;
+    // Gleiche Werte (alle 0 oder alle gleich): der Bereich bleibt mindestens einen Schritt hoch
+    const y1 = Math.max(Math.ceil(hi / step) * step, y0 + step);
     const x = (w) => pad.l + (w - 1) / 51 * (W - pad.l - pad.r);
     const yv = (v) => pad.t + (1 - (v - y0) / (y1 - y0)) * (H - pad.t - pad.b);
     const geo = { W, H, pad, x, y: yv, y0, y1, step };
@@ -100,7 +101,7 @@
     s += '<defs><pattern id="mi-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="currentColor" opacity=".08"/><line x1="0" y1="0" x2="0" y2="5" stroke="currentColor" stroke-width="1.6" opacity=".45"/></pattern></defs>';
     for (let v = y0; v <= y1 + 1e-9; v += step) {
       s += '<line class="mi-grid" x1="' + pad.l + '" x2="' + (W - pad.r) + '" y1="' + yv(v).toFixed(1) + '" y2="' + yv(v).toFixed(1) + '"/>';
-      s += '<text class="mi-ylab" x="' + (pad.l - 6) + '" y="' + (yv(v) + 3.5).toFixed(1) + '">' + intText(v) + '</text>';
+      s += '<text class="mi-ylab" x="' + (pad.l - 6) + '" y="' + (yv(v) + 3.5).toFixed(1) + '">' + (fmt || intText)(v) + '</text>';
     }
     MONTH_WEEKS.forEach((w, i) => {
       const label = String((monthLabels || [])[i] || '');
@@ -147,13 +148,13 @@
   }
 
   // Tagesbalken Prognose gegen Messung, leere Plaetze bis needed.
-  function forecastChart(days, needed, width, narrow) {
+  function forecastChart(days, needed, width, narrow, fmt) {
     const W = width || 600; const H = narrow ? 150 : 176;
     const pad = { l: 34, r: 6, t: 8, b: 36 };
     const n = needed != null ? needed : FORECAST_NEEDED;
     const cw = (W - pad.l - pad.r) / n;
     const max = days.reduce((top, d) => Math.max(top, d.forecast_wh, d.actual_wh, d.season_wh), 4000);
-    const top = Math.ceil(max / 2000) * 2000;
+    const top = Math.max(2000, Math.ceil(max / 2000) * 2000);
     const yv = (wh) => pad.t + (1 - wh / top) * (H - pad.t - pad.b);
     const bw = Math.min(14, cw * 0.28);
     const geo = { W, H, pad, cw };
@@ -161,7 +162,7 @@
     let s = '<svg class="mi-svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true">';
     for (let v = 0; v <= top; v += 2000) {
       s += '<line class="mi-grid" x1="' + pad.l + '" x2="' + (W - pad.r) + '" y1="' + yv(v).toFixed(1) + '" y2="' + yv(v).toFixed(1) + '"/>';
-      s += '<text class="mi-ylab" x="' + (pad.l - 6) + '" y="' + (yv(v) + 3.5).toFixed(1) + '">' + intText(v / 1000) + '</text>';
+      s += '<text class="mi-ylab" x="' + (pad.l - 6) + '" y="' + (yv(v) + 3.5).toFixed(1) + '">' + (fmt || intText)(v / 1000) + '</text>';
     }
     s += '<g class="mi-cols">';
     for (let i = 0; i < n; i++) {

@@ -208,7 +208,7 @@
             </template>
             <template x-if="learning">
               <div class="mi-progress" role="img" x-bind:aria-label="progress">
-                <template x-for="i in 14" x-bind:key="i"><i x-bind:class="{ 'is-on': i <= days.length }"></i></template>
+                <template x-for="i in needed" x-bind:key="i"><i x-bind:class="{ 'is-on': i <= days.length }"></i></template>
                 <span x-text="progress"></span>
               </div>
             </template>
@@ -220,7 +220,7 @@
       <section class="mi-card" aria-labelledby="mi-days-title">
         <div class="mi-head">
           <div>
-            <h3 class="mi-title" id="mi-days-title" x-text="window.I18n.t('monitoring.forecast.days.title', { n: 14 })"></h3>
+            <h3 class="mi-title" id="mi-days-title" x-text="window.I18n.t('monitoring.forecast.days.title', { n: needed })"></h3>
             <p class="mi-sub">{{t "monitoring.forecast.days.sub"}}</p>
           </div>
         </div>

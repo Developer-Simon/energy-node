@@ -229,3 +229,35 @@ test('dayRows with equal on and off minute is a point, not a full day', () => {
   assert.ok(Math.abs(r.segs[0].width - 15 / 14.4) < 1e-9, String(r.segs[0].width));
   assert.equal(M.onAt(rows, 12 * 60 + 5).on.includes('Gleich'), false);
 });
+
+test('seasonChart keeps a range when all exported values are 0', () => {
+  const weeks = [1, 2, 3].map((w) => ({ key: '2026-W0' + w, export_kwh: 0, source: 'live' }));
+  const out = M.seasonChart({ year: 2026, week: 3, weeks }, 'export', 2, 600, false, MONTHS.map((m) => m.slice(0, 3)));
+  assert.equal(out.svg.includes('NaN'), false);
+  assert.ok(out.geo.y1 > out.geo.y0);
+});
+
+test('seasonChart keeps a range when all temperatures are equal and negative', () => {
+  const weeks = [1, 2, 3].map((w) => ({ key: '2026-W0' + w, temp_c: -5, source: 'live' }));
+  const out = M.seasonChart({ year: 2026, week: 3, weeks }, 'temp', 2, 600, false, MONTHS.map((m) => m.slice(0, 3)));
+  assert.equal(out.svg.includes('NaN'), false);
+  assert.ok(out.geo.y1 > out.geo.y0);
+});
+
+test('seasonChart uses the given fmt for the axis labels', () => {
+  const weeks = [{ key: '2026-W01', pv_kwh: 10, source: 'live' }];
+  const out = M.seasonChart({ year: 2026, week: 1, weeks }, 'pv', 2, 600, false, MONTHS.map((m) => m.slice(0, 3)), (n) => 'X' + n);
+  assert.ok(out.svg.includes('>X0<'), 'custom fmt on the first tick');
+});
+
+test('forecastChart keeps the svg free of NaN when all days are 0 Wh', () => {
+  const days = [0, 1, 2].map((i) => ({ day: '2026-11-0' + (i + 1), forecast_wh: 0, actual_wh: 0, season_wh: 0 }));
+  const out = M.forecastChart(days, 14, 600, false);
+  assert.equal(out.svg.includes('NaN'), false);
+});
+
+test('forecastChart uses the given fmt for the axis labels', () => {
+  const days = [{ day: '2026-11-01', forecast_wh: 1000, actual_wh: 1000, season_wh: 1000 }];
+  const out = M.forecastChart(days, 14, 600, false, (n) => 'X' + n);
+  assert.ok(out.svg.includes('>X0<'), 'custom fmt on the first tick');
+});
