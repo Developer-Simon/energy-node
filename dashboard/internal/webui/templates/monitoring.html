@@ -13,6 +13,9 @@
         <span>{{t "monitoring.view.learned"}}</span>
         <span class="auto-count" x-text="learned.values.length"></span>
       </button>
+      <button class="auto-segment-tab mi-seg" type="button" role="tab" x-bind:aria-selected="view === 'forecast' ? 'true' : 'false'" x-bind:class="{ active: view === 'forecast' }" x-on:click="setView('forecast')">
+        <span>{{t "monitoring.view.forecast"}}</span>
+      </button>
     </div>
     <div class="monitoring-filters" role="group" aria-label="{{t "monitoring.filter.label"}}" x-show="view === 'notices'">
       <template x-for="f in filters()" x-bind:key="f.id">
@@ -102,6 +105,109 @@
           </div>
         </section>
       </template>
+    </div>
+  </div>
+
+  <!-- Prognose -->
+  <div class="monitoring-view" x-show="view === 'forecast'" x-cloak>
+    <div class="mi-fview" x-data="monitoringForecast()" x-effect="if (view === 'forecast') $nextTick(() => load())">
+
+      <p class="mi-error" role="alert" x-show="failed">{{t "monitoring.forecast.load_failed"}}</p>
+
+      <template x-if="status">
+        <section class="mi-status" x-bind:data-tone="status.tone" aria-live="polite">
+          <span class="mi-status-badge"><svg aria-hidden="true"><use x-bind:href="'#' + status.icon"></use></svg></span>
+          <h3 class="mi-status-title" x-text="status.title"></h3>
+          <p class="mi-status-text" x-text="status.text"></p>
+          <div class="mi-status-body">
+            <template x-if="!learning">
+              <div class="mi-mae">
+                <template x-for="b in bars" x-bind:key="b.id">
+                  <div class="mi-mae-row" x-bind:class="{ 'is-win': b.win }">
+                    <span class="mi-mae-label" x-text="b.label"></span>
+                    <span class="mi-mae-track"><span class="mi-mae-bar" x-bind:style="'width:' + b.pct + '%'"></span></span>
+                    <span class="mi-mae-val" x-text="b.value"></span>
+                  </div>
+                </template>
+                <p class="mi-mae-cap" x-text="caption"></p>
+              </div>
+            </template>
+            <template x-if="learning">
+              <div class="mi-progress" role="img" x-bind:aria-label="progress">
+                <template x-for="i in 14" x-bind:key="i"><i x-bind:class="{ 'is-on': i <= days.length }"></i></template>
+                <span x-text="progress"></span>
+              </div>
+            </template>
+            <p class="mi-use" x-text="useText"></p>
+          </div>
+        </section>
+      </template>
+
+      <section class="mi-card" aria-labelledby="mi-days-title">
+        <div class="mi-head">
+          <div>
+            <h3 class="mi-title" id="mi-days-title" x-text="window.I18n.t('monitoring.forecast.days.title', { n: 14 })"></h3>
+            <p class="mi-sub">{{t "monitoring.forecast.days.sub"}}</p>
+          </div>
+        </div>
+        <div class="mi-read" aria-live="polite" x-show="selDay">
+          <span class="mi-read-when"><span class="mi-read-title" x-text="readTitle"></span><span class="mi-read-range" x-text="readVerdict"></span></span>
+          <span class="mi-read-val"><span class="mi-read-yr">{{t "monitoring.forecast.read.forecast"}}</span><b x-text="selDay ? kwh(selDay.forecast_wh) : ''"></b></span>
+          <span class="mi-read-val"><span class="mi-read-yr">{{t "monitoring.forecast.read.actual"}}</span><b x-text="selDay ? kwh(selDay.actual_wh) : ''"></b></span>
+          <span class="mi-read-val"><span class="mi-read-yr">{{t "monitoring.forecast.read.median"}}</span><b x-text="selDay ? kwh(selDay.season_wh) : ''"></b></span>
+        </div>
+        <div class="mi-plot" x-ref="plot" tabindex="0" role="img" aria-label="{{t "monitoring.forecast.chart.label"}}" x-on:keydown="key($event)"></div>
+        <ul class="mi-legend">
+          <li><span class="mi-sw mi-sw-fc"></span>{{t "monitoring.forecast.legend.forecast"}}</li>
+          <li><span class="mi-sw mi-sw-act"></span>{{t "monitoring.forecast.legend.actual"}}</li>
+          <li><span class="mi-sw mi-sw-med"></span>{{t "monitoring.forecast.legend.median"}}</li>
+          <li><span class="mi-sw mi-sw-near"></span>{{t "monitoring.forecast.legend.near"}}</li>
+        </ul>
+      </section>
+
+      <!-- Jahresvergleich aus dem Saisongedaechtnis -->
+      <section class="mi-card" x-data="monitoringYear(() => data && data.season)" aria-labelledby="mi-year-title">
+        <div class="mi-head">
+          <div>
+            <h3 class="mi-title" id="mi-year-title">{{t "monitoring.season.title"}}</h3>
+            <p class="mi-sub">{{t "monitoring.season.sub"}}</p>
+          </div>
+        </div>
+        <div class="mi-metrics" role="group" aria-label="{{t "monitoring.season.metric.label"}}">
+          <template x-for="mm in metrics" x-bind:key="mm.id">
+            <button type="button" class="mi-chip" x-bind:class="{ 'is-on': metric === mm.id }" x-bind:aria-pressed="metric === mm.id ? 'true' : 'false'" x-on:click="setMetric(mm.id)">
+              <i x-bind:style="'color:' + window.MonitoringInsight.METRICS.find((x) => x.id === mm.id).color"></i><span x-text="mm.label"></span>
+            </button>
+          </template>
+        </div>
+        <p class="mi-empty" x-show="empty">{{t "monitoring.season.empty"}}</p>
+        <template x-if="summary">
+          <div class="mi-sum">
+            <span class="mi-sum-lead" x-text="summary.lead"></span>
+            <span class="mi-sum-cur" x-text="summary.cur"></span>
+            <span class="mi-pill" x-bind:class="summary.tone" x-text="summary.diff"></span>
+            <span class="mi-sum-prev" x-text="summary.prev"></span>
+            <span class="mi-sum-skip" x-show="summary.skipped" x-text="summary.skipped"></span>
+          </div>
+        </template>
+        <div class="mi-read" aria-live="polite" x-show="!empty">
+          <span class="mi-read-when"><span class="mi-read-title" x-text="readTitle"></span><span class="mi-read-range" x-text="readRange"></span></span>
+          <template x-for="row in readRows" x-bind:key="row.yr">
+            <span class="mi-read-val">
+              <span class="mi-read-yr" x-text="row.yr"></span>
+              <b x-text="row.value" x-show="row.value"></b>
+              <span class="mi-pill" x-bind:class="row.tone" x-show="row.diff" x-text="row.diff"></span>
+              <span class="mi-read-note" x-show="row.note" x-text="row.note"></span>
+            </span>
+          </template>
+        </div>
+        <div class="mi-plot" x-ref="plot" x-show="!empty" tabindex="0" role="img" x-bind:aria-label="window.I18n.t('monitoring.season.chart.label', { metric: metrics.find((x) => x.id === metric).label })" x-on:keydown="key($event)"></div>
+        <ul class="mi-legend" x-show="!empty" x-bind:style="'--mi-c:' + m.color">
+          <li><span class="mi-sw mi-sw-cur"></span><span x-text="years[0]"></span></li>
+          <li><span class="mi-sw mi-sw-prev"></span><span x-text="years[1]"></span></li>
+          <li x-show="years.length > 2"><span class="mi-sw mi-sw-prev2"></span><span x-text="years[2]"></span></li>
+        </ul>
+      </section>
     </div>
   </div>
 </section>

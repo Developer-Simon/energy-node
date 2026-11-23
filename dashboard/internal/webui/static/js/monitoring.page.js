@@ -125,7 +125,7 @@
       setView(view) {
         if (this.view === view) return;
         this.view = view;
-        this.$nextTick(() => this.fadeIn(this.$el && this.$el.querySelector(view === 'learned' ? '.monitoring-learned' : '.monitoring-split'), 6));
+        this.$nextTick(() => this.fadeIn(this.$el && this.$el.querySelector(view === 'learned' ? '.monitoring-learned' : view === 'forecast' ? '.mi-fview' : '.monitoring-split'), 6));
       },
       setFilter(id) { this.filter = id; this.pick = ''; },
 
