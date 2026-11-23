@@ -72,38 +72,111 @@
     </div>
   </div>
 
-  <!-- Lernwerte -->
+  <!-- Lernwerte: ein üblicher Tag, Lauf und Anlage (Aufbau wie in der Entwurfsseite) -->
   <div class="monitoring-view" x-show="view === 'learned'" x-cloak>
     <template x-if="!learned.enabled">
       <p class="monitoring-muted">{{t "monitoring.learned.off"}}</p>
     </template>
     <div class="monitoring-learned">
-      <template x-for="group in learnedGroups()" x-bind:key="group.id">
-        <section class="monitoring-lgroup">
-          <header class="monitoring-lgroup-head">
-            <span class="monitoring-lgroup-icon"><svg aria-hidden="true"><use x-bind:href="'#' + group.icon"></use></svg></span>
-            <span class="monitoring-lgroup-name" x-text="group.label"></span>
-            <span class="monitoring-count" x-text="countText(group)"></span>
-          </header>
-          <div class="monitoring-lrows">
-            <template x-for="row in group.rows" x-bind:key="row.key">
-              <div class="monitoring-lrow" x-bind:class="{ 'is-missing': !row.have, 'is-flash': flashKey === row.key }" x-bind:data-key="row.key">
-                <span class="monitoring-lrow-icon"><svg aria-hidden="true"><use x-bind:href="'#' + row.icon"></use></svg></span>
-                <div class="monitoring-lrow-main">
-                  <span class="monitoring-lrow-label" x-text="row.label"></span>
-                  <span class="monitoring-lrow-meta" x-text="row.meta"></span>
+      <template x-if="learned.enabled">
+        <div class="mi-lw" x-data="monitoringDay(() => learned.values, () => learnedFocus)">
+
+          <section class="mi-card" aria-labelledby="mi-day-title">
+            <div class="mi-head">
+              <div>
+                <h3 class="mi-title" id="mi-day-title">{{t "monitoring.day.title"}}</h3>
+                <p class="mi-sub" x-text="window.I18n.t('monitoring.day.sub', { n: house.n })"></p>
+              </div>
+              <span class="mi-pill" x-bind:class="house.state === 'active' ? 'is-up' : ''" x-text="house.stateText"></span>
+            </div>
+            <div class="mi-read" aria-live="polite">
+              <span class="mi-read-when"><span class="mi-read-title" x-text="readTime"></span><span class="mi-read-range" x-text="t == null ? window.I18n.t('monitoring.day.now') : window.I18n.t('monitoring.day.picked')"></span></span>
+              <span class="mi-read-val"><b x-text="readText"></b></span>
+            </div>
+            <div class="mi-day" x-ref="rows" tabindex="0" role="group" x-bind:aria-label="window.I18n.t('monitoring.day.label')" x-on:keydown="key($event)">
+              <span class="mi-day-now" x-ref="now" aria-hidden="true"></span>
+              <span class="mi-day-hair" x-ref="hair" aria-hidden="true"></span>
+              <template x-for="row in rows" x-bind:key="row.id">
+                <div class="mi-day-item" x-bind:data-row="row.id" x-bind:class="{ 'is-open': open === row.id }">
+                  <button type="button" class="mi-day-row" x-bind:aria-expanded="open === row.id ? 'true' : 'false'" x-on:click="toggle(row.id)">
+                    <span class="mi-day-name"><svg aria-hidden="true"><use x-bind:href="'#' + row.icon"></use></svg><span x-text="row.name"></span></span>
+                    <span class="mi-track" x-bind:class="'is-' + row.kind">
+                      <template x-for="(g, i) in row.segs" x-bind:key="i">
+                        <span class="mi-bar" x-bind:class="{ 'is-unsure': !row.sure }" x-bind:style="'left:' + g.left + '%;width:' + g.width + '%'"></span>
+                      </template>
+                      <span class="mi-free" x-show="row.kind === 'free'"><span class="mi-free-long" x-text="row.label"></span><span class="mi-free-short" x-text="row.short"></span></span>
+                    </span>
+                    <span class="mi-day-side" x-text="row.side"></span>
+                    <svg class="mi-day-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                  </button>
+                  <div class="mi-day-acc">
+                    <div class="mi-day-acc-inner">
+                      <div class="mi-day-detail">
+                        <div class="mi-day-main">
+                          <p class="mi-day-lead"><b x-text="row.label"></b><span x-show="!row.sure" class="mi-day-unsure">{{t "monitoring.day.unsure"}}</span></p>
+                          <div class="mi-day-year" x-show="row.yr" x-html="open === row.id && row.yr ? row.yr.svg : ''"></div>
+                        </div>
+                        <dl class="mi-day-facts">
+                          <template x-for="f in row.facts" x-bind:key="f[0] + f[1]"><div><dt x-text="f[0]"></dt><dd x-text="f[1]"></dd></div></template>
+                        </dl>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="monitoring-lrow-value">
-                  <span class="monitoring-lrow-num" x-text="row.value"></span>
-                  <template x-if="row.estimate"><span class="monitoring-est">{{t "automations.learned.estimate"}}</span></template>
-                  <template x-if="row.spark">
-                    <svg class="monitoring-spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><polyline x-bind:points="row.spark"></polyline></svg>
-                  </template>
+              </template>
+              <div class="mi-day-axis" aria-hidden="true"><span></span><span class="mi-day-ticks"><i>0</i><i>6</i><i>12</i><i>18</i><i>24</i></span></div>
+            </div>
+            <ul class="mi-legend">
+              <li><span class="mi-sw mi-sw-bar"></span>{{t "monitoring.day.legend.on"}}</li>
+              <li><span class="mi-sw mi-sw-unsure"></span>{{t "monitoring.day.unsure"}}</li>
+              <li><span class="mi-sw mi-sw-night"></span>{{t "monitoring.day.legend.night"}}</li>
+              <li><span class="mi-sw mi-sw-now"></span>{{t "monitoring.day.now"}}</li>
+            </ul>
+          </section>
+
+          <div class="mi-lw-grid">
+            <section class="mi-card" aria-labelledby="mi-run-title">
+              <div class="mi-head">
+                <div>
+                  <h3 class="mi-title" id="mi-run-title">{{t "monitoring.run.title"}}</h3>
+                  <p class="mi-sub">{{t "monitoring.run.sub"}}</p>
                 </div>
               </div>
-            </template>
+              <div class="mi-runs">
+                <template x-for="r in runs" x-bind:key="r.id">
+                  <div class="mi-run">
+                    <span class="mi-day-name"><svg aria-hidden="true"><use x-bind:href="'#' + r.icon"></use></svg><span x-text="r.name"></span></span>
+                    <span class="mi-run-val" x-text="r.value"></span>
+                    <span class="mi-run-track">
+                      <span class="mi-run-bar" x-bind:class="{ 'is-unsure': !r.sure }" x-bind:style="'width:' + r.pct + '%'"></span>
+                      <template x-for="(x, i) in r.ticks" x-bind:key="i"><i class="mi-run-tick" x-bind:style="'left:' + x + '%'"></i></template>
+                    </span>
+                    <span class="mi-run-sub" x-text="r.sub"></span>
+                  </div>
+                </template>
+              </div>
+            </section>
+
+            <section class="mi-card" aria-labelledby="mi-site-title">
+              <div class="mi-head">
+                <div>
+                  <h3 class="mi-title" id="mi-site-title">{{t "monitoring.learned.site"}}</h3>
+                  <p class="mi-sub">{{t "monitoring.site.sub"}}</p>
+                </div>
+              </div>
+              <div class="mi-tiles">
+                <template x-for="s in site" x-bind:key="s.id">
+                  <div class="mi-tile">
+                    <span class="mi-tile-label"><svg aria-hidden="true"><use x-bind:href="'#' + s.icon"></use></svg><span x-text="s.label"></span></span>
+                    <span class="mi-tile-val" x-text="s.value"></span>
+                    <span class="mi-tile-note" x-text="s.note"></span>
+                  </div>
+                </template>
+              </div>
+            </section>
           </div>
-        </section>
+
+        </div>
       </template>
     </div>
   </div>

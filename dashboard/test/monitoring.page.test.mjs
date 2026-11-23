@@ -111,3 +111,12 @@ test('the load error text is in the catalog and the template shows it on failure
   assert.match(template, /x-show="failed"[^>]*>\{\{t "monitoring\.load_failed"\}\}</);
   assert.match(template, /x-if="loaded && !failed && !list\(\)\.length"/);
 });
+
+test('goLearned(key) sets learnedFocus and opens the learned view', () => {
+  const { component } = createPanel();
+  component.goLearned('device/plug/usual_on');
+  assert.equal(component.learnedFocus, 'device/plug/usual_on');
+  assert.equal(component.view, 'learned');
+  component.goLearned();
+  assert.equal(component.learnedFocus, '');
+});
