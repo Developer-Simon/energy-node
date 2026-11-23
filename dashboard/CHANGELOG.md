@@ -351,6 +351,7 @@
 - **webui:** gate finding actions, close the popover on scroll and keep every undo (cf08e7f)
 - **automations:** read the resolve section of the learned vectors in the JS test (2405fe4)
 - **webui:** animate the band card and soften the popover close (ae782ae)
+- **autolearn:** list findings without a fix only in Monitoring (2e4acd0)
 - **automations:** correct the learning feature after the full review (#296)
 - **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** harden the replay against unsupported fields and absent keys (f762aae)
