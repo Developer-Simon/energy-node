@@ -93,27 +93,95 @@ func TestGateQuietValuesChangeOnlyBeyondSpread(t *testing.T) {
 	}
 }
 
-func TestGateDropsDuplicateOfExistingRule(t *testing.T) {
-	prefillRules["test_tpl"] = func(map[string]any) (Rule, bool) {
-		return Rule{Name: "neu", Conditions: []Condition{gateThreshold()},
-			Actions: []Action{{Type: "publish", Topic: "t/x", Payload: "1"}}}, true
+// gateCoverDoc is a rule that switches lamp off at 22:30 by a time window.
+func gateCoverDoc(entity string, on bool) (Doc, func(string) []Target) {
+	off := !on
+	rule := Rule{ID: "lamp-night", Name: "Lampe", Enabled: true,
+		Conditions: []Condition{{Type: "time_window", Raw: json.RawMessage(`{"type":"time_window","start":"22:30","end":"22:31"}`)}},
+		Actions:    []Action{{Type: "publish", EntityID: entity, Payload: "x"}}}
+	doc := Doc{Rules: []Rule{rule}}
+	targets := func(id string) []Target {
+		if id != rule.ID {
+			return nil
+		}
+		return []Target{{Entity: entity, On: &off}}
 	}
-	t.Cleanup(func() { delete(prefillRules, "test_tpl") })
+	return doc, targets
+}
 
-	doc := Doc{Rules: []Rule{{ID: "old", Name: "alt", Enabled: true,
-		Conditions: []Condition{gateThreshold()},
-		Actions:    []Action{{Type: "publish", Topic: "t/x", Payload: "1"}}}}}
+// gateTimeCand is a time_point suggestion for entity at 22:30.
+func gateTimeCand(id, entity string, on bool) Candidate {
+	cand := gateCand(id, "switch_time", 1, 2, 2, true)
+	cand.Finding.Apply = []Fix{{Code: "time_point", Template: "time_point",
+		Prefill: map[string]any{"entity": entity, "on": on, "time": "22:30"}}}
+	return cand
+}
 
-	cand := gateCand("a", "x", 1, 2, 2, true)
-	cand.Finding.Apply = []Fix{{Code: "fix", Template: "test_tpl"}}
-	if out, _ := Gate([]Candidate{cand}, doc, nil, GateOptions{}); len(out) != 0 {
-		t.Errorf("duplicate kept: %v", gateIDs(out))
+func TestGateDropsCoveredSuggestion(t *testing.T) {
+	doc, targets := gateCoverDoc("switch.lamp", false)
+	cand := gateTimeCand("a", "switch.lamp", false)
+	if out, _ := Gate([]Candidate{cand}, doc, nil, GateOptions{Targets: targets}); len(out) != 0 {
+		t.Fatalf("kept %v, want the covered suggestion dropped", gateIDs(out))
+	}
+}
+
+func TestGateDropsContradiction(t *testing.T) {
+	doc, targets := gateCoverDoc("switch.lamp", true)
+	cand := gateTimeCand("a", "switch.lamp", false)
+	if out, _ := Gate([]Candidate{cand}, doc, nil, GateOptions{Targets: targets}); len(out) != 0 {
+		t.Fatalf("kept %v, want the contradicting suggestion dropped", gateIDs(out))
+	}
+}
+
+func TestGateKeepsOtherEntity(t *testing.T) {
+	doc, targets := gateCoverDoc("switch.lamp", false)
+	cand := gateTimeCand("a", "switch.other", false)
+	if out, _ := Gate([]Candidate{cand}, doc, nil, GateOptions{Targets: targets}); len(out) != 1 {
+		t.Fatalf("kept %v, want one suggestion for another entity", gateIDs(out))
+	}
+}
+
+func TestGateKeepsOtherTrigger(t *testing.T) {
+	doc, targets := gateCoverDoc("switch.lamp", false)
+	cand := gateCand("a", "runtime", 1, 2, 2, true)
+	cand.Finding.Apply = []Fix{{Code: "runtime_off", Template: "runtime_off",
+		Prefill: map[string]any{"entity": "switch.lamp"}}}
+	if out, _ := Gate([]Candidate{cand}, doc, nil, GateOptions{Targets: targets}); len(out) != 1 {
+		t.Fatalf("kept %v, want one suggestion with another trigger", gateIDs(out))
+	}
+}
+
+func TestGateDisabledRuleCoversNothing(t *testing.T) {
+	doc, targets := gateCoverDoc("switch.lamp", false)
+	doc.Rules[0].Enabled = false
+	cand := gateTimeCand("a", "switch.lamp", false)
+	if out, _ := Gate([]Candidate{cand}, doc, nil, GateOptions{Targets: targets}); len(out) != 1 {
+		t.Fatalf("kept %v, want one suggestion, the rule is off", gateIDs(out))
+	}
+}
+
+func TestGateDropsUnreplayedEnergy(t *testing.T) {
+	verdict := &ReplayVerdict{}
+	for _, det := range []string{"surplus_window", "load_shift", "threshold_rating"} {
+		if out, _ := Gate([]Candidate{gateCand("e", det, 1, 2, 2, true)}, Doc{}, nil, GateOptions{}); len(out) != 0 {
+			t.Errorf("%s without replay kept", det)
+		}
+		c := gateCand("e", det, 1, 2, 2, true)
+		c.Replay = verdict
+		if out, _ := Gate([]Candidate{c}, Doc{}, nil, GateOptions{}); len(out) != 1 {
+			t.Errorf("%s with replay verdict dropped", det)
+		}
 	}
 
-	// Without a rule to build from, the candidate is kept.
-	cand.Finding.Apply = []Fix{{Code: "fix", Template: "unknown_tpl"}}
-	if out, _ := Gate([]Candidate{cand}, doc, nil, GateOptions{}); len(out) != 1 {
-		t.Errorf("unbuildable template dropped: %v", gateIDs(out))
+	battery := gateCand("b", "battery", 1, 2, 2, true)
+	battery.Finding.Apply = []Fix{{Code: "after_battery_full", Template: "after_battery_full",
+		Prefill: map[string]any{"entity": "switch.boiler"}}}
+	if out, _ := Gate([]Candidate{battery}, Doc{}, nil, GateOptions{}); len(out) != 0 {
+		t.Errorf("after_battery_full without replay kept")
+	}
+	battery.Replay = verdict
+	if out, _ := Gate([]Candidate{battery}, Doc{}, nil, GateOptions{}); len(out) != 1 {
+		t.Errorf("after_battery_full with replay verdict dropped")
 	}
 }
 

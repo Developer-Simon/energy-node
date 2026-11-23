@@ -133,7 +133,12 @@ func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc 
 		}
 	}
 	before := shownIDs(book.state.Shown())
-	out, shown := autolearn.Gate(cands, doc, book.state.Shown(), autolearn.GateOptions{Hidden: book.state.Hidden})
+	// The switch entities of a rule come from its entity_id actions. The command
+	// topic table is not needed for that, so no payload check runs here.
+	out, shown := autolearn.Gate(cands, doc, book.state.Shown(), autolearn.GateOptions{
+		Hidden:  book.state.Hidden,
+		Targets: autolearn.RuleTargets(doc, nil),
+	})
 	for i := range out {
 		f := &out[i]
 		// The temperature limit is the cure for warm weather, so it is never rested.

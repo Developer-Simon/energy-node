@@ -23,21 +23,15 @@ const (
 	gateTopSlots = 3
 	// gatePerDetector is the most suggestions of one detector in the top slots.
 	gatePerDetector = 2
-	// probeRuleID names the prepared rule in the compatibility check.
-	probeRuleID = "candidate-probe"
 )
-
-// prefillRules builds the rule of a template from its prefill. A template
-// without a builder, or a prefill the builder rejects, leaves the candidate
-// unchecked for compatibility.
-var prefillRules = map[string]func(prefill map[string]any) (Rule, bool){}
 
 // GateOptions are the inputs of Gate that the caller knows and the candidates
 // do not. The zero value hides nothing and has no targets.
 type GateOptions struct {
 	// Hidden reports a finding that was dismissed or postponed. Nil hides nothing.
 	Hidden func(id string) bool
-	// Targets returns the targets of a rule ID. Nil means no targets.
+	// Targets returns the targets of a rule or scenario ID. Nil means no targets,
+	// so the rules cover no suggestion.
 	Targets func(ruleID string) []Target
 }
 
@@ -55,6 +49,7 @@ type scored struct {
 // finding ID, and shown is what is shown now. Hidden findings do not count
 // against the cap.
 func Gate(cands []Candidate, doc Doc, prev map[string]Shown, opt GateOptions) (out []Finding, shown map[string]Shown) {
+	active := activeIntents(doc, opt.Targets)
 	var kept []scored
 	for _, c := range cands {
 		f := c.Finding
@@ -72,6 +67,9 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown, opt GateOptions) (o
 		if c.Replay != nil && replayAddsGrid(*c.Replay) {
 			continue
 		}
+		if replayRequired(c) && c.Replay == nil {
+			continue
+		}
 
 		conf := f.Confidence
 		var score float64
@@ -85,7 +83,7 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown, opt GateOptions) (o
 			if !pass && seen {
 				conf, pass = "estimate", true
 			}
-			if !pass || !compatible(f, doc) {
+			if !pass || coveredBy(f, active) {
 				continue
 			}
 			if c.Replay != nil && c.Replay.Estimate && conf == "high" {
@@ -292,45 +290,74 @@ func benefitKWh(b Benefit) (float64, bool) {
 	return b.Value, true
 }
 
-// compatible runs the prepared rule of the first template fix through the
-// static rule check together with the document. A new duplicate or
-// contradiction makes the candidate incompatible.
-func compatible(f Finding, doc Doc) bool {
-	for _, fix := range f.Apply {
-		if fix.Template == "" {
-			continue
-		}
-		build := prefillRules[fix.Template]
-		if build == nil {
-			return true
-		}
-		rule, ok := build(fix.Prefill)
-		if !ok {
-			return true
-		}
-		rule.ID = probeRuleID
-		rule.Enabled = true
-		probe := Doc{
-			Rules:     append(append([]Rule(nil), doc.Rules...), rule),
-			Scenarios: doc.Scenarios,
-		}
-		for _, pf := range StaticFindings(probe, nil) {
-			if (pf.Kind == "duplicate" || pf.Kind == "contradiction") && containsID(pf.RuleIDs, probeRuleID) {
-				return false
+// replayRequired reports the energy suggestions that are shown only with a
+// replay verdict (spec 15.6): surplus windows, load shifts, threshold ratings
+// and the after_battery_full suggestion of the battery detector.
+func replayRequired(c Candidate) bool {
+	switch c.Detector {
+	case "surplus_window", "load_shift", "threshold_rating":
+		return true
+	case "battery":
+		for _, fix := range c.Finding.Apply {
+			if fix.Template == "after_battery_full" {
+				return true
 			}
 		}
-		return true
 	}
-	return true
+	return false
 }
 
-func containsID(ids []string, id string) bool {
-	for _, x := range ids {
-		if x == id {
+// activeIntents returns the intents of the enabled rules of doc and of its
+// enabled scenarios. A scenario switches its regulated entity as a surplus
+// trigger. Without targets there are no intents.
+func activeIntents(doc Doc, targets func(ruleID string) []Target) []Intent {
+	if targets == nil {
+		return nil
+	}
+	var out []Intent
+	for _, r := range doc.Rules {
+		if r.Enabled {
+			out = append(out, RuleIntents(r, targets(r.ID))...)
+		}
+	}
+	for _, s := range doc.Scenarios {
+		if !s.Enabled {
+			continue
+		}
+		for _, t := range targets(s.ID) {
+			if t.Entity != "" {
+				out = append(out, Intent{Entity: t.Entity, On: t.On != nil && *t.On, Trigger: "surplus"})
+			}
+		}
+	}
+	return out
+}
+
+// coveredBy reports whether an active rule switches the entity of the first
+// fix of f with the same trigger. The same direction is a duplicate, the
+// other direction a contradiction, and both are dropped. A finding without a
+// known intent is never covered.
+func coveredBy(f Finding, active []Intent) bool {
+	in, ok := findingIntent(f)
+	if !ok || in.Entity == "" {
+		return false
+	}
+	for _, a := range active {
+		if a.Entity == in.Entity && a.Trigger == in.Trigger {
 			return true
 		}
 	}
 	return false
+}
+
+// findingIntent returns the intent of the first fix with a known template.
+func findingIntent(f Finding) (Intent, bool) {
+	for _, fix := range f.Apply {
+		if in, ok := TemplateIntent(fix); ok {
+			return in, true
+		}
+	}
+	return Intent{}, false
 }
 
 // valuesMoved reports whether a value wandered further than its spread from
