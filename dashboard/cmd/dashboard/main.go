@@ -821,6 +821,8 @@ func main() {
 	})
 	// Die Reglerschritte fuer die Regelguete der Nulleinspeisung.
 	automationEngine.SetSteps(minutes.steps.Steps)
+	// Die gezeigten Vorschläge, damit eine Schaltzeit ihre ID behält.
+	automationEngine.SetShown(func() map[string]bool { return shownIDs(suggestionState.Shown()) })
 	go runStorageResume(ctx, storageService)
 	// Die Belegung der Systemplatte: in der Demo feste Werte, sonst eine Messung
 	// im Hintergrund, die alle zehn Minuten erneuert wird.

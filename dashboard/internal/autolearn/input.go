@@ -40,6 +40,9 @@ type Input struct {
 	// Learned holds the learned values by key, such as site/base_w. Nil when
 	// no store is wired.
 	Learned map[string]LearnedEntry
+	// ShownIDs holds the IDs the band shows now. A switch time keeps a shown
+	// ID while its centre stays within switchTimeIDMin of it. Nil means none.
+	ShownIDs map[string]bool
 	// PriorEmptyShare returns the share of the days of an ISO week of the year
 	// before that were empty before sunrise, and whether a record of that week
 	// exists. Nil, or a week without a record, means the empty finding is not made.

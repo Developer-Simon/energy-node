@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
@@ -39,9 +41,12 @@ const (
 	// switchTimeEstLower and switchTimeEstSpread are the bounds for an estimate.
 	switchTimeEstLower  = 0.45
 	switchTimeEstSpread = 40.0
-	// switchTimeRoundMin rounds the proposed time, switchTimeIDMin the time in the ID.
+	// switchTimeRoundMin rounds the proposed time.
 	switchTimeRoundMin = 5.0
-	switchTimeIDMin    = 30.0
+	// switchTimeIDMin is the grid width of the time in the ID, 30 minutes like
+	// the existing grid. A shown ID is kept while the centre stays within this
+	// distance of it, so a centre that drifts across a grid line keeps its ID.
+	switchTimeIDMin = 30.0
 )
 
 // swRef is one day of the device that the detector reads.
@@ -192,14 +197,15 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 	q := int(c / 15)
 	prev := (q + dayQuarters - 1) % dayQuarters
 
-	// Counted days: the quarter of the centre was seen, and the device was not
-	// already in the target state in the quarter before. For a centre in
-	// quarter 0 the quarter before is quarter 95 of the previous day, and a day
-	// without a previous day is not counted.
+	// Counted days: the quarter of the centre was seen and the device was
+	// reachable in it, and the device was not already in the target state in
+	// the quarter before. For a centre in quarter 0 the quarter before is
+	// quarter 95 of the previous day, and a day without a previous day is not
+	// counted. Unreachable days count neither as hit nor as miss (spec 15.3).
 	var counted, hit []int
 	for _, i := range group {
 		r := &refs[i]
-		if r.dd == nil || r.dd.Seen[q] == 0 {
+		if r.dd == nil || r.dd.Seen[q] == 0 || unreachable(r.dd, q) {
 			continue
 		}
 		before, pq := r.dd, prev
@@ -244,6 +250,9 @@ func switchTimeCandidate(in *Input, device string, g int, on bool, refs []swRef,
 
 	propMin := math.Mod(math.Round(c/switchTimeRoundMin)*switchTimeRoundMin, minutesPerDay)
 	idMin := math.Mod(math.Round(c/switchTimeIDMin)*switchTimeIDMin, minutesPerDay)
+	if m, ok := switchTimeShownMin(in.ShownIDs, device, dirName, g, c); ok {
+		idMin = m
+	}
 	clock := switchTimeClock(propMin)
 	id := fmt.Sprintf("switch_time:%s:%s:%d:%s", device, dirName, g, switchTimeCompact(idMin))
 
@@ -557,6 +566,35 @@ func switchTimeHalvesAgree(refs []swRef, counted []int, dir int, center, window,
 func switchTimeClock(m float64) string {
 	v := int(m)
 	return fmt.Sprintf("%02d:%02d", v/60, v%60)
+}
+
+// switchTimeShownMin returns the time of the shown ID of the device, direction
+// and group that lies closest to center, when it lies within switchTimeIDMin.
+// Ties go to the smaller ID.
+func switchTimeShownMin(shown map[string]bool, device, dirName string, g int, center float64) (float64, bool) {
+	prefix := fmt.Sprintf("switch_time:%s:%s:%d:", device, dirName, g)
+	var best float64
+	bestDist := math.Inf(1)
+	bestID := ""
+	for id := range shown {
+		if !strings.HasPrefix(id, prefix) {
+			continue
+		}
+		digits := id[len(prefix):]
+		v, err := strconv.Atoi(digits)
+		if err != nil || len(digits) != 4 {
+			continue
+		}
+		m := float64((v/100)*60 + v%100)
+		d := math.Abs(circDelta(m, center))
+		if d > switchTimeIDMin {
+			continue
+		}
+		if d < bestDist || (d == bestDist && id < bestID) {
+			best, bestDist, bestID = m, d, id
+		}
+	}
+	return best, bestDist < math.Inf(1)
 }
 
 // switchTimeCompact formats minutes of the day as HHMM, for IDs.

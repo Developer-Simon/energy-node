@@ -73,6 +73,7 @@ type Engine struct {
 	minutes   func() learnrec.Reader
 	prep      Preparer
 	steps     func(scenario string, from, to time.Time) []Step
+	shown     func() map[string]bool
 	// recentC is the mean outdoor temperature of the last three days as the
 	// last round read it, nil when unknown.
 	recentC *float64
@@ -478,12 +479,16 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 	learned := e.learned
 	minutes := e.minutes
 	steps := e.steps
+	shown := e.shown
 	e.mu.Unlock()
 	if minutes != nil {
 		in.Minutes = minutes()
 	}
 	if steps != nil {
 		in.Steps = steps
+	}
+	if shown != nil {
+		in.ShownIDs = shown()
 	}
 	if learned != nil {
 		in.Learned = learned()
@@ -515,6 +520,14 @@ func (e *Engine) SetLearned(f func() map[string]LearnedEntry) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.learned = f
+}
+
+// SetShown gives the engine the IDs the band shows now. A round reads them into
+// Input.ShownIDs, so a switch time keeps its ID. Without it no ID is kept.
+func (e *Engine) SetShown(f func() map[string]bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.shown = f
 }
 
 // SetMinutes gives the engine the minute record. A round reads it into

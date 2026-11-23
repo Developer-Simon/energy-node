@@ -172,3 +172,40 @@ func couplingFact(c Candidate, code string) any {
 	}
 	return -1
 }
+
+func TestCouplingSkipsUnreachableAndAway(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	// Days 0 to 4: B is out of reach, so it cannot follow A. Days 5 to 9: the
+	// days are away. Days 10 to 19: B follows A within two minutes every day.
+	days := couplingDays(start, 20, func(i int, day time.Time) []EventRec {
+		aAt := time.Date(day.Year(), day.Month(), day.Day(), 19, 0, 0, 0, loc)
+		evs := []EventRec{couplingHand("a", true, aAt)}
+		if i >= 10 {
+			evs = append(evs, couplingHand("b", true, aAt.Add(40*time.Second)))
+		}
+		return evs
+	})
+	for i := range days {
+		for _, id := range []string{"a", "b"} {
+			dd := &DeviceDay{}
+			dd.Seen[76], dd.Reach[76] = 4, 4
+			if id == "b" && i < 5 {
+				dd.Reach[76] = 0
+			}
+			days[i].Devices[id] = dd
+		}
+	}
+	in := couplingInput(t, days, Doc{}, NewReactions())
+	for i := 5; i < 10; i++ {
+		in.Base.Away[days[i].Day] = true
+	}
+	cands := CouplingDetector.Run(context.Background(), in, "")
+	got := couplingFor(cands, "coupling:a:on:b:on")
+	if len(got) != 1 {
+		t.Fatalf("coupling:a:on:b:on candidates = %d, want 1 (all: %d)", len(got), len(cands))
+	}
+	if got[0].Finding.Summary.Params["hits"] != 10 || got[0].Finding.Summary.Params["cases"] != 10 {
+		t.Errorf("hits and cases = %v and %v, want 10 and 10", got[0].Finding.Summary.Params["hits"], got[0].Finding.Summary.Params["cases"])
+	}
+}
