@@ -85,7 +85,7 @@
             <div class="mi-head">
               <div>
                 <h3 class="mi-title" id="mi-day-title">{{t "monitoring.day.title"}}</h3>
-                <p class="mi-sub" x-text="window.I18n.t('monitoring.day.sub', { n: house.n })"></p>
+                <p class="mi-sub" x-show="house.n > 0" x-text="window.I18n.t('monitoring.day.sub', { n: house.n })"></p>
               </div>
               <span class="mi-pill" x-bind:class="house.state === 'active' ? 'is-up' : ''" x-text="house.stateText"></span>
             </div>
@@ -135,7 +135,7 @@
           </section>
 
           <div class="mi-lw-grid">
-            <section class="mi-card" aria-labelledby="mi-run-title">
+            <section class="mi-card" aria-labelledby="mi-run-title" x-show="runs.length">
               <div class="mi-head">
                 <div>
                   <h3 class="mi-title" id="mi-run-title">{{t "monitoring.run.title"}}</h3>
@@ -157,7 +157,7 @@
               </div>
             </section>
 
-            <section class="mi-card" aria-labelledby="mi-site-title">
+            <section class="mi-card" aria-labelledby="mi-site-title" x-show="site.length">
               <div class="mi-head">
                 <div>
                   <h3 class="mi-title" id="mi-site-title">{{t "monitoring.learned.site"}}</h3>

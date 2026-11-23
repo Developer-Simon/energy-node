@@ -354,3 +354,8 @@
   .mi-day-acc, .mi-day-item.is-open .mi-day-acc { transition: opacity 150ms ease, visibility 0s; }
   .mi-day-chev { transition: none; }
 }
+
+/* Schmale Bildschirme: die Grid-Spalten duerfen schrumpfen, die Diagramme passen sich der Breite an */
+.mi-fview, .mi-lw { grid-template-columns: minmax(0, 1fr); }
+.mi-card, .mi-status, .mi-plot, .mi-day { min-width: 0; }
+.mi-plot .mi-svg { max-width: 100%; height: auto; }

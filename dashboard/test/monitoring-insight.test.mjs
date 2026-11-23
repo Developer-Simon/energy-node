@@ -280,3 +280,43 @@ test('monitoringForecast destroy disconnects the observer and removes its listen
   assert.equal(observer.disconnects, 1);
   assert.equal(listeners.removed, 4);
 });
+
+test('monitoringDay shows only the date of the last change', () => {
+  const changed = Math.floor(Date.now() / 1000) - 3 * 86400;
+  const values = [
+    { key: 'device/plug/usual_on', value: '16:45', n: 12, device_name: 'Steckdose', changed_at: changed },
+    { key: 'device/plug/usual_off', value: '22:30', n: 12, device_name: 'Steckdose', changed_at: changed },
+  ];
+  const { component, dom } = dayComponent(values);
+  const label = dom.window.I18n.t('monitoring.day.fact.changed');
+  const fact = component.rows.find((row) => row.id === 'plug').facts.find(([name]) => name === label);
+  assert.ok(fact, 'the changed fact is listed');
+  assert.equal(fact[1].includes('vor'), false, fact[1]);
+});
+
+test('monitoringDay has no runs, site tiles or house count without values', () => {
+  const { component } = dayComponent([]);
+  assert.equal(component.runs.length, 0);
+  assert.equal(component.site.length, 0);
+  assert.equal(component.house.n, 0);
+});
+
+test('monitoringYear starts at the last week with data in the current year', () => {
+  const { factories } = create();
+  const year = factories.monitoringYear(() => ({
+    year: 2026, week: 5,
+    weeks: [
+      { key: '2026-W01', pv_kwh: 5, source: 'live' },
+      { key: '2026-W03', pv_kwh: 7, source: 'live' },
+    ],
+  }));
+  year.$refs = {};
+  assert.equal(year.selWeek, 3);
+});
+
+test('monitoringYear falls back to the current week without data', () => {
+  const { factories } = create();
+  const year = factories.monitoringYear(() => ({ year: 2026, week: 5, weeks: [] }));
+  year.$refs = {};
+  assert.equal(year.selWeek, 5);
+});

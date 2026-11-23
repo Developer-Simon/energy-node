@@ -14,7 +14,7 @@
 // monitoring.season.sum.lead, monitoring.season.sum.lead_mean, monitoring.season.sum.prev,
 // monitoring.season.sum.skipped, monitoring.season.metric.pv, monitoring.season.metric.load,
 // monitoring.season.metric.export, monitoring.season.metric.base, monitoring.season.metric.temp
-// i18n-keys (Tagesbild): monitoring.day.fact.days, monitoring.day.fact.ago, monitoring.day.fact.changed, monitoring.day.fact.learned, monitoring.day.fact.prev, monitoring.day.fact.prev_value, monitoring.day.fact.runs, monitoring.day.fact.sure, monitoring.day.fact.sure_no, monitoring.day.fact.sure_yes, monitoring.day.allday, monitoring.day.allday_short, monitoring.day.free, monitoring.day.free_short, monitoring.day.house, monitoring.day.night, monitoring.day.point, monitoring.day.read.night, monitoring.day.read.night_on, monitoring.day.read.none, monitoring.day.read.on, monitoring.day.state.active, monitoring.day.state.quiet, monitoring.day.unsure, monitoring.day.window, monitoring.run.power_for, monitoring.site.reserve, monitoring.site.reserve_est, monitoring.site.surplus_note, monitoring.site.to_forecast, monitoring.learned.short.pv_reserve_w, monitoring.learned.short.surplus_left_wh, status.uptime.hours_minutes, status.uptime.minutes
+// i18n-keys (Tagesbild): monitoring.day.fact.days, monitoring.day.fact.changed, monitoring.day.fact.learned, monitoring.day.fact.prev, monitoring.day.fact.prev_value, monitoring.day.fact.runs, monitoring.day.fact.sure, monitoring.day.fact.sure_no, monitoring.day.fact.sure_yes, monitoring.day.allday, monitoring.day.allday_short, monitoring.day.free, monitoring.day.free_short, monitoring.day.house, monitoring.day.night, monitoring.day.point, monitoring.day.read.night, monitoring.day.read.night_on, monitoring.day.read.none, monitoring.day.read.on, monitoring.day.state.active, monitoring.day.state.quiet, monitoring.day.unsure, monitoring.day.window, monitoring.run.power_for, monitoring.site.reserve, monitoring.site.reserve_est, monitoring.site.surplus_note, monitoring.site.to_forecast, monitoring.learned.short.pv_reserve_w, monitoring.learned.short.surplus_left_wh, status.uptime.hours_minutes, status.uptime.minutes
 (() => {
   const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
   const FORECAST_PATH = '/api/v1/monitoring/forecast';
@@ -269,7 +269,14 @@
         for (let w = 1; w <= s.week; w++) if (!cur[w]) return true;
         return false;
       },
-      get selWeek() { return this.sel != null ? this.sel : (this.season ? this.season.week : 1); },
+      // Vorgabe: die letzte Woche mit Daten im laufenden Jahr, sonst die aktuelle Woche
+      get defaultWeek() {
+        const s = this.season; if (!s) return 1;
+        const cur = window.MonitoringInsight.seasonSeries(s.weeks, s.year, this.metric);
+        for (let w = s.week; w >= 1; w--) if (cur[w]) return w;
+        return s.week;
+      },
+      get selWeek() { return this.sel != null ? this.sel : this.defaultWeek; },
       get empty() { return this.summary === null; },
       fmt(v) {
         const m = this.m;
@@ -401,7 +408,6 @@
   // getFocus liefert learnedFocus (Schluessel aus dem Lernwert-Reiter, z. B. device/<id>/usual_on).
   const pad2 = (v) => String(v).padStart(2, '0');
   const hhmm = (m) => pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
-  const DAY_SECONDS = 86400;
   const LONG_RUN_SECONDS = 20 * 3600;
   // Dauer aus Sekunden, Einheiten aus dem Katalog (status.uptime)
   function durText(seconds) {
@@ -416,13 +422,9 @@
     if (parts[0] === 'device' && parts[1]) return parts[1];
     return SITE_HOUSE_KEYS.includes(key) ? 'house' : '';
   }
-  // Alter eines Lernwerts: Tage als Zahl, sonst das Datum der Aenderung
-  function agoText(changedAt) {
-    const days = Math.floor((Date.now() / 1000 - changedAt) / DAY_SECONDS);
-    const age = days >= 1
-      ? t('monitoring.day.fact.days', { n: num(days, 0) })
-      : fmtDate(new Date(changedAt * 1000), { day: 'numeric', month: 'short' });
-    return t('monitoring.day.fact.ago', { age });
+  // Datum der letzten Aenderung eines Lernwerts, nur das Datum
+  function changedText(changedAt) {
+    return fmtDate(new Date(changedAt * 1000), { day: 'numeric', month: 'short' });
   }
   const valueText = (entry, v) => (entry.kind === 'duration' ? durText(Number(v)) : String(v));
 
@@ -436,7 +438,7 @@
     }
     out.push([t('monitoring.day.fact.sure'), t(row.sure ? 'monitoring.day.fact.sure_yes' : 'monitoring.day.fact.sure_no')]);
     const changed = Math.max(0, ...entries.map((e) => e.changed_at || 0));
-    if (changed) out.push([t('monitoring.day.fact.changed'), agoText(changed)]);
+    if (changed) out.push([t('monitoring.day.fact.changed'), changedText(changed)]);
     entries.filter((e) => e.prev != null).forEach((e) => {
       out.push([t('monitoring.day.fact.prev'), t('monitoring.day.fact.prev_value', { prev: valueText(e, e.prev), value: valueText(e, e.value) })]);
     });
