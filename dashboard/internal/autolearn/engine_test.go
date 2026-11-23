@@ -327,19 +327,19 @@ func TestEngineShareLimitPerLevel(t *testing.T) {
 	// 6 % of one core over 24 hours: over the eco limit, under the others.
 	six := map[string]time.Duration{"x": 5184 * time.Second}
 	e := newTestEngine(t, eco)
-	e.record(now, eco, nil, nil, nil, six)
+	e.record(now, eco, nil, nil, nil, nil, six)
 	if !e.Downgrade() {
 		t.Fatal("eco: 6 % share did not ask for a downgrade")
 	}
 	e = newTestEngine(t, balanced)
-	e.record(now, balanced, nil, nil, nil, six)
+	e.record(now, balanced, nil, nil, nil, nil, six)
 	if e.Downgrade() {
 		t.Fatal("balanced: 6 % share asked for a downgrade, want none")
 	}
 	// 12 % is over the limit of the other levels.
 	twelve := map[string]time.Duration{"x": 10368 * time.Second}
 	e = newTestEngine(t, balanced)
-	e.record(now, balanced, nil, nil, nil, twelve)
+	e.record(now, balanced, nil, nil, nil, nil, twelve)
 	if !e.Downgrade() {
 		t.Fatal("balanced: 12 % share did not ask for a downgrade")
 	}
@@ -398,5 +398,39 @@ func TestEnginePreparerWrapsOnlyTheDailyRun(t *testing.T) {
 	}
 	if runs.Load() != 1 {
 		t.Fatalf("der Erkenner muss im Lauf laufen, runs = %d", runs.Load())
+	}
+}
+
+func TestEngineCarryKeepsOtherDevices(t *testing.T) {
+	limits := learnrec.LimitsFor(learnrec.LevelBalanced, 4)
+	limits.Workers = 1
+	limits.Budget = 20 * time.Millisecond
+	limits.LightEvery = 15 * time.Minute
+	e := newTestEngine(t, limits)
+	e.devices = func() map[string]DeviceInfo {
+		return map[string]DeviceInfo{"A": {}, "B": {}}
+	}
+	// B overruns in the daily round only. A finishes there.
+	var slowB atomic.Bool
+	slowB.Store(true)
+	e.Register(Detector{Name: "per", Group: "habit", Light: false, PerDevice: true, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+		if device == "B" && slowB.Load() {
+			<-ctx.Done()
+			return nil
+		}
+		return []Candidate{{Finding: Finding{Kind: device}}}
+	}})
+	e.Register(Detector{Name: "tick", Group: "habit", Light: true, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+		return nil
+	}})
+
+	e.Tick(at(t, "2026-11-20", "03:00"), habitOnly) // start, only the light detector is due
+	e.Tick(at(t, "2026-11-20", "03:30"), habitOnly) // daily round: A done, B carried
+	slowB.Store(false)
+	e.Tick(at(t, "2026-11-20", "03:45"), habitOnly) // light round runs the carried B
+
+	got := e.Candidates()
+	if len(got) != 2 || got[0].Finding.Kind != "A" || got[1].Finding.Kind != "B" {
+		t.Fatalf("candidates = %+v, want the results of A (daily round) and B (carried)", got)
 	}
 }

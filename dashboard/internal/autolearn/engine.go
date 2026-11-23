@@ -88,7 +88,9 @@ type Engine struct {
 	lastLight time.Time
 	lastDaily time.Time
 	dailyDay  string
-	last      map[string][]Candidate
+	// last[detector][device] is the result of the last finished run of that
+	// device, "" for a detector without devices.
+	last      map[string]map[string][]Candidate
 	streak    map[string]int
 	overruns  []time.Time
 	spend     []spend
@@ -110,7 +112,7 @@ func NewEngine(days *DayStore, reactions *Reactions, readDoc func() ([]byte, err
 		limits:    limits,
 		loc:       loc,
 		catchUp:   engineCatchUpAfter,
-		last:      map[string][]Candidate{},
+		last:      map[string]map[string][]Candidate{},
 		streak:    map[string]int{},
 	}
 }
@@ -232,24 +234,41 @@ func (e *Engine) Tick(now time.Time, groups map[string]bool) {
 	}
 
 	in := e.input(now, limits, devices)
+	// outs[i] is written by the task i only. It is read after the pool returns
+	// for the finished tasks, a late task writes its own slot and is ignored.
+	outs := make([][]Candidate, len(work))
 	tasks := make([]Task, len(work))
 	for i, p := range work {
-		p := p
+		i, p := i, p
 		tasks[i] = Task{Detector: p.det.Name, Device: p.device, Run: func(ctx context.Context) []Candidate {
 			out := p.det.Run(ctx, in, p.device)
 			for j := range out {
 				out[j].Detector = p.det.Name
 			}
+			outs[i] = out
 			return out
 		}}
 	}
-	done, unfinished, took := RunPool(context.Background(), limits.Workers, limits.Budget, tasks)
-	e.record(now, limits, work, done, unfinished, took)
+	_, unfinished, took := RunPool(context.Background(), limits.Workers, limits.Budget, tasks)
+	lost := map[string]bool{}
+	for _, t := range unfinished {
+		lost[t.Detector+"\x00"+t.Device] = true
+	}
+	results := map[string][]Candidate{}
+	for i, p := range work {
+		if key := p.det.Name + "\x00" + p.device; !lost[key] {
+			results[key] = outs[i]
+		}
+	}
+	e.record(now, limits, devices, work, unfinished, results, took)
 }
 
 // record stores the results of a round, the unfinished work, the overruns and
-// the compute time, and sets the downgrade signal when a limit is hit.
-func (e *Engine) record(now time.Time, limits learnrec.Limits, work []pending, done []Candidate, unfinished []Task, took map[string]time.Duration) {
+// the compute time, and sets the downgrade signal when a limit is hit. results
+// holds the candidates of every finished run by detector and device key. A
+// device that did not finish keeps its last result, and a device that no longer
+// exists is dropped.
+func (e *Engine) record(now time.Time, limits learnrec.Limits, devices map[string]DeviceInfo, work []pending, unfinished []Task, results map[string][]Candidate, took map[string]time.Duration) {
 	byKey := map[string]pending{}
 	ran := map[string]bool{}
 	for _, p := range work {
@@ -262,10 +281,6 @@ func (e *Engine) record(now time.Time, limits learnrec.Limits, work []pending, d
 		late[t.Detector] = true
 		carry = append(carry, byKey[t.Detector+"\x00"+t.Device])
 	}
-	byDet := map[string][]Candidate{}
-	for _, c := range done {
-		byDet[c.Detector] = append(byDet[c.Detector], c)
-	}
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -277,7 +292,30 @@ func (e *Engine) record(now time.Time, limits learnrec.Limits, work []pending, d
 			continue
 		}
 		e.streak[name] = 0
-		e.last[name] = byDet[name]
+	}
+	// The finished devices of a late round are kept as well.
+	for _, p := range work {
+		cands, finished := results[p.det.Name+"\x00"+p.device]
+		if !finished {
+			continue
+		}
+		devs := e.last[p.det.Name]
+		if devs == nil {
+			devs = map[string][]Candidate{}
+			e.last[p.det.Name] = devs
+		}
+		if len(cands) == 0 {
+			delete(devs, p.device)
+		} else {
+			devs[p.device] = cands
+		}
+	}
+	for _, devs := range e.last {
+		for dev := range devs {
+			if _, ok := devices[dev]; !ok && dev != "" {
+				delete(devs, dev)
+			}
+		}
 	}
 	e.spend = append(e.spend, spend{at: now, took: took})
 	e.pruneLocked(now)
@@ -335,7 +373,14 @@ func (e *Engine) lastInOrder() []Candidate {
 	sort.Strings(names)
 	var out []Candidate
 	for _, name := range names {
-		out = append(out, e.last[name]...)
+		devs := make([]string, 0, len(e.last[name]))
+		for dev := range e.last[name] {
+			devs = append(devs, dev)
+		}
+		sort.Strings(devs)
+		for _, dev := range devs {
+			out = append(out, e.last[name][dev]...)
+		}
 	}
 	return out
 }
@@ -611,7 +656,7 @@ func sortedDeviceIDs(devices map[string]DeviceInfo) []string {
 func (e *Engine) Reset() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.last = map[string][]Candidate{}
+	e.last = map[string]map[string][]Candidate{}
 	e.queue = nil
 	e.streak = map[string]int{}
 	return nil

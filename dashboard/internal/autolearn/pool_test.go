@@ -136,3 +136,26 @@ func TestPoolUnfinishedKeepsInputOrderWithWorkers(t *testing.T) {
 		}
 	}
 }
+
+func TestRunPoolRecoversPanic(t *testing.T) {
+	ok := func(name string) Task {
+		return Task{Detector: name, Run: func(ctx context.Context) []Candidate {
+			return []Candidate{{Detector: name}}
+		}}
+	}
+	boom := Task{Detector: "boom", Device: "dev", Run: func(ctx context.Context) []Candidate {
+		panic("detector bug")
+	}}
+
+	done, unfinished, took := RunPool(context.Background(), 2, 5*time.Second, []Task{ok("a"), boom, ok("c")})
+
+	if len(done) != 2 || done[0].Detector != "a" || done[1].Detector != "c" {
+		t.Fatalf("done = %+v, want the candidates of a and c", done)
+	}
+	if len(unfinished) != 0 {
+		t.Fatalf("unfinished = %d, want 0: a panicking task counts as finished", len(unfinished))
+	}
+	if _, ok := took["boom"]; !ok {
+		t.Fatalf("took has no entry for the panicking task: %v", took)
+	}
+}

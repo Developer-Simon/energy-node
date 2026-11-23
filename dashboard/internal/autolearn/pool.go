@@ -2,6 +2,7 @@ package autolearn
 
 import (
 	"context"
+	"log"
 	"sort"
 	"sync"
 	"time"
@@ -65,7 +66,18 @@ func RunPool(ctx context.Context, workers int, budget time.Duration, tasks []Tas
 				// The result channel is buffered, so a task that outlives the
 				// budget does not block on the send after the pool has moved on.
 				ch := make(chan []Candidate, 1)
-				go func() { ch <- t.Run(ctx) }()
+				go func() {
+					// A panicking task counts as finished without candidates, so
+					// one detector bug does not stop the daemon.
+					var out []Candidate
+					defer func() {
+						if r := recover(); r != nil {
+							log.Printf("autolearn: detector %s/%s panicked: %v", t.Detector, t.Device, r)
+						}
+						ch <- out
+					}()
+					out = t.Run(ctx)
+				}()
 				var out []Candidate
 				finished := false
 				select {
