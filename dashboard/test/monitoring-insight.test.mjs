@@ -190,6 +190,18 @@ test('monitoringDay reads the window at the picked time', () => {
   assert.equal(component.readText, 'Üblich an: Steckdose');
 });
 
+test('monitoringDay links only the surplus tile to the forecast', () => {
+  const values = [
+    { key: 'site/pv_reserve_w', value: 1200, n: 12 },
+    { key: 'site/surplus_left_wh', value: 4200, n: 12 },
+  ];
+  const { component } = dayComponent(values);
+  const reserve = component.site.find((tile) => tile.id === 'r');
+  const surplus = component.site.find((tile) => tile.id === 's');
+  assert.equal(reserve.link, undefined);
+  assert.equal(surplus.link, true);
+});
+
 test('monitoringDay shows the window as a label', () => {
   const { component } = dayComponent(PLUG_VALUES);
   const plug = component.rows.find((row) => row.id === 'plug');

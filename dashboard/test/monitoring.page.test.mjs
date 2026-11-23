@@ -120,3 +120,17 @@ test('goLearned(key) sets learnedFocus and opens the learned view', () => {
   component.goLearned();
   assert.equal(component.learnedFocus, '');
 });
+
+test('goLearned(key) clears the focus first so a repeated key is followed again', () => {
+  const { component } = createPanel();
+  const writes = [];
+  let value = component.learnedFocus;
+  Object.defineProperty(component, 'learnedFocus', {
+    get: () => value,
+    set: (v) => { writes.push(v); value = v; },
+  });
+  component.goLearned('site/day_start');
+  component.goLearned('site/day_start');
+  assert.deepEqual(writes, ['', 'site/day_start', '', 'site/day_start']);
+  assert.equal(value, 'site/day_start');
+});

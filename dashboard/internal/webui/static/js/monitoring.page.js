@@ -249,9 +249,13 @@
 
       // Mit Schluessel oeffnet das Tagesbild die Zeile und scrollt dorthin, ohne Schluessel zur Lernwert-Karte
       goLearned(key) {
-        this.learnedFocus = key || '';
+        // Erst leeren, dann setzen: so folgt das Tagesbild auch einem wiederholten Schluessel
+        this.learnedFocus = '';
         this.setView('learned');
-        if (key) return;
+        if (key) {
+          this.$nextTick(() => { this.learnedFocus = key; });
+          return;
+        }
         this.$nextTick(() => {
           const el = this.$el && this.$el.querySelector('.monitoring-learned');
           if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });

@@ -14,7 +14,7 @@
 // monitoring.season.sum.lead, monitoring.season.sum.lead_mean, monitoring.season.sum.prev,
 // monitoring.season.sum.skipped, monitoring.season.metric.pv, monitoring.season.metric.load,
 // monitoring.season.metric.export, monitoring.season.metric.base, monitoring.season.metric.temp
-// i18n-keys (Tagesbild): monitoring.day.fact.days, monitoring.day.fact.ago, monitoring.day.fact.changed, monitoring.day.fact.learned, monitoring.day.fact.prev, monitoring.day.fact.prev_value, monitoring.day.fact.runs, monitoring.day.fact.sure, monitoring.day.fact.sure_no, monitoring.day.fact.sure_yes, monitoring.day.allday, monitoring.day.allday_short, monitoring.day.free, monitoring.day.free_short, monitoring.day.house, monitoring.day.night, monitoring.day.point, monitoring.day.read.night, monitoring.day.read.night_on, monitoring.day.read.none, monitoring.day.read.on, monitoring.day.state.active, monitoring.day.state.quiet, monitoring.day.unsure, monitoring.day.window, monitoring.run.power_for, monitoring.site.reserve, monitoring.site.reserve_est, monitoring.site.surplus_note, monitoring.learned.short.pv_reserve_w, monitoring.learned.short.surplus_left_wh, status.uptime.hours_minutes, status.uptime.minutes
+// i18n-keys (Tagesbild): monitoring.day.fact.days, monitoring.day.fact.ago, monitoring.day.fact.changed, monitoring.day.fact.learned, monitoring.day.fact.prev, monitoring.day.fact.prev_value, monitoring.day.fact.runs, monitoring.day.fact.sure, monitoring.day.fact.sure_no, monitoring.day.fact.sure_yes, monitoring.day.allday, monitoring.day.allday_short, monitoring.day.free, monitoring.day.free_short, monitoring.day.house, monitoring.day.night, monitoring.day.point, monitoring.day.read.night, monitoring.day.read.night_on, monitoring.day.read.none, monitoring.day.read.on, monitoring.day.state.active, monitoring.day.state.quiet, monitoring.day.unsure, monitoring.day.window, monitoring.run.power_for, monitoring.site.reserve, monitoring.site.reserve_est, monitoring.site.surplus_note, monitoring.site.to_forecast, monitoring.learned.short.pv_reserve_w, monitoring.learned.short.surplus_left_wh, status.uptime.hours_minutes, status.uptime.minutes
 (() => {
   const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
   const FORECAST_PATH = '/api/v1/monitoring/forecast';
@@ -490,7 +490,7 @@
         if (reserve) tiles.push({ id: 'r', label: t('monitoring.learned.short.pv_reserve_w'), value: num(reserve.value, 0) + ' W',
           note: t(reserve.estimate ? 'monitoring.site.reserve_est' : 'monitoring.site.reserve'), icon: 'ico-gauge' });
         if (left) tiles.push({ id: 's', label: t('monitoring.learned.short.surplus_left_wh'), value: num(left.value / 1000, 1) + ' kWh',
-          note: t('monitoring.site.surplus_note'), icon: 'ico-flash' });
+          note: t('monitoring.site.surplus_note'), icon: 'ico-flash', link: true });
         return tiles;
       },
       get readText() {

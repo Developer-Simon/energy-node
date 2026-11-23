@@ -170,6 +170,7 @@
                     <span class="mi-tile-label"><svg aria-hidden="true"><use x-bind:href="'#' + s.icon"></use></svg><span x-text="s.label"></span></span>
                     <span class="mi-tile-val" x-text="s.value"></span>
                     <span class="mi-tile-note" x-text="s.note"></span>
+                    <button type="button" class="monitoring-btn monitoring-btn-link" x-show="s.link" x-on:click="setView('forecast')">{{t "monitoring.site.to_forecast"}}<svg aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
                   </div>
                 </template>
               </div>
