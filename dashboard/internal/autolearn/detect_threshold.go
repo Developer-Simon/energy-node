@@ -176,7 +176,9 @@ func thresholdRule(ctx context.Context, in *Input, r Rule, minutes []ReplayMinut
 		kwh = (chosenEval.ePV - todayPt.ePV) * 7 / nDays
 	}
 	joint := in.Limits.ReplayJointHold
-	return thresholdCandidate(in, r, device, p, code, kwh, gainWeek, today, soll, chosen, joint, estimate, nDays, chosenEval), true
+	cand := thresholdCandidate(in, r, device, p, code, kwh, gainWeek, today, soll, chosen, joint, estimate, nDays, chosenEval)
+	cand.Spread = thresholdSpread(minutes, loc, r.Conditions[idx].Field)
+	return cand, true
 }
 
 // thresholdTarget holds what does not change over the grid of one rule.
@@ -445,4 +447,25 @@ func thresholdSplit(minutes []ReplayMinute, loc *time.Location, days []string) i
 		}
 	}
 	return len(minutes)
+}
+
+// thresholdSpread is the spread of the values of a threshold proposal. The
+// threshold and its proposal move with the daily peak of the signal the rule
+// reads, so their spread is 1,4826 · MAD of those daily peaks. The gain is
+// judged against the smallest gain that counts.
+func thresholdSpread(minutes []ReplayMinute, loc *time.Location, field string) map[string]float64 {
+	peaks := map[string]float64{}
+	for _, m := range minutes {
+		d := m.At.In(loc).Format(dayLayout)
+		v := m.Balance[field]
+		if p, ok := peaks[d]; !ok || v > p {
+			peaks[d] = v
+		}
+	}
+	xs := make([]float64, 0, len(peaks))
+	for _, v := range peaks {
+		xs = append(xs, v)
+	}
+	dailySpread := MADScale(xs)
+	return map[string]float64{"today": dailySpread, "soll": dailySpread, "gain_week": thresholdMinGainKWhWeek}
 }

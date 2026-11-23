@@ -133,7 +133,7 @@ func gateSuggestions(book *suggestionBook, source suggestionCandidates, readDoc 
 		}
 	}
 	before := shownIDs(book.state.Shown())
-	out, shown := autolearn.Gate(cands, doc, book.state.Shown())
+	out, shown := autolearn.Gate(cands, doc, book.state.Shown(), autolearn.GateOptions{Hidden: book.state.Hidden})
 	for i := range out {
 		f := &out[i]
 		// The temperature limit is the cure for warm weather, so it is never rested.

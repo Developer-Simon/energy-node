@@ -165,6 +165,7 @@ func flappingCandidate(device string, info DeviceInfo, rules map[string]Rule, id
 		Lower:  1,
 		Limit:  1,
 		Values: map[string]float64{"period_s": period},
+		Spread: map[string]float64{"period_s": MADScale(gaps)},
 	}
 }
 

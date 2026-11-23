@@ -369,6 +369,7 @@ func overriddenCandidate(device string, in *Input, rule Rule, sw []overrideSwitc
 		Lower:    lower,
 		Limit:    overriddenLimit,
 		Values:   map[string]float64{"share": share},
+		Spread:   map[string]float64{"share": 1 / float64(n)},
 	}, true
 }
 

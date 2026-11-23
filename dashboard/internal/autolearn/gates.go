@@ -32,16 +32,29 @@ const (
 // unchecked for compatibility.
 var prefillRules = map[string]func(prefill map[string]any) (Rule, bool){}
 
+// GateOptions are the inputs of Gate that the caller knows and the candidates
+// do not. The zero value hides nothing and has no targets.
+type GateOptions struct {
+	// Hidden reports a finding that was dismissed or postponed. Nil hides nothing.
+	Hidden func(id string) bool
+	// Targets returns the targets of a rule ID. Nil means no targets.
+	Targets func(ruleID string) []Target
+}
+
+// scored is a candidate that passed the gates, with its finding as shown and
+// its sort score.
+type scored struct {
+	finding Finding
+	cand    Candidate
+	score   float64
+}
+
 // Gate runs the candidates through the gates of spec 15.8: minimum data,
 // benefit, confidence, compatibility with the rule document and calm. The
 // result is ordered and capped. prev holds what was shown last time, keyed by
-// finding ID, and shown is what is shown now.
-func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, shown map[string]Shown) {
-	type scored struct {
-		finding Finding
-		cand    Candidate
-		score   float64
-	}
+// finding ID, and shown is what is shown now. Hidden findings do not count
+// against the cap.
+func Gate(cands []Candidate, doc Doc, prev map[string]Shown, opt GateOptions) (out []Finding, shown map[string]Shown) {
 	var kept []scored
 	for _, c := range cands {
 		f := c.Finding
@@ -95,38 +108,26 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 		return kept[i].finding.ID < kept[j].finding.ID
 	})
 
-	// The first slots take at most gatePerDetector of each detector. The rest
-	// keep their order behind them.
-	used := make([]bool, len(kept))
-	perDetector := map[string]int{}
-	picked := 0
-	for i, s := range kept {
-		if picked == gateTopSlots {
-			break
-		}
-		if perDetector[s.cand.Detector] >= gatePerDetector {
+	// A hidden finding leaves the open list before the cap, but keeps its
+	// entry in shown, so the calm rule and Since do not jump.
+	shown = make(map[string]Shown, len(kept))
+	var open []scored
+	for _, s := range kept {
+		id := s.finding.ID
+		if opt.Hidden != nil && opt.Hidden(id) {
+			if last, ok := prev[id]; ok {
+				shown[id] = last
+			}
 			continue
 		}
-		perDetector[s.cand.Detector]++
-		used[i] = true
-		picked++
+		open = append(open, s)
 	}
-	var ordered []scored
-	for i, s := range kept {
-		if used[i] {
-			ordered = append(ordered, s)
-		}
-	}
-	for i, s := range kept {
-		if !used[i] {
-			ordered = append(ordered, s)
-		}
-	}
+
+	ordered := gateOrder(open)
 	if len(ordered) > gateMaxFindings {
 		ordered = ordered[:gateMaxFindings]
 	}
 
-	shown = make(map[string]Shown, len(ordered))
 	for _, s := range ordered {
 		last, seen := prev[s.finding.ID]
 		entry := Shown{Lower: s.cand.Lower, Values: copyValues(s.cand.Values)}
@@ -140,6 +141,52 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 		out = append(out, displayFinding(s.finding, entry.Values))
 	}
 	return out, shown
+}
+
+// gateOrder puts the harmful findings ("bad") before all others. The detector
+// variety is chosen inside each severity, so a benefit never pushes out a harm
+// from the top slots. Both lists keep the order of kept, which is by score.
+func gateOrder(kept []scored) []scored {
+	var harm, rest []scored
+	for _, s := range kept {
+		if s.finding.Severity == "bad" {
+			harm = append(harm, s)
+		} else {
+			rest = append(rest, s)
+		}
+	}
+	return append(gateVariety(harm), gateVariety(rest)...)
+}
+
+// gateVariety lets at most gatePerDetector of each detector into the first
+// gateTopSlots places. The rest keep their order behind them.
+func gateVariety(list []scored) []scored {
+	used := make([]bool, len(list))
+	perDetector := map[string]int{}
+	picked := 0
+	for i, s := range list {
+		if picked == gateTopSlots {
+			break
+		}
+		if perDetector[s.cand.Detector] >= gatePerDetector {
+			continue
+		}
+		perDetector[s.cand.Detector]++
+		used[i] = true
+		picked++
+	}
+	ordered := make([]scored, 0, len(list))
+	for i, s := range list {
+		if used[i] {
+			ordered = append(ordered, s)
+		}
+	}
+	for i, s := range list {
+		if !used[i] {
+			ordered = append(ordered, s)
+		}
+	}
+	return ordered
 }
 
 // displayFinding returns f with the stabilised values in its summary params

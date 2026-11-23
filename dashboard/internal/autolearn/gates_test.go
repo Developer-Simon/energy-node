@@ -1,10 +1,12 @@
 package autolearn
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
+	"time"
 )
 
 // gateCand is a habit candidate with a benefit in kWh per week that passes
@@ -32,7 +34,7 @@ func gateIDs(out []Finding) []string {
 }
 
 func TestGateKeepsBorderlineCandidateAsHigh(t *testing.T) {
-	out, shown := Gate([]Candidate{gateCand("a", "x", 1, 2, 2, true)}, Doc{}, nil)
+	out, shown := Gate([]Candidate{gateCand("a", "x", 1, 2, 2, true)}, Doc{}, nil, GateOptions{})
 	if len(out) != 1 {
 		t.Fatalf("got %d findings, want 1", len(out))
 	}
@@ -45,7 +47,7 @@ func TestGateKeepsBorderlineCandidateAsHigh(t *testing.T) {
 }
 
 func TestGateDropsCandidateBelowLimitWithoutPrevious(t *testing.T) {
-	out, _ := Gate([]Candidate{gateCand("a", "x", 1, 1.9, 2, true)}, Doc{}, nil)
+	out, _ := Gate([]Candidate{gateCand("a", "x", 1, 1.9, 2, true)}, Doc{}, nil, GateOptions{})
 	if len(out) != 0 {
 		t.Errorf("got %v, want none", gateIDs(out))
 	}
@@ -54,7 +56,7 @@ func TestGateDropsCandidateBelowLimitWithoutPrevious(t *testing.T) {
 func TestGateKeepsShownCandidateAboveSeventyFivePercent(t *testing.T) {
 	prev := map[string]Shown{"a": {Lower: 2}}
 
-	out, _ := Gate([]Candidate{gateCand("a", "x", 1, 1.6, 2, false)}, Doc{}, prev)
+	out, _ := Gate([]Candidate{gateCand("a", "x", 1, 1.6, 2, false)}, Doc{}, prev, GateOptions{})
 	if len(out) != 1 {
 		t.Fatalf("80 %%: got %v, want the candidate to stay", gateIDs(out))
 	}
@@ -62,7 +64,7 @@ func TestGateKeepsShownCandidateAboveSeventyFivePercent(t *testing.T) {
 		t.Errorf("80 %%: Confidence = %q, want estimate", out[0].Confidence)
 	}
 
-	out, _ = Gate([]Candidate{gateCand("a", "x", 1, 1.4, 2, false)}, Doc{}, prev)
+	out, _ = Gate([]Candidate{gateCand("a", "x", 1, 1.4, 2, false)}, Doc{}, prev, GateOptions{})
 	if len(out) != 0 {
 		t.Errorf("70 %%: got %v, want none", gateIDs(out))
 	}
@@ -76,7 +78,7 @@ func TestGateQuietValuesChangeOnlyBeyondSpread(t *testing.T) {
 	prev := map[string]Shown{"a": {Lower: 2, Values: map[string]float64{"time": 1350}, Since: 5}}
 
 	cand.Values = map[string]float64{"time": 1355}
-	_, shown := Gate([]Candidate{cand}, Doc{}, prev)
+	_, shown := Gate([]Candidate{cand}, Doc{}, prev, GateOptions{})
 	if got := shown["a"].Values["time"]; got != 1350 {
 		t.Errorf("22:35 within spread: shown time = %v, want 1350 (22:30)", got)
 	}
@@ -85,7 +87,7 @@ func TestGateQuietValuesChangeOnlyBeyondSpread(t *testing.T) {
 	}
 
 	cand.Values = map[string]float64{"time": 1370}
-	_, shown = Gate([]Candidate{cand}, Doc{}, prev)
+	_, shown = Gate([]Candidate{cand}, Doc{}, prev, GateOptions{})
 	if got := shown["a"].Values["time"]; got != 1370 {
 		t.Errorf("22:50 beyond spread: shown time = %v, want 1370", got)
 	}
@@ -104,13 +106,13 @@ func TestGateDropsDuplicateOfExistingRule(t *testing.T) {
 
 	cand := gateCand("a", "x", 1, 2, 2, true)
 	cand.Finding.Apply = []Fix{{Code: "fix", Template: "test_tpl"}}
-	if out, _ := Gate([]Candidate{cand}, doc, nil); len(out) != 0 {
+	if out, _ := Gate([]Candidate{cand}, doc, nil, GateOptions{}); len(out) != 0 {
 		t.Errorf("duplicate kept: %v", gateIDs(out))
 	}
 
 	// Without a rule to build from, the candidate is kept.
 	cand.Finding.Apply = []Fix{{Code: "fix", Template: "unknown_tpl"}}
-	if out, _ := Gate([]Candidate{cand}, doc, nil); len(out) != 1 {
+	if out, _ := Gate([]Candidate{cand}, doc, nil, GateOptions{}); len(out) != 1 {
 		t.Errorf("unbuildable template dropped: %v", gateIDs(out))
 	}
 }
@@ -122,7 +124,7 @@ func TestGateOrderLimitsTwoPerDetectorInTopThree(t *testing.T) {
 		gateCand("a3", "a", 7, 2, 2, true),
 		gateCand("b1", "b", 1, 2, 2, true),
 	}
-	out, _ := Gate(cands, Doc{}, nil)
+	out, _ := Gate(cands, Doc{}, nil, GateOptions{})
 	if len(out) != 4 {
 		t.Fatalf("got %v, want 4", gateIDs(out))
 	}
@@ -147,7 +149,7 @@ func TestGateCapsAtTwentyAndPutsBadFirst(t *testing.T) {
 		Confidence: "high", RuleIDs: []string{"r"}}, Detector: "check", NEff: 30, MinNEff: 10}
 	cands = append(cands, bad)
 
-	out, _ := Gate(cands, Doc{}, nil)
+	out, _ := Gate(cands, Doc{}, nil, GateOptions{})
 	if len(out) != 20 {
 		t.Fatalf("got %d findings, want 20", len(out))
 	}
@@ -163,7 +165,7 @@ func TestGateCheckGroupOnlyNeedsMinimumData(t *testing.T) {
 		Confidence: "high", RuleIDs: []string{"r"}}, Detector: "check", NEff: 30, MinNEff: 10,
 		HalvesAgree: false}
 
-	out, _ := Gate([]Candidate{low, ok}, Doc{}, nil)
+	out, _ := Gate([]Candidate{low, ok}, Doc{}, nil, GateOptions{})
 	if got := gateIDs(out); len(got) != 1 || got[0] != "check:ok" {
 		t.Fatalf("got %v, want [check:ok]", got)
 	}
@@ -175,7 +177,7 @@ func TestGateCheckGroupOnlyNeedsMinimumData(t *testing.T) {
 func TestGateRuntimePresetHighWithoutLimitStaysHigh(t *testing.T) {
 	cand := gateCand("runtime:heater", "runtime", 1, 0, 0, false)
 	cand.Finding.Confidence = "high"
-	out, _ := Gate([]Candidate{cand}, Doc{}, nil)
+	out, _ := Gate([]Candidate{cand}, Doc{}, nil, GateOptions{})
 	if len(out) != 1 || out[0].Confidence != "high" {
 		t.Fatalf("got %+v, want one high finding", out)
 	}
@@ -183,14 +185,14 @@ func TestGateRuntimePresetHighWithoutLimitStaysHigh(t *testing.T) {
 
 func TestGateEstimateRules(t *testing.T) {
 	onlyLower := gateCand("a", "x", 1, 2, 2, false)
-	out, _ := Gate([]Candidate{onlyLower}, Doc{}, nil)
+	out, _ := Gate([]Candidate{onlyLower}, Doc{}, nil, GateOptions{})
 	if len(out) != 1 || out[0].Confidence != "estimate" {
 		t.Errorf("Lower >= Limit without halves: got %+v, want estimate", out)
 	}
 
 	preset := gateCand("b", "x", 1, 1, 2, false)
 	preset.Finding.Confidence = "estimate"
-	out, _ = Gate([]Candidate{preset}, Doc{}, nil)
+	out, _ = Gate([]Candidate{preset}, Doc{}, nil, GateOptions{})
 	if len(out) != 1 || out[0].Confidence != "estimate" {
 		t.Errorf("preset estimate: got %+v, want estimate", out)
 	}
@@ -198,7 +200,7 @@ func TestGateEstimateRules(t *testing.T) {
 
 func TestGateDropsBelowBenefitMinimum(t *testing.T) {
 	small := gateCand("a", "x", 0.4, 2, 2, true)
-	out, _ := Gate([]Candidate{small}, Doc{}, nil)
+	out, _ := Gate([]Candidate{small}, Doc{}, nil, GateOptions{})
 	if len(out) != 0 {
 		t.Errorf("0.4 kWh/week kept: %v", gateIDs(out))
 	}
@@ -224,7 +226,7 @@ func gateClockCand(minute float64) Candidate {
 func TestGateShowsStabilisedTime(t *testing.T) {
 	prev := map[string]Shown{"switch_time:lamp:off:0:2230": {Lower: 2, Values: map[string]float64{"time": 1350}}}
 
-	out, _ := Gate([]Candidate{gateClockCand(1355)}, Doc{}, prev)
+	out, _ := Gate([]Candidate{gateClockCand(1355)}, Doc{}, prev, GateOptions{})
 	if len(out) != 1 {
 		t.Fatalf("got %v, want one finding", gateIDs(out))
 	}
@@ -238,7 +240,7 @@ func TestGateShowsStabilisedTime(t *testing.T) {
 		t.Errorf("ID = %q, want unchanged", out[0].ID)
 	}
 
-	out, _ = Gate([]Candidate{gateClockCand(1370)}, Doc{}, prev)
+	out, _ = Gate([]Candidate{gateClockCand(1370)}, Doc{}, prev, GateOptions{})
 	if len(out) != 1 {
 		t.Fatalf("got %v, want one finding", gateIDs(out))
 	}
@@ -274,7 +276,7 @@ func TestGateShowsStabilisedLatestAsClock(t *testing.T) {
 	cand.Spread = map[string]float64{"latest": 8}
 	prev := map[string]Shown{"shift:spuelmaschine": {Lower: 2, Values: map[string]float64{"latest": 1245}}}
 
-	out, _ := Gate([]Candidate{cand}, Doc{}, prev)
+	out, _ := Gate([]Candidate{cand}, Doc{}, prev, GateOptions{})
 	if len(out) != 1 {
 		t.Fatalf("got %v, want one finding", gateIDs(out))
 	}
@@ -283,5 +285,121 @@ func TestGateShowsStabilisedLatestAsClock(t *testing.T) {
 	}
 	if got := out[0].Apply[0].Prefill["latest"]; got != "20:45" {
 		t.Errorf("prefill latest = %v, want 20:45", got)
+	}
+}
+
+func TestGateHarmFirstAfterVariety(t *testing.T) {
+	bad := func(id string, kwh float64) Candidate {
+		c := gateCand(id, "x", kwh, 2, 2, true)
+		c.Finding.Severity = "bad"
+		return c
+	}
+	cands := []Candidate{
+		bad("x1", 9),
+		bad("x2", 8),
+		bad("x3", 7),
+		gateCand("y1", "y", 1, 2, 2, true),
+	}
+	out, _ := Gate(cands, Doc{}, nil, GateOptions{})
+	want := []string{"x1", "x2", "x3", "y1"}
+	if got := gateIDs(out); fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("order = %v, want %v", got, want)
+	}
+}
+
+func TestGateCapCountsOpen(t *testing.T) {
+	var cands []Candidate
+	for i := 0; i < 21; i++ {
+		cands = append(cands, gateCand(fmt.Sprintf("c%02d", i), fmt.Sprintf("d%02d", i), float64(30-i), 2, 2, true))
+	}
+	prev := map[string]Shown{"c00": {Lower: 2, Since: 42}}
+	opt := GateOptions{Hidden: func(id string) bool { return id == "c00" }}
+	out, shown := Gate(cands, Doc{}, prev, opt)
+	if len(out) != 20 {
+		t.Fatalf("got %d findings, want 20", len(out))
+	}
+	for _, f := range out {
+		if f.ID == "c00" {
+			t.Errorf("hidden finding c00 is in the result %v", gateIDs(out))
+		}
+	}
+	if got := shown["c00"].Since; got != 42 {
+		t.Errorf("hidden finding Since = %d, want 42 kept in shown", got)
+	}
+}
+
+// spreadCovers reports whether every key of the values has a spread.
+func spreadCovers(t *testing.T, c Candidate) {
+	t.Helper()
+	for k := range c.Values {
+		s, ok := c.Spread[k]
+		if !ok {
+			t.Errorf("%s: value %q has no spread", c.Detector, k)
+			continue
+		}
+		if !(s > 0) {
+			t.Errorf("%s: spread of %q = %v, want > 0", c.Detector, k, s)
+		}
+	}
+}
+
+func TestFlappingCandidateSpreadOfGaps(t *testing.T) {
+	gaps := []float64{300, 330, 270, 310, 290}
+	rules := map[string]Rule{}
+	events := []ruleEvent{{at: 1}, {at: 2}}
+	c := flappingCandidate("dev", DeviceInfo{}, rules, []string{"r1", "r2"}, "r1", 60, Median(gaps), gaps, events, false)
+	spreadCovers(t, c)
+	if want := MADScale(gaps); c.Spread["period_s"] != want {
+		t.Errorf("period spread = %v, want %v", c.Spread["period_s"], want)
+	}
+}
+
+func TestNoEffectCandidateSpreadIsOneCase(t *testing.T) {
+	tally := &noEffectTally{considered: 20, failures: 5, offline: 5, failAt: []int64{1, 2, 3, 4, 5}}
+	c := noEffectCandidate("dev", DeviceInfo{}, Rule{ID: "r1"}, tally, 0.3)
+	spreadCovers(t, c)
+	if want := 1.0 / 20; c.Spread["share"] != want {
+		t.Errorf("share spread = %v, want %v", c.Spread["share"], want)
+	}
+}
+
+func TestSurplusCandidateSpreadOfWindowStart(t *testing.T) {
+	const p = 1000.0
+	var days []surWinDay
+	for i := 0; i < 4; i++ {
+		d := surWinDay{weight: 1}
+		for q := 0; q < dayQuarters; q++ {
+			d.seen[q] = true
+		}
+		for q := 40 + i; q < 48; q++ {
+			d.without[q] = p + surWinReserveMarginW + 500
+		}
+		days = append(days, d)
+	}
+	pick := func(d *surWinDay) *[dayQuarters]float64 { return &d.without }
+	c := surWinCandidate(context.Background(), &Input{}, "dev", p, 1500, "export", 40, 8, 2, 1, days, 30, pick)
+	spreadCovers(t, c)
+	if got := c.Spread["start"]; !(got > 0) {
+		t.Errorf("start spread = %v, want > 0", got)
+	}
+}
+
+func TestThresholdSpreadOfDailyPeaks(t *testing.T) {
+	loc := time.UTC
+	var minutes []ReplayMinute
+	for day := 0; day < 4; day++ {
+		start := time.Date(2026, 11, 10+day, 0, 0, 0, 0, loc)
+		for m := 0; m < 1440; m += 60 {
+			v := 100.0
+			if m == 720 {
+				v = float64(1000 + 200*day)
+			}
+			minutes = append(minutes, ReplayMinute{At: start.Add(time.Duration(m) * time.Minute), Balance: map[string]float64{"grid_export": v}})
+		}
+	}
+	spread := thresholdSpread(minutes, loc, "grid_export")
+	spreadCovers(t, Candidate{Detector: "threshold_rating", Values: map[string]float64{"today": 0, "soll": 0, "gain_week": 0}, Spread: spread})
+	if want := thresholdMinGainKWhWeek; spread["gain_week"] != want {
+		t.Errorf("gain_week spread = %v, want %v", spread["gain_week"], want)
 	}
 }
