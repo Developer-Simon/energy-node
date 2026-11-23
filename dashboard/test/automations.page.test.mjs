@@ -3643,6 +3643,37 @@ test('toggleFinding opens the popover and a second toggle closes it', () => {
   assert.equal(component.findingStyle, '');
 });
 
+test('the popover actions are hidden without the automations right', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'automations-finding.html'), 'utf8');
+  // Ignorieren und die Loesungen haengen an einer Zeile: der Container traegt das Recht.
+  assert.match(template, /class="auto-learn-pop-actions" x-show="canEditAutomations"/);
+});
+
+test('the popover leaves with a 160 ms scale and fade, and reduced motion keeps only the fade', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'automations-finding.html'), 'utf8');
+  assert.match(template, /class="auto-learn-pop" role="dialog"[^>]*x-transition:leave="auto-learn-pop-leave" x-transition:leave-end="auto-learn-pop-out"/);
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'automations.css'), 'utf8');
+  assert.match(css, /\.auto-learn-pop-leave \{ transition: opacity 160ms var\(--ease-out\), transform 160ms var\(--ease-out\); \}/);
+  assert.match(css, /\.auto-learn-pop-out \{ opacity: 0; transform: scale\(\.96\); \}/);
+  // Der Einlauf endet ohne Fuellmodus, sonst hielte er den Endwert und der Austritt griffe nicht.
+  assert.match(css, /animation: auto-learn-pop-in 160ms var\(--ease-out\) backwards;/);
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)', css.indexOf('.auto-learn-pop-out {')));
+  assert.match(reduced, /\.auto-learn-pop-leave \{ transition: opacity 160ms ease; \}/);
+  assert.match(reduced, /\.auto-learn-pop-out \{ transform: none; \}/);
+});
+
+test('the popover closes on a page scroll and on a resize', () => {
+  const { component, window } = createAutomationsPanel();
+  component.init();
+  for (const type of ['scroll', 'resize']) {
+    component.findingOpen = 'f-hyst';
+    component.findingStyle = 'left:16px;top:238px;';
+    window.dispatchEvent(new window.Event(type));
+    assert.equal(component.findingOpen, null, type);
+    assert.equal(component.findingStyle, '', type);
+  }
+});
+
 test('load() calls loadFindings', async () => {
   const { component, window } = createAutomationsPanel();
   let calls = 0;

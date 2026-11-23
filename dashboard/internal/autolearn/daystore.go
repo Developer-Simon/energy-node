@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
 )
 
@@ -857,20 +858,7 @@ func (s *DayStore) writeFile(day string, f DayFile) error {
 	if err := zw.Close(); err != nil {
 		return fmt.Errorf("autolearn: compress %s: %w", day, err)
 	}
-	tmp, err := os.CreateTemp(s.dir, ".day-*.tmp")
-	if err != nil {
-		return fmt.Errorf("autolearn: save %s: %w", day, err)
-	}
-	tmpName := tmp.Name()
-	_, err = tmp.Write(buf.Bytes())
-	if cerr := tmp.Close(); err == nil {
-		err = cerr
-	}
-	if err == nil {
-		err = os.Rename(tmpName, s.path(day))
-	}
-	if err != nil {
-		_ = os.Remove(tmpName)
+	if err := energystats.WriteFileAtomic(s.dir, s.path(day), buf.Bytes()); err != nil {
 		return fmt.Errorf("autolearn: save %s: %w", day, err)
 	}
 	if s.written == nil {

@@ -3,9 +3,11 @@ package learnrec
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -245,4 +247,32 @@ func TestOpenAppendRecoversFromPartialHeader(t *testing.T) {
 	appendMinuteBlock(t, path, MinuteBlock{First: 4, Keys: []string{"e:a"}, Values: [][]float32{{1}}}, known)
 	_, values := readMinuteFile(t, path)
 	requireMinuteValue(t, values, "e:a", 4, 1)
+}
+
+func TestOpenAppendBadHeaderTruncates(t *testing.T) {
+	path := filepath.Join(t.TempDir(), testMinuteDay+".enm")
+	if err := os.WriteFile(path, make([]byte, 4096), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var logBuf bytes.Buffer
+	prev := log.Writer()
+	log.SetOutput(&logBuf)
+	defer log.SetOutput(prev)
+
+	known, size, err := OpenAppend(path)
+	if err != nil {
+		t.Fatalf("OpenAppend on zeroed file: %v", err)
+	}
+	if size != 0 || len(known) != 0 {
+		t.Fatalf("got size %d, known %v, want empty", size, known)
+	}
+	if fi, _ := os.Stat(path); fi.Size() != 0 {
+		t.Fatalf("file size %d, want 0", fi.Size())
+	}
+	if !strings.Contains(logBuf.String(), path) {
+		t.Fatalf("no log line naming %s: %q", path, logBuf.String())
+	}
+	appendMinuteBlock(t, path, MinuteBlock{First: 7, Keys: []string{"e:a"}, Values: [][]float32{{3}}}, known)
+	_, values := readMinuteFile(t, path)
+	requireMinuteValue(t, values, "e:a", 7, 3)
 }

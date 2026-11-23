@@ -26,7 +26,10 @@ type fakeHA struct {
 	days       []string
 	deadline   time.Time
 	drops      int
+	noOffer    bool
 }
+
+func (f *fakeHA) Offered() bool { return !f.noOffer }
 
 func (f *fakeHA) Prefetch(keys []string, days []string, deadline time.Time) {
 	f.prefetches++
@@ -36,6 +39,17 @@ func (f *fakeHA) Prefetch(keys []string, days []string, deadline time.Time) {
 func (f *fakeHA) WaitIdle(ctx context.Context) bool { return true }
 
 func (f *fakeHA) Drop() { f.drops++ }
+
+func TestHAPreparerSkipsPrefetchWithoutOffer(t *testing.T) {
+	now := time.Date(2026, 11, 20, 3, 30, 0, 0, time.UTC)
+	ha := &fakeHA{noOffer: true}
+	own := &fakeOwn{keys: []string{"e:uid1"}}
+	p := &haPreparer{own: own, ha: ha, active: func() bool { return true }, loc: time.UTC}
+	p.Prepare(now)
+	if ha.prefetches != 0 {
+		t.Fatalf("Prefetch ohne Angebot des Companion aufgerufen: %d", ha.prefetches)
+	}
+}
 
 func TestHAPreparerDoesNothingWhenReconcileIsOff(t *testing.T) {
 	ha := &fakeHA{}

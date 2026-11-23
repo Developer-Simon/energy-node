@@ -188,7 +188,12 @@ func surWinCandidate(ctx context.Context, in *Input, device string, p, cycle flo
 		Limit:       surWinWindowLimit,
 		HalvesAgree: true,
 		Benefit:     benefit,
-		Values:      map[string]float64{"window_quarters": float64(n), "on_w": onW},
+		Values:      map[string]float64{"window_quarters": float64(n), "on_w": onW, "start": float64(start * 15)},
+		Spread: map[string]float64{
+			"window_quarters": 1,
+			"on_w":            surWinRoundW,
+			"start":           MADScale(surWinDayStarts(days, start, n, p+surWinReserveMarginW, pick)),
+		},
 	}
 	if verdict, b, err := surWinReplay(ctx, in, device, id, onW, source, p, peak, cycle, runS); err == nil && verdict != nil {
 		cand.Replay = verdict
@@ -445,4 +450,21 @@ func surWinLearnedNumber(learned map[string]LearnedEntry, key string) (float64, 
 func surWinClock(q int) string {
 	m := q * 15
 	return fmt.Sprintf("%02d:%02d", m/60%24, m%60)
+}
+
+// surWinDayStarts is the minute of the day on which each day first reached the
+// threshold inside the window [start, start+n). Days that never reached it in
+// the window are left out.
+func surWinDayStarts(days []surWinDay, start, n int, threshold float64, pick func(*surWinDay) *[dayQuarters]float64) []float64 {
+	var out []float64
+	for i := range days {
+		xs := pick(&days[i])
+		for q := start; q < start+n && q < dayQuarters; q++ {
+			if days[i].seen[q] && xs[q] >= threshold {
+				out = append(out, float64(q*15))
+				break
+			}
+		}
+	}
+	return out
 }

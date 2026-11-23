@@ -223,3 +223,36 @@ func TestRuleActionEffectiveClaimReaction(t *testing.T) {
 		t.Fatalf("actions = %+v, want effective with reaction 2s", actions)
 	}
 }
+
+func TestOriginRuleActMatchesDirection(t *testing.T) {
+	tr := NewTracker(NewReactions())
+	// The rule switches off, the device is already off, so nothing changes.
+	tg := targetsFor("r1", Target{Device: "dev", Entity: "light.a", On: boolPtr(false)})
+	tr.RuleState(originT0, ruleDocState("r1", 0, originT0), tg)
+	tr.RuleState(originT0, ruleDocState("r1", 1, originT0), tg)
+	// Three seconds later the hand switches the device on.
+	tr.Command(originT0.Add(3*time.Second), "dev", "light.a", true)
+	tr.StateChange(originT0.Add(3*time.Second), "dev", "light.a", true)
+
+	events, _ := tr.Drain(originT0.Add(time.Minute))
+	if len(events) != 1 || events[0].Origin != OriginHand {
+		t.Fatalf("events = %+v, want one hand event", events)
+	}
+}
+
+func TestOriginRuleStateOrderStable(t *testing.T) {
+	both := func(string) []Target {
+		return []Target{{Device: "dev", Entity: "light.a", On: boolPtr(true)}}
+	}
+	for i := 0; i < 50; i++ {
+		tr := NewTracker(NewReactions())
+		tr.RuleState(originT0, `{"rules":{"r1":{"fire_count":0},"r2":{"fire_count":0}}}`, both)
+		tr.RuleState(originT0, `{"rules":{"r1":{"fire_count":1,"fired_at":`+fmt.Sprint(originT0.Unix())+`},"r2":{"fire_count":1,"fired_at":`+fmt.Sprint(originT0.Unix())+`}}}`, both)
+		tr.StateChange(originT0.Add(time.Second), "dev", "light.a", true)
+
+		events, _ := tr.Drain(originT0.Add(time.Minute))
+		if len(events) != 1 || events[0].RuleID != "r1" {
+			t.Fatalf("run %d: events = %+v, want rule r1 every time", i, events)
+		}
+	}
+}

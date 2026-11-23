@@ -172,6 +172,10 @@ func ruleReadsEntity(r Rule, entities map[string]bool) bool {
 // couplingCandidate checks one pair of streams and builds its candidate, or
 // reports false when a gate fails.
 func couplingCandidate(in *Input, loc *time.Location, a, b string, onA, onB bool, sa, sb *couplingStream) (Candidate, bool) {
+	sa = couplingCases(in, loc, a, b, sa)
+	if len(sa.times) < couplingMinCases {
+		return Candidate{}, false
+	}
 	// The longest window sets the reference, the shortest window that keeps
 	// enough of its hits is chosen.
 	longest := couplingWindows[len(couplingWindows)-1]
@@ -227,6 +231,31 @@ func couplingCandidate(in *Input, loc *time.Location, a, b string, onA, onB bool
 
 	halves := couplingHalves(flags)
 	return couplingBuild(in, loc, a, b, onA, onB, sa, sb, window, hits, cases, lower, share, lag, matchedB, deltas, halves), true
+}
+
+// couplingCases keeps the switchings of a that count as cases for the pair a
+// and b. A switching on an absent day does not count, and neither does one at
+// a quarter in which a or b was not reachable, since b could not follow then
+// (spec 15.3 Zähltage). The quarter of the switching of a is used for both.
+func couplingCases(in *Input, loc *time.Location, a, b string, sa *couplingStream) *couplingStream {
+	days := make(map[string]*DayFile, len(in.Days))
+	for i := range in.Days {
+		days[in.Days[i].Day] = &in.Days[i]
+	}
+	out := &couplingStream{entity: sa.entity}
+	for _, t := range sa.times {
+		at := time.Unix(t, 0).In(loc)
+		day := at.Format(dayLayout)
+		if in.Base.Away[day] {
+			continue
+		}
+		q := quarterOf(at)
+		if f := days[day]; f != nil && (unreachable(f.Devices[a], q) || unreachable(f.Devices[b], q)) {
+			continue
+		}
+		out.times = append(out.times, t)
+	}
+	return out
 }
 
 // couplingBuild assembles the candidate of a pair that passed the gates.

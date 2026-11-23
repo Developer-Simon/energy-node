@@ -3,8 +3,6 @@ package autolearn
 import (
 	"sort"
 	"time"
-
-	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 )
 
 // Shared parts of the reliability detectors (spec 15.4 "Takten" and "Aktion
@@ -21,22 +19,6 @@ const (
 	// reach to be a candidate centre. The spec gives no number, the value is an assumption.
 	reliabilityPeakShare = 0.5
 )
-
-// reliabilityMinRuntime is the shortest runtime in seconds a device tolerates
-// by role: heat pump 10 minutes, wallbox 3 minutes, lights none (0), all other
-// switchable devices 2 minutes.
-func reliabilityMinRuntime(info DeviceInfo) float64 {
-	switch {
-	case info.Light:
-		return 0
-	case info.Role == energy.RoleHeatPump:
-		return 600
-	case info.Role == energy.RoleWallbox:
-		return 180
-	default:
-		return 120
-	}
-}
 
 // ruleEvent is a switching event of a device that a rule caused.
 type ruleEvent struct {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"log"
 	"math"
 	"os"
 )
@@ -180,6 +181,15 @@ func OpenAppend(path string) (known map[string]int, size int64, err error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	// Ein Stromausfall kann den Kopf auf Nullen stehen lassen. Solche Dateien
+	// sind leer. Fremde Dateien mit anderem Kopf bleiben unangetastet.
+	if head := data[:min(len(data), 6)]; len(head) > 0 && allZero(head) {
+		log.Printf("learnrec: %s: header zeroed, resetting the file", path)
+		if err := os.Truncate(path, 0); err != nil {
+			return nil, 0, err
+		}
+		return map[string]int{}, 0, nil
+	}
 	p, err := parseMinuteDay(data)
 	switch {
 	case errors.Is(err, errShortHeader):
@@ -345,4 +355,13 @@ func appendFrame(dst, body []byte) []byte {
 	dst = binary.LittleEndian.AppendUint32(dst, uint32(len(body)))
 	dst = append(dst, body...)
 	return binary.LittleEndian.AppendUint32(dst, crc32.ChecksumIEEE(body))
+}
+
+func allZero(b []byte) bool {
+	for _, c := range b {
+		if c != 0 {
+			return false
+		}
+	}
+	return true
 }

@@ -110,9 +110,10 @@ func thresholdRule(ctx context.Context, in *Input, r Rule, minutes []ReplayMinut
 		return Candidate{}, false
 	}
 	hyst0 := r.Conditions[idx].Hysteresis
-	run0 := reliabilityMinRuntime(info)
+	run0 := minRunForRole(info)
 	base := thresholdTarget{rule: r.ID, device: device, opW: p, peakW: feedbackInrush(in.Days, device, p), cycleWh: cycle}
 	real := RealState(in, device, minutes)
+	bases := newThresholdBases(base, minutes, real, loc, site)
 
 	hysts := []float64{hyst0}
 	runs := []float64{run0}
@@ -128,7 +129,7 @@ func thresholdRule(ctx context.Context, in *Input, r Rule, minutes []ReplayMinut
 	bestRow, bestJ := -1, math.Inf(-1)
 	for _, h := range hysts {
 		for _, m := range runs {
-			row, err := thresholdRow(ctx, in, r, idx, base, m, h, grid, minutes, real, loc, site)
+			row, err := thresholdRow(ctx, in, r, idx, bases, m, h, grid)
 			if err != nil {
 				return Candidate{}, false
 			}
@@ -153,11 +154,11 @@ func thresholdRule(ctx context.Context, in *Input, r Rule, minutes []ReplayMinut
 
 	// Gain against today's rule, per week, and the halves of the days.
 	nDays := float64(len(days))
-	todayPt := thresholdEval(ctx, in, r, idx, base, run0, hyst0, today, minutes, real, loc, site)
+	todayPt := thresholdEval(ctx, in, r, idx, bases, run0, hyst0, today)
 	if todayPt.err != nil {
 		return Candidate{}, false
 	}
-	chosenEval := thresholdEval(ctx, in, r, idx, base, chosen.m, chosen.h, soll, minutes, real, loc, site)
+	chosenEval := thresholdEval(ctx, in, r, idx, bases, chosen.m, chosen.h, soll)
 	if chosenEval.err != nil {
 		return Candidate{}, false
 	}
@@ -176,7 +177,9 @@ func thresholdRule(ctx context.Context, in *Input, r Rule, minutes []ReplayMinut
 		kwh = (chosenEval.ePV - todayPt.ePV) * 7 / nDays
 	}
 	joint := in.Limits.ReplayJointHold
-	return thresholdCandidate(in, r, device, p, code, kwh, gainWeek, today, soll, chosen, joint, estimate, nDays, chosenEval), true
+	cand := thresholdCandidate(in, r, device, p, code, kwh, gainWeek, today, soll, chosen, joint, estimate, nDays, chosenEval)
+	cand.Spread = thresholdSpread(minutes, loc, r.Conditions[idx].Field)
+	return cand, true
 }
 
 // thresholdTarget holds what does not change over the grid of one rule.
@@ -197,19 +200,56 @@ type thresholdEvalResult struct {
 	err       error
 }
 
-// thresholdEval replays one point of the grid on the given minutes: the rule
-// with threshold x, hysteresis h and minimum run m. It returns J with its terms.
-func thresholdEval(ctx context.Context, in *Input, r Rule, idx int, t thresholdTarget, m, h, x float64, minutes []ReplayMinute, real []bool, loc *time.Location, site sun.Location) thresholdEvalResult {
-	target := ReplayTarget{RuleID: t.rule, Device: t.device, OpW: t.opW, PeakW: t.peakW, CycleWh: t.cycleWh, MinRunS: m}
+// thresholdBaseReplay runs the base replay of the rating. Tests replace it to
+// count the base runs.
+var thresholdBaseReplay = Replay
+
+// thresholdBases holds the base replays of one rule on one set of minutes. The
+// base depends only on MinRunS, so each MinRunS is replayed once.
+type thresholdBases struct {
+	t       thresholdTarget
+	minutes []ReplayMinute
+	real    []bool
+	loc     *time.Location
+	site    sun.Location
+	byM     map[float64]ReplayResult
+}
+
+// newThresholdBases creates an empty cache for the minutes.
+func newThresholdBases(t thresholdTarget, minutes []ReplayMinute, real []bool, loc *time.Location, site sun.Location) *thresholdBases {
+	return &thresholdBases{t: t, minutes: minutes, real: real, loc: loc, site: site, byM: map[float64]ReplayResult{}}
+}
+
+// target returns the replay target of the rule with minimum run m.
+func (b *thresholdBases) target(m float64) ReplayTarget {
+	return ReplayTarget{RuleID: b.t.rule, Device: b.t.device, OpW: b.t.opW, PeakW: b.t.peakW, CycleWh: b.t.cycleWh, MinRunS: m}
+}
+
+// base returns the base replay for minimum run m, replaying it on first use.
+func (b *thresholdBases) base(ctx context.Context, m float64) (ReplayResult, error) {
+	if res, ok := b.byM[m]; ok {
+		return res, nil
+	}
+	res, err := thresholdBaseReplay(ctx, replayBaseRule, b.target(m), b.minutes, b.real, b.loc, b.site)
+	if err != nil {
+		return ReplayResult{}, err
+	}
+	b.byM[m] = res
+	return res, nil
+}
+
+// thresholdEval replays one point of the grid: the rule with threshold x,
+// hysteresis h and minimum run m, against the base. It returns J with its terms.
+func thresholdEval(ctx context.Context, in *Input, r Rule, idx int, b *thresholdBases, m, h, x float64) thresholdEvalResult {
 	raw, err := thresholdRuleJSON(r, idx, x, h)
 	if err != nil {
 		return thresholdEvalResult{err: err}
 	}
-	base, err := Replay(ctx, replayBaseRule, target, minutes, real, loc, site)
+	base, err := b.base(ctx, m)
 	if err != nil {
 		return thresholdEvalResult{err: err}
 	}
-	alt, err := Replay(ctx, raw, target, minutes, real, loc, site)
+	alt, err := Replay(ctx, raw, b.target(m), b.minutes, b.real, b.loc, b.site)
 	if err != nil {
 		return thresholdEvalResult{err: err}
 	}
@@ -218,13 +258,13 @@ func thresholdEval(ctx context.Context, in *Input, r Rule, idx int, t thresholdT
 }
 
 // thresholdRow rates the whole grid for one hysteresis and minimum run.
-func thresholdRow(ctx context.Context, in *Input, r Rule, idx int, t thresholdTarget, m, h float64, grid []float64, minutes []ReplayMinute, real []bool, loc *time.Location, site sun.Location) ([]thresholdPoint, error) {
+func thresholdRow(ctx context.Context, in *Input, r Rule, idx int, b *thresholdBases, m, h float64, grid []float64) ([]thresholdPoint, error) {
 	row := make([]thresholdPoint, 0, len(grid))
 	for _, x := range grid {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		ev := thresholdEval(ctx, in, r, idx, t, m, h, x, minutes, real, loc, site)
+		ev := thresholdEval(ctx, in, r, idx, b, m, h, x)
 		if ev.err != nil {
 			return nil, ev.err
 		}
@@ -234,20 +274,22 @@ func thresholdRow(ctx context.Context, in *Input, r Rule, idx int, t thresholdTa
 }
 
 // thresholdWidest returns the middle of the widest run of points whose J is
-// at least thresholdPlateau of the maximum of the row. Ties keep the first run.
+// at least the plateau floor maxJ - (1 - thresholdPlateau) * |maxJ| of the
+// maximum of the row. Ties keep the first run.
 func thresholdWidest(row []thresholdPoint) thresholdPoint {
 	maxJ := math.Inf(-1)
 	for _, pt := range row {
 		maxJ = math.Max(maxJ, pt.j)
 	}
+	floor := maxJ - (1-thresholdPlateau)*math.Abs(maxJ)
 	bestStart, bestEnd := -1, -1
 	for i := 0; i < len(row); {
-		if row[i].j < thresholdPlateau*maxJ {
+		if row[i].j < floor {
 			i++
 			continue
 		}
 		s := i
-		for i < len(row) && row[i].j >= thresholdPlateau*maxJ {
+		for i < len(row) && row[i].j >= floor {
 			i++
 		}
 		e := i - 1
@@ -274,10 +316,9 @@ func thresholdHalvesAgree(ctx context.Context, in *Input, r Rule, idx int, t thr
 		if hi <= lo {
 			return false
 		}
-		mins := minutes[lo:hi]
-		rl := real[lo:hi]
-		prop := thresholdEval(ctx, in, r, idx, t, m, h, soll, mins, rl, loc, site)
-		now := thresholdEval(ctx, in, r, idx, t, run0, hyst0, today, mins, rl, loc, site)
+		halfBases := newThresholdBases(t, minutes[lo:hi], real[lo:hi], loc, site)
+		prop := thresholdEval(ctx, in, r, idx, halfBases, m, h, soll)
+		now := thresholdEval(ctx, in, r, idx, halfBases, run0, hyst0, today)
 		if prop.err != nil || now.err != nil {
 			return false
 		}
@@ -445,4 +486,25 @@ func thresholdSplit(minutes []ReplayMinute, loc *time.Location, days []string) i
 		}
 	}
 	return len(minutes)
+}
+
+// thresholdSpread is the spread of the values of a threshold proposal. The
+// threshold and its proposal move with the daily peak of the signal the rule
+// reads, so their spread is 1,4826 · MAD of those daily peaks. The gain is
+// judged against the smallest gain that counts.
+func thresholdSpread(minutes []ReplayMinute, loc *time.Location, field string) map[string]float64 {
+	peaks := map[string]float64{}
+	for _, m := range minutes {
+		d := m.At.In(loc).Format(dayLayout)
+		v := m.Balance[field]
+		if p, ok := peaks[d]; !ok || v > p {
+			peaks[d] = v
+		}
+	}
+	xs := make([]float64, 0, len(peaks))
+	for _, v := range peaks {
+		xs = append(xs, v)
+	}
+	dailySpread := MADScale(xs)
+	return map[string]float64{"today": dailySpread, "soll": dailySpread, "gain_week": thresholdMinGainKWhWeek}
 }

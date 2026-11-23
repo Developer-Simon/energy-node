@@ -295,3 +295,68 @@ func TestEngineInputCarriesTheSteps(t *testing.T) {
 		t.Fatal("after SetSteps the input has no step reader")
 	}
 }
+
+// minuteAt returns the replayed minute that starts at at.
+func minuteAt(ms []ReplayMinute, at time.Time) (ReplayMinute, bool) {
+	for _, m := range ms {
+		if m.At.Equal(at) {
+			return m, true
+		}
+	}
+	return ReplayMinute{}, false
+}
+
+func TestReplayLearnedBeforeChange(t *testing.T) {
+	loc := time.UTC
+	now := replayTestNow()
+	changed := now.AddDate(0, 0, -30) // 2026-10-23 10:00
+	before := time.Date(2026, 10, 22, 0, 0, 0, 0, loc)
+	after := time.Date(2026, 10, 24, 0, 0, 0, 0, loc)
+	minutes := fakeMinutes{loc: loc, days: map[string]map[string][]float32{
+		"2026-10-22": {"b:load_total": minuteValues(500)},
+		"2026-10-24": {"b:load_total": minuteValues(500)},
+	}}
+	entry := func(prev any, changedAt int64) map[string]LearnedEntry {
+		return map[string]LearnedEntry{"site/pv_reserve_w": {Key: "site/pv_reserve_w", Kind: ValueNumber,
+			Value: 1500.0, Prev: prev, At: now.Unix(), ChangedAt: changedAt}}
+	}
+
+	t.Run("prev before the change", func(t *testing.T) {
+		in := &Input{Now: now, Loc: loc, Minutes: minutes, Learned: entry(900.0, changed.Unix())}
+		got, est := ReplayDays(in, 40)
+		if !est {
+			t.Fatal("estimate = false, want true when a value is replayed before its change")
+		}
+		m, ok := minuteAt(got, before)
+		if !ok || m.Learned["site/pv_reserve_w"] != 900 {
+			t.Fatalf("before the change = %v, want the prev value 900", m.Learned)
+		}
+		m, ok = minuteAt(got, after)
+		if !ok || m.Learned["site/pv_reserve_w"] != 1500 {
+			t.Fatalf("after the change = %v, want 1500", m.Learned)
+		}
+	})
+
+	t.Run("no prev uses the current value", func(t *testing.T) {
+		in := &Input{Now: now, Loc: loc, Minutes: minutes, Learned: entry(nil, changed.Unix())}
+		got, est := ReplayDays(in, 40)
+		if !est {
+			t.Fatal("estimate = false, want true")
+		}
+		m, ok := minuteAt(got, before)
+		if !ok || m.Learned["site/pv_reserve_w"] != 1500 {
+			t.Fatalf("before the change = %v, want the current value 1500", m.Learned)
+		}
+	})
+
+	t.Run("without change time the value is not known before At", func(t *testing.T) {
+		in := &Input{Now: now, Loc: loc, Minutes: minutes, Learned: entry(900.0, 0)}
+		got, est := ReplayDays(in, 40)
+		if est {
+			t.Fatal("estimate = true, want false without history")
+		}
+		if m, ok := minuteAt(got, before); !ok || len(m.Learned) != 0 {
+			t.Fatalf("before At = %v, want no learned value", m.Learned)
+		}
+	})
+}

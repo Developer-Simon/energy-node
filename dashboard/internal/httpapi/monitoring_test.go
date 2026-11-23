@@ -168,3 +168,28 @@ func TestMonitoringNilDepsIs501(t *testing.T) {
 		t.Fatalf("POST without deps: %d %s", recorder.Code, recorder.Body.String())
 	}
 }
+
+func TestMonitoringAckNeedsCSRF(t *testing.T) {
+	var acked []string
+	deps := &MonitoringDeps{
+		Notices: func(time.Time) []monitoring.Notice { return nil },
+		Ack: func(id string, ack bool, user string, now time.Time) error {
+			acked = append(acked, id)
+			return nil
+		},
+	}
+	router, manager := monitoringRouter(t, deps)
+	cookie, csrf := guestCookie(t, router, manager, []string{auth.RoleViewMonitoring, auth.RoleEditSetup})
+
+	recorder := monitoringAckRequest(router, cookie, "", `{"id":"energy:a","ack":true}`)
+	if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"csrf_failed"`) {
+		t.Fatalf("POST without CSRF: %d %s", recorder.Code, recorder.Body.String())
+	}
+	if len(acked) != 0 {
+		t.Fatalf("acknowledged without CSRF: %v", acked)
+	}
+
+	if recorder := monitoringAckRequest(router, cookie, csrf, `{"id":"energy:a","ack":true}`); recorder.Code != http.StatusOK {
+		t.Fatalf("POST with CSRF: %d %s", recorder.Code, recorder.Body.String())
+	}
+}

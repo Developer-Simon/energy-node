@@ -147,9 +147,26 @@ func TestCUSUMDetectsStep(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		r = append(r, 2.0)
 	}
-	changeAt, ok := CUSUM(r)
-	if !ok {
-		t.Fatalf("CUSUM on step: ok = false, want true")
+	changeAt, up, ok := CUSUM(r, 0, 1)
+	if !ok || !up {
+		t.Fatalf("CUSUM on upward step: ok = %v, up = %v, want true, true", ok, up)
+	}
+	if changeAt < 20 || changeAt > 23 {
+		t.Fatalf("CUSUM changeAt = %d, want 20 to 23", changeAt)
+	}
+}
+
+func TestCUSUMDetectsDownwardStep(t *testing.T) {
+	r := make([]float64, 0, 30)
+	for i := 0; i < 20; i++ {
+		r = append(r, 0)
+	}
+	for i := 0; i < 10; i++ {
+		r = append(r, -2.0)
+	}
+	changeAt, up, ok := CUSUM(r, 0, 1)
+	if !ok || up {
+		t.Fatalf("CUSUM on downward step: ok = %v, up = %v, want true, false", ok, up)
 	}
 	if changeAt < 20 || changeAt > 23 {
 		t.Fatalf("CUSUM changeAt = %d, want 20 to 23", changeAt)
@@ -159,7 +176,7 @@ func TestCUSUMDetectsStep(t *testing.T) {
 func TestCUSUMIgnoresSingleOutlier(t *testing.T) {
 	r := make([]float64, 30)
 	r[10] = 6.0
-	if _, ok := CUSUM(r); ok {
+	if _, _, ok := CUSUM(r, 0, 1); ok {
 		t.Fatalf("CUSUM on single outlier: ok = true, want false")
 	}
 }

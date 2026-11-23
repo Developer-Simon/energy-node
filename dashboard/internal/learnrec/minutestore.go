@@ -72,15 +72,14 @@ type MinuteStore struct {
 	logf    func(string, ...any)
 	files   map[string]*minuteFileState
 
-	mu      sync.Mutex // schuetzt die Felder darunter
-	days    map[string]*minuteDay
-	keys    map[string]bool
-	since   time.Time
-	written int64
-	lastNow time.Time
-	curKey  string
-	curDir  string
-	prevDir string
+	mu       sync.Mutex // schuetzt die Felder darunter
+	days     map[string]*minuteDay
+	keys     map[string]bool
+	since    time.Time
+	written  int64
+	lastNow  time.Time
+	curKey   string
+	dirsUsed map[string]bool // alle Orte, an denen Dateien liegen koennen
 }
 
 var _ MinuteConsumer = (*MinuteStore)(nil)
@@ -92,22 +91,24 @@ func NewMinuteStore(loc *time.Location, plan func() MinutePlan, dirs func() Minu
 		logf = func(string, ...any) {}
 	}
 	return &MinuteStore{
-		loc:     loc,
-		plan:    plan,
-		dirs:    dirs,
-		driveUp: driveUp,
-		limits:  limits,
-		logf:    logf,
-		files:   map[string]*minuteFileState{},
-		days:    map[string]*minuteDay{},
-		keys:    map[string]bool{},
+		loc:      loc,
+		plan:     plan,
+		dirs:     dirs,
+		driveUp:  driveUp,
+		limits:   limits,
+		logf:     logf,
+		files:    map[string]*minuteFileState{},
+		days:     map[string]*minuteDay{},
+		keys:     map[string]bool{},
+		dirsUsed: map[string]bool{},
 	}
 }
 
 // ObserveMinute legt die Werte des Rahmens im RAM ab. Schluessel sind e:<unique_id>
 // fuer Leistung, b:<feld> fuer die Bilanz und t:outdoor fuer die Aussentemperatur.
 func (s *MinuteStore) ObserveMinute(f Frame) {
-	if pl := s.plan(); !pl.On || pl.Paused {
+	pl := s.plan()
+	if !pl.On {
 		return
 	}
 	vals := map[string]float64{}
@@ -121,6 +122,13 @@ func (s *MinuteStore) ObserveMinute(f Frame) {
 	}
 	if f.OutdoorC != nil {
 		vals["t:outdoor"] = *f.OutdoorC
+	}
+	// Pausiert liefert der Companion die Schluessel, die er kennt. Die
+	// uebrigen bleiben aufgezeichnet.
+	for key := range vals {
+		if pl.Paused && HASeriesKey(key) {
+			delete(vals, key)
+		}
 	}
 	if len(vals) == 0 {
 		return
@@ -174,7 +182,8 @@ func (s *MinuteStore) place(pl MinutePlan, dirs MinuteDirs, up bool) (key, dir s
 
 // Flush schreibt die ausstehenden Minuten an den Ort. Ist das Laufwerk nicht
 // da, bleibt alles im RAM. Danach kommen Tage aus dem RAM, die aelter als die
-// Aufbewahrung sind oder ueber die RAM-Tage hinausgehen.
+// Aufbewahrung sind oder ueber die RAM-Tage hinausgehen. Die Aufbewahrung gilt
+// an allen bekannten Orten, die jetzt erreichbar sind.
 func (s *MinuteStore) Flush(now time.Time) error {
 	s.flushMu.Lock()
 	defer s.flushMu.Unlock()
@@ -186,18 +195,25 @@ func (s *MinuteStore) Flush(now time.Time) error {
 	key, dir, writable := s.place(pl, dirs, up)
 	cutoff := now.In(s.loc).AddDate(0, 0, -pl.Days).Format(minuteDayLayout)
 
+	type dropped struct {
+		day string
+		n   int
+	}
+	var drops []dropped
+
 	s.mu.Lock()
 	s.lastNow = now
 	if key != s.curKey {
 		s.curKey = key
-		if s.curDir != "" && s.curDir != dir {
-			s.prevDir = s.curDir
-		}
-		s.curDir = dir
 		s.files = map[string]*minuteFileState{}
 	}
 	if !writable {
 		s.files = map[string]*minuteFileState{}
+	}
+	for _, d := range []string{dir, dirs.Drive, dirs.System} {
+		if d != "" {
+			s.dirsUsed[d] = true
+		}
 	}
 
 	// RAM-Tage: aelter als die Aufbewahrung oder hinter den neuesten RAM-Tagen.
@@ -209,6 +225,9 @@ func (s *MinuteStore) Flush(now time.Time) error {
 	sort.Sort(sort.Reverse(sort.StringSlice(names)))
 	for i, k := range names {
 		if i >= keep || k <= cutoff {
+			if n := pendingCount(s.days[k]); n > 0 {
+				drops = append(drops, dropped{day: k, n: n})
+			}
 			delete(s.days, k)
 		}
 	}
@@ -234,10 +253,18 @@ func (s *MinuteStore) Flush(now time.Time) error {
 			jobs = append(jobs, minuteJob{day: k, path: path, d: d})
 		}
 	}
+	// Ein Ort ohne Laufwerk wird nicht angefasst, sonst landet die Aufbewahrung
+	// auf dem Systemdatentraeger.
+	var prune []string
+	for d := range s.dirsUsed {
+		if d != dirs.Drive || up {
+			prune = append(prune, d)
+		}
+	}
 	s.mu.Unlock()
 
-	if !writable {
-		return nil
+	for _, dr := range drops {
+		s.logf("learnrec: Tag %s mit %d ungeschriebenen Minuten verworfen", dr.day, dr.n)
 	}
 	var errs []error
 	for _, j := range jobs {
@@ -245,13 +272,26 @@ func (s *MinuteStore) Flush(now time.Time) error {
 			errs = append(errs, err)
 		}
 	}
-	if err := s.pruneFiles(dir, cutoff); err != nil {
-		errs = append(errs, err)
+	for _, d := range prune {
+		if err := s.pruneFiles(d, cutoff); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	for _, err := range errs {
 		s.logf("learnrec: Minuten schreiben fehlgeschlagen: %v", err)
 	}
 	return errors.Join(errs...)
+}
+
+// pendingCount zaehlt die Minuten eines Tages, die noch nicht in der Datei stehen.
+func pendingCount(d *minuteDay) int {
+	n := 0
+	for _, p := range d.pending {
+		if p {
+			n++
+		}
+	}
+	return n
 }
 
 // writeDay haengt die ausstehenden Minuten eines Tages an seine Datei an. Die
@@ -428,16 +468,20 @@ func (s *MinuteStore) Usage() MinuteUsage {
 	return u
 }
 
-// Reset leert das RAM und loescht die Tagesdateien des aktuellen und des vorigen Orts.
+// Reset leert das RAM und loescht die Tagesdateien an allen Orten, die der
+// Speicher je benutzt hat, und an den eingerichteten Laufwerken.
 func (s *MinuteStore) Reset() error {
 	s.flushMu.Lock()
 	defer s.flushMu.Unlock()
 
-	_, placeDir, _ := s.place(s.plan(), s.dirs(), true)
+	dirs := s.dirs()
 
 	s.mu.Lock()
 	dirSet := map[string]bool{}
-	for _, d := range []string{s.curDir, s.prevDir, placeDir} {
+	for d := range s.dirsUsed {
+		dirSet[d] = true
+	}
+	for _, d := range []string{dirs.Drive, dirs.System} {
 		if d != "" {
 			dirSet[d] = true
 		}
@@ -447,7 +491,7 @@ func (s *MinuteStore) Reset() error {
 	s.written = 0
 	s.since = time.Time{}
 	s.lastNow = time.Time{}
-	s.prevDir = ""
+	s.dirsUsed = map[string]bool{}
 	s.files = map[string]*minuteFileState{}
 	s.mu.Unlock()
 

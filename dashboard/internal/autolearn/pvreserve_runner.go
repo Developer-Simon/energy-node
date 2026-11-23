@@ -80,6 +80,9 @@ func (r *PVReserveRunner) ObserveMinute(f learnrec.Frame) {
 	r.weather.Observe(f.Minute, pv, best, r.tracker.LastUnthrottled())
 	k, kLow, fresh := r.weather.K(f.Minute)
 	r.w, r.est = Reserve(best, pv, kLow, fresh)
+	if !model.Safe {
+		r.est = true
+	}
 	r.have = true
 	if f.Balance != nil {
 		f.Balance["k"] = k
@@ -93,6 +96,12 @@ func (r *PVReserveRunner) Current() (w float64, est bool, ok bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.w, r.est, r.have
+}
+
+// DayCount returns the number of days the PV raster has samples for. It works
+// on a snapshot, so it is safe while the minute hub runs.
+func (r *PVReserveRunner) DayCount() int {
+	return r.tracker.Snapshot().DayCount()
 }
 
 // Save writes the weather state atomically, but only when it changed since the
@@ -144,6 +153,19 @@ func writePVWeatherFile(path string, data []byte) error {
 // site/pv_reserve_w in W, rounded to 50 W. current is the runner's Current. The
 // detector returns one learned value and no finding.
 func PVReserveDetector(current func() (float64, bool, bool)) Detector {
+	return pvReserveDetector(current, nil)
+}
+
+// PVReserveDetectorWithDays is PVReserveDetector with the gate on the days of
+// the PV raster: days returns how many days have samples, and the candidate
+// needs pvReserveMinDays of them.
+func PVReserveDetectorWithDays(current func() (float64, bool, bool), days func() int) Detector {
+	return pvReserveDetector(current, days)
+}
+
+// pvReserveDetector builds the detector. A nil days function gives one day and
+// no gate.
+func pvReserveDetector(current func() (float64, bool, bool), days func() int) Detector {
 	return Detector{
 		Name:      "learn_pv_reserve",
 		Group:     "energy",
@@ -157,10 +179,14 @@ func PVReserveDetector(current func() (float64, bool, bool)) Detector {
 			if !ok {
 				return nil
 			}
+			neff, minNEff := 1.0, 1.0
+			if days != nil {
+				neff, minNEff = float64(days()), pvReserveMinDays
+			}
 			return []Candidate{{
 				Detector: "learn_pv_reserve",
-				NEff:     1,
-				MinNEff:  1,
+				NEff:     neff,
+				MinNEff:  minNEff,
 				Value: &Value{Key: "site/pv_reserve_w", Kind: ValueNumber, Unit: "W", Group: "energy",
 					Num: math.Round(w/pvReserveStepW) * pvReserveStepW, N: 1, Estimate: est},
 			}}
@@ -170,3 +196,19 @@ func PVReserveDetector(current func() (float64, bool, bool)) Detector {
 
 // pvReserveStepW is the rounding step of the published PV reserve in W.
 const pvReserveStepW = 50.0
+
+// pvReserveMinDays is the number of days with PV samples the reserve needs.
+const pvReserveMinDays = 14.0
+
+// Reset setzt den Wetterfaktor und die Reserve zurueck und loescht pvweather.json.
+// Ein erneutes Save schreibt den leeren Stand.
+func (r *PVReserveRunner) Reset() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.weather = LoadWeather(WeatherState{})
+	r.saved = nil
+	r.have = false
+	r.w = 0
+	r.est = false
+	return removeIfExists(r.path)
+}

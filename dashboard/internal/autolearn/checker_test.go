@@ -450,3 +450,23 @@ func TestCheckerReplayInputNotBuiltWithoutEnabledRule(t *testing.T) {
 		t.Fatalf("source calls without rules = %d, want 0", calls)
 	}
 }
+
+func TestNotRuleSendsFindingsWithoutFixToMonitoring(t *testing.T) {
+	fix := []Fix{{Code: "night_off", Template: "night_off"}}
+	cases := []struct {
+		name string
+		f    Finding
+		want bool
+	}{
+		{"check group", Finding{ID: "a", Group: "check"}, true},
+		{"energy without fix", Finding{ID: "b", Group: "energy"}, true},
+		{"energy with fix", Finding{ID: "c", Group: "energy", Apply: fix}, false},
+		{"habit of a rule", Finding{ID: "d", Group: "habit", RuleIDs: []string{"r1"}}, false},
+		{"values only", Finding{Group: "energy"}, false},
+	}
+	for _, c := range cases {
+		if got := notRule(c.f); got != c.want {
+			t.Errorf("%s: notRule = %v, want %v", c.name, got, c.want)
+		}
+	}
+}

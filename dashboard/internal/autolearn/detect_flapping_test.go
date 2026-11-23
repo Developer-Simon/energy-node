@@ -60,9 +60,9 @@ func TestFlappingFlagsAlternatingRulesBelowMinimumRuntime(t *testing.T) {
 	if len(op.Path) != 3 || op.Path[0] != "conditions" || op.Path[1] != 0 || op.Path[2] != "hold_seconds" {
 		t.Errorf("op path = %v", op.Path)
 	}
-	// Period 60 s, three periods are 180 s, above the 120 s minimum of other devices.
-	if op.Value != 180 {
-		t.Errorf("hold_seconds = %v, want 180", op.Value)
+	// The hold is the minimum run of other devices, 300 s.
+	if op.Value != 300 {
+		t.Errorf("hold_seconds = %v, want 300", op.Value)
 	}
 }
 

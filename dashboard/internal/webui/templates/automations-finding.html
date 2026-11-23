@@ -11,7 +11,7 @@
               <template x-teleport="body">
                 <div class="auto-learn-layer">
                   <template x-for="finding in [findingFor({{.key}}.id)].filter((entry) => entry && entry.id === findingOpen)" x-bind:key="finding.id">
-                    <div class="auto-learn-pop" role="dialog" aria-modal="false" x-ref="findingPop" {{if eq .tour "rule"}}data-tour="rule-finding-pop"{{end}}
+                    <div class="auto-learn-pop" role="dialog" aria-modal="false" x-transition:leave="auto-learn-pop-leave" x-transition:leave-end="auto-learn-pop-out" x-ref="findingPop"{{if eq .tour "rule"}}data-tour="rule-finding-pop"{{end}}
                          x-bind:aria-label="findingText(finding).title" x-bind:style="findingStyle"
                          x-on:click.outside="closeFinding()" x-on:keydown.escape.window="closeFinding()">
                       <div class="auto-learn-pop-head">
@@ -23,7 +23,7 @@
                       </div>
                       <p class="auto-learn-pop-text" x-text="findingText(finding).text"></p>
                       <div class="auto-learn-evidence" x-effect="window.AutomationEvidence.mount($el, finding.evidence, $t)"></div>
-                      <div class="auto-learn-pop-actions">
+                      <div class="auto-learn-pop-actions" x-show="canEditAutomations">
                         <template x-for="(fix, index) in (finding.apply || [])" x-bind:key="index">
                           <button class="auto-btn-text auto-learn-fix" type="button" x-bind:class="{ 'is-primary': index === 0 }" {{if eq .tour "rule"}}x-bind:data-tour="index === 0 ? 'rule-finding-fix' : null"{{end}}
                                   x-on:click="applyFix(fix, finding)" x-text="fixLabel(fix)"></button>

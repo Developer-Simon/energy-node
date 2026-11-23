@@ -166,6 +166,7 @@ func noEffectCandidate(device string, info DeviceInfo, rule Rule, t *noEffectTal
 		Lower:    lower,
 		Limit:    noEffectLimit,
 		Values:   map[string]float64{"share": share},
+		Spread:   map[string]float64{"share": 1 / float64(t.considered)},
 	}
 }
 

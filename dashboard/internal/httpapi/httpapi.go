@@ -2693,6 +2693,26 @@ func handleSettingsRevision(store *settings.Store) http.HandlerFunc {
 				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
+			target, err := store.SettingsRevisionValue(request.Revision)
+			if err != nil {
+				writeErrorDetail(w, http.StatusBadRequest, "settings_restore_rejected", err)
+				return
+			}
+			current, err := store.LoadSettings()
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "settings_invalid", err)
+				return
+			}
+			roles, err := settingsChangeRoles(current, target)
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "settings_invalid", err)
+				return
+			}
+			for _, role := range roles {
+				if !requireSettingsRole(w, r, role) {
+					return
+				}
+			}
 			value, err := store.RestoreSettings(request.Revision)
 			if err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "settings_restore_rejected", err)

@@ -36,7 +36,7 @@ func flappingRun(ctx context.Context, in *Input, device string) []Candidate {
 	if !ok {
 		return nil
 	}
-	minRun := reliabilityMinRuntime(info)
+	minRun := minRunForRole(info)
 	if minRun <= 0 {
 		return nil
 	}
@@ -165,6 +165,7 @@ func flappingCandidate(device string, info DeviceInfo, rules map[string]Rule, id
 		Lower:  1,
 		Limit:  1,
 		Values: map[string]float64{"period_s": period},
+		Spread: map[string]float64{"period_s": MADScale(gaps)},
 	}
 }
 

@@ -15,7 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import learned
 
-VECTORS = json.loads((Path(__file__).parent / "learned_vectors.json").read_text(encoding="utf-8"))
+_VECTOR_FILE = json.loads((Path(__file__).parent / "learned_vectors.json").read_text(encoding="utf-8"))
+VECTORS = _VECTOR_FILE["resolve"]
+BOUNDS = _VECTOR_FILE["bounds"]
 
 
 @pytest.mark.parametrize("vector", VECTORS, ids=[v["name"] for v in VECTORS])
@@ -37,6 +39,14 @@ def _errors(ref, kind="time"):
     errors = []
     learned.validate_ref(ref, kind, "rules[0].start", errors)
     return errors
+
+
+@pytest.mark.parametrize("vector", BOUNDS, ids=[v["name"] for v in BOUNDS])
+def test_bounds_vector(vector):
+    errors = []
+    learned.validate_ref(vector["ref"], vector["kind"], "rules[0].start", errors)
+    # Jede Meldung beginnt mit dem Pfad, die Go-Seite prueft denselben Text.
+    assert [e.split(": ", 1)[1] for e in errors] == vector["errors"]
 
 
 def test_validate_accepts_midnight_arc():

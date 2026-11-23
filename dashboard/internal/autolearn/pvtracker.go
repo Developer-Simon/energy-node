@@ -126,3 +126,25 @@ func (t *PVTracker) Save() error {
 	}
 	return nil
 }
+
+// Reset leert das Himmelsraster und loescht die Datei. Ein erneutes Save schreibt
+// den leeren Raster.
+func (t *PVTracker) Reset() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.raster.clear()
+	t.lastUnthrottled = false
+	return removeIfExists(t.path)
+}
+
+// removeIfExists loescht path. Eine fehlende Datei ist kein Fehler, ein leerer
+// Pfad heisst: keine Datei.
+func removeIfExists(path string) error {
+	if path == "" {
+		return nil
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("autolearn: reset %s: %w", path, err)
+	}
+	return nil
+}

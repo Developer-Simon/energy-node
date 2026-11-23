@@ -156,7 +156,13 @@ func (t *Tracker) RuleState(at time.Time, payload string, targets func(ruleID st
 	defer t.mu.Unlock()
 	first := !t.seeded
 	t.seeded = true
-	for id, r := range doc.Rules {
+	ids := make([]string, 0, len(doc.Rules))
+	for id := range doc.Rules {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		r := doc.Rules[id]
 		prev := t.counts[id]
 		t.counts[id] = r.FireCount
 		if first || r.FireCount <= prev || targets == nil {
@@ -231,6 +237,9 @@ func (t *Tracker) claimRuleActLocked(c *change, start time.Time) *ruleAct {
 			continue
 		}
 		if ra.act.At.Before(start) || ra.act.At.After(c.at) {
+			continue
+		}
+		if ra.act.WantOn != nil && *ra.act.WantOn != c.on {
 			continue
 		}
 		ra.attributed = true

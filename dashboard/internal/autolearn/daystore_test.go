@@ -717,3 +717,31 @@ func TestDayStoreAddCyclesRespectsExcludedAndEnabled(t *testing.T) {
 		t.Errorf("cycle = %+v", c)
 	}
 }
+
+func TestDayStoreWriteFileLeavesOnlyTheDayFile(t *testing.T) {
+	loc := berlinLoc(t)
+	dir := t.TempDir()
+	s := OpenDayStore(dir, loc, keepAll, noLog)
+	f := DayFile{V: dayFileVersion, Day: "2026-11-19", Devices: map[string]*DeviceDay{},
+		Events: []EventRec{}, Actions: []ActionRec{}}
+	for i := 0; i < 2; i++ {
+		if err := s.writeFile("2026-11-19", f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "2026-11-19.json.gz" {
+		names := []string{}
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("dir after two writes = %v, want only the day file", names)
+	}
+	days := mustDays(t, s, time.Date(2026, 11, 19, 0, 0, 0, 0, loc), time.Date(2026, 11, 19, 0, 0, 0, 0, loc))
+	if len(days) != 1 || days[0].Day != "2026-11-19" {
+		t.Fatalf("day file not readable after write: %+v", days)
+	}
+}

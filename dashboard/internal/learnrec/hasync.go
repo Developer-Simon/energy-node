@@ -314,6 +314,35 @@ func (s *HASync) Drop() {
 	s.fiveMin = map[string]map[string]bool{}
 }
 
+// Reset verwirft wie Drop den Zwischenspeicher, offene Nachfragen und Warteschlange,
+// dazu die angebotenen Serien. Der Abgleich bleibt angemeldet und fragt neu an.
+func (s *HASync) Reset() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.offered = map[string]map[string]historyexchange.Census{}
+	s.queue = nil
+	s.pending = nil
+	s.deadline = time.Time{}
+	s.days = map[string]map[string]*[minutesPerDay]float32{}
+	s.fiveMin = map[string]map[string]bool{}
+	return nil
+}
+
+// HASeriesKey meldet, ob der Companion einen Lern-Schluessel liefern kann
+// (e:<id>, b:pv, b:battery_soc).
+func HASeriesKey(key string) bool {
+	_, ok := haSeriesFor(key)
+	return ok
+}
+
+// Offered meldet, ob der Companion Serien angeboten hat, die der Abgleich
+// nutzen kann.
+func (s *HASync) Offered() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.offered) > 0
+}
+
 // haSeriesFor uebersetzt einen Lern-Schluessel in den Serienamen des
 // Companion. Nur e:<id>, b:pv und b:battery_soc sind belegt; Netz, Last und
 // Speicher bleiben offen, bis Vorzeichen und Einheit geprueft sind.

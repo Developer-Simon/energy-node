@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -133,6 +134,11 @@ func (s *LearnedStore) Update(vals []Value, now time.Time, deviceExists func(str
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Key < sorted[j].Key })
 	for _, v := range sorted {
 		cur := learnedCurrent(v)
+		// A NaN or Inf does not encode as JSON. Its payload would be empty, which
+		// deletes the retained topic, so it is neither stored nor published.
+		if f, isNumber := cur.(float64); isNumber && (math.IsNaN(f) || math.IsInf(f, 0)) {
+			continue
+		}
 		e, ok := s.entries[v.Key]
 		switch {
 		case !ok:

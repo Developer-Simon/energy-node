@@ -953,8 +953,12 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-learn-pop { position: fixed; z-index: 60; box-sizing: border-box; padding: .85rem .95rem .9rem; border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--panel) 86%, transparent); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
   border: 1px solid var(--border-soft); box-shadow: 0 12px 32px rgba(0, 0, 0, .28);
-  animation: auto-learn-pop-in 160ms var(--ease-out) both; }
+  animation: auto-learn-pop-in 160ms var(--ease-out) backwards; }
 @keyframes auto-learn-pop-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+/* Austritt per x-transition:leave: Klasse mit der Dauer, Endzustand schrumpft und blendet aus.
+   Der Einlauf oben fuellt nicht vor, sonst hielte er den Endwert gegen den Austritt. */
+.auto-learn-pop-leave { transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out); }
+.auto-learn-pop-out { opacity: 0; transform: scale(.96); }
 @keyframes auto-learn-fade { from { opacity: 0; } to { opacity: 1; } }
 .auto-learn-pop-head { display: flex; gap: .5rem; align-items: flex-start; padding-right: 1.6rem; }
 .auto-learn-pop-head h4 { margin: 0; flex: 1; min-width: 0; font-size: .95rem; line-height: 1.2rem; color: var(--text-strong); }
@@ -1049,6 +1053,8 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-learn-mark { transition: none; }
   .auto-learn-mark:active { transform: none; }
   .auto-learn-pop { animation-name: auto-learn-fade; }
+  .auto-learn-pop-leave { transition: opacity 160ms ease; }
+  .auto-learn-pop-out { transform: none; }
   /* Reduzierte Bewegung: nur ein kurzes Einblenden per opacity, ohne Verschiebung */
   .auto-learn-evidence.is-enter .auto-learn-is,
   .auto-learn-evidence.is-enter .auto-learn-shape-scale .auto-learn-lane-svg .auto-learn-ist,
@@ -1087,7 +1093,7 @@ button.auto-learn-tile[aria-expanded="true"]:not(:disabled) { background: var(--
 .auto-learn-group.is-habit { color: var(--accent-line); }
 .auto-learn-group.is-reliability { color: var(--warn); }
 .auto-learn-group.is-check { color: var(--info); }
-.auto-learn-group.is-energy { color: var(--ok); }
+.auto-learn-group.is-energy { color: var(--flow-pv); }
 .auto-learn-more { box-sizing: border-box; font: inherit; font-size: .88rem; font-weight: 600; color: var(--text-muted); cursor: pointer; background: transparent;
   border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 0 1rem; min-width: 3.2rem;
   transition: transform 120ms var(--ease-out); }
@@ -1111,6 +1117,10 @@ button.auto-learn-tile[aria-expanded="true"]:not(:disabled) { background: var(--
 .auto-learn-season { font-size: .74rem; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 999px; padding: .1rem .55rem; white-space: nowrap; }
 .auto-learn-card-title { margin: .45rem 0 0; font-size: 1.02rem; line-height: 1.25; letter-spacing: -.005em; color: var(--text-strong); }
 .auto-learn-card-text { margin: .3rem 0 0; font-size: .86rem; line-height: 1.45; color: var(--text-muted); }
+/* Soll-Spur der aufgeklappten Karte: erscheint 120 ms nach dem Aufklappen, 280 ms, einmal.
+   is-enter setzt die Karte beim Aufklappen und nimmt es nach 400 ms wieder weg. */
+.auto-learn-card.is-enter .auto-learn-plot-svg.is-soll { animation: auto-learn-trace 280ms cubic-bezier(0.23, 1, 0.32, 1) 120ms both; }
+.auto-learn-card.is-enter .auto-learn-shape-events .auto-learn-lane.is-soll .auto-learn-lane-svg { animation: auto-learn-trace 280ms cubic-bezier(0.23, 1, 0.32, 1) 120ms both; }
 /* Erklaerung von Ist und Soll: Info-Knopf oben rechts an der Grafik, der Tooltip schwebt darunter.
    Nur opacity und transform animieren. Hover oeffnet mit 150 ms Verzoegerung, Tipp und Fokus sofort. */
 .auto-learn-evidence { position: relative; }
@@ -1169,4 +1179,7 @@ button.auto-learn-tile[aria-expanded="true"]:not(:disabled) { background: var(--
   .auto-learn-tile:active, .auto-learn-more:active { transform: none; }
   .auto-learn-detail { transition: opacity 240ms var(--ease-out); }
   .auto-learn-hint.is-on { animation-name: auto-learn-fade; }
+  /* Reduzierte Bewegung: die Soll-Spur nur blenden, ohne Maske */
+  .auto-learn-card.is-enter .auto-learn-plot-svg.is-soll { animation: auto-learn-chart-fade 280ms ease-out 120ms both; }
+  .auto-learn-card.is-enter .auto-learn-shape-events .auto-learn-lane.is-soll .auto-learn-lane-svg { animation: auto-learn-chart-fade 280ms ease-out 120ms both; }
 }

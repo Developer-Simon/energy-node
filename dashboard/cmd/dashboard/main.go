@@ -468,6 +468,7 @@ func main() {
 	// Abgleich mit dem Companion: holt fehlende Minuten- und 5-Minuten-Werte
 	// fuer die Lernfunktionen, nur im RAM.
 	learnHA := learnrec.NewHASync(time.Now, learnLimits, time.Local)
+	learnHub.AddResetter("hasync", learnHA)
 	learnHub.SetOutdoor(func() string {
 		if value, err := settingsStore.LoadSettings(); err == nil {
 			return value.AutomationOutdoorEntity
@@ -481,7 +482,9 @@ func main() {
 		automationChecker.ObserveTick(at, automationState(), balanceRuleValues(snap.Balance), automationEntityValue)
 	}))
 	learnHub.AddSaver("chainwatch", chainMonitor)
+	learnHub.AddResetter("chainwatch", learnrec.ResetterFunc(chainMonitor.ResetLearned))
 	learnHub.AddSaver("chainsuggest", chainSuggest)
+	learnHub.AddResetter("chainsuggest", learnrec.ResetterFunc(chainSuggest.ResetLearned))
 	learnHub.AddSaver("autolearn", automationObserver)
 	// Herkunft der Schaltvorgaenge: Regel, Hand oder Aussen. Die Reaktionszeiten
 	// liegen in autolearn/reaction.json und werden vom Hub mitgesichert.
@@ -491,6 +494,7 @@ func main() {
 	originTracker := autolearn.NewTracker(reactions)
 	learnHub.AddMinute("origin", originTracker)
 	learnHub.AddSaver("reactions", reactions)
+	learnHub.AddResetter("reactions", reactions)
 	// Demo: mit ENERGY_NODE_AUTOLEARN_FAST=1 bekommt ein leeres Tagesverzeichnis
 	// die Demo-Profile, dazu Himmelsraster und Dachmodell. Der Block steht vor
 	// den Trackern, die die Dateien beim Start laden. Vorhandene Dateien bleiben unberührt.
@@ -538,10 +542,12 @@ func main() {
 		pvSite.refresh()
 		return pvTracker.Save()
 	}))
+	learnHub.AddResetter("pvtracker", pvTracker)
 	// Geometriemodell der Dachflaechen: nachts aus dem Himmelsraster neu gefittet,
 	// nur bei Aenderung gespeichert.
 	pvModelStore := autolearn.NewPVModelStore(filepath.Join(autolearnDir, "pvmodel.json"))
 	learnHub.AddSaver("pvmodel", pvModelStore)
+	learnHub.AddResetter("pvmodel", pvModelStore)
 	// Wetterfaktor und PV-Reserve: laeuft nach dem Tracker, damit dieselbe Minute
 	// schon im Raster steht. Die Reserve geht ueber den Minutenrahmen in den
 	// Tagesspeicher (Schluessel k).
@@ -550,6 +556,7 @@ func main() {
 		autolearn.LoadPVWeather(pvWeatherPath, log.Printf), pvWeatherPath)
 	learnHub.AddMinute("pvreserve", pvReserve)
 	learnHub.AddSaver("pvweather", pvReserve)
+	learnHub.AddResetter("pvweather", pvReserve)
 	// Tagesdateien: je Minute der Rahmen, je Minute die Ereignisse des Trackers.
 	// Die Aufbewahrung kommt aus den Einstellungen, 0 heisst 56 Tage.
 	dayStore := autolearn.OpenDayStore(filepath.Join(autolearnDir, "days"), time.Local, func() int {
@@ -560,10 +567,12 @@ func main() {
 	}, log.Printf)
 	learnHub.AddMinute("daystore", dayStore)
 	learnHub.AddSaver("daystore", dayStore)
+	learnHub.AddResetter("daystore", dayStore)
 	// Zyklen der Geraete: ohne Herkunftsabfrage enden alle Zyklen als self.
 	cycles := newCycleRunner(filepath.Join(autolearnDir, "cycles.json"), dayStore, nil, log.Printf)
 	learnHub.AddMinute("cycles", cycles)
 	learnHub.AddSaver("cycles", cycles)
+	learnHub.AddResetter("cycles", cycles)
 	// Automationen-Engine: die Erkenner laufen in eigener Goroutine, nie im
 	// MQTT-Pfad. Die Gruppen folgen dem Schalter Muster lernen und den beiden
 	// Gruppenschaltern darunter. Ohne lesbare Einstellungen bleibt alles an.
@@ -588,7 +597,8 @@ func main() {
 	// Prognose-Selbstpruefung des Rest-Ueberschusses, gespeichert mit dem Hub.
 	forecastCheck := autolearn.LoadForecastCheck(filepath.Join(autolearnDir, "forecast.json"), log.Printf)
 	learnHub.AddSaver("forecast", forecastCheck)
-	registerEnergyDetectors(automationEngine, pvReserve.Current, forecastCheck)
+	learnHub.AddResetter("forecast", forecastCheck)
+	registerEnergyDetectors(automationEngine, pvReserve.Current, pvReserve.DayCount, forecastCheck)
 	automationEngine.Register(autolearn.BaseLoadDetector)
 	automationEngine.Register(autolearn.BatteryDetector)
 	automationEngine.Register(autolearn.NewPVModelDetector(pvTracker.Snapshot, pvModelStore))
@@ -647,6 +657,8 @@ func main() {
 	}
 	engineLoop := newEngineRunner(automationEngine, engineGroups, engineDowngrade)
 	learnHub.AddMinute("autolearn-engine", engineLoop)
+	// Die Engine hat keinen Speicher, ihr Reset verwirft nur die letzte Runde.
+	learnHub.AddResetter("autolearn-engine", automationEngine)
 	// Tagesanteil der Lernlast, stuendlich in den Lernstand.
 	learnHub.AddSaver("daily-share", dailyShareSaver(automationEngine, engineGroups, &learnStateMu, &learnState, learnStatePath, time.Now))
 	// Vorschlaege der Gewohnheiten: nach jeder Runde durch die Gates, gespeichert
@@ -794,6 +806,7 @@ func main() {
 		mount:           storageMountPoint,
 	})
 	learnHub.AddMinute("minutes", minutes.store)
+	learnHub.AddResetter("minutes", minutes)
 	var minuteReader learnrec.Reader = minutes.store
 	// Der schwere Lauf liest eigene Minuten zuerst, dann Home Assistant. Vor dem Lauf
 	// holt der Vorlauf fehlende Tage beim Companion und verwirft sie danach.
@@ -808,6 +821,8 @@ func main() {
 	})
 	// Die Reglerschritte fuer die Regelguete der Nulleinspeisung.
 	automationEngine.SetSteps(minutes.steps.Steps)
+	// Die gezeigten Vorschläge, damit eine Schaltzeit ihre ID behält.
+	automationEngine.SetShown(func() map[string]bool { return shownIDs(suggestionState.Shown()) })
 	go runStorageResume(ctx, storageService)
 	// Die Belegung der Systemplatte: in der Demo feste Werte, sonst eine Messung
 	// im Hintergrund, die alle zehn Minuten erneuert wird.
@@ -1223,6 +1238,7 @@ func main() {
 	} else if len(bridgeCfg.Connections) > 0 {
 		client.SetBridgeWatch(bridgeCfg.Connections[0].RemoteClientID)
 	}
+	configManager.SetSaveCheck(autolearn.CheckLearnedBoundsOnSave)
 	configManager.SetReloadFunc(func(name string, _ []byte) error {
 		if serviceID, ok := config.ServiceIDForConfig(name); ok {
 			return client.ReloadService(serviceID)
@@ -1390,7 +1406,7 @@ func main() {
 		HAMinuteDays:     learnHA.Days,
 		Reset: func() error {
 			resetLearned(learnedStore, client)
-			return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset(), minutes.Reset())
+			return errors.Join(learnHub.Reset(), suggestions.Reset())
 		},
 	}
 	handler := perfTiming.Middleware(basepath.Middleware(httpapi.NewAuthenticatedRouter(reg, configManager, settingsStore, tinytuya.NewClient(

@@ -591,3 +591,81 @@ func TestSwitchTimeSunOffsetOutOfRangeIsClock(t *testing.T) {
 		t.Errorf("prefill = %+v, want no sun anchor", c.Apply[0].Prefill)
 	}
 }
+
+func TestSwitchTimeSkipsUnreachableDays(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	// The lamp is out of reach on five days, so it does not switch on at 07:00.
+	// Those days count neither as hits nor as misses: 17 of 17 stays high. The
+	// days are 22 so that 17 counted days clear switchTimeMinNEff.
+	days := synthDays(start, 22, synthOpts{
+		Seed:    29,
+		Devices: []string{"lamp"},
+		Outages: []synthOutage{{Device: "lamp", synthSpan: synthSpan{From: 2, To: 7}}},
+		Habits: []synthHabit{
+			{Device: "lamp", On: true, Minute: 420, Spread: 0, Hit: 1},
+			{Device: "lamp", On: false, Minute: 1350, Spread: 8, Hit: 1},
+		},
+	})
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeInput(t, days), "lamp"), "lamp", "on")
+	if len(got) != 1 {
+		t.Fatalf("on candidates = %d, want 1", len(got))
+	}
+	if got[0].Finding.Confidence != "high" {
+		t.Errorf("confidence = %s, want high (lower %.2f)", got[0].Finding.Confidence, got[0].Lower)
+	}
+	if got[0].Finding.Summary.Params["days"] != 17 || got[0].Finding.Summary.Params["hits"] != 17 {
+		t.Errorf("days and hits = %v and %v, want 17 and 17", got[0].Finding.Summary.Params["days"], got[0].Finding.Summary.Params["hits"])
+	}
+}
+
+func TestSwitchTimeSkipsAwayDays(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	days := synthDays(start, 22, synthOpts{
+		Seed:    31,
+		Devices: []string{"lamp"},
+		Habits: []synthHabit{
+			{Device: "lamp", On: true, Minute: 420, Spread: 0, Hit: 1},
+			{Device: "lamp", On: false, Minute: 1350, Spread: 8, Hit: 1},
+		},
+	})
+	in := switchTimeInput(t, days)
+	for i := 2; i < 7; i++ {
+		in.Base.Away[days[i].Day] = true
+	}
+	got := switchTimeFor(SwitchTimeDetector.Run(context.Background(), in, "lamp"), "lamp", "on")
+	if len(got) != 1 {
+		t.Fatalf("on candidates = %d, want 1", len(got))
+	}
+	if got[0].Finding.Summary.Params["days"] != 17 {
+		t.Errorf("days = %v, want 17 without the five away days", got[0].Finding.Summary.Params["days"])
+	}
+}
+
+func TestSwitchTimeIDStable(t *testing.T) {
+	loc := berlinLoc(t)
+	start := time.Date(2026, 1, 5, 0, 0, 0, 0, loc)
+	habits := func(minute float64) []synthHabit {
+		return []synthHabit{
+			{Device: "lamp", On: true, Minute: minute, Spread: 0, Hit: 1},
+			{Device: "lamp", On: false, Minute: 1350, Spread: 8, Hit: 1},
+		}
+	}
+	before := synthDays(start, 14, synthOpts{Seed: 37, Devices: []string{"lamp"}, Habits: habits(404)})
+	later := synthDays(start, 14, synthOpts{Seed: 37, Devices: []string{"lamp"}, Habits: habits(406)})
+
+	first := switchTimeFor(SwitchTimeDetector.Run(context.Background(), switchTimeInput(t, before), "lamp"), "lamp", "on")
+	if len(first) != 1 {
+		t.Fatalf("first candidates = %d, want 1", len(first))
+	}
+	in := switchTimeInput(t, later)
+	in.ShownIDs = map[string]bool{first[0].Finding.ID: true}
+	second := switchTimeFor(SwitchTimeDetector.Run(context.Background(), in, "lamp"), "lamp", "on")
+	if len(second) != 1 {
+		t.Fatalf("second candidates = %d, want 1", len(second))
+	}
+	if second[0].Finding.ID != first[0].Finding.ID {
+		t.Errorf("ID = %s, want the shown ID %s", second[0].Finding.ID, first[0].Finding.ID)
+	}
+}

@@ -14,6 +14,7 @@ const haPrefetchTimeout = 90 * time.Second
 
 // haFetcher ist der Teil des Abgleichs, den der Vorlauf braucht.
 type haFetcher interface {
+	Offered() bool
 	Prefetch(keys []string, days []string, deadline time.Time)
 	WaitIdle(ctx context.Context) bool
 	Drop()
@@ -61,7 +62,7 @@ func (p *haPreparer) Prepare(now time.Time) {
 			days = append(days, start.Format("2006-01-02"))
 		}
 	}
-	if len(days) == 0 {
+	if len(days) == 0 || !p.ha.Offered() {
 		return
 	}
 	keys := make([]string, 0, len(keySet))

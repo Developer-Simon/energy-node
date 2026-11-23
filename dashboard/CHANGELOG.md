@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.22-pre.34 (2026-11-06)
+## v0.11.22-pre.35 (2026-11-06)
 
 ### Features
 
@@ -34,11 +34,11 @@
 - **autolearn:** The rule check finds feedback, competition for the surplus, a rising base load and battery problems (#292) (142387b)
 - **autolearn:** The node records minute values and keeps every regulator step as a base for learning (#293) (19e65e7)
 - **autolearn:** Automation suggestions for surplus and load shifts are checked against your data (#295) (6c255ad)
+- **autolearn:** Learning functions can take minute values from Home Assistant (#294) (7aa657e)
 - **learnrec:** fetch minute values from Home Assistant through the companion (97e2665)
 - **learnrec:** pause the own recording while Home Assistant delivers minutes (4086c45)
 - **learnrec:** read own minutes first, then Home Assistant, and fetch gaps before the heavy run (44ee05d)
 - **settings:** let Home Assistant fill the minute recording (3d7d231)
-- **autolearn:** Learning functions can take minute values from Home Assistant (#294)
 - **autolearn:** parse the learned_value condition (da541e8)
 - **automations:** edit the learned_value condition (672ca29)
 - **automations:** edit the learned_value fields in the rule card (ae0c8e1)
@@ -334,6 +334,25 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **learning:** reset every learned state through one registry (594282c)
+- **autolearn:** survive a detector panic and keep results of finished devices (102cad0)
+- **autolearn:** keep harm first, cap open suggestions and give every value a spread (bde4c6a)
+- **autolearn:** drop suggestions an existing rule covers and energy suggestions without replay (420f092)
+- **autolearn:** match rule actions by direction and use one minimum run table (2f2cd59)
+- **autolearn:** skip unreachable and away days and keep switch time IDs stable (2764157)
+- **autolearn:** detect downward shifts in the change point test (c3a946e)
+- **autolearn:** replay learned values over their history and fix season edge cases (081de7b)
+- **autolearn:** fix threshold plateau, replay base once and count PV days (0a38900)
+- **autolearn:** use the PV day count in production wiring (6edba7c)
+- **learnrec:** keep recording what Home Assistant cannot deliver and clean every location (edc5b1d)
+- **learnrec:** reset zeroed minute file headers on append (c70503a)
+- **automations:** reject learned bounds on save that the service would reject (15cd9c7)
+- **dashboard:** check field roles on settings restore and CSRF on monitoring ack (ba98fb8)
+- **webui:** gate finding actions, close the popover on scroll and keep every undo (cf08e7f)
+- **automations:** read the resolve section of the learned vectors in the JS test (2405fe4)
+- **webui:** animate the band card and soften the popover close (ae782ae)
+- **autolearn:** list findings without a fix only in Monitoring (2e4acd0)
+- **automations:** correct the learning feature after the full review (#296)
 - **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** harden the replay against unsupported fields and absent keys (f762aae)
 - **automations:** prefill the surplus templates from a suggestion (d977098)
@@ -493,6 +512,7 @@
 
 ### Chores
 
+- **webui:** bump the cache-bust marks for the learning review fixes (6c82592)
 - **dashboard:** bump the cache-bust marks for the Home Assistant source (8b3bb59)
 - **dashboard:** refresh the cache-bust history after the rebase (33c7bcb)
 - **dashboard:** bump the cache-bust marks for energy suggestions (5e08c00)

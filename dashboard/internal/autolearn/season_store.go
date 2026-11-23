@@ -321,7 +321,7 @@ func (s *SeasonStore) PriorEmptyShare(week int) (float64, bool) {
 		return 0, false
 	}
 	var vals []float64
-	for _, w := range s.Same(week, seasonYears) {
+	for _, w := range s.Same(time.Now(), week, seasonYears) {
 		if w.EmptyShare != nil {
 			vals = append(vals, *w.EmptyShare)
 		}
@@ -333,18 +333,19 @@ func (s *SeasonStore) PriorEmptyShare(week int) (float64, bool) {
 }
 
 // Same lists the weeks of the calendar week and its neighbours (one week before
-// and after) in the given number of years before the current year, oldest first.
-func (s *SeasonStore) Same(week int, years int) []Week {
+// and after) in the given number of years before the ISO year of ref, oldest
+// first. The weeks are taken from the Monday of each week, so week 1 reaches
+// into the year before and a week 53 that a year does not have is the week
+// it is in the next year.
+func (s *SeasonStore) Same(ref time.Time, week int, years int) []Week {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	year := time.Now().Year()
+	year, _ := ref.ISOWeek()
 	var out []Week
 	for k := 1; k <= years; k++ {
-		for w := week - 1; w <= week+1; w++ {
-			if w < 1 || w > 53 {
-				continue
-			}
-			if rec, ok := s.weeks[fmt.Sprintf("%d-W%02d", year-k, w)]; ok {
+		for d := -1; d <= 1; d++ {
+			key := isoWeekKey(isoWeekMondayOf(year-k, week+d))
+			if rec, ok := s.weeks[key]; ok {
 				out = append(out, rec)
 			}
 		}
@@ -400,9 +401,15 @@ func isoWeekMonday(key string) (time.Time, bool) {
 	if _, err := fmt.Sscanf(key, "%d-W%d", &y, &w); err != nil {
 		return time.Time{}, false
 	}
+	return isoWeekMondayOf(y, w), true
+}
+
+// isoWeekMondayOf is the Monday (UTC) of week w of ISO year y. A week number
+// past the end of the year, or below 1, falls into the neighbouring year.
+func isoWeekMondayOf(y, w int) time.Time {
 	jan4 := time.Date(y, time.January, 4, 0, 0, 0, 0, time.UTC)
 	offset := (int(jan4.Weekday()) + 6) % 7
-	return jan4.AddDate(0, 0, -offset+(w-1)*7), true
+	return jan4.AddDate(0, 0, -offset+(w-1)*7)
 }
 
 func sortWeeks(ws []Week) {

@@ -24,3 +24,9 @@ func TestMinRunForRole(t *testing.T) {
 		}
 	}
 }
+
+func TestMinRunDefault(t *testing.T) {
+	if got := minRunForRole(DeviceInfo{ID: "dev", Switchable: true, Role: energy.RoleLoad}); got != 300 {
+		t.Fatalf("minRunForRole(other device) = %v, want 300", got)
+	}
+}

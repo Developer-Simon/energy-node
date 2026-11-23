@@ -103,21 +103,21 @@ func replayCand(kwh float64, base, alt ReplayResult) Candidate {
 
 func TestGateDropsReplayWithMoreGridThanExport(t *testing.T) {
 	c := replayCand(1, ReplayResult{GridWh: 0, ExportWh: 1000}, ReplayResult{GridWh: 1500, ExportWh: 0})
-	if out, _ := Gate([]Candidate{c}, Doc{}, nil); len(out) != 0 {
+	if out, _ := Gate([]Candidate{c}, Doc{}, nil, GateOptions{}); len(out) != 0 {
 		t.Fatalf("kept %v, want dropped, the suggestion draws more from the grid than it uses", gateIDs(out))
 	}
 }
 
 func TestGateKeepsReplayWhenExportCoversGrid(t *testing.T) {
 	c := replayCand(1, ReplayResult{GridWh: 0, ExportWh: 1000}, ReplayResult{GridWh: 500, ExportWh: 0})
-	if out, _ := Gate([]Candidate{c}, Doc{}, nil); len(out) != 1 {
+	if out, _ := Gate([]Candidate{c}, Doc{}, nil, GateOptions{}); len(out) != 1 {
 		t.Fatalf("kept %v, want one suggestion", gateIDs(out))
 	}
 }
 
 func TestGateDropsReplayBelowBenefitMinimum(t *testing.T) {
 	c := replayCand(0.3, ReplayResult{}, ReplayResult{})
-	if out, _ := Gate([]Candidate{c}, Doc{}, nil); len(out) != 0 {
+	if out, _ := Gate([]Candidate{c}, Doc{}, nil, GateOptions{}); len(out) != 0 {
 		t.Fatalf("kept %v, want dropped at 0,3 kWh per week", gateIDs(out))
 	}
 }
@@ -125,7 +125,7 @@ func TestGateDropsReplayBelowBenefitMinimum(t *testing.T) {
 func TestGateCapsReplayEstimateAtEstimate(t *testing.T) {
 	c := replayCand(1, ReplayResult{}, ReplayResult{})
 	c.Replay.Estimate = true
-	out, _ := Gate([]Candidate{c}, Doc{}, nil)
+	out, _ := Gate([]Candidate{c}, Doc{}, nil, GateOptions{})
 	if len(out) != 1 || out[0].Confidence != "estimate" {
 		t.Fatalf("out = %+v, want one finding with confidence estimate", out)
 	}
