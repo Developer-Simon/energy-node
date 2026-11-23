@@ -224,6 +224,15 @@ test('the hint shows only with setup done, edit_setup and features that are new'
   assert.equal(empty.page.newHintVisible, false);
 });
 
+test('a session that cannot be read turns the edit right off and hides the hint', async () => {
+  const routes = hintRoutes();
+  delete routes['/api/v1/auth/session'];
+  const { page } = createPage({ routes });
+  await page.load();
+  assert.equal(page.learnCanEdit, false);
+  assert.equal(page.newHintVisible, false);
+});
+
 test('fresh picks the fresh text, an update the update text', async () => {
   const update = createPage({ routes: hintRoutes({ ...hintStatus, new: ['auto_patterns'] }) });
   await update.page.load();

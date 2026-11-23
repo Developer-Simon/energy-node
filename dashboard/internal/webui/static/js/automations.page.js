@@ -410,6 +410,13 @@
     get canEditAutomations() {
       return this.sessionRoles === null || this.sessionRoles.includes('automations');
     },
+    // Befunde haengen an ihrer Marke. Scrollen oder eine neue Fenstergroesse verschieben
+    // die Marke, der Popover schliesst dann statt an der falschen Stelle stehen zu bleiben.
+    init() {
+      const closeOpenFinding = () => { if (this.findingOpen) this.closeFinding(); };
+      window.addEventListener('scroll', closeOpenFinding, { passive: true });
+      window.addEventListener('resize', closeOpenFinding);
+    },
     get canOperateAutomations() {
       return this.sessionRoles === null || this.sessionRoles.includes('operate_automations');
     },

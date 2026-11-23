@@ -146,7 +146,8 @@
       tipOpen: false,
       canEdit: false,
       csrf: '',
-      dropped: null,
+      // Alle Verwerfen seit dem letzten Ablauf des Hinweises, in der Reihenfolge des Verwerfens.
+      dropped: [],
       hintTimer: 0,
       // Spitze der Karte: Mitte der gewaehlten Kachel in px ab der linken Kante der Kacheln.
       caret: '',
@@ -278,29 +279,38 @@
         const index = this.items.findIndex((x) => x.id === s.id);
         let ok = false;
         try { ok = await this.send(s, action); } catch (error) { ok = false; }
-        if (!ok || index < 0) return;
+        if (index < 0) return;
+        if (!ok) {
+          const text = window.I18n && window.I18n.t ? window.I18n.t(CAT + 'drop_failed') : CAT + 'drop_failed';
+          this.$store.toasts.push(text, 'critical');
+          return;
+        }
         this.items = this.items.filter((x) => x.id !== s.id);
         if (this.open === s.id) { this.open = ''; this.tipOpen = false; }
-        this.dropped = { item: s, index };
+        this.dropped = [...this.dropped, { item: s, index }];
         this.armHint();
         window.dispatchEvent(new window.CustomEvent(CHANGED));
       },
       armHint() {
         clearTimeout(this.hintTimer);
-        this.hintTimer = window.setTimeout(() => { this.dropped = null; }, HINT_MS);
+        this.hintTimer = window.setTimeout(() => { this.dropped = []; }, HINT_MS);
       },
+      // Holt alle Verwerfen zurueck, das juengste zuerst: so kehrt jede Einfuegung an ihren Platz.
+      // Schlaegt eines fehl, bleiben es und die aelteren im Hinweis.
       async undo() {
-        const drop = this.dropped;
-        if (!drop) return;
-        let ok = false;
-        try { ok = await this.send(drop.item, 'undo'); } catch (error) { ok = false; }
-        if (!ok) return;
-        clearTimeout(this.hintTimer);
-        this.dropped = null;
-        const items = this.items.slice();
-        items.splice(Math.min(drop.index, items.length), 0, drop.item);
-        this.items = items;
-        window.dispatchEvent(new window.CustomEvent(CHANGED));
+        const drops = this.dropped.slice();
+        for (let n = drops.length - 1; n >= 0; n -= 1) {
+          const drop = drops[n];
+          let ok = false;
+          try { ok = await this.send(drop.item, 'undo'); } catch (error) { ok = false; }
+          if (!ok) break;
+          this.dropped = this.dropped.filter((entry) => entry !== drop);
+          const items = this.items.slice();
+          items.splice(Math.min(drop.index, items.length), 0, drop.item);
+          this.items = items;
+          window.dispatchEvent(new window.CustomEvent(CHANGED));
+        }
+        if (this.dropped.length === 0) clearTimeout(this.hintTimer);
       },
     };
   }

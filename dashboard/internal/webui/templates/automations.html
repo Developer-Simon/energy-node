@@ -147,8 +147,8 @@
           </div>
         </div>
 
-        <p class="auto-learn-hint" role="status" x-bind:class="{ 'is-on': dropped }">
-          <span x-text="dropped ? $t('automations.learn.hint.dismissed') : ''"></span>
+        <p class="auto-learn-hint" role="status" x-bind:class="{ 'is-on': dropped.length > 0 }">
+          <span x-text="dropped.length ? $t('automations.learn.hint.dismissed') + (dropped.length > 1 ? ' (' + dropped.length + ')' : '') : ''"></span>
           <button class="auto-learn-hint-undo" type="button" x-on:click="undo()">{{t "automations.learn.button.undo"}}</button>
         </p>
       </section>

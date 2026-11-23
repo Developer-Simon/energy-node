@@ -23,7 +23,7 @@
                       </div>
                       <p class="auto-learn-pop-text" x-text="findingText(finding).text"></p>
                       <div class="auto-learn-evidence" x-effect="window.AutomationEvidence.mount($el, finding.evidence, $t)"></div>
-                      <div class="auto-learn-pop-actions">
+                      <div class="auto-learn-pop-actions" x-show="canEditAutomations">
                         <template x-for="(fix, index) in (finding.apply || [])" x-bind:key="index">
                           <button class="auto-btn-text auto-learn-fix" type="button" x-bind:class="{ 'is-primary': index === 0 }" {{if eq .tour "rule"}}x-bind:data-tour="index === 0 ? 'rule-finding-fix' : null"{{end}}
                                   x-on:click="applyFix(fix, finding)" x-text="fixLabel(fix)"></button>

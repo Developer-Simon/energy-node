@@ -46,6 +46,7 @@ function requiredKeys() {
   BAND_KEYS.forEach((name) => keys.push(`automations.learn.band.${name}`));
   GROUPS.forEach((name) => keys.push(`automations.learn.group.${name}`));
   keys.push('automations.learn.hint.dismissed', 'automations.learn.lane.ist', 'automations.learn.lane.soll');
+  keys.push('automations.learn.drop_failed');
   keys.push('automations.learn.season.heating', 'automations.learn.unit.kwh_week');
   return keys;
 }
@@ -233,6 +234,9 @@ function withTemplate(s) {
   return { ...s, apply: [{ code: 'follow_switch', template: 'follow_switch', prefill: { source: 'a' } }] };
 }
 
+// A route that returns FAILED answers the request with HTTP 500.
+const FAILED = Symbol('failed');
+
 function loadBand(routes) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const calls = [];
@@ -242,6 +246,7 @@ function loadBand(routes) {
     const method = options.method || 'GET';
     calls.push({ url, method, headers: options.headers || {} });
     const body = routes(url, method);
+    if (body === FAILED) return { ok: false, status: 500, json: async () => ({}) };
     return { ok: true, status: 200, json: async () => body };
   };
   const context = dom.getInternalVMContext();
@@ -317,8 +322,8 @@ test('dismiss removes the suggestion, shows the hint and posts the dismiss route
   assert.equal(post.url, `${SUGGESTIONS_PATH}/${encodeURIComponent('a:1')}/dismiss`);
   assert.equal(post.headers['X-CSRF-Token'], '');
   assert.equal(band.count, 1);
-  assert.notEqual(band.dropped, null, 'the hint is shown');
-  assert.equal(band.dropped.item.id, 'a:1');
+  assert.equal(band.dropped.length, 1, 'the hint is shown');
+  assert.equal(band.dropped[0].item.id, 'a:1');
   assert.equal(changed, 1);
   close();
 });
@@ -332,7 +337,7 @@ test('later posts the later route and shows the same hint', async () => {
   assert.equal(post.url.endsWith('/later'), true);
   assert.equal(post.headers['X-CSRF-Token'], 'token-1');
   assert.equal(band.count, 0);
-  assert.notEqual(band.dropped, null);
+  assert.equal(band.dropped.length, 1);
   close();
 });
 
@@ -349,8 +354,45 @@ test('undo posts the undo route and puts the suggestion back at its place', asyn
   const post = calls[calls.length - 1];
   assert.equal(post.url, `${SUGGESTIONS_PATH}/${encodeURIComponent('b:2')}/undo`);
   assert.deepEqual(band.items.map((s) => s.id), ['a:1', 'b:2', 'c:3']);
-  assert.equal(band.dropped, null);
+  assert.equal(band.dropped.length, 0);
   assert.equal(changed, 2);
+  close();
+});
+
+test('two drops within the hint time are both kept, and undo brings both back in their places', async () => {
+  const a = finding('a:1');
+  const b = finding('b:2');
+  const c = finding('c:3');
+  const { band, calls, close } = loadBand(listRoutes({ enabled: true, suggestions: [a, b, c], learning: { since: 1, devices: 1, days: 1 } }));
+  await band.load();
+  await band.dismiss(band.items[0]);
+  await band.dismiss(band.items[0]);
+  assert.deepEqual(band.items.map((s) => s.id), ['c:3']);
+  assert.equal(band.dropped.length, 2, 'one hint with the counter of both');
+  await band.undo();
+  const undone = calls.filter((entry) => entry.url.endsWith('/undo')).map((entry) => entry.url);
+  assert.deepEqual(undone, [
+    `${SUGGESTIONS_PATH}/${encodeURIComponent('b:2')}/undo`,
+    `${SUGGESTIONS_PATH}/${encodeURIComponent('a:1')}/undo`,
+  ]);
+  assert.deepEqual(band.items.map((s) => s.id), ['a:1', 'b:2', 'c:3']);
+  assert.equal(band.dropped.length, 0);
+  close();
+});
+
+test('a dismiss that fails shows the drop_failed toast and keeps the suggestion', async () => {
+  const a = finding('a:1');
+  const { band, close } = loadBand((url, method) => (method === 'GET'
+    ? { enabled: true, suggestions: [a], learning: { since: 1, devices: 1, days: 1 } }
+    : FAILED));
+  const pushed = [];
+  band.$store = { toasts: { push: (message, severity) => pushed.push({ message, severity }) } };
+  await band.load();
+  await band.dismiss(band.items[0]);
+  assert.equal(band.count, 1, 'the tile stays');
+  assert.equal(band.dropped.length, 0, 'no hint, nothing to undo');
+  assert.deepEqual(pushed.map((entry) => entry.message), ['automations.learn.drop_failed']);
+  assert.equal(pushed[0].severity, 'critical');
   close();
 });
 

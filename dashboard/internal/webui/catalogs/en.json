@@ -546,6 +546,7 @@
   "automations.learn.coupling.follow.line": "{hits} of {cases} times within {lag_s} s",
   "automations.learn.coupling.follow.text": "{b} was switched {hits} of {cases} times within {lag_s} seconds after {a} was switched. A rule can take that over, so you only have to switch {a}.",
   "automations.learn.coupling.follow.title": "{b} follows {a}",
+  "automations.learn.drop_failed": "Dismissing did not work. Please try again.",
   "automations.learn.fact.cause": "Cause",
   "automations.learn.fact.cause.clustered": "The commands came in bunches",
   "automations.learn.fact.cause.feedback": "The load itself flips the condition",

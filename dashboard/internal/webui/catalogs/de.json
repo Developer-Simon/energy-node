@@ -546,6 +546,7 @@
   "automations.learn.coupling.follow.line": "{hits} von {cases} Mal innerhalb von {lag_s} s",
   "automations.learn.coupling.follow.text": "{b} wurde {hits} von {cases} Mal innerhalb von {lag_s} Sekunden geschaltet, nachdem {a} geschaltet wurde. Eine Regel kann das übernehmen, dann musst du nur noch {a} schalten.",
   "automations.learn.coupling.follow.title": "{b} folgt {a}",
+  "automations.learn.drop_failed": "Das Verwerfen hat nicht geklappt. Bitte versuche es erneut.",
   "automations.learn.fact.cause": "Ursache",
   "automations.learn.fact.cause.clustered": "Die Befehle kamen gebündelt",
   "automations.learn.fact.cause.feedback": "Die Last selbst kippt die Bedingung",

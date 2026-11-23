@@ -234,7 +234,8 @@
         this.status = status;
         this.storageStatus = storageStatus;
         this.csrfToken = (session && session.csrf_token) || '';
-        this.learnCanEdit = session ? session.edit_setup === true : true;
+        // Ohne lesbare Sitzung weiss die Seite nicht, ob das Recht da ist: dann gilt es als fehlend.
+        this.learnCanEdit = session ? session.edit_setup === true : false;
         this.automation_outdoor_entity = settings && typeof settings.automation_outdoor_entity === 'string' ? settings.automation_outdoor_entity : '';
         // Fehlt das Feld (aelterer Server), bleibt der Hinweis verborgen.
         this.location_set = !(status && status.location_set === false);

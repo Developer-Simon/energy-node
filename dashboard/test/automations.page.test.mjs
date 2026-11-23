@@ -3643,6 +3643,24 @@ test('toggleFinding opens the popover and a second toggle closes it', () => {
   assert.equal(component.findingStyle, '');
 });
 
+test('the popover actions are hidden without the automations right', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'automations-finding.html'), 'utf8');
+  // Ignorieren und die Loesungen haengen an einer Zeile: der Container traegt das Recht.
+  assert.match(template, /class="auto-learn-pop-actions" x-show="canEditAutomations"/);
+});
+
+test('the popover closes on a page scroll and on a resize', () => {
+  const { component, window } = createAutomationsPanel();
+  component.init();
+  for (const type of ['scroll', 'resize']) {
+    component.findingOpen = 'f-hyst';
+    component.findingStyle = 'left:16px;top:238px;';
+    window.dispatchEvent(new window.Event(type));
+    assert.equal(component.findingOpen, null, type);
+    assert.equal(component.findingStyle, '', type);
+  }
+});
+
 test('load() calls loadFindings', async () => {
   const { component, window } = createAutomationsPanel();
   let calls = 0;
