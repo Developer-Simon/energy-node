@@ -110,3 +110,84 @@ test('forecastChart returns an svg without NaN and fills empty slots', () => {
   assert.ok(none.svg.startsWith('<svg'));
   assert.ok(!none.svg.includes('NaN'));
 });
+
+// Learned values as the endpoint delivers them: key, value, n, optional year list and device fields.
+const lv = (key, value, n = 12, extra = {}) => ({ key, value, n, ...extra });
+
+test('dayRows splits windows over midnight', () => {
+  const values = [
+    lv('site/night_rest', '23:15', 12),
+    lv('site/day_start', '06:30', 12),
+    lv('device/w1/usual_on', '22:00', 12, { device_name: 'Waschmaschine', device_icon: 'ico-wash' }),
+    lv('device/w1/usual_off', '02:00', 12, { device_name: 'Waschmaschine', device_icon: 'ico-wash' }),
+  ];
+  const rows = M.dayRows(values);
+  assert.equal(rows[0].id, 'house');
+  assert.equal(rows[0].kind, 'night');
+  assert.equal(rows[0].sure, true);
+  const dev = rows.find((r) => r.id === 'w1');
+  assert.equal(dev.kind, 'on');
+  assert.equal(dev.name, 'Waschmaschine');
+  assert.equal(dev.icon, 'ico-wash');
+  assert.equal(dev.segs.length, 2);
+  assert.equal(dev.sure, true);
+  assert.equal(M.onAt(rows, 60).on.includes('Waschmaschine'), true);
+  assert.equal(M.onAt(rows, 600).on.includes('Waschmaschine'), false);
+  assert.equal(M.onAt(rows, 0).night, true);
+  assert.equal(M.onAt(rows, 600).night, false);
+});
+
+test('dayRows point and free rows', () => {
+  const point = M.dayRows([lv('device/p1/usual_on', '07:00', 4, { device_name: 'Kaffee' })]);
+  const pr = point.find((r) => r.id === 'p1');
+  assert.equal(pr.kind, 'point');
+  assert.equal(pr.sure, false);
+  assert.ok(Math.abs(pr.segs[0].width - 15 / 14.4) < 1e-9, String(pr.segs[0].width));
+
+  const offOnly = M.dayRows([lv('device/p2/usual_off', '18:00', 12, { device_name: 'Pumpe' })]);
+  assert.equal(offOnly.find((r) => r.id === 'p2').kind, 'point');
+
+  const free = M.dayRows([lv('device/f1/usual_runtime_s', 2400, 12, { device_name: 'Rasenmäher' })]);
+  const fr = free.find((r) => r.id === 'f1');
+  assert.equal(fr.kind, 'free');
+  assert.equal(fr.minutes, 40);
+  assert.deepEqual(fr.segs, []);
+});
+
+test('dayRows with empty values returns one free house row without minutes', () => {
+  const rows = M.dayRows([]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, 'house');
+  assert.equal(rows[0].kind, 'free');
+  assert.equal(rows[0].minutes, null);
+});
+
+test('runRows derives the duration', () => {
+  const values = [
+    lv('device/d1/cycle_wh', 900, 12, { device_name: 'Spülmaschine', programs: [490, 1350] }),
+    lv('device/d1/op_power_w', 1800, 12, { device_name: 'Spülmaschine' }),
+  ];
+  const rows = M.runRows(values);
+  assert.equal(rows.length, 1);
+  const r = rows[0];
+  assert.equal(r.seconds, 1800);
+  assert.equal(r.wh, 900);
+  assert.equal(r.powerW, 1800);
+  assert.equal(r.sure, true);
+  assert.ok(Math.abs(r.ticks[0] - 490 / 1350 * 100) < 0.01, String(r.ticks[0]));
+  assert.equal(r.ticks[1], 100);
+});
+
+test('yearBand needs four weeks', () => {
+  const week = (w, v) => ({ week: `2026-W${String(w).padStart(2, '0')}`, value: v });
+  const on3 = [week(1, '22:00'), week(2, '22:00'), week(3, '22:00')];
+  const off3 = [week(1, '02:00'), week(2, '02:00'), week(3, '02:00')];
+  assert.equal(M.yearBand({ year: on3 }, { year: off3 }), null);
+  const on4 = [...on3, week(4, '22:00')];
+  const off4 = [...off3, week(4, '02:00')];
+  const band = M.yearBand({ year: on4 }, { year: off4 });
+  assert.ok(band);
+  assert.ok(band.svg.includes('mi-yr-band'));
+  assert.ok(band.svg.includes('mi-yr-line'));
+  assert.ok(!band.svg.includes('NaN'));
+});

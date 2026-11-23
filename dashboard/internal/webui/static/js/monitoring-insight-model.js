@@ -185,6 +185,128 @@
     return { svg: s, geo };
   }
 
+  // Uhrzeit HH:MM in Minuten seit Mitternacht, sonst null.
+  function clock(v) {
+    const m = /^(\d\d):(\d\d)$/.exec(String(v));
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  }
+
+  // Intervall [a, b) auf der 24-h-Achse in Prozent, ueber Mitternacht in zwei Teilen.
+  const DAY_STEP = 14.4;
+  const EPS = 1e-6;
+  function segs(a, b) {
+    const parts = b > a ? [[a, b]] : [[a, 1440], [0, b]];
+    return parts.filter(([x, y]) => y > x).map(([x, y]) => ({ left: x / DAY_STEP, width: (y - x) / DAY_STEP }));
+  }
+
+  // Geraete aus den gelernten Werten, nach Name sortiert (Sprache aus I18n).
+  function collectDevices(values) {
+    const by = new Map();
+    for (const v of values || []) {
+      if (!v.key || !v.key.startsWith('device/')) continue;
+      const [, id, field] = v.key.split('/');
+      if (!by.has(id)) by.set(id, { id, name: id, icon: 'ico-device', f: {} });
+      const d = by.get(id);
+      if (v.device_name) d.name = v.device_name;
+      if (v.device_icon) d.icon = v.device_icon;
+      d.f[field] = v;
+    }
+    const locale = (window.I18n && window.I18n.locale) || 'de';
+    return [...by.values()].sort((a, b) => a.name.localeCompare(b.name, locale));
+  }
+
+  // Zeilen des ueblichen Tages: erst das Haus (Nachtruhe), dann Geraete.
+  // kind: night (Haus), on (Fenster), point (nur Beginn oder Ende, 15 Minuten), free (nur Laufzeit).
+  function dayRows(values) {
+    const by = new Map();
+    for (const v of values || []) by.set(v.key, v);
+    const nr = by.get('site/night_rest'); const ds = by.get('site/day_start');
+    const rows = [];
+    const a = nr ? clock(nr.value) : null; const b = ds ? clock(ds.value) : null;
+    if (nr && ds && a != null && b != null) {
+      const n = Math.min(nr.n || 0, ds.n || 0);
+      rows.push({ id: 'house', kind: 'night', name: 'Haus', icon: 'ico-user', segs: segs(a, b), from: nr.value, to: ds.value,
+        minutes: (b - a + 1440) % 1440, sure: n >= 10, n, keys: ['site/night_rest', 'site/day_start'], year: [nr, ds], entries: [nr, ds] });
+    } else {
+      const present = [nr, ds].filter(Boolean);
+      rows.push({ id: 'house', kind: 'free', name: 'Haus', icon: 'ico-user', segs: [], from: null, to: null, minutes: null,
+        sure: false, n: 0, keys: present.map((v) => v.key), year: null, entries: present });
+    }
+    for (const d of collectDevices(values)) {
+      const on = d.f.usual_on; const off = d.f.usual_off; const rt = d.f.usual_runtime_s;
+      const base = { id: d.id, name: d.name, icon: d.icon };
+      if (on && off) {
+        const s = clock(on.value); const e = clock(off.value);
+        const n = Math.min(on.n || 0, off.n || 0);
+        rows.push({ ...base, kind: 'on', segs: segs(s, e), from: on.value, to: off.value, minutes: (e - s + 1440) % 1440,
+          sure: n >= 10, n, keys: [on.key, off.key], year: [on, off], entries: [on, off] });
+      } else if (on || off) {
+        const only = on || off; const t = clock(only.value);
+        const s = on ? t : (t - 15 + 1440) % 1440;
+        rows.push({ ...base, kind: 'point', segs: segs(s, (s + 15) % 1440), from: on ? only.value : null, to: off ? only.value : null,
+          minutes: null, sure: (only.n || 0) >= 10, n: only.n || 0, keys: [only.key], year: null, entries: [only] });
+      } else if (rt) {
+        rows.push({ ...base, kind: 'free', segs: [], from: null, to: null, minutes: Math.round(rt.value / 60),
+          sure: (rt.n || 0) >= 10, n: rt.n || 0, keys: [rt.key], year: null, entries: [rt] });
+      }
+    }
+    return rows;
+  }
+
+  // Welche Zeilen laufen zu einer Minute: Nachtruhe und die Namen der on-Zeilen.
+  function onAt(rows, minute) {
+    const inSeg = (r) => (r.segs || []).some((g) => minute >= g.left * DAY_STEP - EPS && minute < (g.left + g.width) * DAY_STEP - EPS);
+    const list = rows || [];
+    const house = list.find((r) => r.id === 'house');
+    return {
+      night: !!house && house.kind === 'night' && inSeg(house),
+      on: list.filter((r) => r.kind === 'on' && inSeg(r)).map((r) => r.name),
+    };
+  }
+
+  // Laufzeiten der Geraete mit Zyklus oder Leistung, relativ zum groessten Wert.
+  function runRows(values) {
+    const list = [];
+    for (const d of collectDevices(values)) {
+      const e = d.f.cycle_wh; const p = d.f.op_power_w; const rt = d.f.usual_runtime_s;
+      if (!e && !p) continue;
+      const wh = e ? e.value : null;
+      const seconds = rt ? rt.value : (e && p && p.value ? e.value / p.value * 3600 : null);
+      list.push({ id: d.id, name: d.name, icon: d.icon, wh, powerW: p ? p.value : null, seconds,
+        programs: (e && e.programs) || [], sure: ((e || p).n || 0) >= 10 });
+    }
+    const max = Math.max(1, ...list.flatMap((r) => [r.wh || 0, ...r.programs]));
+    return list.map((r) => ({ id: r.id, name: r.name, icon: r.icon, wh: r.wh, powerW: r.powerW, seconds: r.seconds,
+      pct: r.wh ? r.wh / max * 100 : 0, ticks: r.programs.map((x) => x / max * 100), sure: r.sure }));
+  }
+
+  // Jahreslauf eines Fensters: je Woche das uebliche Band zwischen Beginn und Ende, nur gemeinsame Wochen.
+  function yearBand(onEntry, offEntry, night) {
+    const weekMap = (entry) => new Map(((entry && entry.year) || []).map((y) => [y.week, y.value]));
+    const on = weekMap(onEntry); const off = weekMap(offEntry);
+    const weeks = [...on.keys()].filter((k) => off.has(k)).sort();
+    const pts = [];
+    for (const k of weeks) {
+      const x = clock(on.get(k)); const y = clock(off.get(k));
+      if (x == null || y == null) continue;
+      pts.push({ k, x, y: y < x ? y + 1440 : y });
+    }
+    const n = pts.length;
+    if (n < 4) return null;
+    const W = 300; const H = 64; const P = 4;
+    const lo = Math.floor((Math.min(...pts.map((p) => p.x)) - 30) / 60) * 60;
+    const hi = Math.ceil((Math.max(...pts.map((p) => p.y)) + 30) / 60) * 60;
+    const X = (i) => P + i / (n - 1) * (W - 2 * P);
+    const Y = (m) => P + (m - lo) / (hi - lo) * (H - 2 * P);
+    const top = pts.map((p, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.x).toFixed(1)).join(' ');
+    const bot = pts.slice().reverse().map((p, j) => 'L' + X(n - 1 - j).toFixed(1) + ' ' + Y(p.y).toFixed(1)).join(' ');
+    const line = (useEnd) => pts.map((p, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(useEnd ? p.y : p.x).toFixed(1)).join(' ');
+    const svg = '<svg class="mi-yr" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'
+      + '<path class="mi-yr-band' + (night ? ' is-night' : '') + '" d="' + top + ' ' + bot + ' Z"/>'
+      + '<path class="mi-yr-line" d="' + line(false) + '"/><path class="mi-yr-line" d="' + line(true) + '"/></svg>';
+    return { svg, from: pts[0].k, to: pts[n - 1].k, lo, hi };
+  }
+
   window.MonitoringInsight = {
     METRICS,
     seasonSeries,
@@ -192,5 +314,9 @@
     seasonChart,
     forecastState,
     forecastChart,
+    dayRows,
+    onAt,
+    runRows,
+    yearBand,
   };
 })();
