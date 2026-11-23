@@ -10,7 +10,7 @@
 // monitoring.forecast.status.forecast.title, monitoring.forecast.status.forecast.text,
 // monitoring.forecast.verdict.forecast, monitoring.forecast.verdict.median,
 // monitoring.season.note.off, monitoring.season.note.later,
-// monitoring.season.note.stats, monitoring.season.range, monitoring.season.week,
+// monitoring.season.note.stats, monitoring.season.legend.gap, monitoring.season.range, monitoring.season.week,
 // monitoring.season.sum.lead, monitoring.season.sum.lead_mean, monitoring.season.sum.prev,
 // monitoring.season.sum.skipped, monitoring.season.metric.pv, monitoring.season.metric.load,
 // monitoring.season.metric.export, monitoring.season.metric.base, monitoring.season.metric.temp
@@ -236,6 +236,18 @@
         const old = s.year - 2;
         const three = (s.weeks || []).some((w) => String(w.key).startsWith(old + '-W'));
         return three ? [s.year, s.year - 1, s.year - 2] : [s.year, s.year - 1];
+      },
+      // Mindestens eine Woche der gezeigten Jahre stammt aus der Energiestatistik
+      get hasStats() {
+        const s = this.season; if (!s) return false;
+        return this.years.some((yr) => window.MonitoringInsight.seasonSeries(s.weeks, yr, this.metric).some((p) => p && p.src === 'stats'));
+      },
+      // Im aktuellen Jahr fehlt mindestens eine Woche zwischen KW 1 und der aktuellen Woche
+      get hasGaps() {
+        const s = this.season; if (!s) return false;
+        const cur = window.MonitoringInsight.seasonSeries(s.weeks, s.year, this.metric);
+        for (let w = 1; w <= s.week; w++) if (!cur[w]) return true;
+        return false;
       },
       get selWeek() { return this.sel != null ? this.sel : (this.season ? this.season.week : 1); },
       get empty() { return this.summary === null; },

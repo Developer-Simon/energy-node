@@ -206,6 +206,8 @@
           <li><span class="mi-sw mi-sw-cur"></span><span x-text="years[0]"></span></li>
           <li><span class="mi-sw mi-sw-prev"></span><span x-text="years[1]"></span></li>
           <li x-show="years.length > 2"><span class="mi-sw mi-sw-prev2"></span><span x-text="years[2]"></span></li>
+          <li x-show="hasStats"><span class="mi-sw mi-sw-stats"></span>{{t "monitoring.season.note.stats"}}</li>
+          <li x-show="hasGaps"><span class="mi-sw mi-sw-gap"></span>{{t "monitoring.season.legend.gap"}}</li>
         </ul>
       </section>
     </div>

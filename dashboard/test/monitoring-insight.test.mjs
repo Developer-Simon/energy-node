@@ -101,3 +101,43 @@ test('monitoringYear works with a throwing storage', () => {
   assert.doesNotThrow(() => component.setMetric('base'));
   assert.equal(component.metric, 'base');
 });
+
+function seasonWith(weeks, year = 2026, week = 3) {
+  return { year, week, weeks };
+}
+
+test('monitoringYear shows the statistics legend only when a shown week comes from the statistics', () => {
+  const withStats = seasonWith([
+    { key: '2025-W01', pv_kwh: 10, source: 'stats' },
+    { key: '2026-W01', pv_kwh: 12, source: 'live' },
+  ]);
+  const { factories } = create();
+  const stats = factories.monitoringYear(() => withStats);
+  stats.$refs = {};
+  assert.equal(stats.hasStats, true);
+
+  const plain = factories.monitoringYear(() => seasonWith([
+    { key: '2025-W01', pv_kwh: 10, source: 'live' },
+    { key: '2026-W01', pv_kwh: 12, source: 'live' },
+  ]));
+  plain.$refs = {};
+  assert.equal(plain.hasStats, false);
+});
+
+test('monitoringYear shows the gap legend only when the current year misses a week before the current one', () => {
+  const { factories } = create();
+  const gappy = factories.monitoringYear(() => seasonWith([
+    { key: '2026-W01', pv_kwh: 5, source: 'live' },
+    { key: '2026-W03', pv_kwh: 7, source: 'live' },
+  ]));
+  gappy.$refs = {};
+  assert.equal(gappy.hasGaps, true);
+
+  const full = factories.monitoringYear(() => seasonWith([
+    { key: '2026-W01', pv_kwh: 5, source: 'live' },
+    { key: '2026-W02', pv_kwh: 6, source: 'live' },
+    { key: '2026-W03', pv_kwh: 7, source: 'live' },
+  ]));
+  full.$refs = {};
+  assert.equal(full.hasGaps, false);
+});
