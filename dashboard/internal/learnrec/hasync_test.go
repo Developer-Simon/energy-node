@@ -319,3 +319,20 @@ func TestHASyncWaitIdleTrueWithoutWork(t *testing.T) {
 		t.Fatal("ohne Nachfragen muss WaitIdle sofort Leerlauf melden")
 	}
 }
+
+func TestPrefetchWithoutOfferReturnsAtOnce(t *testing.T) {
+	s := NewHASync(hsClock, hsLimits(16<<20), hsLoc)
+	s.Prefetch([]string{"e:x", "b:pv"}, []string{"2026-11-19"}, hsNow.Add(time.Minute))
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	start := time.Now()
+	if !s.WaitIdle(ctx) {
+		t.Fatal("WaitIdle without offer: want idle, got timeout")
+	}
+	if d := time.Since(start); d > 200*time.Millisecond {
+		t.Fatalf("WaitIdle without offer took %v, want at once", d)
+	}
+	if s.Offered() {
+		t.Fatal("Offered() without offer: want false")
+	}
+}

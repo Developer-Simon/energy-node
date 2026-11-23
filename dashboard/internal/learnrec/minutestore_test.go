@@ -2,9 +2,11 @@ package learnrec
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -296,9 +298,122 @@ func TestMinuteStorePausedRecordsNothingUntilResumed(t *testing.T) {
 		t.Fatalf("Flush: %v", err)
 	}
 	path := msPath(env.dirs.System, testMinuteDay)
-	if got := msBlockMinutes(t, path); got != 1 {
-		t.Fatalf("minutes in blocks = %d, want 1 (only the minute after the pause)", got)
-	}
 	_, values := readMinuteFile(t, path)
+	requireMinuteValue(t, values, "e:uid1", 600, testGap)
+	requireMinuteValue(t, values, "e:uid1", 601, testGap)
 	requireMinuteValue(t, values, "e:uid1", 600+2, 3)
+}
+
+func TestPausedKeepsKeysHACannotDeliver(t *testing.T) {
+	env := newMsEnv(t, LocSystem)
+	s := newMsStore(env)
+	env.plan.Paused = true
+	outdoor := 4.5
+	s.ObserveMinute(Frame{
+		Minute:   msTime(10, 0),
+		Devices:  []DeviceMinute{{ID: "dev", Power: map[string]float64{"x": 1}}},
+		Balance:  map[string]float64{"pv": 2, "load_total": 3, "grid_import": 4},
+		OutdoorC: &outdoor,
+	})
+	if err := s.Flush(msTime(10, 1)); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	keys, values := readMinuteFile(t, msPath(env.dirs.System, testMinuteDay))
+	for _, key := range []string{"e:x", "b:pv"} {
+		for _, k := range keys {
+			if k == key {
+				t.Fatalf("key %q recorded while paused, Home Assistant delivers it", key)
+			}
+		}
+	}
+	requireMinuteValue(t, values, "b:load_total", 600, 3)
+	requireMinuteValue(t, values, "b:grid_import", 600, 4)
+	requireMinuteValue(t, values, "t:outdoor", 600, 4.5)
+}
+
+func TestResetRemovesAllLocations(t *testing.T) {
+	env := newMsEnv(t, LocDrive)
+	env.plan.Days = 2
+	s := newMsStore(env)
+	drive := filepath.Join(env.dirs.Drive, "learnrec", "minutes")
+	system := filepath.Join(env.dirs.System, "learnrec", "minutes")
+
+	// Alter Tag auf dem Laufwerk, der beim naechsten Lauf verfallen muss.
+	old := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+	s.ObserveMinute(msFrame(old, 1))
+	if err := s.Flush(old); err != nil {
+		t.Fatalf("Flush drive: %v", err)
+	}
+	if n := msCountFiles(t, drive); n != 1 {
+		t.Fatalf("files on drive after first flush = %d, want 1", n)
+	}
+
+	env.plan.Location = LocSystem
+	for i := 0; i < 3; i++ {
+		s.ObserveMinute(msFrame(msTime(10, i), 1))
+	}
+	if err := s.Flush(msTime(10, 3)); err != nil {
+		t.Fatalf("Flush system: %v", err)
+	}
+	// Der Lauf auf System prueft die Aufbewahrung an allen bekannten Orten.
+	if n := msCountFiles(t, drive); n != 0 {
+		t.Fatalf("old file on drive not pruned by later flush: %d files", n)
+	}
+	if n := msCountFiles(t, system); n != 1 {
+		t.Fatalf("files on system = %d, want 1", n)
+	}
+
+	env.plan.Location = LocRAM
+	s.ObserveMinute(msFrame(msTime(10, 4), 1))
+	if err := s.Flush(msTime(10, 5)); err != nil {
+		t.Fatalf("Flush ram: %v", err)
+	}
+
+	// Ein Laufwerk dazu, das nicht mehr gewaehlt ist, muss der Reset auch leeren.
+	stray := filepath.Join(env.dirs.Drive, "learnrec", "minutes", "2026-11-21.enm")
+	if err := os.MkdirAll(filepath.Dir(stray), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stray, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Reset(); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	if n := msCountFiles(t, drive) + msCountFiles(t, system); n != 0 {
+		t.Fatalf("files left after Reset on drive and system: %d", n)
+	}
+}
+
+func TestFlushLogsDroppedUnwrittenDay(t *testing.T) {
+	env := newMsEnv(t, LocDrive)
+	env.up = false
+	env.limits = Limits{RAMMinuteDays: 2, RAMMinuteBytes: 16 << 20}
+	var logs []string
+	s := NewMinuteStore(time.UTC,
+		func() MinutePlan { return env.plan },
+		func() MinuteDirs { return env.dirs },
+		func() bool { return env.up },
+		func() Limits { return env.limits },
+		func(format string, a ...any) { logs = append(logs, fmt.Sprintf(format, a...)) },
+	)
+	for d := 0; d < 3; d++ {
+		for m := 0; m < 2; m++ {
+			at := time.Date(2026, 11, 19+d, 10, m, 0, 0, time.UTC)
+			s.ObserveMinute(msFrame(at, 1))
+		}
+	}
+	if err := s.Flush(time.Date(2026, 11, 21, 10, 2, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	found := false
+	for _, line := range logs {
+		if strings.Contains(line, "2026-11-19") && strings.Contains(line, "2 ungeschriebenen") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no log for the dropped unwritten day 2026-11-19 with 2 minutes, got %q", logs)
+	}
 }

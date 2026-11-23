@@ -328,6 +328,21 @@ func (s *HASync) Reset() error {
 	return nil
 }
 
+// HASeriesKey meldet, ob der Companion einen Lern-Schluessel liefern kann
+// (e:<id>, b:pv, b:battery_soc).
+func HASeriesKey(key string) bool {
+	_, ok := haSeriesFor(key)
+	return ok
+}
+
+// Offered meldet, ob der Companion Serien angeboten hat, die der Abgleich
+// nutzen kann.
+func (s *HASync) Offered() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.offered) > 0
+}
+
 // haSeriesFor uebersetzt einen Lern-Schluessel in den Serienamen des
 // Companion. Nur e:<id>, b:pv und b:battery_soc sind belegt; Netz, Last und
 // Speicher bleiben offen, bis Vorzeichen und Einheit geprueft sind.
