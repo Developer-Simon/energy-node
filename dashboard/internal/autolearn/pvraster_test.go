@@ -174,3 +174,17 @@ func TestRasterPruneDaysKeepsTheGivenWindow(t *testing.T) {
 		t.Fatal("recent cell dropped")
 	}
 }
+
+func TestRasterDayCountCountsDaysWithData(t *testing.T) {
+	r := NewRaster(5, 3)
+	r.Add(100, 40, 3000, "2026-06-01")
+	r.Add(100, 40, 2000, "2026-06-01")
+	r.Add(200, 30, 1000, "2026-06-02")
+	r.Add(10, 20, 500, "2026-06-03")
+	if n := r.DayCount(); n != 3 {
+		t.Fatalf("DayCount = %d, want 3", n)
+	}
+	if n := NewRaster(5, 3).DayCount(); n != 0 {
+		t.Fatalf("empty DayCount = %d, want 0", n)
+	}
+}

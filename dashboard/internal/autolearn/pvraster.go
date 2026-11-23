@@ -88,6 +88,17 @@ func (r *Raster) Cell(az, el float64) (w float64, ok bool) {
 	return c.Vals[1].W, true
 }
 
+// DayCount returns the number of distinct days that have a stored sample.
+func (r *Raster) DayCount() int {
+	days := map[string]bool{}
+	for _, c := range r.cells {
+		for _, s := range c.Vals {
+			days[s.Day] = true
+		}
+	}
+	return len(days)
+}
+
 // Each calls fn with the centre az/el and the Cell value of every cell that
 // has a value. Cells with fewer than two values are skipped.
 func (r *Raster) Each(fn func(az, el, w float64)) {

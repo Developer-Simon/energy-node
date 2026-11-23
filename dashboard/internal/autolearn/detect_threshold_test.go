@@ -3,10 +3,12 @@ package autolearn
 import (
 	"context"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // thresholdDoc builds the rule document of one surplus rule switching the plug.
@@ -175,5 +177,48 @@ func TestThresholdJointHoldAddsFactsOnly(t *testing.T) {
 	}
 	if len(f.Apply) != 2 || len(f.Apply[0].Ops) != 1 {
 		t.Fatalf("joint hold must set only the threshold, fixes = %+v", f.Apply)
+	}
+}
+
+func TestThresholdWidestNegative(t *testing.T) {
+	// All J are negative. The maximum -1 sits at 1200, the points within 5 %
+	// of it (1000 to 1400) form the plateau, its middle is 1200.
+	var row []thresholdPoint
+	for i := 0; i < 15; i++ {
+		x := 600 + 100*float64(i)
+		j := -3.0
+		if math.Abs(x-1200) <= 200 {
+			j = -1.0 - 0.02*math.Abs(x-1200)/200
+		}
+		row = append(row, thresholdPoint{x: x, j: j})
+	}
+	if mid := thresholdWidest(row).x; mid != 1200 {
+		t.Fatalf("mid = %v, want 1200", mid)
+	}
+}
+
+func TestThresholdBaseReplayOnce(t *testing.T) {
+	// Count the base replays by the minutes they run on and their MinRunS.
+	// Every pair must run once, however many grid points use it.
+	calls := map[string]int{}
+	orig := thresholdBaseReplay
+	thresholdBaseReplay = func(ctx context.Context, rule any, target ReplayTarget, mins []ReplayMinute, real []bool, loc *time.Location, site sun.Location) (ReplayResult, error) {
+		if r, ok := rule.(Rule); ok && r.ID == replayBaseRule.ID && len(mins) > 0 {
+			calls[fmt.Sprintf("%v/%d/%v", mins[0].At, len(mins), target.MinRunS)]++
+		}
+		return orig(ctx, rule, target, mins, real, loc, site)
+	}
+	t.Cleanup(func() { thresholdBaseReplay = orig })
+
+	in := thresholdInput(t, thresholdDoc(t, 3000, ""), thresholdFixtureDays(t, surplus2500))
+	in.Limits = learnrec.LimitsFor(learnrec.LevelFull, 4)
+	thresholdRunOn(t, in)
+	if len(calls) == 0 {
+		t.Fatal("no base replay counted")
+	}
+	for k, n := range calls {
+		if n != 1 {
+			t.Errorf("base replay %s ran %d times, want 1", k, n)
+		}
 	}
 }

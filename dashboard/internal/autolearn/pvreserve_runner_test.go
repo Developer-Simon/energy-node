@@ -10,12 +10,13 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/learnrec"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/sun"
 )
 
 // reserveTestModel is a model whose surfaces give nothing, so Best is the raster
 // cell value, capped at 10000 W.
 func reserveTestModel() PVModel {
-	return PVModel{CapW: 10000}
+	return PVModel{CapW: 10000, Safe: true}
 }
 
 // reserveTestRunner builds a runner with a model in store, a location, a tracker
@@ -195,5 +196,42 @@ func TestPVReserveDetectorPublishesRoundedNumber(t *testing.T) {
 				t.Errorf("Num, Estimate, N = %v, %v, %d; want %v, %v, %d", v.Num, v.Estimate, v.N, c.want, c.est, c.n)
 			}
 		})
+	}
+}
+
+func TestPVReserveNeedsDays(t *testing.T) {
+	r, tr := reserveTestRunner(t, true)
+	// One sample on each of 10 days, each day in its own sky cell so no cell
+	// keeps only the top values and drops a day. The sample of pvTestMinute's
+	// cell is the reserve base.
+	az, el := sun.Position(pvTestMinute, 52.5, 13.4)
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 10; i++ {
+		tr.Raster().Add(az+5*float64(i), el, 4000, start.AddDate(0, 0, i).Format(pvDayLayout))
+	}
+	bal := map[string]float64{"pv": 1500}
+	r.ObserveMinute(learnrec.Frame{Minute: pvTestMinute, Balance: bal})
+	if _, est, ok := r.Current(); !ok || est {
+		t.Fatalf("Current ok=%v est=%v, want ok true, est false", ok, est)
+	}
+
+	det := PVReserveDetectorWithDays(r.Current, r.DayCount)
+	out := det.Run(context.Background(), &Input{}, "")
+	if len(out) != 1 {
+		t.Fatalf("got %d candidates, want 1", len(out))
+	}
+	c := out[0]
+	if c.NEff != 10 || c.MinNEff != 14 {
+		t.Fatalf("NEff, MinNEff = %v, %v; want 10, 14", c.NEff, c.MinNEff)
+	}
+	if c.NEff >= c.MinNEff {
+		t.Fatal("candidate with 10 days must fall at the gate")
+	}
+
+	// A model that does not cover enough sky makes the reserve an estimate.
+	r.models.Set(PVModel{CapW: 10000, Safe: false})
+	r.ObserveMinute(learnrec.Frame{Minute: pvTestMinute, Balance: bal})
+	if _, est, ok := r.Current(); !ok || !est {
+		t.Fatalf("Current ok=%v est=%v with unsafe model, want ok true, est true", ok, est)
 	}
 }
