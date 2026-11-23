@@ -56,6 +56,7 @@ const (
 type baseloadNight struct {
 	date  string
 	week  int
+	at    time.Time
 	group int
 	night float64
 	// dev is the average power of each device with a record in the night, W.
@@ -162,7 +163,7 @@ func baseloadNights(in *Input) []baseloadNight {
 				dev[id] = sum / float64(n)
 			}
 		}
-		out = append(out, baseloadNight{date: f.Day, week: week, group: g, night: basePercentile10(load), dev: dev})
+		out = append(out, baseloadNight{date: f.Day, week: week, at: t, group: g, night: basePercentile10(load), dev: dev})
 	}
 	return out
 }
@@ -295,7 +296,7 @@ func baseloadExpect(in *Input, ns []baseloadNight) []float64 {
 			continue
 		}
 		var vals []float64
-		for _, w := range in.Season.Same(n.week, baseloadMinYears) {
+		for _, w := range in.Season.Same(n.at, n.week, baseloadMinYears) {
 			if w.BaseW > 0 {
 				vals = append(vals, w.BaseW)
 			}
@@ -315,7 +316,7 @@ func baseloadSeasonKnown(in *Input, ns []baseloadNight) bool {
 	}
 	for _, n := range ns {
 		count := 0
-		for _, w := range in.Season.Same(n.week, baseloadMinYears) {
+		for _, w := range in.Season.Same(n.at, n.week, baseloadMinYears) {
 			if w.BaseW > 0 {
 				count++
 			}

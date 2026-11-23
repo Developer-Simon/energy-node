@@ -57,6 +57,15 @@ func ReplayDays(in *Input, days int) (minutes []ReplayMinute, estimate bool) {
 	if in.Minutes != nil {
 		pool = shapePool(in.Minutes, minuteStarts)
 	}
+	if len(plan) > 0 {
+		// A value that changed after the first minute is replayed from its
+		// history, which is an estimate.
+		for _, e := range learned {
+			if e.hist && e.at.After(plan[0].start) {
+				estimate = true
+			}
+		}
+	}
 	for _, p := range plan {
 		if p.file == nil {
 			minutes = append(minutes, minuteDay(in.Minutes, p.start, learned)...)
@@ -165,11 +174,32 @@ func replayLoc(in *Input) *time.Location {
 	return time.Local
 }
 
-// learnedEntry is one numeric learned value with the time it was learned.
+// learnedEntry is one numeric learned value. at is the time it became the
+// value it has now, the change time when the entry has one, else its learning
+// time. hist marks an entry with a change time: its value is known at every
+// minute, before the change as prev (or the current value without prev).
 type learnedEntry struct {
-	key string
-	val float64
-	at  time.Time
+	key     string
+	val     float64
+	prev    float64
+	hasPrev bool
+	at      time.Time
+	hist    bool
+}
+
+// numericValue returns the number held in x, ok false for other values.
+func numericValue(x any) (float64, bool) {
+	switch v := x.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	}
+	return 0, false
 }
 
 // numericLearned keeps the learned values that hold a number, in key order.
@@ -182,35 +212,40 @@ func numericLearned(in map[string]LearnedEntry) []learnedEntry {
 	var out []learnedEntry
 	for _, k := range keys {
 		e := in[k]
-		var v float64
-		switch x := e.Value.(type) {
-		case float64:
-			v = x
-		case float32:
-			v = float64(x)
-		case int:
-			v = float64(x)
-		case int64:
-			v = float64(x)
-		default:
+		v, ok := numericValue(e.Value)
+		if !ok {
 			continue
 		}
-		out = append(out, learnedEntry{key: k, val: v, at: time.Unix(e.At, 0)})
+		le := learnedEntry{key: k, val: v, at: time.Unix(e.At, 0)}
+		if e.ChangedAt > 0 {
+			le.hist = true
+			le.at = time.Unix(e.ChangedAt, 0)
+			le.prev, le.hasPrev = numericValue(e.Prev)
+		}
+		out = append(out, le)
 	}
 	return out
 }
 
 // learnedAt returns the learned values that were known at t, nil when none.
+// A value with a change time is known at every minute: its prev before the
+// change, its current value from then on. Any other value is known from its
+// learning time on.
 func learnedAt(entries []learnedEntry, t time.Time) map[string]float64 {
 	var out map[string]float64
 	for _, e := range entries {
-		if e.at.After(t) {
+		v := e.val
+		if e.hist {
+			if t.Before(e.at) && e.hasPrev {
+				v = e.prev
+			}
+		} else if e.at.After(t) {
 			continue
 		}
 		if out == nil {
 			out = make(map[string]float64, len(entries))
 		}
-		out[e.key] = e.val
+		out[e.key] = v
 	}
 	return out
 }

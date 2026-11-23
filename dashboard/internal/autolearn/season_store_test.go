@@ -187,7 +187,7 @@ func TestSeasonSameWeekOfPriorYears(t *testing.T) {
 	store.Put(Week{Key: fmt.Sprintf("%d-W47", y), Source: "days"})
 
 	var keys []string
-	for _, w := range store.Same(47, 2) {
+	for _, w := range store.Same(time.Now(), 47, 2) {
 		keys = append(keys, w.Key)
 	}
 	want := []string{
@@ -195,7 +195,7 @@ func TestSeasonSameWeekOfPriorYears(t *testing.T) {
 		fmt.Sprintf("%d-W46", y-1), fmt.Sprintf("%d-W47", y-1), fmt.Sprintf("%d-W48", y-1),
 	}
 	if !reflect.DeepEqual(keys, want) {
-		t.Errorf("Same(47, 2) = %v, want %v", keys, want)
+		t.Errorf("Same(now, 47, 2) = %v, want %v", keys, want)
 	}
 }
 
@@ -340,5 +340,39 @@ func TestSeasonEmptyShareSavedAndLoaded(t *testing.T) {
 	ws := LoadSeasonStore(path, nil).Weeks("2026-W46", "2026-W46")
 	if len(ws) != 1 || ws[0].EmptyShare == nil || *ws[0].EmptyShare != 0.25 {
 		t.Fatalf("reloaded week = %+v, want empty share 0.25", ws)
+	}
+}
+
+func TestSeasonSameUsesISOYear(t *testing.T) {
+	store := LoadSeasonStore(filepath.Join(t.TempDir(), "season.json"), nil)
+	// 2027-01-02 is ISO week 2026-W53. 2025 has 52 weeks, so its week 53 is
+	// 2026-W01, and the running week 2026-W53 must never be an answer.
+	for _, k := range []string{"2024-W53", "2025-W52", "2026-W01", "2026-W02", "2026-W53", "2027-W01"} {
+		store.Put(Week{Key: k, Source: "days"})
+	}
+	ref := time.Date(2027, 1, 2, 0, 0, 0, 0, time.UTC)
+	var keys []string
+	for _, w := range store.Same(ref, 53, 1) {
+		keys = append(keys, w.Key)
+	}
+	want := []string{"2025-W52", "2026-W01", "2026-W02"}
+	if !reflect.DeepEqual(keys, want) {
+		t.Errorf("Same(2027-01-02, 53, 1) = %v, want %v", keys, want)
+	}
+}
+
+func TestSeasonSameWrapsWeekOne(t *testing.T) {
+	store := LoadSeasonStore(filepath.Join(t.TempDir(), "season.json"), nil)
+	for _, k := range []string{"2024-W52", "2025-W01", "2025-W02", "2025-W03"} {
+		store.Put(Week{Key: k, Source: "days"})
+	}
+	ref := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) // ISO 2026-W01
+	var keys []string
+	for _, w := range store.Same(ref, 1, 1) {
+		keys = append(keys, w.Key)
+	}
+	want := []string{"2024-W52", "2025-W01", "2025-W02"}
+	if !reflect.DeepEqual(keys, want) {
+		t.Errorf("Same(2026-01-01, 1, 1) = %v, want %v", keys, want)
 	}
 }
