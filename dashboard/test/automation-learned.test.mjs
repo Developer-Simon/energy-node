@@ -12,7 +12,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
 const source = fs.readFileSync(path.join(jsDir, 'automation-learned.js'), 'utf8');
 const vectors = JSON.parse(fs.readFileSync(
-  path.join(here, '..', '..', 'services', 'automation', 'tests', 'learned_vectors.json'), 'utf8'));
+  path.join(here, '..', '..', 'services', 'automation', 'tests', 'learned_vectors.json'), 'utf8')).resolve;
 
 const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
 
