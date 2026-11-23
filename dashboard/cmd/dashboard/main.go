@@ -598,6 +598,10 @@ func main() {
 	forecastCheck := autolearn.LoadForecastCheck(filepath.Join(autolearnDir, "forecast.json"), log.Printf)
 	learnHub.AddSaver("forecast", forecastCheck)
 	learnHub.AddResetter("forecast", forecastCheck)
+	// Demo: ohne Prognosetage bekommt die Selbstpruefung die vierzehn Demo-Tage.
+	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" && len(forecastCheck.Days()) == 0 {
+		autolearn.DemoForecast(time.Now(), forecastCheck)
+	}
 	registerEnergyDetectors(automationEngine, pvReserve.Current, pvReserve.DayCount, forecastCheck)
 	automationEngine.Register(autolearn.BaseLoadDetector)
 	automationEngine.Register(autolearn.BatteryDetector)
@@ -710,8 +714,12 @@ func main() {
 		}
 	}
 	automationEngine.SetSeason(seasonStore)
-	// Demo: ohne Wochenwerte bekommt das Saisongedaechtnis die acht Demo-Wochen.
+	// Demo: ohne Wochenwerte bekommt das Saisongedaechtnis das Jahr davor und die Demo-Wochen.
+	// Die Demo-Wochen kommen zuletzt, damit sie die Tageswochen des Jahres davor ueberschreiben.
 	if strings.TrimSpace(os.Getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" && len(seasonStore.Weeks("0000-W00", "9999-W99")) == 0 {
+		for _, w := range autolearn.DemoSeasonHistory(time.Now()) {
+			seasonStore.Put(w)
+		}
 		for _, w := range autolearn.DemoSeason(time.Now()) {
 			seasonStore.Put(w)
 		}
