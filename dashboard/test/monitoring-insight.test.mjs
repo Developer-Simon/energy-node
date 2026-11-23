@@ -141,3 +141,57 @@ test('monitoringYear shows the gap legend only when the current year misses a we
   full.$refs = {};
   assert.equal(full.hasGaps, false);
 });
+
+// monitoringDay: getValues and getFocus stand in for learned.values and learnedFocus.
+function dayComponent(values, initialFocus = '') {
+  const { factories } = create();
+  let focus = initialFocus;
+  const component = factories.monitoringDay(() => values, () => focus);
+  component.$refs = {};
+  return { component, setFocus: (value) => { focus = value; } };
+}
+
+const PLUG_VALUES = [
+  { key: 'device/plug/usual_on', value: '16:45', n: 12, device_name: 'Steckdose' },
+  { key: 'device/plug/usual_off', value: '22:30', n: 12, device_name: 'Steckdose' },
+];
+
+test('monitoringDay opens the device row for a focused key', () => {
+  const { component, setFocus } = dayComponent(PLUG_VALUES);
+  setFocus('device/plug/usual_off');
+  component.follow();
+  assert.equal(component.open, 'plug');
+});
+
+test('monitoringDay opens the house row for site keys', () => {
+  const values = [
+    { key: 'site/night_rest', value: '23:15', n: 12 },
+    { key: 'site/day_start', value: '06:30', n: 12 },
+  ];
+  const { component, setFocus } = dayComponent(values);
+  setFocus('site/day_start');
+  component.follow();
+  assert.equal(component.open, 'house');
+});
+
+test('monitoringDay ignores a click after a swipe', () => {
+  const { component } = dayComponent(PLUG_VALUES);
+  component.moved = true;
+  component.toggle('plug');
+  assert.equal(component.open, '');
+  component.toggle('plug');
+  assert.equal(component.open, 'plug');
+});
+
+test('monitoringDay reads the window at the picked time', () => {
+  const { component } = dayComponent(PLUG_VALUES);
+  component.t = 17 * 60;
+  assert.equal(component.readTime, '17:00');
+  assert.equal(component.readText, 'Üblich an: Steckdose');
+});
+
+test('monitoringDay shows the window as a label', () => {
+  const { component } = dayComponent(PLUG_VALUES);
+  const plug = component.rows.find((row) => row.id === 'plug');
+  assert.equal(plug.label, '16:45 bis 22:30');
+});

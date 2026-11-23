@@ -14,6 +14,7 @@
 // monitoring.season.sum.lead, monitoring.season.sum.lead_mean, monitoring.season.sum.prev,
 // monitoring.season.sum.skipped, monitoring.season.metric.pv, monitoring.season.metric.load,
 // monitoring.season.metric.export, monitoring.season.metric.base, monitoring.season.metric.temp
+// i18n-keys (Tagesbild): monitoring.day.fact.days, monitoring.day.fact.ago, monitoring.day.fact.changed, monitoring.day.fact.learned, monitoring.day.fact.prev, monitoring.day.fact.prev_value, monitoring.day.fact.runs, monitoring.day.fact.sure, monitoring.day.fact.sure_no, monitoring.day.fact.sure_yes, monitoring.day.allday, monitoring.day.allday_short, monitoring.day.free, monitoring.day.free_short, monitoring.day.house, monitoring.day.night, monitoring.day.point, monitoring.day.read.night, monitoring.day.read.night_on, monitoring.day.read.none, monitoring.day.read.on, monitoring.day.state.active, monitoring.day.state.quiet, monitoring.day.unsure, monitoring.day.window, monitoring.run.power_for, monitoring.site.reserve, monitoring.site.reserve_est, monitoring.site.surplus_note, monitoring.learned.short.pv_reserve_w, monitoring.learned.short.surplus_left_wh, status.uptime.hours_minutes, status.uptime.minutes
 (() => {
   const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
   const FORECAST_PATH = '/api/v1/monitoring/forecast';
@@ -378,10 +379,198 @@
     };
   }
 
+  // Ein ueblicher Tag: Zeilen aus dem Modell, Lesezeile und Anlagewerte. getValues liefert learned.values,
+  // getFocus liefert learnedFocus (Schluessel aus dem Lernwert-Reiter, z. B. device/<id>/usual_on).
+  const pad2 = (v) => String(v).padStart(2, '0');
+  const hhmm = (m) => pad2(Math.floor(m / 60)) + ':' + pad2(m % 60);
+  const DAY_SECONDS = 86400;
+  const LONG_RUN_SECONDS = 20 * 3600;
+  // Dauer aus Sekunden, Einheiten aus dem Katalog (status.uptime)
+  function durText(seconds) {
+    const min = Math.round(seconds / 60);
+    if (min >= 60) return t('status.uptime.hours_minutes', { hours: num(Math.floor(min / 60), 0), minutes: num(min % 60, 0) });
+    return t('status.uptime.minutes', { minutes: num(min, 0) });
+  }
+  // Zeile zu einem Fokus: device/<id>/... oeffnet <id>, die Anlagewerte oeffnen das Haus
+  const SITE_HOUSE_KEYS = ['site/night_rest', 'site/day_start', 'site/house_state'];
+  function rowForFocus(key) {
+    const parts = String(key || '').split('/');
+    if (parts[0] === 'device' && parts[1]) return parts[1];
+    return SITE_HOUSE_KEYS.includes(key) ? 'house' : '';
+  }
+  // Alter eines Lernwerts: Tage als Zahl, sonst das Datum der Aenderung
+  function agoText(changedAt) {
+    const days = Math.floor((Date.now() / 1000 - changedAt) / DAY_SECONDS);
+    const age = days >= 1
+      ? t('monitoring.day.fact.days', { n: num(days, 0) })
+      : fmtDate(new Date(changedAt * 1000), { day: 'numeric', month: 'short' });
+    return t('monitoring.day.fact.ago', { age });
+  }
+  const valueText = (entry, v) => (entry.kind === 'duration' ? durText(Number(v)) : String(v));
+
+  function factsOf(row) {
+    const out = [];
+    const entries = row.entries || [];
+    const n = row.n || 0;
+    if (n) {
+      const runs = entries.some((e) => e.kind === 'duration');
+      out.push([t('monitoring.day.fact.learned'), t(runs ? 'monitoring.day.fact.runs' : 'monitoring.day.fact.days', { n: num(n, 0) })]);
+    }
+    out.push([t('monitoring.day.fact.sure'), t(row.sure ? 'monitoring.day.fact.sure_yes' : 'monitoring.day.fact.sure_no')]);
+    const changed = Math.max(0, ...entries.map((e) => e.changed_at || 0));
+    if (changed) out.push([t('monitoring.day.fact.changed'), agoText(changed)]);
+    entries.filter((e) => e.prev != null).forEach((e) => {
+      out.push([t('monitoring.day.fact.prev'), t('monitoring.day.fact.prev_value', { prev: valueText(e, e.prev), value: valueText(e, e.value) })]);
+    });
+    return out;
+  }
+
+  // Zeile aus dem Modell mit Anzeigetexten, dazu der Jahreslauf als SVG (yr) wo es ein Fenster gibt
+  function decorateRow(r, band) {
+    const out = { id: r.id, kind: r.kind, name: r.name || t(r.nameKey), icon: r.icon, segs: r.segs, sure: r.sure,
+      minutes: r.minutes, label: '', short: '', side: '', facts: factsOf(r), yr: null };
+    const duration = r.minutes != null ? durText(r.minutes * 60) : '';
+    if (r.kind === 'night') {
+      out.label = t('monitoring.day.night', { from: r.from, to: r.to });
+      out.side = duration;
+    } else if (r.kind === 'on') {
+      out.label = t('monitoring.day.window', { from: r.from, to: r.to });
+      out.side = duration;
+    } else if (r.kind === 'point') {
+      out.label = t('monitoring.day.point', { time: r.from || r.to });
+    } else if (r.kind === 'free' && r.id !== 'house') {
+      const long = r.minutes * 60 > LONG_RUN_SECONDS;
+      out.label = t(long ? 'monitoring.day.allday' : 'monitoring.day.free', { duration });
+      out.short = long ? t('monitoring.day.allday_short') : t('monitoring.day.free_short', { duration });
+    } else {
+      out.label = t('monitoring.day.unsure');
+    }
+    if (r.year) out.yr = band(r.year[0], r.year[1], r.kind === 'night');
+    return out;
+  }
+
+  function monitoringDay(getValues, getFocus) {
+    const values = () => (typeof getValues === 'function' && getValues()) || [];
+    const focusKey = () => (typeof getFocus === 'function' && getFocus()) || '';
+    const compare = () => (window.I18n && window.I18n.compare) || undefined;
+    const find = (key) => values().find((v) => v.key === key);
+    return {
+      open: '',
+      t: null,
+      moved: false,
+      revealed: false,
+      get nowMin() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); },
+      get at() { return this.t == null ? this.nowMin : this.t; },
+      get readTime() { return hhmm(this.at); },
+      get rows() {
+        const M = window.MonitoringInsight;
+        return M.dayRows(values(), compare()).map((r) => decorateRow(r, M.yearBand));
+      },
+      get house() {
+        const nr = find('site/night_rest'); const st = find('site/house_state');
+        const active = Boolean(st) && st.value === 'active';
+        return {
+          n: nr ? nr.n || 0 : 0,
+          state: active ? 'active' : 'quiet',
+          stateText: t(active ? 'monitoring.day.state.active' : 'monitoring.day.state.quiet'),
+        };
+      },
+      get runs() {
+        return window.MonitoringInsight.runRows(values(), compare()).map((r) => {
+          const power = r.powerW ? num(r.powerW / 1000, 1) + ' kW' : '';
+          const time = r.seconds ? durText(r.seconds) : '';
+          const sub = power && time ? t('monitoring.run.power_for', { power, duration: time }) : (power || time);
+          const value = r.wh ? num(r.wh / 1000, r.wh < 1000 ? 2 : 1) + ' kWh' : '';
+          return { ...r, value, sub };
+        });
+      },
+      get site() {
+        const reserve = find('site/pv_reserve_w'); const left = find('site/surplus_left_wh');
+        const tiles = [];
+        if (reserve) tiles.push({ id: 'r', label: t('monitoring.learned.short.pv_reserve_w'), value: num(reserve.value, 0) + ' W',
+          note: t(reserve.estimate ? 'monitoring.site.reserve_est' : 'monitoring.site.reserve'), icon: 'ico-gauge' });
+        if (left) tiles.push({ id: 's', label: t('monitoring.learned.short.surplus_left_wh'), value: num(left.value / 1000, 1) + ' kWh',
+          note: t('monitoring.site.surplus_note'), icon: 'ico-flash' });
+        return tiles;
+      },
+      get readText() {
+        const o = window.MonitoringInsight.onAt(this.rows, this.at);
+        if (o.on.length) return t(o.night ? 'monitoring.day.read.night_on' : 'monitoring.day.read.on', { names: o.on.join(', ') });
+        return t(o.night ? 'monitoring.day.read.night' : 'monitoring.day.read.none');
+      },
+
+      // Ein Tipp ohne Bewegung klappt auf, nach einem Wisch ist der naechste Klick kein Tipp
+      toggle(id) {
+        if (this.moved) { this.moved = false; return; }
+        this.open = this.open === id ? '' : id;
+      },
+      // Fokus aus dem Lernwert-Reiter: Zeile oeffnen und zur Zeile scrollen
+      follow() {
+        const id = rowForFocus(focusKey());
+        if (!id) return;
+        this.open = id;
+        const go = () => {
+          const rows = this.$refs && this.$refs.rows;
+          const el = rows && rows.querySelector('[data-row="' + id + '"]');
+          if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
+        };
+        if (this.$nextTick) this.$nextTick(go); else go();
+      },
+      // Balken einmal je Seitenaufruf aufziehen
+      reveal() {
+        if (this.revealed) return;
+        this.revealed = true;
+        const rows = this.$refs && this.$refs.rows; if (!rows) return;
+        rows.querySelectorAll('.mi-track').forEach((tr) => reveal(tr));
+      },
+      pick(clientX) {
+        const rows = this.$refs && this.$refs.rows;
+        const tr = rows && rows.querySelector('.mi-track'); if (!tr) return;
+        const r = tr.getBoundingClientRect();
+        const f = Math.max(0, Math.min(0.9999, (clientX - r.left) / r.width));
+        this.t = Math.round(f * 1440 / 15) * 15 % 1440;
+        this.place();
+      },
+      place() {
+        const rows = this.$refs && this.$refs.rows; const hair = this.$refs && this.$refs.hair; const nowl = this.$refs && this.$refs.now;
+        const tr = rows && rows.querySelector('.mi-track');
+        if (!tr || !hair || !nowl) return;
+        const box = rows.getBoundingClientRect(); const r = tr.getBoundingClientRect();
+        hair.style.transform = 'translateX(' + (r.left - box.left + this.at / 1440 * r.width).toFixed(1) + 'px)';
+        nowl.style.transform = 'translateX(' + (r.left - box.left + this.nowMin / 1440 * r.width).toFixed(1) + 'px)';
+      },
+      key(e) {
+        const map = { ArrowLeft: -15, ArrowRight: 15 };
+        if (map[e.key]) { e.preventDefault(); this.t = (this.at + map[e.key] + 1440) % 1440; this.place(); }
+      },
+      init() {
+        const el = this.$refs.rows;
+        onFirstView(el, () => this.reveal());
+        this.$watch(() => focusKey(), () => this.follow());
+        this.follow();
+        let down = false; let x0 = 0;
+        el.addEventListener('pointerdown', (e) => { down = true; x0 = e.clientX; this.moved = false; this.pick(e.clientX); });
+        el.addEventListener('pointermove', (e) => {
+          if (down && !this.moved && Math.abs(e.clientX - x0) > 6) {
+            this.moved = true;
+            try { el.setPointerCapture(e.pointerId); } catch (err) { /* egal */ }
+          }
+          if (down || e.pointerType === 'mouse') this.pick(e.clientX);
+        });
+        const up = () => { down = false; };
+        el.addEventListener('pointerup', up);
+        el.addEventListener('pointercancel', up);
+        if ('ResizeObserver' in window) new ResizeObserver(() => this.place()).observe(el);
+        if (this.$nextTick) this.$nextTick(() => this.place()); else this.place();
+      },
+    };
+  }
+
   const register = () => {
     if (!window.Alpine) return;
     window.Alpine.data('monitoringForecast', monitoringForecast);
     window.Alpine.data('monitoringYear', monitoringYear);
+    window.Alpine.data('monitoringDay', monitoringDay);
   };
   if (window.Alpine) register(); else document.addEventListener('alpine:init', register, { once: true });
 })();
