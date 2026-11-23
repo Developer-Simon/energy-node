@@ -1,4 +1,8 @@
 version,date,asset,v,note
+v0.11.22-pre.35,2026-11-23,css/automations.css,25,
+v0.11.22-pre.35,2026-11-23,js/automation-suggestions.js,6,
+v0.11.22-pre.35,2026-11-23,js/automations.page.js,32,
+v0.11.22-pre.35,2026-11-23,js/learning-settings.js,5,
 v0.11.22-pre.34,2026-11-22,js/learning-settings.js,4,
 v0.11.22-pre.34,2026-11-22,js/settings.page.js,44,
 v0.11.22-pre.33,2026-11-22,css/automations.css,24,
