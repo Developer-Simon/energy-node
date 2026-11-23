@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/monitoring"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -191,5 +192,105 @@ func TestMonitoringAckNeedsCSRF(t *testing.T) {
 
 	if recorder := monitoringAckRequest(router, cookie, csrf, `{"id":"energy:a","ack":true}`); recorder.Code != http.StatusOK {
 		t.Fatalf("POST with CSRF: %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+// monitoringForecastGet reads the forecast check with the cookie.
+func monitoringForecastGet(router http.Handler, cookie *http.Cookie) *httptest.ResponseRecorder {
+	request := httptest.NewRequest(http.MethodGet, monitoringForecastPath, nil)
+	request.AddCookie(cookie)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func TestMonitoringForecastAnswers(t *testing.T) {
+	deps := &MonitoringDeps{
+		Forecast: func(time.Time) MonitoringForecast {
+			return MonitoringForecast{
+				Forecast: MonitoringForecastCheck{Needed: autolearn.ForecastWindow},
+				Season:   SeasonView(2026, 47, nil),
+			}
+		},
+	}
+	router, manager := monitoringRouter(t, deps)
+	cookie, _ := guestCookie(t, router, manager, []string{auth.RoleViewMonitoring})
+
+	recorder := monitoringForecastGet(router, cookie)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		Forecast struct {
+			Needed int `json:"needed"`
+		} `json:"forecast"`
+		Season struct {
+			Weeks []any `json:"weeks"`
+		} `json:"season"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Forecast.Needed != 14 {
+		t.Fatalf("needed = %d, want 14", body.Forecast.Needed)
+	}
+	if body.Season.Weeks == nil {
+		t.Fatalf("season.weeks is null: %s", recorder.Body.String())
+	}
+}
+
+func TestMonitoringForecastWithoutDepsIs501(t *testing.T) {
+	for name, deps := range map[string]*MonitoringDeps{"nil deps": nil, "no forecast": {}} {
+		router, manager := monitoringRouter(t, deps)
+		cookie, _ := guestCookie(t, router, manager, []string{auth.RoleViewMonitoring})
+
+		recorder := monitoringForecastGet(router, cookie)
+		if recorder.Code != http.StatusNotImplemented {
+			t.Fatalf("%s: status %d, want 501", name, recorder.Code)
+		}
+		if !strings.Contains(recorder.Body.String(), "monitoring_unavailable") {
+			t.Fatalf("%s: body %s, want code monitoring_unavailable", name, recorder.Body.String())
+		}
+	}
+}
+
+func TestMonitoringForecastPostIs405(t *testing.T) {
+	deps := &MonitoringDeps{
+		Forecast: func(time.Time) MonitoringForecast { return MonitoringForecast{} },
+	}
+	router, manager := monitoringRouter(t, deps)
+	cookie, csrf := guestCookie(t, router, manager, []string{auth.RoleViewMonitoring})
+
+	request := httptest.NewRequest(http.MethodPost, monitoringForecastPath, nil)
+	request.Header.Set("X-CSRF-Token", csrf)
+	request.AddCookie(cookie)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST status %d, want 405", recorder.Code)
+	}
+}
+
+func TestSeasonViewDropsRuleFields(t *testing.T) {
+	weeks := []autolearn.Week{{
+		Key:      "2026-W46",
+		Source:   "day",
+		Days:     7,
+		Triggers: map[string]float64{"a": 1},
+		RunMin:   map[string]float64{"b": 2},
+	}}
+	season := SeasonView(2026, 47, weeks)
+	raw, err := json.Marshal(season)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "triggers") || strings.Contains(string(raw), "run_min") {
+		t.Fatalf("SeasonView carries rule fields: %s", raw)
+	}
+	if len(season.Weeks) != 1 || season.Weeks[0].Key != "2026-W46" {
+		t.Fatalf("weeks = %+v, want the one week", season.Weeks)
+	}
+	if empty := SeasonView(2026, 47, nil); empty.Weeks == nil || len(empty.Weeks) != 0 {
+		t.Fatalf("empty weeks = %#v, want an empty list", empty.Weeks)
 	}
 }

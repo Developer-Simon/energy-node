@@ -174,6 +174,7 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/automations/learned":          {group: groupPage, view: auth.RoleViewAutomations},
 	"/api/v1/monitoring":                   {group: groupPage, view: auth.RoleViewMonitoring},
 	"/api/v1/monitoring/ack":               {group: groupPage, view: auth.RoleViewMonitoring},
+	"/api/v1/monitoring/forecast":          {group: groupPage, view: auth.RoleViewMonitoring},
 	"/api/v1/learning/status":              {group: groupPage, view: auth.RoleViewAutomations},
 	"/api/v1/energy/":                      {group: groupPage, view: auth.RoleViewEnergy},
 	"/api/v1/energy/stats/chains":          {group: groupPage, view: auth.RoleViewStats},

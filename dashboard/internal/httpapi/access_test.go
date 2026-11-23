@@ -114,8 +114,9 @@ func TestEfficiencyRoutesNeedTheirOwnView(t *testing.T) {
 
 func TestMonitoringRoutesNeedViewMonitoring(t *testing.T) {
 	cases := map[string]string{
-		"/api/v1/monitoring":     auth.RoleViewMonitoring,
-		"/api/v1/monitoring/ack": auth.RoleViewMonitoring,
+		"/api/v1/monitoring":          auth.RoleViewMonitoring,
+		"/api/v1/monitoring/ack":      auth.RoleViewMonitoring,
+		"/api/v1/monitoring/forecast": auth.RoleViewMonitoring,
 	}
 	for path, view := range cases {
 		access, ok := routeTable[path]
