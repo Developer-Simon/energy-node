@@ -255,14 +255,43 @@
         <div class="learn-new-text"><span>{{t "settings.learning.minutes.new_drive"}}</span></div>
         <button type="button" class="learn-keep-all" x-bind:disabled="!canEditSetup || busy" x-on:click="acknowledge(['minutes_drive'])">{{t "settings.learning.minutes.new_keep"}}</button>
       </div>
-      <label class="switch-row" for="learning-minutes-toggle">
-        <span class="version-help-anchor">{{t "settings.learning.minutes.toggle"}}</span>
-        <span class="settings-toggle">
-          <input id="learning-minutes-toggle" type="checkbox" role="switch" x-bind:checked="learningMinutesMode !== 'off'" x-on:change="learningMinutesMode = $event.target.checked ? 'always' : 'off'; switchedOff('minutes_drive', $event.target.checked)" x-bind:aria-checked="(learningMinutesMode !== 'off').toString()" x-bind:disabled="!canEditSetup">
-          <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
-        </span>
-      </label>
+      <span class="setting-row-label" id="lbl-learning-minutes-mode">{{t "settings.learning.minutes.toggle"}}</span>
+      <div class="learn-radio-group" role="radiogroup" aria-labelledby="lbl-learning-minutes-mode">
+        <div class="learn-pick-row learn-radio-row" x-bind:class="{ 'is-checked': minutesModeOf(learningMinutesMode) === 'always' }">
+          <label class="learn-radio-label">
+            <input class="visually-hidden" type="radio" name="learning-minutes-mode" value="always" x-bind:checked="minutesModeOf(learningMinutesMode) === 'always'" x-on:change="learningMinutesMode = 'always'" x-bind:disabled="!canEditSetup">
+            <span class="learn-radio-dot" aria-hidden="true"></span>
+            <span class="learn-pick-text"><span>{{t "settings.learning.minutes.mode.always"}}</span></span>
+          </label>
+        </div>
+        <div class="learn-pick-row learn-radio-row" x-bind:class="{ 'is-checked': minutesModeOf(learningMinutesMode) === 'pause_with_companion', 'is-unavailable': !minutesMeta.companion }">
+          <label class="learn-radio-label">
+            <input class="visually-hidden" type="radio" name="learning-minutes-mode" value="pause_with_companion" x-bind:checked="minutesModeOf(learningMinutesMode) === 'pause_with_companion'" x-on:change="learningMinutesMode = 'pause_with_companion'" x-bind:disabled="!canEditSetup || !minutesMeta.companion">
+            <span class="learn-radio-dot" aria-hidden="true"></span>
+            <span class="learn-pick-text"><span>{{t "settings.learning.minutes.mode.pause"}}</span><small x-show="!minutesMeta.companion">{{t "settings.learning.minutes.mode.pause_unavailable"}}</small></span>
+          </label>
+          <button type="button" class="learn-link" x-show="!minutesMeta.companion" x-on:click="activeSettingsPage = 'users'">{{t "settings.learning.minutes.mode.pause_connect"}}</button>
+        </div>
+        <div class="learn-pick-row learn-radio-row" x-bind:class="{ 'is-checked': minutesModeOf(learningMinutesMode) === 'off' }">
+          <label class="learn-radio-label">
+            <input class="visually-hidden" type="radio" name="learning-minutes-mode" value="off" x-bind:checked="minutesModeOf(learningMinutesMode) === 'off'" x-on:change="learningMinutesMode = 'off'; switchedOff('minutes_drive', false)" x-bind:disabled="!canEditSetup">
+            <span class="learn-radio-dot" aria-hidden="true"></span>
+            <span class="learn-pick-text"><span>{{t "settings.learning.minutes.mode.off"}}</span></span>
+          </label>
+        </div>
+      </div>
       <p class="learn-row-note">{{t "settings.learning.minutes.toggle_note"}}</p>
+      <p class="learn-row-note" x-show="minutesMeta.paused">{{t "settings.learning.minutes.paused_now"}}</p>
+      <div x-show="minutesMeta.companion && learningMinutesMode !== 'off'">
+        <label class="switch-row" for="learning-ha-reconcile">
+          <span class="version-help-anchor">{{t "settings.learning.minutes.reconcile"}}</span>
+          <span class="settings-toggle">
+            <input id="learning-ha-reconcile" type="checkbox" role="switch" x-bind:checked="!learningHaReconcileDisabled" x-on:change="learningHaReconcileDisabled = !$event.target.checked" x-bind:aria-checked="(!learningHaReconcileDisabled).toString()" x-bind:disabled="!canEditSetup">
+            <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+          </span>
+        </label>
+        <p class="learn-row-note">{{t "settings.learning.minutes.reconcile_note"}}</p>
+      </div>
       <span class="setting-row-label" id="lbl-learning-minutes-where">{{t "settings.learning.minutes.where"}}</span>
       <div class="learn-radio-group" role="radiogroup" aria-labelledby="lbl-learning-minutes-where">
         <div class="learn-pick-row learn-radio-row" x-bind:class="{ 'is-checked': minutesLocationOf(learningMinutesLocation) === 'ram' }">

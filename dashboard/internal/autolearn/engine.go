@@ -71,6 +71,7 @@ type Engine struct {
 	pv        func() (PVModel, *Raster, bool)
 	learned   func() map[string]LearnedEntry
 	minutes   func() learnrec.Reader
+	prep      Preparer
 	steps     func(scenario string, from, to time.Time) []Step
 	// recentC is the mean outdoor temperature of the last three days as the
 	// last round read it, nil when unknown.
@@ -161,6 +162,7 @@ func (e *Engine) Tick(now time.Time, groups map[string]bool) {
 		}
 	}
 	detectors := append([]Detector(nil), e.detectors...)
+	prep := e.prep
 	queue := e.queue
 	e.queue = nil
 	lightDue := e.lastLight.IsZero() || now.Sub(e.lastLight) >= limits.LightEvery
@@ -194,6 +196,11 @@ func (e *Engine) Tick(now time.Time, groups map[string]bool) {
 		queue = nil
 	}
 	e.mu.Unlock()
+	// A daily round is the heavy run. The preparer wraps it, before and after.
+	if dailyDue && prep != nil {
+		prep.Prepare(now)
+		defer prep.Release()
+	}
 
 	seen := map[string]bool{}
 	var work []pending
@@ -471,6 +478,20 @@ func (e *Engine) SetMinutes(f func() learnrec.Reader) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.minutes = f
+}
+
+// Preparer wraps the heavy run of a daily round. Prepare runs before the round,
+// Release after it, also when the round ends early.
+type Preparer interface {
+	Prepare(now time.Time)
+	Release()
+}
+
+// SetPreparer gives the engine the preparer of the daily round.
+func (e *Engine) SetPreparer(p Preparer) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.prep = p
 }
 
 // SetSteps gives the engine the regulator steps. A round passes the reader

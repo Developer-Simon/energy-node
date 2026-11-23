@@ -24,6 +24,10 @@ const ServerPeerID = "server"
 // Kennungen beginnen immer mit "p-".
 const StatsPeerID = "energystats"
 
+// LearnPeerID ist die feste Kennung der Lernfunktionen (internal/learnrec). Sie
+// fragt beim Companion Minuten- und 5-Minuten-Werte fuer fehlende Tage nach.
+const LearnPeerID = "learnrec"
+
 // Message ist ein SSE-Ereignis auf dem Weg zu genau einem Peer.
 type Message struct {
 	Event string

@@ -465,6 +465,9 @@ func main() {
 		return learnrec.LimitsFor(learnrec.ResolveLevel(level, cores, learnStateNow().AutoLevel), cores)
 	}
 	learnHub := learnrec.NewHub(time.Local, learnLimits, log.Printf)
+	// Abgleich mit dem Companion: holt fehlende Minuten- und 5-Minuten-Werte
+	// fuer die Lernfunktionen, nur im RAM.
+	learnHA := learnrec.NewHASync(time.Now, learnLimits, time.Local)
 	learnHub.SetOutdoor(func() string {
 		if value, err := settingsStore.LoadSettings(); err == nil {
 			return value.AutomationOutdoorEntity
@@ -782,16 +785,27 @@ func main() {
 	// Minutenaufzeichnung: MinuteStore und StepLog. Der Zehn-Sekunden-Takt erneuert
 	// den Schnappschuss mit Einstellungen, Laufwerk und Lernstufe.
 	minutes := newMinuteRecording(minuteSources{
-		settings: settingsStore.LoadSettings,
-		status:   storageStatus,
-		limits:   learnLimits,
-		dataDir:  dataDir,
-		mount:    storageMountPoint,
+		settings:        settingsStore.LoadSettings,
+		status:          storageStatus,
+		limits:          learnLimits,
+		companionPaired: func() bool { return authManager.CompanionStatus().Paired },
+		ha:              learnHA,
+		dataDir:         dataDir,
+		mount:           storageMountPoint,
 	})
 	learnHub.AddMinute("minutes", minutes.store)
 	var minuteReader learnrec.Reader = minutes.store
-	// Die Minutenaufzeichnung fuer das Nachspielen der Engine.
-	automationEngine.SetMinutes(func() learnrec.Reader { return minuteReader })
+	// Der schwere Lauf liest eigene Minuten zuerst, dann Home Assistant. Vor dem Lauf
+	// holt der Vorlauf fehlende Tage beim Companion und verwirft sie danach.
+	automationEngine.SetMinutes(func() learnrec.Reader { return learnrec.NewMergedReader(minutes.store, learnHA) })
+	automationEngine.SetPreparer(&haPreparer{
+		own: minutes.store,
+		ha:  learnHA,
+		active: func() bool {
+			return minutes.plan().Reconcile && authManager.CompanionStatus().Paired
+		},
+		loc: time.Local,
+	})
 	// Die Reglerschritte fuer die Regelguete der Nulleinspeisung.
 	automationEngine.SetSteps(minutes.steps.Steps)
 	go runStorageResume(ctx, storageService)
@@ -1371,6 +1385,9 @@ func main() {
 		Rules:            func() ([]byte, error) { return configManager.Read("automation_rules") },
 		Minutes:          minutes.store.Usage,
 		DriveConfigured:  minutes.DriveConfigured,
+		CompanionPaired:  func() bool { return authManager.CompanionStatus().Paired },
+		MinutesPaused:    func() bool { return minutes.plan().Paused },
+		HAMinuteDays:     learnHA.Days,
 		Reset: func() error {
 			resetLearned(learnedStore, client)
 			return errors.Join(dayStore.Reset(), reactions.Reset(), chainSuggest.ResetLearned(), chainMonitor.ResetLearned(), suggestions.Reset(), minutes.Reset())
@@ -1430,6 +1447,7 @@ func main() {
 		Network:               networkClient,
 		Resolver:              energyResolver,
 		EnergyStats:           energyStats,
+		LearnHA:               learnHA,
 		ChainMonitor:          chainMonitor,
 		ChainSuggest:          chainSuggest,
 		AutomationFindings:    automationChecker,
@@ -1581,6 +1599,7 @@ func main() {
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
 				energySync.Tick()
+				learnHA.Tick()
 				perfTiming.Since(performance.PartBackground, start)
 			}
 		}

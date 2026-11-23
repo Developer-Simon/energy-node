@@ -20,30 +20,43 @@ func TestLimitsMinuteBudgetPerLevel(t *testing.T) {
 
 func TestResolveMinutes(t *testing.T) {
 	tests := []struct {
-		name     string
-		settings MinuteSettings
-		drive    bool
-		want     MinutePlan
+		name      string
+		settings  MinuteSettings
+		drive     bool
+		companion bool
+		want      MinutePlan
 	}{
-		{"auto mode, auto location, no drive", MinuteSettings{Mode: "auto", Location: "auto", Days: 60}, false,
+		{"auto mode, auto location, no drive", MinuteSettings{Mode: "auto", Location: "auto", Days: 60}, false, false,
 			MinutePlan{On: true, Location: LocRAM, AutoLocation: true, Days: 60}},
-		{"auto mode, auto location, drive", MinuteSettings{Mode: "auto", Location: "auto", Days: 60}, true,
+		{"auto mode, auto location, drive", MinuteSettings{Mode: "auto", Location: "auto", Days: 60}, true, false,
 			MinutePlan{On: true, Location: LocDrive, AutoLocation: true, Days: 60}},
-		{"explicit ram beats drive", MinuteSettings{Mode: "auto", Location: "ram", Days: 60}, true,
+		{"explicit ram beats drive", MinuteSettings{Mode: "auto", Location: "ram", Days: 60}, true, false,
 			MinutePlan{On: true, Location: LocRAM, AutoLocation: false, Days: 60}},
-		{"explicit system", MinuteSettings{Mode: "always", Location: "system", Days: 30}, false,
+		{"explicit system", MinuteSettings{Mode: "always", Location: "system", Days: 30}, false, false,
 			MinutePlan{On: true, Location: LocSystem, AutoLocation: false, Days: 30}},
-		{"mode off", MinuteSettings{Mode: "off", Location: "drive", Days: 60}, true,
+		{"mode off", MinuteSettings{Mode: "off", Location: "drive", Days: 60}, true, false,
 			MinutePlan{On: false, Location: LocDrive, AutoLocation: false, Days: 60}},
-		{"unknown location counts as auto", MinuteSettings{Mode: "always", Location: "turbo", Days: 60}, false,
+		{"unknown location counts as auto", MinuteSettings{Mode: "always", Location: "turbo", Days: 60}, false, false,
 			MinutePlan{On: true, Location: LocRAM, AutoLocation: true, Days: 60}},
-		{"unknown mode counts as auto", MinuteSettings{Mode: "", Location: "", Days: 60}, false,
+		{"unknown mode counts as auto", MinuteSettings{Mode: "", Location: "", Days: 60}, false, false,
 			MinutePlan{On: true, Location: LocRAM, AutoLocation: true, Days: 60}},
+		{"auto without drive and with companion pauses in ram", MinuteSettings{Mode: "auto", Location: "auto", Days: 60}, false, true,
+			MinutePlan{On: true, Location: LocRAM, AutoLocation: true, PauseMode: true, Days: 60, Reconcile: true}},
+		{"auto with drive and companion keeps always on the drive", MinuteSettings{Mode: "auto", Location: "auto", Days: 60}, true, true,
+			MinutePlan{On: true, Location: LocDrive, AutoLocation: true, Days: 60, Reconcile: true}},
+		{"explicit always stays with companion", MinuteSettings{Mode: "always", Location: "ram", Days: 60}, false, true,
+			MinutePlan{On: true, Location: LocRAM, Days: 60, Reconcile: true}},
+		{"pause mode without companion behaves like always", MinuteSettings{Mode: "pause_with_companion", Location: "ram", Days: 60}, false, false,
+			MinutePlan{On: true, Location: LocRAM, Days: 60}},
+		{"pause mode with companion pauses", MinuteSettings{Mode: "pause_with_companion", Location: "ram", Days: 60}, false, true,
+			MinutePlan{On: true, Location: LocRAM, PauseMode: true, Days: 60, Reconcile: true}},
+		{"reconcile switched off", MinuteSettings{Mode: "always", Location: "ram", Days: 60, ReconcileOff: true}, false, true,
+			MinutePlan{On: true, Location: LocRAM, Days: 60}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ResolveMinutes(tt.settings, tt.drive); got != tt.want {
-				t.Errorf("ResolveMinutes(%+v, %v) = %+v, want %+v", tt.settings, tt.drive, got, tt.want)
+			if got := ResolveMinutes(tt.settings, tt.drive, tt.companion); got != tt.want {
+				t.Errorf("ResolveMinutes(%+v, %v, %v) = %+v, want %+v", tt.settings, tt.drive, tt.companion, got, tt.want)
 			}
 		})
 	}

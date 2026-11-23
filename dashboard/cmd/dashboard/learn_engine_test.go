@@ -150,7 +150,7 @@ func TestPVKeepDaysFollowsTheSeasonSwitch(t *testing.T) {
 }
 
 func TestMinuteSnapshotWithoutDriveIsRAM(t *testing.T) {
-	snap := minuteSnapshotFor(settings.Default(), "", storage.Status{Mode: storage.ModeNone}, "/data", "/mnt/data", learnrec.Limits{})
+	snap := minuteSnapshotFor(settings.Default(), "", storage.Status{Mode: storage.ModeNone}, "/data", "/mnt/data", learnrec.Limits{}, false)
 	if snap.plan.Location != learnrec.LocRAM || !snap.plan.AutoLocation {
 		t.Fatalf("plan = %+v, want auto ram", snap.plan)
 	}
@@ -164,14 +164,14 @@ func TestMinuteSnapshotWithoutDriveIsRAM(t *testing.T) {
 
 func TestMinuteSnapshotWithDriveFollowsStorageMode(t *testing.T) {
 	value := settings.Default()
-	up := minuteSnapshotFor(value, "uuid", storage.Status{Mode: storage.ModeDrive}, "/data", "/mnt/data", learnrec.Limits{})
+	up := minuteSnapshotFor(value, "uuid", storage.Status{Mode: storage.ModeDrive}, "/data", "/mnt/data", learnrec.Limits{}, false)
 	if up.plan.Location != learnrec.LocDrive || !up.driveUp {
 		t.Fatalf("plan = %+v driveUp = %v, want drive", up.plan, up.driveUp)
 	}
 	if up.dirs.Drive != "/mnt/data/runtime" || up.stepDir() != "/mnt/data/runtime" {
 		t.Fatalf("drive dir = %q, step dir = %q", up.dirs.Drive, up.stepDir())
 	}
-	down := minuteSnapshotFor(value, "uuid", storage.Status{Mode: storage.ModeFallbackSystem}, "/data", "/mnt/data", learnrec.Limits{})
+	down := minuteSnapshotFor(value, "uuid", storage.Status{Mode: storage.ModeFallbackSystem}, "/data", "/mnt/data", learnrec.Limits{}, false)
 	if down.driveUp || down.dirs.Drive != "" || down.stepDir() != "" {
 		t.Fatalf("fallback keeps drive out: driveUp = %v drive = %q step = %q", down.driveUp, down.dirs.Drive, down.stepDir())
 	}
@@ -180,7 +180,7 @@ func TestMinuteSnapshotWithDriveFollowsStorageMode(t *testing.T) {
 func TestMinuteSnapshotSystemLocationUsesDataDir(t *testing.T) {
 	value := settings.Default()
 	value.LearningMinutesLocation = "system"
-	snap := minuteSnapshotFor(value, "uuid", storage.Status{Mode: storage.ModeDrive}, "/data", "/mnt/data", learnrec.Limits{})
+	snap := minuteSnapshotFor(value, "uuid", storage.Status{Mode: storage.ModeDrive}, "/data", "/mnt/data", learnrec.Limits{}, false)
 	if snap.plan.Location != learnrec.LocSystem || snap.stepDir() != "/data" {
 		t.Fatalf("location = %q step dir = %q, want system /data", snap.plan.Location, snap.stepDir())
 	}

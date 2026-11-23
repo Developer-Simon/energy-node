@@ -107,7 +107,7 @@ func NewMinuteStore(loc *time.Location, plan func() MinutePlan, dirs func() Minu
 // ObserveMinute legt die Werte des Rahmens im RAM ab. Schluessel sind e:<unique_id>
 // fuer Leistung, b:<feld> fuer die Bilanz und t:outdoor fuer die Aussentemperatur.
 func (s *MinuteStore) ObserveMinute(f Frame) {
-	if !s.plan().On {
+	if pl := s.plan(); !pl.On || pl.Paused {
 		return
 	}
 	vals := map[string]float64{}

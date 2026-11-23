@@ -283,3 +283,22 @@ func TestMinuteStoreWrittenPerDayMatchesBytesOverDays(t *testing.T) {
 		t.Fatalf("Since = %d, want %d", u.Since, start.Unix())
 	}
 }
+
+func TestMinuteStorePausedRecordsNothingUntilResumed(t *testing.T) {
+	env := newMsEnv(t, LocSystem)
+	s := newMsStore(env)
+	env.plan.Paused = true
+	s.ObserveMinute(msFrame(msTime(10, 0), 1))
+	s.ObserveMinute(msFrame(msTime(10, 1), 2))
+	env.plan.Paused = false
+	s.ObserveMinute(msFrame(msTime(10, 2), 3))
+	if err := s.Flush(msTime(10, 3)); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	path := msPath(env.dirs.System, testMinuteDay)
+	if got := msBlockMinutes(t, path); got != 1 {
+		t.Fatalf("minutes in blocks = %d, want 1 (only the minute after the pause)", got)
+	}
+	_, values := readMinuteFile(t, path)
+	requireMinuteValue(t, values, "e:uid1", 600+2, 3)
+}

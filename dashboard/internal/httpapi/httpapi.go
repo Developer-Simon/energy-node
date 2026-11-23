@@ -199,6 +199,9 @@ type RouterDependencies struct {
 	// Monitoring liefert Meldungen, Quittungen und Lernwerte fuer die
 	// Ueberwachung (GET /api/v1/monitoring). nil heisst 501.
 	Monitoring *MonitoringDeps
+	// LearnHA holt fehlende Minuten- und 5-Minuten-Werte fuer die Lernfunktionen
+	// beim Companion ab (learnrec.HASync). nil heisst: kein Abgleich.
+	LearnHA learnPeer
 	// HistorySampler fuellt den Ringpuffer der Verlaufsvermittlung einmal
 	// pro Minute mit role:grid und den Szenario-Ausgaben. nil heisst: nur
 	// der Browser schreibt in den Puffer.
@@ -433,6 +436,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	// Nil-Pruefung am Zeiger: ein nil *Sync im Interface waere nicht nil.
 	if dependencies.EnergyStats != nil && dependencies.EnergyStats.Sync != nil {
 		exchange.attachStats(dependencies.EnergyStats.Sync)
+	}
+	if dependencies.LearnHA != nil {
+		exchange.attachLearn(dependencies.LearnHA)
 	}
 	exchange.routes(g)
 	g.HandleFunc("/api/v1/diagnostics", handleDiagnostics(engine))

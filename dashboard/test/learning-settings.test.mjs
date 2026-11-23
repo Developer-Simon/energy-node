@@ -426,3 +426,20 @@ test('driveSizeText uses 1000 steps, GB and TB with one decimal and MB without',
   assert.equal(driveSizeText(2_000_000_000_000), '2,0 TB');
   assert.equal(driveSizeText(0), '0 B');
 });
+
+test('minutesModeOf zeigt bei auto den aufgeloesten Modus, ausdrueckliche Werte bleiben', async () => {
+  const paired = createPage({ routes: minutesRoutes(minutesStatus({ companion: true, drive_configured: false })) });
+  await paired.page.load();
+  assert.equal(paired.page.minutesModeOf('auto'), 'pause_with_companion');
+  assert.equal(paired.page.minutesModeOf('always'), 'always');
+  assert.equal(paired.page.minutesModeOf('off'), 'off');
+  assert.equal(paired.page.minutesModeOf('pause_with_companion'), 'pause_with_companion');
+
+  const drive = createPage({ routes: minutesRoutes(minutesStatus({ companion: true, drive_configured: true, location: 'drive' }), { drive: { size: 8_000_000_000, used: 0 } }) });
+  await drive.page.load();
+  assert.equal(drive.page.minutesModeOf('auto'), 'always');
+
+  const unpaired = createPage({ routes: minutesRoutes(minutesStatus({ companion: false, drive_configured: false })) });
+  await unpaired.page.load();
+  assert.equal(unpaired.page.minutesModeOf('auto'), 'always');
+});

@@ -391,6 +391,7 @@ func TestLearningStatusMinutesUsageFields(t *testing.T) {
 		"on": true, "location": "drive", "auto_location": true, "drive_configured": true,
 		"drive_down": true, "days": float64(learnrec.MinuteDaysDefault), "ram_days": float64(3),
 		"bytes": float64(4096), "written_per_day": float64(512), "since": float64(1794000000), "keys": float64(7),
+		"paused": false, "companion": false, "reconcile": false, "ha_days": float64(0),
 	}
 	if !reflect.DeepEqual(got.Minutes, want) {
 		t.Fatalf("minutes = %v\nwant %v", got.Minutes, want)
@@ -402,5 +403,30 @@ func TestLearningMinutesSettingsNeedEditSetup(t *testing.T) {
 		if got := settingsFieldRoles[key]; got != auth.RoleEditSetup {
 			t.Errorf("%s: role %q, want %q", key, got, auth.RoleEditSetup)
 		}
+	}
+}
+
+func TestLearningStatusMinutesCompanionFields(t *testing.T) {
+	deps := &LearningDeps{
+		CompanionPaired: func() bool { return true },
+		MinutesPaused:   func() bool { return true },
+		HAMinuteDays:    func() int { return 3 },
+	}
+	got := learningStatus(settings.Settings{}, deps, 1)
+	if !got.Minutes.Companion || !got.Minutes.Paused || !got.Minutes.Reconcile || got.Minutes.HADays != 3 {
+		t.Fatalf("minutes with companion = %+v, want companion, paused, reconcile, ha_days 3", got.Minutes)
+	}
+	if got.Minutes.On != true || got.Minutes.Location != "ram" {
+		t.Fatalf("auto without drive = %+v, want on, ram", got.Minutes)
+	}
+
+	off := learningStatus(settings.Settings{LearningHAReconcileDisabled: true}, deps, 1)
+	if off.Minutes.Reconcile {
+		t.Fatal("reconcile disabled: reconcile = true")
+	}
+
+	none := learningStatus(settings.Settings{}, &LearningDeps{}, 1)
+	if none.Minutes.Companion || none.Minutes.Paused || none.Minutes.Reconcile || none.Minutes.HADays != 0 {
+		t.Fatalf("without companion = %+v, want all companion fields zero", none.Minutes)
 	}
 }

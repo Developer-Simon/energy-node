@@ -77,12 +77,29 @@ type statsPeer interface {
 	OnDeliver(peer, reqID string, rows []historyexchange.Row, final bool)
 }
 
+// learnPeer ist der Abgleich der Lernfunktionen (learnrec.HASync) als
+// Pseudo-Peer mit der Kennung historyexchange.LearnPeerID. Er bekommt die
+// Deckung aller Stufen, weil er Minuten- und 5-Minuten-Werte holt.
+type learnPeer interface {
+	Attach(send func(to string, payload []byte) bool, hasPeer func(id string) bool)
+	OnOffer(peer string, coverage map[string]map[string]historyexchange.Census)
+	OnDeliver(peer, reqID, tier string, rows []historyexchange.Row, final bool)
+}
+
 type historyExchange struct {
 	hub    *historyexchange.Hub
 	buffer *historyexchange.Buffer
 	now    func() time.Time
 	series func() []exchangeSeries
 	stats  statsPeer
+	learn  learnPeer
+}
+
+func (x *historyExchange) attachLearn(learn learnPeer) {
+	x.learn = learn
+	learn.Attach(func(to string, payload []byte) bool {
+		return x.hub.SendTo(to, historyexchange.Message{Event: "request", Data: payload})
+	}, x.hub.Has)
 }
 
 func (x *historyExchange) attachStats(stats statsPeer) {
@@ -322,6 +339,9 @@ func (x *historyExchange) handleOffer(w http.ResponseWriter, r *http.Request) {
 		if x.stats != nil {
 			x.stats.OnOffer(from, payload.Coverage["1h"])
 		}
+		if x.learn != nil {
+			x.learn.OnOffer(from, payload.Coverage)
+		}
 	}
 	data, err := json.Marshal(message)
 	if err != nil {
@@ -439,6 +459,16 @@ func (x *historyExchange) handleDeliver(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		x.stats.OnDeliver(from, payload.ReqID, payload.Rows, payload.Final)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	// Dasselbe fuer den Abgleich der Lernfunktionen.
+	if payload.To == historyexchange.LearnPeerID {
+		if x.learn == nil {
+			relay(w, false)
+			return
+		}
+		x.learn.OnDeliver(from, payload.ReqID, payload.Tier, payload.Rows, payload.Final)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}

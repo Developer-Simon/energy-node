@@ -358,3 +358,45 @@ func TestEngineInputCarriesLearnedValues(t *testing.T) {
 		t.Fatalf("Learned[site/base_w].Value = %v, want 300", got)
 	}
 }
+
+// fakePreparer zaehlt Vorbereitung und Abschluss des schweren Laufs.
+type fakePreparer struct {
+	prepared, released int
+	order              []string
+}
+
+func (f *fakePreparer) Prepare(time.Time) {
+	f.prepared++
+	f.order = append(f.order, "prepare")
+}
+
+func (f *fakePreparer) Release() {
+	f.released++
+	f.order = append(f.order, "release")
+}
+
+func TestEnginePreparerWrapsOnlyTheDailyRun(t *testing.T) {
+	e := newTestEngine(t, learnrec.LimitsFor(learnrec.LevelBalanced, 4))
+	var runs atomic.Int32
+	e.Register(Detector{Name: "daily", Group: "habit", Light: false, Run: func(ctx context.Context, in *Input, device string) []Candidate {
+		runs.Add(1)
+		return nil
+	}})
+	prep := &fakePreparer{}
+	e.SetPreparer(prep)
+
+	e.Tick(at(t, "2026-11-20", "03:00"), habitOnly)
+	if prep.prepared != 0 {
+		t.Fatalf("vor dem Tageslauf darf nichts vorbereitet werden, prepared = %d", prep.prepared)
+	}
+	e.Tick(at(t, "2026-11-20", "03:30"), habitOnly)
+	if prep.prepared != 1 || prep.released != 1 {
+		t.Fatalf("Tageslauf: prepared = %d, released = %d, want 1 und 1", prep.prepared, prep.released)
+	}
+	if len(prep.order) != 2 || prep.order[0] != "prepare" || prep.order[1] != "release" {
+		t.Fatalf("Reihenfolge = %v, want [prepare release]", prep.order)
+	}
+	if runs.Load() != 1 {
+		t.Fatalf("der Erkenner muss im Lauf laufen, runs = %d", runs.Load())
+	}
+}

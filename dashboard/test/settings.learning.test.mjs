@@ -210,3 +210,76 @@ test('Der Saison-Schalter liegt in der Aufzeichnung, ist ein Label mit for und a
   assert.ok(label && label.getAttribute('for') === 'learning-season-year');
   assert.ok(input.closest('[data-tour="learning-record"]'), 'nicht in der Karte Aufzeichnung');
 });
+
+test('load() nimmt den Modus pause_with_companion und den Abgleich-Schalter aus den Einstellungen, fehlend heisst aus', async () => {
+  const { dom, component } = createPanel(loadFetch({ learning_minutes_mode: 'pause_with_companion', learning_ha_reconcile_disabled: true }));
+  await component.load();
+  assert.equal(component.learningMinutesMode, 'pause_with_companion');
+  assert.equal(component.learningHaReconcileDisabled, true);
+  dom.window.close();
+  const fresh = createPanel(loadFetch({}));
+  await fresh.component.load();
+  assert.equal(fresh.component.learningHaReconcileDisabled, false);
+  fresh.dom.window.close();
+});
+
+test('payload() schickt pause_with_companion und den Abgleich-Schalter als Boolean', async () => {
+  const { dom, component } = createPanel(loadFetch({ learning_minutes_mode: 'pause_with_companion', learning_ha_reconcile_disabled: true }));
+  await component.load();
+  const payload = JSON.parse(JSON.stringify(component.payload()));
+  assert.equal(payload.learning_minutes_mode, 'pause_with_companion');
+  assert.equal(payload.learning_ha_reconcile_disabled, true);
+  dom.window.close();
+});
+
+test('Der Modus ist eine Radiogruppe mit Immer, Pausieren und Aus, an canEditSetup gebunden, der alte Schalter ist weg', () => {
+  const doc = new JSDOM(templateSource).window.document;
+  assert.equal(doc.getElementById('learning-minutes-toggle'), null, 'alter Schalter noch da');
+  const group = doc.querySelector('[role="radiogroup"][aria-labelledby="lbl-learning-minutes-mode"]');
+  assert.ok(group, 'Radiogruppe Modus fehlt');
+  assert.ok(doc.getElementById('lbl-learning-minutes-mode'), 'Gruppen-Label fehlt');
+  const inputs = [...group.querySelectorAll('input[type="radio"][name="learning-minutes-mode"]')];
+  assert.deepEqual(inputs.map(input => input.value), ['always', 'pause_with_companion', 'off']);
+  for (const input of inputs) {
+    assert.ok(input.getAttribute('x-bind:disabled').includes('!canEditSetup'), `${input.value}: nicht an canEditSetup gebunden`);
+  }
+  const offInput = inputs.find(input => input.value === 'off');
+  assert.ok(offInput.getAttribute('x-on:change').includes("switchedOff('minutes_drive', false)"), 'Aus löst switchedOff nicht aus');
+});
+
+test('Die Zeile Pausieren ist ohne Companion gesperrt, zeigt den Hinweis und führt zur Seite Benutzer', () => {
+  const doc = new JSDOM(templateSource).window.document;
+  const input = doc.querySelector('input[name="learning-minutes-mode"][value="pause_with_companion"]');
+  assert.ok(input, 'Radio Pausieren fehlt');
+  assert.ok(input.getAttribute('x-bind:disabled').includes('!minutesMeta.companion'), 'Radio nicht ohne Companion gesperrt');
+  const row = input.closest('.learn-radio-row');
+  assert.ok(row.getAttribute('x-bind:class').includes("'is-unavailable': !minutesMeta.companion"), 'Zeile nicht ausgegraut');
+  assert.ok(row.textContent.includes('settings.learning.minutes.mode.pause_unavailable'));
+  const connect = [...row.querySelectorAll('button')].find(button => button.textContent.includes('settings.learning.minutes.mode.pause_connect'));
+  assert.ok(connect, 'Verbinden-Knopf fehlt');
+  assert.equal(connect.getAttribute('x-on:click'), "activeSettingsPage = 'users'");
+});
+
+test('Der Abgleich-Schalter ist nur mit Companion und nicht bei Aus sichtbar, an canEditSetup gebunden, mit Hinweis', () => {
+  const doc = new JSDOM(templateSource).window.document;
+  const input = doc.getElementById('learning-ha-reconcile');
+  assert.ok(input, 'learning-ha-reconcile fehlt');
+  assert.equal(input.getAttribute('role'), 'switch');
+  assert.equal(input.getAttribute('x-bind:disabled'), '!canEditSetup');
+  const label = input.closest('label');
+  assert.ok(label && label.getAttribute('for') === 'learning-ha-reconcile');
+  const row = label.parentElement;
+  const visible = row.getAttribute('x-show') || '';
+  assert.ok(visible.includes('minutesMeta.companion'), 'nicht an Companion gebunden');
+  assert.ok(visible.includes("learningMinutesMode !== 'off'"), 'nicht an Modus Aus gebunden');
+  assert.ok(row.textContent.includes('settings.learning.minutes.reconcile_note') || row.nextElementSibling?.textContent.includes('settings.learning.minutes.reconcile_note'), 'Hinweis fehlt');
+  assert.ok(input.getAttribute('x-bind:checked').includes('!learningHaReconcileDisabled'), 'Schalter nicht invertiert');
+  assert.ok(input.getAttribute('x-on:change').includes('learningHaReconcileDisabled'), 'Schalter setzt das Feld nicht');
+});
+
+test('Bei pausierter Aufzeichnung steht der Hinweis paused_now in der Karte', () => {
+  const doc = new JSDOM(templateSource).window.document;
+  const note = [...doc.querySelectorAll('[data-tour="learning-record"] .learn-row-note')].find(el => el.textContent.includes('settings.learning.minutes.paused_now'));
+  assert.ok(note, 'Hinweis paused_now fehlt');
+  assert.equal(note.getAttribute('x-show'), 'minutesMeta.paused');
+});

@@ -3255,7 +3255,7 @@ func TestLearningMinutesOutOfRangeIsRejected(t *testing.T) {
 
 func TestLearningMinutesInvalidEnumIsRejected(t *testing.T) {
 	for _, mutate := range []func(*Settings){
-		func(v *Settings) { v.LearningMinutesMode = "pause_with_companion" },
+		func(v *Settings) { v.LearningMinutesMode = "sometimes" },
 		func(v *Settings) { v.LearningMinutesLocation = "cloud" },
 	} {
 		value := Default()
@@ -3321,7 +3321,7 @@ func TestSchemaKenntDieAutomationGruppenSchalter(t *testing.T) {
 	if err := json.Unmarshal(settingsSchema, &schema); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"automation_habits_disabled", "automation_reliability_disabled", "automation_energy_disabled", "learning_season_year_disabled"} {
+	for _, key := range []string{"automation_habits_disabled", "automation_reliability_disabled", "automation_energy_disabled", "learning_season_year_disabled", "learning_ha_reconcile_disabled"} {
 		property, ok := schema.Properties[key]
 		if !ok {
 			t.Fatalf("%s fehlt im Schema", key)
@@ -3338,5 +3338,16 @@ func TestSchemaKenntDieAutomationGruppenSchalter(t *testing.T) {
 		if !found {
 			t.Fatalf("%s fehlt in required", key)
 		}
+	}
+}
+
+func TestLearningMinutesPauseModeIsAccepted(t *testing.T) {
+	value := Default()
+	value.LearningMinutesMode = LearningMinutesPauseWithCompanion
+	if err := validateSettings(value); err != nil {
+		t.Fatalf("learning_minutes_mode pause_with_companion rejected: %v", err)
+	}
+	if got := normalizeSettings(Settings{}).LearningHAReconcileDisabled; got {
+		t.Fatal("learning_ha_reconcile_disabled defaults to true, want false")
 	}
 }

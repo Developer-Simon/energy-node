@@ -83,6 +83,21 @@ record. After a restart they catch up on the minutes they missed, if the record
 is kept on the drive or the system drive. Switch it off and the node stops
 recording minutes.
 
+The recording has three modes. **Always** records every minute. **Pause while
+Home Assistant delivers** stops the own recording as long as the companion
+offers minute values from Home Assistant, and starts it again within a minute
+when the companion disconnects. It needs a paired companion, so the row stays
+greyed out without one. **Off** records nothing. With an extra drive the node
+records always. Without a drive but with a paired companion it pauses while
+Home Assistant delivers. A mode you choose yourself is never changed.
+
+**Reconcile with Home Assistant** is on by default and shows only with a paired
+companion. Before the heavy nightly calculations the node asks Home Assistant
+for the last days that its own recording does not cover without a gap. These
+values live in memory for the calculation and are never written to a drive. A
+result that rests on five minute values from Home Assistant counts as an
+estimate at most.
+
 **Where minute values are kept** chooses the place:
 
 - **Memory** keeps the minutes in RAM, for up to 3 days on the economical level

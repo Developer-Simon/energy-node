@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Die Lernfunktionen können Minutenwerte aus Home Assistant übernehmen"
+  },
+  "en": {
+    "*": "Learning functions can take minute values from Home Assistant"
+  }
+}

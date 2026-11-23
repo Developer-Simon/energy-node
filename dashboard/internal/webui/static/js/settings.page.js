@@ -93,10 +93,11 @@
     learningSeasonYearDisabled: false,
     learningExcludedDevices: [],
     learningProfileDays: 56,
-    // Aufzeichnung der Minutenwerte: Modus auto/always/off, Ort auto/ram/drive/system, Tage 1 bis 365.
+    // Aufzeichnung der Minutenwerte: Modus auto/always/pause_with_companion/off, Ort auto/ram/drive/system, Tage 1 bis 365.
     learningMinutesMode: 'auto',
     learningMinutesLocation: 'auto',
     learningMinutesDays: 60,
+    learningHaReconcileDisabled: false,
     learningAcknowledged: [],
     learningLevel: '',
     energyStatsRecording: 'always',
@@ -234,9 +235,10 @@
         this.learningSeasonYearDisabled = Boolean(value.learning_season_year_disabled);
         this.learningExcludedDevices = Array.isArray(value.learning_excluded_devices) ? [...value.learning_excluded_devices] : [];
         this.learningProfileDays = Number(value.learning_profile_days) || 56;
-        this.learningMinutesMode = ['auto', 'always', 'off'].includes(value.learning_minutes_mode) ? value.learning_minutes_mode : 'auto';
+        this.learningMinutesMode = ['auto', 'always', 'pause_with_companion', 'off'].includes(value.learning_minutes_mode) ? value.learning_minutes_mode : 'auto';
         this.learningMinutesLocation = ['auto', 'ram', 'drive', 'system'].includes(value.learning_minutes_location) ? value.learning_minutes_location : 'auto';
         this.learningMinutesDays = Number(value.learning_minutes_days) || 60;
+        this.learningHaReconcileDisabled = Boolean(value.learning_ha_reconcile_disabled);
         this.learningAcknowledged = Array.isArray(value.learning_acknowledged) ? [...value.learning_acknowledged] : [];
         this.learningLevel = typeof value.learning_level === 'string' ? value.learning_level : '';
         window.dispatchEvent(new CustomEvent('settings-learning-loaded', {detail: {ids: [...this.learningExcludedDevices]}}));
@@ -696,6 +698,7 @@
         learning_minutes_mode: this.learningMinutesMode,
         learning_minutes_location: this.learningMinutesLocation,
         learning_minutes_days: Number(this.learningMinutesDays),
+        learning_ha_reconcile_disabled: Boolean(this.learningHaReconcileDisabled),
         learning_acknowledged: [...this.learningAcknowledged],
         learning_level: this.learningLevel,
         history_views: [...this.historyViews],

@@ -24,19 +24,21 @@ type minuteSnapshot struct {
 	dirs            learnrec.MinuteDirs
 	driveUp         bool
 	driveConfigured bool
+	companionPaired bool
 	limits          learnrec.Limits
 }
 
 // minuteSnapshotFor baut den Schnappschuss. Das Laufwerksverzeichnis ist nur
 // gesetzt, wenn der Speicher im Modus Laufwerk steht. Die Aufzeichnung legt
 // learnrec/minutes selbst unter dem Basisverzeichnis an.
-func minuteSnapshotFor(value settings.Settings, driveUUID string, status storage.Status, dataDir, mount string, limits learnrec.Limits) *minuteSnapshot {
+func minuteSnapshotFor(value settings.Settings, driveUUID string, status storage.Status, dataDir, mount string, limits learnrec.Limits, companionPaired bool) *minuteSnapshot {
 	plan := learnrec.ResolveMinutes(learnrec.MinuteSettings{
-		Mode:     value.LearningMinutesMode,
-		Location: value.LearningMinutesLocation,
-		Days:     value.LearningMinutesDays,
-	}, driveUUID != "")
-	snap := &minuteSnapshot{plan: plan, dirs: learnrec.MinuteDirs{System: dataDir}, driveConfigured: driveUUID != "", limits: limits}
+		Mode:         value.LearningMinutesMode,
+		Location:     value.LearningMinutesLocation,
+		Days:         value.LearningMinutesDays,
+		ReconcileOff: value.LearningHAReconcileDisabled,
+	}, driveUUID != "", companionPaired)
+	snap := &minuteSnapshot{plan: plan, dirs: learnrec.MinuteDirs{System: dataDir}, driveConfigured: driveUUID != "", companionPaired: companionPaired, limits: limits}
 	if status.Mode == storage.ModeDrive {
 		snap.driveUp = true
 		snap.dirs.Drive = storage.DriveRuntimeDir(storage.Paths{Mount: mount})
@@ -60,11 +62,14 @@ func (s *minuteSnapshot) stepDir() string {
 
 // minuteSources sind die Quellen, aus denen Refresh den Schnappschuss baut.
 type minuteSources struct {
-	settings func() (settings.Settings, error)
-	status   func() storage.Status
-	limits   func() learnrec.Limits
-	dataDir  string
-	mount    string
+	settings        func() (settings.Settings, error)
+	status          func() storage.Status
+	limits          func() learnrec.Limits
+	companionPaired func() bool
+	// ha ist der Abgleich mit Home Assistant. Nil heisst: keine Pause.
+	ha      *learnrec.HASync
+	dataDir string
+	mount   string
 }
 
 // minuteRecording buendelt den MinuteStore und den StepLog. Beide lesen ihre
@@ -106,10 +111,20 @@ func (r *minuteRecording) Refresh() {
 	if cfg, err := storage.LoadConfig(r.src.dataDir); err == nil {
 		driveUUID = cfg.UUID
 	}
-	r.snap.Store(minuteSnapshotFor(value, driveUUID, r.src.status(), r.src.dataDir, r.src.mount, r.src.limits()))
+	paired := r.src.companionPaired != nil && r.src.companionPaired()
+	r.snap.Store(minuteSnapshotFor(value, driveUUID, r.src.status(), r.src.dataDir, r.src.mount, r.src.limits(), paired))
 }
 
-func (r *minuteRecording) plan() learnrec.MinutePlan { return r.snap.Load().plan }
+// plan liefert den Plan des Schnappschusses. Paused gilt nur im Modus
+// pause_with_companion und nur, solange Home Assistant frische Minuten liefert.
+// Faellt die Lieferung weg, laeuft die eigene Aufzeichnung in der naechsten Minute weiter.
+func (r *minuteRecording) plan() learnrec.MinutePlan {
+	plan := r.snap.Load().plan
+	if plan.PauseMode && r.src.ha != nil {
+		plan.Paused = r.src.ha.Fresh1m(time.Now())
+	}
+	return plan
+}
 func (r *minuteRecording) dirs() learnrec.MinuteDirs { return r.snap.Load().dirs }
 func (r *minuteRecording) driveUp() bool             { return r.snap.Load().driveUp }
 
