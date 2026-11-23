@@ -36,7 +36,7 @@ func flappingRun(ctx context.Context, in *Input, device string) []Candidate {
 	if !ok {
 		return nil
 	}
-	minRun := reliabilityMinRuntime(info)
+	minRun := minRunForRole(info)
 	if minRun <= 0 {
 		return nil
 	}

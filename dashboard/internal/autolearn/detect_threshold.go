@@ -110,7 +110,7 @@ func thresholdRule(ctx context.Context, in *Input, r Rule, minutes []ReplayMinut
 		return Candidate{}, false
 	}
 	hyst0 := r.Conditions[idx].Hysteresis
-	run0 := reliabilityMinRuntime(info)
+	run0 := minRunForRole(info)
 	base := thresholdTarget{rule: r.ID, device: device, opW: p, peakW: feedbackInrush(in.Days, device, p), cycleWh: cycle}
 	real := RealState(in, device, minutes)
 

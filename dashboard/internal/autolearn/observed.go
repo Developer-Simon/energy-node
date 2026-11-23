@@ -242,7 +242,7 @@ func frequentSoll(in *Input, rule Rule, idx, h int, from, to int64) (soll []int6
 		site = *in.Doc.Location
 	}
 	target := ReplayTarget{RuleID: rule.ID, Device: device, OpW: p,
-		PeakW: feedbackInrush(in.Days, device, p), CycleWh: cycle, MinRunS: reliabilityMinRuntime(info)}
+		PeakW: feedbackInrush(in.Days, device, p), CycleWh: cycle, MinRunS: minRunForRole(info)}
 	res, err := Replay(context.Background(), raw, target, minutes, RealState(in, device, minutes), replayLoc(in), site)
 	if err != nil {
 		return nil, false, false
