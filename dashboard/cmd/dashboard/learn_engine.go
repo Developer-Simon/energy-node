@@ -522,3 +522,15 @@ func loadPVRaster(path string, limits learnrec.Limits, logf func(string, ...any)
 	}
 	return autolearn.LoadRaster(data, limits.PVCellAzDeg, limits.PVCellElDeg)
 }
+
+// Reset setzt den Zustand der Zyklen auf leer und loescht cycles.json. Ein
+// erneutes Save schreibt den leeren Stand.
+func (c *cycleRunner) Reset() error {
+	c.mu.Lock()
+	c.tracker = autolearn.NewCycleTracker(nil)
+	c.mu.Unlock()
+	if err := os.Remove(c.path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("cycle state reset: %w", err)
+	}
+	return nil
+}

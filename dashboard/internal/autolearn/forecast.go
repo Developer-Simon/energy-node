@@ -187,3 +187,14 @@ func (c *ForecastCheck) Save() error {
 	c.dirty = false
 	return nil
 }
+
+// Reset verwirft alle offenen und abgeschlossenen Prognosen und loescht die Datei.
+// Die Datei wird beim naechsten Save als leerer Stand neu geschrieben.
+func (c *ForecastCheck) Reset() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.pending = map[string]float64{}
+	c.days = nil
+	c.dirty = true
+	return removeIfExists(c.path)
+}

@@ -1,6 +1,8 @@
 package learnrec
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -34,6 +36,18 @@ type Saver interface {
 	Save() error
 }
 
+// Resetter setzt den gelernten Zustand eines Verbrauchers zurueck und loescht
+// seine Dateien. Der Hub ruft Reset nur auf Wunsch des Nutzers auf.
+type Resetter interface {
+	Reset() error
+}
+
+// ResetterFunc macht eine Funktion zum Resetter des Hubs.
+type ResetterFunc func() error
+
+// Reset ruft die Funktion auf.
+func (f ResetterFunc) Reset() error { return f() }
+
 // TickFunc macht eine Funktion zum TickConsumer.
 type TickFunc func(time.Time, energy.Snapshot)
 
@@ -62,6 +76,11 @@ type namedTick struct {
 	c    TickConsumer
 }
 
+type namedResetter struct {
+	name string
+	r    Resetter
+}
+
 type namedSaver struct {
 	name    string
 	s       Saver
@@ -84,17 +103,18 @@ type devAcc struct {
 // Hub verteilt Beobachtungen an Verbraucher und sichert die Saver stuendlich.
 // Consumer duerfen den Hub nicht selbst aufrufen, sonst blockiert der Mutex.
 type Hub struct {
-	mu      sync.Mutex
-	loc     *time.Location
-	limits  func() Limits
-	logf    func(string, ...any)
-	minutes []namedMinute
-	replays []namedReplay
-	ticks   []namedTick
-	savers  []*namedSaver
-	minute  time.Time
-	acc     map[string]*devAcc
-	balance map[string]float64
+	mu        sync.Mutex
+	loc       *time.Location
+	limits    func() Limits
+	logf      func(string, ...any)
+	minutes   []namedMinute
+	replays   []namedReplay
+	ticks     []namedTick
+	savers    []*namedSaver
+	resetters []namedResetter
+	minute    time.Time
+	acc       map[string]*devAcc
+	balance   map[string]float64
 	// outdoorID liefert die unique_id der Aussentemperatur-Entitaet. outdoor
 	// sammelt deren Beobachtungen in der laufenden Minute.
 	outdoorID func() string
@@ -447,4 +467,32 @@ func (h *Hub) Stats() map[string]time.Duration {
 		out[k] = v
 	}
 	return out
+}
+
+// AddResetter meldet einen Zuruecksetzer an. Resets laufen in Anmeldereihenfolge.
+func (h *Hub) AddResetter(name string, r Resetter) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.resetters = append(h.resetters, namedResetter{name: name, r: r})
+}
+
+// Reset setzt alle angemeldeten Verbraucher zurueck, in Anmeldereihenfolge. Ein
+// Fehler bricht nicht ab: jeder Verbraucher laeuft. Die Fehler kommen gesammelt
+// zurueck, je mit dem Namen des Verbrauchers.
+func (h *Hub) Reset() error {
+	h.mu.Lock()
+	list := append([]namedResetter(nil), h.resetters...)
+	h.mu.Unlock()
+
+	var errs []error
+	for _, nr := range list {
+		if err := nr.r.Reset(); err != nil {
+			err = fmt.Errorf("%s: %w", nr.name, err)
+			if h.logf != nil {
+				h.logf("learnrec: Zuruecksetzen fehlgeschlagen: %v", err)
+			}
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }

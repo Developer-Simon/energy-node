@@ -127,3 +127,14 @@ func (t *PVTracker) Snapshot() *Raster {
 	defer t.mu.Unlock()
 	return LoadRaster(t.raster.State(), t.raster.azDeg, t.raster.elDeg)
 }
+
+// Reset verwirft das Modell und loescht die Datei. Ohne Modell schreibt Save
+// nichts, eine fehlende Datei ist der leere Stand.
+func (s *PVModelStore) Reset() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.model = PVModel{}
+	s.ok = false
+	s.dirty = false
+	return removeIfExists(s.path)
+}

@@ -605,3 +605,14 @@ func sortedDeviceIDs(devices map[string]DeviceInfo) []string {
 	sort.Strings(ids)
 	return ids
 }
+
+// Reset verwirft die letzte Runde, die Warteschlange und die Serien. Die Stufe
+// bleibt, wie der Nutzer sie gewaehlt hat.
+func (e *Engine) Reset() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.last = map[string][]Candidate{}
+	e.queue = nil
+	e.streak = map[string]int{}
+	return nil
+}

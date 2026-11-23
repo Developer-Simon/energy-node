@@ -148,6 +148,11 @@ type pvRasterState struct {
 	Cells []pvCell `json:"cells"`
 }
 
+// clear leert alle Zellen, die Zellgroesse bleibt.
+func (r *Raster) clear() {
+	r.cells = map[[2]int]*pvCell{}
+}
+
 // State returns the raster as JSON for storage.
 func (r *Raster) State() []byte {
 	st := pvRasterState{AzDeg: r.azDeg, ElDeg: r.elDeg, Cells: make([]pvCell, 0, len(r.cells))}

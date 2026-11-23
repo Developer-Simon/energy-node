@@ -170,3 +170,16 @@ func PVReserveDetector(current func() (float64, bool, bool)) Detector {
 
 // pvReserveStepW is the rounding step of the published PV reserve in W.
 const pvReserveStepW = 50.0
+
+// Reset setzt den Wetterfaktor und die Reserve zurueck und loescht pvweather.json.
+// Ein erneutes Save schreibt den leeren Stand.
+func (r *PVReserveRunner) Reset() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.weather = LoadWeather(WeatherState{})
+	r.saved = nil
+	r.have = false
+	r.w = 0
+	r.est = false
+	return removeIfExists(r.path)
+}

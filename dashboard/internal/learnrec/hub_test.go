@@ -2,6 +2,7 @@ package learnrec
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -380,5 +381,41 @@ func TestHubReplayWithoutRecordingDoesNothing(t *testing.T) {
 	h.Replay(newMsStore(newMsEnv(t, LocRAM)), time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC))
 	if len(rec.frames) != 0 {
 		t.Fatalf("zero ReplayFrom: frames = %d, want 0", len(rec.frames))
+	}
+}
+
+func TestHubResetRunsEveryResetterAndJoinsErrors(t *testing.T) {
+	h := newTestHub(t, Limits{})
+	var ran []string
+	h.AddResetter("a", ResetterFunc(func() error { ran = append(ran, "a"); return nil }))
+	h.AddResetter("b", ResetterFunc(func() error { ran = append(ran, "b"); return errTest("kaputt") }))
+	h.AddResetter("c", ResetterFunc(func() error { ran = append(ran, "c"); return nil }))
+
+	err := h.Reset()
+	if strings.Join(ran, ",") != "a,b,c" {
+		t.Fatalf("ran %v, want all three in registration order", ran)
+	}
+	if err == nil || !strings.Contains(err.Error(), "b") || !strings.Contains(err.Error(), "kaputt") {
+		t.Fatalf("Reset error = %v, want it to name b and carry kaputt", err)
+	}
+}
+
+func TestHubResetWithoutResettersIsNil(t *testing.T) {
+	if err := newTestHub(t, Limits{}).Reset(); err != nil {
+		t.Fatalf("Reset without resetters = %v", err)
+	}
+}
+
+func TestHASyncResetClearsCacheAndQueue(t *testing.T) {
+	s := NewHASync(time.Now, func() Limits { return Limits{} }, time.UTC)
+	s.days["2026-11-20"] = map[string]*[minutesPerDay]float32{"e:1": {}}
+	s.fiveMin["2026-11-20"] = map[string]bool{"e:1": true}
+	s.queue = []haJob{{}}
+	s.pending = &haPending{}
+	if err := s.Reset(); err != nil {
+		t.Fatalf("Reset = %v", err)
+	}
+	if len(s.days) != 0 || len(s.fiveMin) != 0 || len(s.queue) != 0 || s.pending != nil {
+		t.Fatalf("Reset left days=%d fiveMin=%d queue=%d pending=%v", len(s.days), len(s.fiveMin), len(s.queue), s.pending)
 	}
 }
