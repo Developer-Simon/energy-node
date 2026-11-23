@@ -28,6 +28,8 @@ const (
 	feedbackConfirmShare = 0.3
 	// feedbackMinChanges is the number of switch-ons needed to observe the step.
 	feedbackMinChanges = 3
+	// feedbackMinuteDays is the number of minute days the noise is taken from the minutes.
+	feedbackMinuteDays = 3
 )
 
 // feedbackRun lists the feedback findings as candidates. The check is static, so
@@ -55,8 +57,6 @@ func FeedbackFindings(in *Input) []Finding {
 	if in == nil || len(in.Doc.Rules) == 0 {
 		return nil
 	}
-	noise := feedbackNoise(in.Days)
-	reserve := 2 * noise
 	rules := ruleByID(in.Doc)
 	var out []Finding
 	seen := map[string]bool{}
@@ -76,7 +76,12 @@ func FeedbackFindings(in *Input) []Finding {
 				continue
 			}
 			off, offIdx, xAus, ok := feedbackOffRule(in.Doc, info, on.ID, rules)
-			if !ok || x-pAnlauf-noise > xAus {
+			if !ok {
+				continue
+			}
+			noise := feedbackNoiseAt(in, x)
+			reserve := 2 * noise
+			if x-pAnlauf-noise > xAus {
 				continue
 			}
 			seen[on.ID] = true
@@ -218,6 +223,19 @@ func feedbackNoise(days []DayFile) float64 {
 		}
 	}
 	return QuarterNoise(series)
+}
+
+// feedbackNoiseAt is the noise of the export at the switch-on threshold x. From
+// feedbackMinuteDays minute days on it is the minute noise near x, otherwise
+// the quarter noise of the days. The quarter noise also stays when no minute
+// lies near x.
+func feedbackNoiseAt(in *Input, x float64) float64 {
+	if minuteDayCount(in) >= feedbackMinuteDays {
+		if n, ok := MinuteNoise(in.Minutes, "b:"+feedbackField, x, in.Now.AddDate(0, 0, -engineHistoryDays), in.Now); ok {
+			return n
+		}
+	}
+	return feedbackNoise(in.Days)
 }
 
 // feedbackInrush is the median start peak of the device over its cycles, or the

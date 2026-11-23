@@ -56,6 +56,10 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 			continue
 		}
 
+		if c.Replay != nil && replayAddsGrid(*c.Replay) {
+			continue
+		}
+
 		conf := f.Confidence
 		var score float64
 		if f.Group != "check" {
@@ -70,6 +74,9 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 			}
 			if !pass || !compatible(f, doc) {
 				continue
+			}
+			if c.Replay != nil && c.Replay.Estimate && conf == "high" {
+				conf = "estimate"
 			}
 			score = kwh * confidenceWeight(conf)
 		}
@@ -137,7 +144,7 @@ func Gate(cands []Candidate, doc Doc, prev map[string]Shown) (out []Finding, sho
 
 // displayFinding returns f with the stabilised values in its summary params
 // and in the prefills of its fixes. Only keys that exist in those maps change,
-// the key "time" is shown as HH:MM. f and its maps are not modified.
+// the keys "time" and "latest" are shown as HH:MM. f and its maps are not modified.
 func displayFinding(f Finding, values map[string]float64) Finding {
 	if len(values) == 0 {
 		return f
@@ -177,7 +184,7 @@ func displayFinding(f Finding, values map[string]float64) Finding {
 // displayValue formats a stabilised value for display. Times are minutes of
 // the day and shown as HH:MM, like the detectors do.
 func displayValue(key string, v float64) any {
-	if key == "time" {
+	if key == "time" || key == "latest" {
 		return switchTimeClock(v)
 	}
 	return v
@@ -210,6 +217,14 @@ var benefitMinimum = map[string]float64{
 	"kwh_week":     0.5,
 	"actions_week": 3,
 	"switches_day": 10,
+}
+
+// replayAddsGrid reports whether the suggestion draws more extra grid import
+// than the export it uses. Such a suggestion is dropped.
+func replayAddsGrid(v ReplayVerdict) bool {
+	extraGrid := v.Alt.GridWh - v.Base.GridWh
+	usedExport := v.Base.ExportWh - v.Alt.ExportWh
+	return extraGrid > usedExport
 }
 
 // benefitKWh converts a benefit to kWh per week with the fixed rates of spec

@@ -351,3 +351,9 @@ its device disappears, and **Delete learned data** in the learning settings
 deletes all learned topics at once. After that, every rule that used them falls
 back to its fallback at once. With **Learn patterns** switched off nothing is
 published any more, and the retained values age as described above.
+
+A `learned_value` condition compares one learned number, for example
+`site/pv_reserve_w`, with a threshold. The service subscribes to its topic like
+any other learned key. When the value is missing or older than `max_age_s`, the
+condition compares `fallback` instead. Hysteresis and hold time apply to the
+result as for balance conditions.

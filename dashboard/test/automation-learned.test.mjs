@@ -16,20 +16,33 @@ const vectors = JSON.parse(fs.readFileSync(
 
 const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
 
+const deCatalog = JSON.parse(fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'catalogs', 'de.json'), 'utf8'));
+// Die Oberflaeche uebersetzt mit dem deutschen Katalog, so stehen die Saetze der Karte im Test wie im Editor.
+function translate(key, params) {
+  let text = Object.prototype.hasOwnProperty.call(deCatalog, key) ? deCatalog[key] : key;
+  for (const [name, value] of Object.entries(params || {})) text = text.split(`{${name}}`).join(String(value));
+  return text;
+}
+
 function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
   // Monatsnamen des Jahresverlaufs kommen aus der Sprache der Oberflaeche.
-  dom.window.I18n = { locale: 'de-DE', formatDate: (value, options) => new Date(value).toLocaleDateString('de-DE', options) };
+  dom.window.I18n = {
+    locale: 'de-DE',
+    formatDate: (value, options) => new Date(value).toLocaleDateString('de-DE', options),
+    t: translate,
+  };
   vm.runInContext(source, context);
   // origin formats the age with the view's formatSeconds, so the view loads into the same window.
   vm.runInContext(viewSource, context);
-  return dom.window.AutomationLearned;
+  return dom.window;
 }
 
 // Results come from the vm realm, so they are copied into this realm before strict comparison.
 const plain = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
-const raw = load();
+const win = load();
+const raw = win.AutomationLearned;
 const L = Object.fromEntries(Object.entries(raw).map(([name, fn]) => [name, (...args) => plain(fn(...args))]));
 const t = (key, params) => (params ? key + ' ' + JSON.stringify(params) : key);
 
@@ -277,4 +290,52 @@ test('origin adds the other programs of a cycle energy value', () => {
   assert.match(line, / automations\.learned\.origin\.programs \{"programs":"1200, 800"\}$/);
   assert.equal(L.origin('learned', { ...entry, programs: undefined }, 1000 + 3600, t).endsWith('}'), true);
   assert.equal(L.origin('fallback', null, 0, t), 'automations.learned.origin.fallback');
+});
+
+test('kindOf maps the learned_value fields to their kind', () => {
+  assert.equal(L.kindOf('learned_value', 'learned'), 'number');
+  assert.equal(L.kindOf('learned_value', 'threshold'), 'number');
+  assert.equal(L.kindOf('learned_value', 'hold_seconds'), 'duration');
+  assert.equal(L.kindOf('learned_value', 'fallback'), null);
+  assert.equal(L.kindOf('learned_value', 'comparison'), null);
+});
+
+test('unitOfKey reads the unit from the key suffix', () => {
+  assert.equal(L.unitOfKey('site/pv_reserve_w'), 'W');
+  assert.equal(L.unitOfKey('device/wb/cycle_wh'), 'Wh');
+  assert.equal(L.unitOfKey('site/house_state'), '');
+});
+
+test('a learned_value threshold offers only values in the unit of the learned key', () => {
+  const values = [
+    { key: 'site/pv_reserve_w', kind: 'number', unit: 'W' },
+    { key: 'device/wb/cycle_wh', kind: 'number', unit: 'Wh' },
+  ];
+  const kind = L.kindOf('learned_value', 'threshold');
+  assert.deepEqual(L.choices(values, kind, L.unitOfKey('site/pv_reserve_w')).map((v) => v.key), ['site/pv_reserve_w']);
+  assert.deepEqual(L.choices(values, L.kindOf('learned_value', 'learned')).map((v) => v.key),
+    ['site/pv_reserve_w', 'device/wb/cycle_wh']);
+});
+
+test('a learned_value condition reads as PV-Reserve über 1500 W', () => {
+  const condition = { type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500,
+    hysteresis: 0, fallback: 0, max_age_s: 1800, hold_seconds: 0 };
+  const card = win.__automationsView.describeCondition(condition, null, [], [], null);
+  assert.equal(card.icon, 'ico-learning');
+  assert.equal(card.title, 'Lernwert');
+  assert.equal(card.summary, 'PV-Reserve über 1500 W');
+});
+
+test('a learned_value condition with hysteresis names the hysteresis', () => {
+  const condition = { type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500,
+    hysteresis: 100, fallback: 0, max_age_s: 1800, hold_seconds: 0 };
+  const card = win.__automationsView.describeCondition(condition, null, [], [], null);
+  assert.equal(card.summary, 'PV-Reserve über 1500 W, Hysterese 100');
+});
+
+test('a learned_value threshold given as a reference shows the resolved value in its own chip', () => {
+  const condition = { type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above',
+    threshold: { learned: 'device/wb/cycle_wh', min: 800, max: 1200, fallback: 1000 }, fallback: 0, max_age_s: 1800, hold_seconds: 0 };
+  const card = win.__automationsView.describeCondition(condition, null, [], [], null);
+  assert.equal(card.summary, 'PV-Reserve über 1000 Wh');
 });

@@ -1,6 +1,7 @@
 {{define "automations-scenario"}}
 <template x-if="!scenarioExpanded[scenario.id]">
   <div class="auto-scenario-row" role="button" tabindex="0"
+       x-bind:class="{ 'has-finding': !!findingFor(scenario.id) }"
        x-bind:aria-expanded="'false'"
        x-on:click="toggleScenarioExpanded(scenario)"
        x-on:keydown.enter.prevent="toggleScenarioExpanded(scenario)"
@@ -11,6 +12,7 @@
       <span class="auto-pill" x-show="showHistory" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
       <span class="auto-sub" x-show="scenarioStatus(scenario).detail" x-text="scenarioStatus(scenario).detail"></span>
     </span>
+    {{template "automations-finding" (dict "key" "scenario" "tour" "")}}
     <template x-if="scenarioProgress(scenario)">
       <div class="auto-progress" role="img"
            x-bind:aria-label="$t('automations.scenario.progress.aria_label')"
@@ -65,6 +67,7 @@
             x-on:click="toggleScenarioExpanded(scenario)"></span>
       <input type="text" class="auto-scenario-name" x-show="scenarioEditing[scenario.id]" x-model="scenario.name"
              x-bind:aria-label="$t('automations.scenario.name_input.aria_label')">
+      {{template "automations-finding" (dict "key" "scenario" "tour" "")}}
       <span class="auto-pill" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
       <span class="automation-unsaved-badge" x-cloak x-show="newIds[scenario.id]">{{t "automations.scenario.new_badge"}}</span>
 

@@ -30,8 +30,8 @@ from energy_node_common.slave import Slave
 import ha_template
 import regulator
 import sun
-from learned import (LEARNABLE, LEARNED_KEY_RE, cond_learned_keys, field_kind, is_ref, learned_topic,
-                     resolve_condition, state_value, validate_ref)
+from learned import (LEARNABLE, LEARNED_KEY_RE, cond_learned_keys, evaluate_learned_value, field_kind, is_ref,
+                     learned_number, learned_topic, resolve_condition, state_value, validate_ref)
 
 LOG = logging.getLogger("automation_mqtt")
 
@@ -125,7 +125,7 @@ _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 _CONDITION_TYPES = {"balance_threshold", "topic_value", "time_window", "entity_value", "sun_window",
-                    "chain_finding", "chain_value", "learned_state"}
+                    "chain_finding", "chain_value", "learned_state", "learned_value"}
 _CHAIN_ID_RE = re.compile(r"^[a-z0-9_]+$")
 _SUN_EVENTS = ("sunrise", "sunset")
 _SUN_OFFSET_MAX_MIN = 240
@@ -243,6 +243,22 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
                 errors.append(f"{prefix}: {key} must be a non-empty text")
         if isinstance(result.get("learned"), str) and LEARNED_KEY_RE.fullmatch(result["learned"]) is None:
             errors.append(f"{prefix}: learned must be a key like site/house_state")
+        if "max_age_s" in result and not _is_positive_number(result["max_age_s"]):
+            errors.append(f"{prefix}: max_age_s must be a number above 0")
+        result.setdefault("hold_seconds", 0)
+    elif ctype == "learned_value":
+        if not isinstance(result.get("learned"), str) or LEARNED_KEY_RE.fullmatch(result["learned"]) is None:
+            errors.append(f"{prefix}: learned must be a key like site/pv_reserve_w")
+        if result.get("comparison") not in ("above", "below"):
+            errors.append(f"{prefix}: comparison must be 'above' or 'below'")
+        if not _learned_field(result, "threshold", prefix, errors) \
+                and not _number(result.get("threshold")):
+            errors.append(f"{prefix}: threshold must be a number")
+        if not _number(result.get("fallback")):
+            errors.append(f"{prefix}: fallback must be a number")
+        hysteresis = result.setdefault("hysteresis", 0)
+        if not _number(hysteresis) or hysteresis < 0:
+            errors.append(f"{prefix}: hysteresis must be a number from 0")
         if "max_age_s" in result and not _is_positive_number(result["max_age_s"]):
             errors.append(f"{prefix}: max_age_s must be a number above 0")
         result.setdefault("hold_seconds", 0)
@@ -898,6 +914,9 @@ def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values:
         value, _ = state_value(cond, topic_values, now_ts)
         return value == cond["equals"], ""
 
+    if ctype == "learned_value":
+        return evaluate_learned_value(cond, topic_values, now_ts), ""
+
     if ctype in ("topic_value", "entity_value") and cond.get("comparison") == "stale":
         age = _topic_age(cond, topic_seen_at, started_at, now_ts)
         if age is None:
@@ -984,6 +1003,10 @@ def condition_value(cond: dict, *, balance: Optional[dict], topic_values: dict, 
     if ctype == "learned_state":
         value, _ = state_value(cond, topic_values, now_ts)
         return value, cond["equals"]
+
+    if ctype == "learned_value":
+        value, _ = learned_number(cond, topic_values, now_ts)
+        return value, cond.get("threshold")
 
     if ctype == "topic_value":
         payload = topic_values.get(cond["topic"])
@@ -1188,6 +1211,9 @@ def _evaluate_one(cond: dict, cond_rt: ConditionRuntime, *, balance, topic_value
     latched = _apply_hysteresis(cond, cond_rt, balance)
     if latched is not None:
         raw_met = latched
+    if cond["type"] == "learned_value" and cond.get("hysteresis", 0) > 0:
+        raw_met = evaluate_learned_value(cond, topic_values, now_ts, latched=cond_rt.latched)
+        cond_rt.latched = raw_met
 
     if not raw_met:
         cond_rt.since = None

@@ -76,6 +76,20 @@
     return typeof power === 'number' && Number.isFinite(power) ? Math.ceil((power + 100) / 100) * 100 : null;
   };
 
+  // Einschaltbedingung bei Ueberschuss: Einspeisung oder, bei Quelle Reserve, die PV-Reserve.
+  const startCondition = (source, threshold, holdSeconds) => (source === 'reserve'
+    ? {
+      type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold, fallback: 0,
+      hysteresis: 100, max_age_s: 1800, hold_seconds: holdSeconds,
+    }
+    : B('grid_export', 'above', threshold, holdSeconds));
+
+  // Quelle der Ueberschuss-Vorlagen: Einspeisung oder PV-Reserve.
+  const sourceStep = {
+    id: 'source', type: 'tiles', default: 'export',
+    options: [{ id: 'export' }, { id: 'reserve' }],
+  };
+
   // ---------------------------------------------------------------- Ueberschuss in die Wallbox
 
   const surplusWallbox = {
@@ -99,6 +113,7 @@
         options: [{ id: 1400 }, { id: 2000 }, { id: 3000 }],
         scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
       },
+      sourceStep,
       {
         id: 'extras', type: 'multi',
         options: [
@@ -117,7 +132,7 @@
       const plug = entry.plugEntity;
       const switchEntity = entry.switchEntity;
 
-      const when = [B('grid_export', 'above', answers.start, 180)];
+      const when = [startCondition(answers.source, answers.start, 180)];
       if (answers.extras.connected && plug) {
         when.push({
           type: 'entity_value', topic: plug.state_topic, entity_id: plug.unique_id,
@@ -163,7 +178,9 @@
       const rows = [
         {
           label: phase('when'),
-          text: t('automations.assistant.summary.wallbox.when', { minutes: 3, start: num(answers.start) }),
+          text: answers.source === 'reserve'
+            ? t('automations.assistant.summary.wallbox.when_reserve', { minutes: 3, start: num(answers.start) })
+            : t('automations.assistant.summary.wallbox.when', { minutes: 3, start: num(answers.start) }),
           step: 'start',
         },
       ];
@@ -364,6 +381,7 @@
         options: [{ id: 1000 }, { id: 1500 }, { id: 2500 }],
         scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
       },
+      sourceStep,
       {
         id: 'off', type: 'tiles', default: 'import',
         options: [
@@ -389,7 +407,7 @@
       const entity = requireEntity(entry);
       const repeat = !!answers.extras.repeat;
 
-      const when = [B('grid_export', 'above', answers.on, 120)];
+      const when = [startCondition(answers.source, answers.on, 120)];
       if (answers.extras.weekdays) {
         when.push({
           type: 'time_window', start: '00:00', end: '00:00', weekdays: weekdaysOf(answers.extras.weekdays_value),
@@ -423,7 +441,9 @@
     summary(answers) {
       const rows = [{
         label: phase('when'),
-        text: t('automations.assistant.summary.switch.when', { minutes: 2, value: num(answers.on) }),
+        text: answers.source === 'reserve'
+          ? t('automations.assistant.summary.switch.when_reserve', { minutes: 2, value: num(answers.on) })
+          : t('automations.assistant.summary.switch.when', { minutes: 2, value: num(answers.on) }),
         step: 'on',
       }];
       if (answers.extras.weekdays) {
@@ -2075,8 +2095,118 @@
     },
   };
 
+  // ---------------------------------------------------------------- Start in den Ueberschuss verschieben
+
+  // Ende des Zeitfensters: die Regel startet ab Beginn bis zur spaetesten Startzeit.
+  const shiftStart = {
+    id: 'shift_start',
+    category: 'time',
+    icon: 'ico-clock',
+    requires: { devices: 'switch' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'switch' },
+      {
+        id: 'on_w', type: 'presets', step: 100, default: (ctx, answers) => learnedStartW(ctx.switches, ctx, answers.device) ?? 1500, effect: 'starts',
+        options: [{ id: 1000 }, { id: 1500 }, { id: 2500 }],
+        scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
+      },
+      { id: 'latest', type: 'time', single: true, default: { from: '18:00', to: '18:05', days: ALL_DAYS } },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.switches, answers.device);
+      const entity = requireEntity(entry);
+      const latest = answers.latest.from;
+      // Der Zyklusbedarf kommt aus dem Lernwert, ohne Lernwert gilt der Ersatz von 1000 Wh.
+      const cycle = { learned: `device/${entry.deviceId}/cycle_wh`, min: 100, max: 6000, fallback: 1000 };
+      // Ein Szenario: Start nur im Fenster bis zur spaetesten Zeit bei Ueberschuss. Das Ende
+      // schaltet nichts ab (on_end leer), das Geraet beendet den Zyklus selbst. Ein Netzbezug
+      // beendet nur das Szenario, und cooldown_s verhindert einen zweiten Start am selben Tag.
+      const scenario = {
+        id: uniqueId('shift_start', ctx.usedIds),
+        name: t('automations.templates.shift_start.title'),
+        enabled: true,
+        template: 'shift_start',
+        when: {
+          conditions: [
+            { type: 'learned_value', learned: 'site/surplus_left_wh', comparison: 'above', threshold: cycle, fallback: 0 },
+            B('grid_export', 'above', answers.on_w, 120),
+            { type: 'time_window', start: '00:00', end: latest, weekdays: [] },
+          ],
+        },
+        until: { conditions: [B('grid_import', 'above', 300, 600)] },
+        max_duration_s: 14400,
+        cooldown_s: 86400,
+        on_start: { actions: [Sw(entity, true)] },
+        on_end: { actions: [] },
+        while: { mode: 'none' },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers) {
+      return [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.shift.when', { minutes: 2, value: num(answers.on_w) }),
+          step: 'on_w',
+        },
+        { label: phase('when'), text: t('automations.assistant.summary.shift.surplus'), step: 'device' },
+        { label: phase('run'), text: t('automations.assistant.summary.shift.run', { time: answers.latest.from }), step: 'latest' },
+        { label: phase('then'), text: t('automations.assistant.summary.shift.limit'), step: 'latest' },
+        { label: phase('end'), text: t('automations.assistant.summary.shift.end'), step: 'device' },
+      ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Gerät nach vollem Akku
+
+  // Mindestlaufzeit in Sekunden je Stufe. Die Tabelle nach Rolle liegt in Go, hier bleibt die Stufe wählbar.
+  const MIN_RUN_S = { none: 0, short: 180, standard: 300, long: 600 };
+
+  const afterBatteryFull = {
+    id: 'after_battery_full',
+    category: 'switching',
+    icon: 'ico-switch',
+    requires: { devices: 'switch', soc: true },
+    steps: [
+      { id: 'device', type: 'device', filter: 'switch' },
+      {
+        id: 'min_run_s', type: 'tiles', default: 'standard',
+        options: [{ id: 'none' }, { id: 'short' }, { id: 'standard' }, { id: 'long' }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.switches, answers.device);
+      const entity = requireEntity(entry);
+      const scenario = {
+        id: uniqueId('after_battery_full', ctx.usedIds),
+        name: t('automations.templates.after_battery_full.title'),
+        enabled: true,
+        template: 'after_battery_full',
+        when: { conditions: [B('battery_soc', 'above', 96, 0), B('grid_export', 'above', 100, 120)] },
+        until: { conditions: [B('grid_import', 'above', 100, 120)] },
+        min_run_s: MIN_RUN_S[answers.min_run_s],
+        on_start: { actions: [Sw(entity, true)] },
+        on_end: { actions: [Sw(entity, false)] },
+        while: { mode: 'none' },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers) {
+      return [
+        { label: phase('when'), text: t('automations.assistant.summary.full.when', { soc: 96, value: 100 }), step: 'device' },
+        {
+          label: phase('run'),
+          text: t('automations.assistant.summary.full.run', { min: num(MIN_RUN_S[answers.min_run_s]) }),
+          step: 'min_run_s',
+        },
+        { label: phase('until'), text: t('automations.assistant.summary.full.until', { value: num(100), minutes: 2 }), step: 'device' },
+        { label: phase('end'), text: t('automations.assistant.summary.full.end'), step: 'device' },
+      ];
+    },
+  };
+
   window.__automationTemplates = {
-    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod, chainWatchdog, chainStandby, timePoint, runtimeOff, quietOff, followSwitch, nightOff],
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod, chainWatchdog, chainStandby, timePoint, runtimeOff, quietOff, followSwitch, nightOff, shiftStart, afterBatteryFull],
     chargeFit,
   };
 })();

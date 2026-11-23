@@ -122,3 +122,26 @@ func TestSuggestionsBecomeNoticesThatOpenTheSuggestion(t *testing.T) {
 		t.Errorf("evidence = %+v, want the suggestion evidence", got.Evidence)
 	}
 }
+
+// A regulator finding is bound to its scenario by ID and carries a fix, so the
+// rule-bound skip would hide it everywhere. It is listed with its facts.
+func TestCollectOpensScenarioRegulatorFinding(t *testing.T) {
+	in := Input{Findings: []autolearn.Finding{{
+		ID: "regulator:nulleinspeisung_last", Kind: "regulator", Group: "check", Severity: "info",
+		RuleIDs:  []string{"nulleinspeisung_last"},
+		Summary:  autolearn.Text{Code: "regulator.quality", Params: map[string]any{"scenario": "Nulleinspeisung", "gain": 0.8}},
+		Evidence: autolearn.Evidence{Shape: "scale"},
+		Facts:    []autolearn.Fact{{Code: "k", Value: 1.0}, {Code: "settle_s", Value: 240}},
+		Apply:    []autolearn.Fix{{Code: "set_regulator", RuleID: "nulleinspeisung_last"}},
+	}}}
+	got := Collect(in)
+	if len(got) != 1 || got[0].ID != "learn:regulator:nulleinspeisung_last" || got[0].Code != "regulator.quality" {
+		t.Fatalf("got %+v", got)
+	}
+	if got[0].Evidence == nil || got[0].Evidence.Shape != "scale" {
+		t.Errorf("evidence = %+v", got[0].Evidence)
+	}
+	if len(got[0].Facts) != 2 || got[0].Facts[1].Code != "settle_s" {
+		t.Errorf("facts = %+v", got[0].Facts)
+	}
+}

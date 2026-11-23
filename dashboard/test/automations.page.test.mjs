@@ -1234,12 +1234,12 @@ test('save frischt den Geraetekatalog auf, bevor es die Auto-Praefixe bildet', a
 
 // --- Typ-Kacheln und Hilfetexte -------------------------------------------
 
-test('CONDITION_TYPES liefert genau die fuenf anbietbaren Bedingungstypen', () => {
+test('CONDITION_TYPES liefert genau die sechs anbietbaren Bedingungstypen', () => {
   const { component } = createAutomationsPanel();
   const types = component.conditionTypes();
   // Spread statt direktem .map()-Vergleich: das Array kommt aus dem vm-Sandbox-
   // Realm der Komponente, deepEqual vergleicht sonst auch das Array-Prototyp.
-  assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state']);
+  assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state', 'learned_value']);
   assert.equal(types[0].label, 'Energiewert');
   for (const entry of types) {
     assert.ok(entry.icon.startsWith('ico-'), `${entry.key} hat kein Sprite-Icon`);
@@ -2909,6 +2909,49 @@ test('creating zero_feed inserts an active unsaved scenario and offers undo', as
   assert.equal(component.assistant.open, false);
 });
 
+// Die Vorlagen mit Schalter brauchen ein schaltbares Geraet im Fixture.
+const switchDevices = [
+  ...assistantDevices,
+  {
+    id: 'lamp', name: 'Steckdose Werkstatt',
+    entities: [
+      { unique_id: 'lamp_switch', name: 'Schalter', command_topic: 'werkstatt/lamp/switch', state_topic: 'werkstatt/lamp/state', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' },
+    ],
+  },
+];
+
+test('creating shift_start inserts one scenario and undo removes it', async () => {
+  const { component } = await assistantPanel(switchDevices);
+  await component.openAssistant();
+  component.view = 'rules';
+  component.startTemplate('shift_start');
+  component.assistantGoTo('summary');
+  const before = component.document.scenarios.length;
+  component.assistantCreate();
+  assert.equal(component.document.scenarios.length, before + 1);
+  const added = component.document.scenarios[before];
+  assert.equal(added.id, 'shift_start');
+  assert.equal(component.view, 'scenarios');
+  assert.equal(component.assistant.open, false);
+  assert.deepEqual([...component.undo.ids], ['shift_start']);
+  component.undoInsert();
+  assert.equal(component.document.scenarios.length, before);
+  assert.equal(component.newIds.shift_start, undefined);
+});
+
+test('creating shift_start is blocked when the scenario list is full', async () => {
+  const { component } = await assistantPanel(switchDevices);
+  await component.openAssistant();
+  component.startTemplate('shift_start');
+  component.assistantGoTo('summary');
+  component.document.scenarios = Array.from({ length: 8 }, (_, index) => ({ id: `szenario_${index}`, name: 'Voll', enabled: true }));
+  assert.equal(component.assistantListFull(), true);
+  component.assistantCreate();
+  assert.equal(component.document.scenarios.length, 8);
+  assert.equal(component.undo, null);
+  assert.equal(component.assistant.open, true, 'the dialog stays open');
+});
+
 test('creating battery_warn switches to the rules tab', async () => {
   const { component } = await assistantPanel();
   await component.openAssistant();
@@ -3125,10 +3168,10 @@ const testChains = [{
 
 test('the chain tile is hidden without chains and shows with one', () => {
   const { component } = createAutomationsPanel();
-  assert.deepEqual([...component.conditionTypes().map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state']);
+  assert.deepEqual([...component.conditionTypes().map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun', 'learned_state', 'learned_value']);
   component.chains = [...testChains];
   const keys = [...component.conditionTypes().map((entry) => entry.key)];
-  assert.deepEqual(keys, ['balance', 'entity', 'time', 'sun', 'chain', 'learned_state']);
+  assert.deepEqual(keys, ['balance', 'entity', 'time', 'sun', 'chain', 'learned_state', 'learned_value']);
   const tile = component.conditionTypes().find((entry) => entry.key === 'chain');
   assert.equal(tile.icon, 'ico-chain');
   assert.equal(tile.label, 'Messkette');
@@ -3304,6 +3347,37 @@ test('findingFor finds the finding that lists the rule id', () => {
   component.findings = [sampleFinding];
   assert.equal(component.findingFor('r2').id, 'f-hyst');
   assert.equal(component.findingFor('r9'), null);
+});
+
+// Ein Regler-Befund nennt die Id seines Szenarios. Die Szenario-Karte zeigt ihn, und
+// der Fix schreibt in den Szenario-Entwurf.
+test('findingFor finds a regulator finding by its scenario id and the fix writes the scenario draft', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [], scenarios: [
+    { id: 'nulleinspeisung_last', name: 'Nulleinspeisung', while: { mode: 'regulate', gain: 0.8 } },
+    { id: 'andere', name: 'Andere', while: { mode: 'regulate', gain: 0.2 } },
+  ] };
+  const regulatorFinding = {
+    id: 'regulator:nulleinspeisung_last',
+    kind: 'regulator',
+    group: 'check',
+    rule_ids: ['nulleinspeisung_last'],
+    severity: 'warn',
+    summary: { code: 'check.regulator', params: {} },
+    evidence: {},
+    apply: [{ code: 'fix.set_gain', rule_id: 'nulleinspeisung_last', ops: [{ path: ['while', 'gain'], value: 0.5 }] }],
+  };
+  component.findings = [regulatorFinding];
+  assert.equal(component.findingFor('nulleinspeisung_last').id, 'regulator:nulleinspeisung_last');
+  assert.equal(component.findingFor('andere'), null);
+  component.findingOpen = regulatorFinding.id;
+  component.applyFix(regulatorFinding.apply[0], regulatorFinding);
+  assert.equal(component.document.scenarios[0].while.gain, 0.5);
+  assert.equal(component.document.scenarios[1].while.gain, 0.2);
+  assert.equal(component.view, 'scenarios');
+  assert.equal(component.scenarioEditing.nulleinspeisung_last, true);
+  assert.equal(component.scenarioExpanded.nulleinspeisung_last, true);
+  assert.equal(component.findingOpen, null);
 });
 
 test('findingText builds the title and text keys from summary.code', () => {
@@ -3506,6 +3580,55 @@ test('applyFix does not half-apply when only one of two paths resolves', () => {
     { path: ['conditions', 5, 'threshold'], value: 90 },
   ] });
   assert.equal(component.document.rules[0].conditions[0].hysteresis, 0);
+});
+
+test('applyFix on a regulator finding writes the gain into the scenario draft and opens it', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+  ], scenarios: [
+    { id: 'reg', name: 'Regler', enabled: true, while: { mode: 'regulate', regulator: { gain: 0.8, deadband_w: 20 } } },
+  ] };
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  component.applyFix({ code: 'regulator', rule_id: 'reg', ops: [
+    { path: ['while', 'regulator', 'gain'], value: 0.5 },
+    { path: ['while', 'regulator', 'deadband_w'], value: 40 },
+  ] });
+  assert.equal(component.document.scenarios[0].while.regulator.gain, 0.5);
+  assert.equal(component.document.scenarios[0].while.regulator.deadband_w, 40);
+  assert.deepEqual(started, [], 'a scenario is opened in its own editor, not the rule editor');
+  assert.equal(component.view, 'scenarios');
+  assert.equal(component.scenarioEditing.reg, true);
+  assert.equal(component.scenarioExpanded.reg, true);
+});
+
+test('applyFix with a rule and a scenario group writes both or none', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+  ], scenarios: [
+    { id: 'reg', name: 'Regler', enabled: true, while: { mode: 'regulate', regulator: { gain: 0.8 } } },
+  ] };
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  component.applyFix({ code: 'mixed', rule_id: 'r1', ops: [], rules: [
+    { rule_id: 'r1', ops: [{ path: ['conditions', 0, 'threshold'], value: 120 }] },
+    { rule_id: 'reg', ops: [{ path: ['while', 'regulator', 'gain'], value: 0.5 }] },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].threshold, 120);
+  assert.equal(component.document.scenarios[0].while.regulator.gain, 0.5);
+  assert.deepEqual(started, ['r1']);
+  assert.equal(component.scenarioExpanded.reg, true);
+
+  component.document.rules[0].conditions[0].threshold = 100;
+  component.document.scenarios[0].while.regulator.gain = 0.8;
+  component.applyFix({ code: 'mixed', rule_id: 'r1', ops: [], rules: [
+    { rule_id: 'r1', ops: [{ path: ['conditions', 0, 'threshold'], value: 120 }] },
+    { rule_id: 'reg', ops: [{ path: ['while', 'regulator', 'gain', 'x'], value: 0.5 }] },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].threshold, 100, 'the second group does not resolve, nothing is written');
+  assert.equal(component.document.scenarios[0].while.regulator.gain, 0.8);
 });
 
 test('toggleFinding opens the popover and a second toggle closes it', () => {
@@ -3715,6 +3838,177 @@ test('prefillToAnswers opens a sun suggestion with the sun anchor and the offset
   });
   assert.equal(prefillToAnswers('time_point', { device: 'lamp_switch', anchor: 'noon' }), null);
   assert.equal(prefillToAnswers('time_point', { device: 'lamp_switch', anchor: 'sunrise', offset_min: 2.5 }), null);
+});
+
+test('prefillToAnswers maps a surplus switch suggestion to device, start, source and a fixed runtime', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = JSON.parse(JSON.stringify(prefillToAnswers('surplus_switch', {
+    device: 'plug', on_w: 1720, source: 'reserve', min_run_s: 7200,
+  })));
+  assert.deepEqual(answers, { device: 'plug', on: 1700, source: 'reserve', runtime: 120, off: 'runtime' });
+  const entity = JSON.parse(JSON.stringify(prefillToAnswers('surplus_switch', { entity: 'lamp_switch', device: 'lampe', on_w: 1000 })));
+  assert.equal(entity.device, 'lamp_switch', 'the entity wins over the device id');
+  assert.equal('runtime' in entity, false, 'without min_run_s the runtime step stays empty');
+});
+
+test('prefillToAnswers maps a surplus wallbox suggestion to its start step and drops the runtime', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = JSON.parse(JSON.stringify(prefillToAnswers('surplus_wallbox', {
+    device: 'wb', on_w: 2450, source: 'export', min_run_s: 3600,
+  })));
+  assert.deepEqual(answers, { device: 'wb', start: 2500, source: 'export' });
+});
+
+test('prefillToAnswers returns null for an invalid surplus power or source and leaves an invalid runtime empty', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.equal(prefillToAnswers('surplus_switch', { device: 'plug', on_w: '1500' }), null);
+  assert.equal(prefillToAnswers('surplus_switch', { device: 'plug', on_w: -5 }), null);
+  assert.equal(prefillToAnswers('surplus_switch', { device: 'plug', source: 'sonne' }), null);
+  assert.equal(prefillToAnswers('surplus_wallbox', { device: 'wb', source: 'sonne' }), null);
+  const tooShort = JSON.parse(JSON.stringify(prefillToAnswers('surplus_switch', { device: 'plug', min_run_s: 30 })));
+  assert.equal('runtime' in tooShort, false, 'a run under 10 minutes leaves the runtime step empty');
+  const tooLong = JSON.parse(JSON.stringify(prefillToAnswers('surplus_switch', { device: 'plug', min_run_s: 40000 })));
+  assert.equal('runtime' in tooLong, false, 'a run over 600 minutes leaves the runtime step empty');
+});
+
+test('openAssistantWith resolves a surplus suggestion by device id to the switch entity', async () => {
+  const { component } = await prefillPanel();
+  await component.openAssistantWith('surplus_switch', { device: 'lampe', on_w: 1500, source: 'reserve', min_run_s: 600 });
+  assert.equal(component.assistant.templateId, 'surplus_switch');
+  assert.equal(component.assistant.answers.device, 'lamp_switch');
+  assert.equal(component.assistant.answers.on, 1500);
+  assert.equal(component.assistant.answers.source, 'reserve');
+  assert.equal(component.assistant.answers.off, 'runtime');
+  assert.equal(component.assistant.answers.runtime, 10);
+});
+
+test('prefillToAnswers maps a shift suggestion to device, start power and a five minute latest window', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = JSON.parse(JSON.stringify(prefillToAnswers('shift_start', {
+    device: 'lampe', entity: 'lamp_switch', on_w: 1480, latest: '20:00', min_run_s: 5400,
+  })));
+  assert.deepEqual(answers, {
+    device: 'lampe', on_w: 1500, latest: { from: '20:00', to: '20:05', days: [0, 1, 2, 3, 4, 5, 6] },
+  });
+  const entityOnly = JSON.parse(JSON.stringify(prefillToAnswers('shift_start', { entity: 'lamp_switch', latest: '23:58' })));
+  assert.equal(entityOnly.device, 'lamp_switch', 'without a device id the entity is used');
+  assert.equal(entityOnly.latest.to, '00:03', 'the window wraps over midnight');
+});
+
+test('prefillToAnswers returns null for an invalid shift latest time or start power', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.equal(prefillToAnswers('shift_start', { device: 'lampe', latest: '7:00' }), null);
+  assert.equal(prefillToAnswers('shift_start', { device: 'lampe', latest: 2000 }), null);
+  assert.equal(prefillToAnswers('shift_start', { device: 'lampe', on_w: '1500' }), null);
+  assert.equal(prefillToAnswers('shift_start', { device: 'lampe', on_w: -1 }), null);
+});
+
+test('openAssistantWith on a shift suggestion creates the scenario of the template', async () => {
+  const { component } = await prefillPanel();
+  const before = component.document.scenarios.length;
+  await component.openAssistantWith('shift_start', { device: 'lampe', on_w: 1500, latest: '20:00' });
+  assert.equal(component.assistant.templateId, 'shift_start');
+  assert.equal(component.assistant.answers.device, 'lamp_switch');
+  assert.equal(component.assistant.answers.latest.from, '20:00');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+  assert.equal(component.document.scenarios.length, before + 1);
+  assert.equal(component.document.scenarios[before].template, 'shift_start');
+  assert.equal(component.assistant.open, false);
+});
+
+// Die Demo-Spuelmaschine wie sie der Erkenner nennt: Geraete-Id spuelmaschine, Schalter spuelmaschine_steckdose.
+const dishwasherDevices = [
+  ...assistantDevices,
+  {
+    id: 'spuelmaschine', name: 'Dishwasher', entities: [
+      { unique_id: 'spuelmaschine_steckdose', name: 'Socket', command_topic: 'plug/spuelmaschine/output/set', state_topic: 'plug/spuelmaschine/output', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' },
+      { unique_id: 'spuelmaschine_power', name: 'Power', state_topic: 'plug/spuelmaschine/status', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '0' },
+    ],
+  },
+];
+
+// Die echten Apply-Eintraege der Demo (SeedDemo, Erkenner ShiftDetector und SurplusDetector).
+const realShiftPrefill = { device: 'spuelmaschine', latest: '20:45', min_run_s: 3580, on_w: 500 };
+const realSurplusPrefill = { device: 'spuelmaschine', min_run_s: 3600, on_w: 700, source: 'export' };
+
+test('the real demo shift suggestion of the dishwasher maps to device, start power and latest window', () => {
+  const { window } = createAutomationsPanel();
+  const answers = JSON.parse(JSON.stringify(window.__automationsPrefill.prefillToAnswers('shift_start', realShiftPrefill)));
+  assert.deepEqual(answers, {
+    device: 'spuelmaschine', on_w: 500, latest: { from: '20:45', to: '20:50', days: [0, 1, 2, 3, 4, 5, 6] },
+  });
+});
+
+test('the real demo shift suggestion opens the assistant on the dishwasher switch and creates the scenario', async () => {
+  const { component } = await assistantPanel(dishwasherDevices);
+  const before = component.document.scenarios.length;
+  await component.openAssistantWith('shift_start', realShiftPrefill);
+  assert.equal(component.assistant.templateId, 'shift_start');
+  assert.equal(component.assistant.answers.device, 'spuelmaschine_steckdose', 'the device id resolves to the switch');
+  assert.equal(component.assistant.answers.on_w, 500);
+  assert.equal(component.assistant.answers.latest.from, '20:45');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+  assert.equal(component.document.scenarios.length, before + 1);
+  const created = component.document.scenarios[before];
+  assert.equal(created.template, 'shift_start');
+  assert.equal(created.on_start.actions[0].entity_id, 'spuelmaschine_steckdose');
+  assert.equal(created.on_start.actions[0].payload, 'ON');
+  assert.equal(created.when.conditions[2].end, '20:45');
+});
+
+test('the real demo surplus suggestion of the dishwasher opens the surplus switch with its values', async () => {
+  const { component } = await assistantPanel(dishwasherDevices);
+  await component.openAssistantWith('surplus_switch', realSurplusPrefill);
+  assert.equal(component.assistant.templateId, 'surplus_switch');
+  assert.equal(component.assistant.answers.device, 'spuelmaschine_steckdose');
+  assert.equal(component.assistant.answers.on, 700);
+  assert.equal(component.assistant.answers.source, 'export');
+  assert.equal(component.assistant.answers.off, 'runtime');
+  assert.equal(component.assistant.answers.runtime, 60);
+});
+
+test('prefillToAnswers maps a battery full suggestion to device and the nearest run time step', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  const answers = JSON.parse(JSON.stringify(prefillToAnswers('after_battery_full', {
+    device: 'lampe', entity: 'lamp_switch', min_run_s: 290,
+  })));
+  assert.deepEqual(answers, { device: 'lampe', min_run_s: 'standard' });
+  const long = JSON.parse(JSON.stringify(prefillToAnswers('after_battery_full', { entity: 'lamp_switch', min_run_s: 600 })));
+  assert.deepEqual(long, { device: 'lamp_switch', min_run_s: 'long' }, 'without a device id the entity is used');
+  assert.equal(JSON.parse(JSON.stringify(prefillToAnswers('after_battery_full', { device: 'lampe', min_run_s: 40 }))).min_run_s, 'none');
+});
+
+test('prefillToAnswers returns null for an invalid battery full run time or device', () => {
+  const { window } = createAutomationsPanel();
+  const { prefillToAnswers } = window.__automationsPrefill;
+  assert.equal(prefillToAnswers('after_battery_full', { device: 'lampe', min_run_s: '300' }), null);
+  assert.equal(prefillToAnswers('after_battery_full', { device: 'lampe', min_run_s: -60 }), null);
+  assert.equal(prefillToAnswers('after_battery_full', { device: 7 }), null);
+});
+
+test('openAssistantWith on a battery full suggestion creates a valid scenario', async () => {
+  const { component } = await prefillPanel();
+  const before = component.document.scenarios.length;
+  await component.openAssistantWith('after_battery_full', { device: 'lampe', min_run_s: 180 });
+  assert.equal(component.assistant.templateId, 'after_battery_full');
+  assert.equal(component.assistant.answers.device, 'lamp_switch');
+  assert.equal(component.assistant.answers.min_run_s, 'short');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+  assert.equal(component.document.scenarios.length, before + 1);
+  const created = component.document.scenarios[component.document.scenarios.length - 1];
+  assert.equal(created.template, 'after_battery_full');
+  assert.equal(created.min_run_s, 180);
+  assert.equal(created.on_start.actions[0].payload, 'ON');
+  assert.equal(component.assistant.open, false);
 });
 
 test('prefillToAnswers maps a runtime limit to minutes', () => {
@@ -3945,6 +4239,59 @@ test('learned_state is offered as a condition type and gets the default referenc
   assert.deepEqual(JSON.parse(JSON.stringify(rule.conditions)), [
     { type: 'learned_state', learned: 'site/house_state', equals: 'quiet', fallback: 'active', max_age_s: 7200, hold_seconds: 1800 },
   ]);
+});
+
+test('learned_value is added with a half hour hold, so a publishing rule is not rejected', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', name: 'R', conditions: [], actions: [] };
+  component.addCondition(rule, 'learned_value');
+  assert.deepEqual(JSON.parse(JSON.stringify(rule.conditions)), [
+    { type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500, hysteresis: 100,
+      fallback: 0, max_age_s: 1800, hold_seconds: 1800 },
+  ]);
+});
+
+test('learned_value fields edit the condition and the picker keeps the current key', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500,
+    hysteresis: 100, fallback: 0, max_age_s: 1800, hold_seconds: 1800 };
+  component.learned = { enabled: true, values: [
+    { key: 'site/pv_reserve_w', kind: 'number', unit: 'W', value: 1200, n: 5, at: 1794000000 },
+    { key: 'device/wb/cycle_wh', kind: 'number', unit: 'Wh', value: 900, n: 5, at: 1794000000 },
+  ] };
+  // Der gewaehlte Wert steht in der Auswahl, auch wenn er nicht im Endpunkt liegt.
+  assert.deepEqual(component.learnedValueOptions(condition).map((option) => option.key),
+    ['site/pv_reserve_w', 'device/wb/cycle_wh']);
+  component.learned.values = [];
+  condition.learned = 'site/gone';
+  assert.deepEqual(component.learnedValueOptions(condition).map((option) => option.key), ['site/gone']);
+  // Vergleich, Schwelle und Ersatzwert schreiben in die Bedingung.
+  component.setComparison(condition, 'below');
+  assert.equal(condition.comparison, 'below');
+  component.stepValue(condition, 'max_age_s', 1, { min: 1, step: 60 });
+  assert.equal(condition.max_age_s, 1860);
+  component.stepValue(condition, 'fallback', 1, { step: 1 });
+  assert.equal(condition.fallback, 1);
+});
+
+test('the learned_value block renders the fields the editor needs as one root', () => {
+  const rows = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'automations-rows.html'), 'utf8');
+  const start = rows.indexOf(`<template x-if="condition.type === 'learned_value'">`);
+  assert.ok(start > 0, 'learned_value block missing');
+  const block = rows.slice(start, rows.indexOf(`<template x-if="condition.type === 'chain_finding'">`, start));
+  for (const marker of [
+    `learnedValueOptions(condition)`,
+    `{{template "auto-comparison" "balance"}}`,
+    `{{template "auto-learn" (dict "field" "threshold"`,
+    `stepKey: 'hysteresis'`,
+    `stepKey: 'fallback'`,
+    `stepKey: 'max_age_s'`,
+    `{{template "auto-learn" (dict "field" "hold_seconds"`,
+  ]) {
+    assert.ok(block.includes(marker), `learned_value block without ${marker}`);
+  }
+  // Ein Wurzelelement: genau ein oeffnendes auto-fields direkt nach dem x-if.
+  assert.equal(block.match(/<div class="auto-fields">/g).length, 1);
 });
 
 test('learned_state editor shows the learned state, the fallback without data and a stale value', () => {

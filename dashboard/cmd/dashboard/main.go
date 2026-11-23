@@ -623,6 +623,10 @@ func main() {
 	})
 	// Die Regelpruefung prueft PV-Schwellen gegen dieselbe Bestkurve wie die Engine.
 	automationChecker.SetPV(pvSource)
+	// Die Regelpruefung liest fuer Nachspiel und Minutenrauschen dieselben Daten wie die Engine.
+	automationChecker.SetReplaySource(func() *autolearn.Input {
+		return automationEngine.ReplayInput(time.Now())
+	})
 	// Herabstufung: nur bei automatischer Stufe rueckt die gemerkte Stufe eine
 	// nach unten. Eine feste Stufe der Einstellungen bleibt unberuehrt.
 	engineDowngrade := func() {
@@ -786,6 +790,10 @@ func main() {
 	})
 	learnHub.AddMinute("minutes", minutes.store)
 	var minuteReader learnrec.Reader = minutes.store
+	// Die Minutenaufzeichnung fuer das Nachspielen der Engine.
+	automationEngine.SetMinutes(func() learnrec.Reader { return minuteReader })
+	// Die Reglerschritte fuer die Regelguete der Nulleinspeisung.
+	automationEngine.SetSteps(minutes.steps.Steps)
 	go runStorageResume(ctx, storageService)
 	// Die Belegung der Systemplatte: in der Demo feste Werte, sonst eine Messung
 	// im Hintergrund, die alle zehn Minuten erneuert wird.

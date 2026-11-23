@@ -281,7 +281,74 @@
       }
       return out;
     },
+    surplus_switch(prefill) { return surplusPrefill(prefill, 'on', true); },
+    surplus_wallbox(prefill) { return surplusPrefill(prefill, 'start', false); },
+    after_battery_full(prefill) {
+      const out = {};
+      // Geraet per Geraete-Id vor der Entitaet, wie bei shift_start.
+      const device = prefill.device !== undefined ? prefill.device : prefill.entity;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
+      }
+      if (prefill.min_run_s !== undefined) {
+        if (typeof prefill.min_run_s !== 'number' || !Number.isFinite(prefill.min_run_s) || prefill.min_run_s < 0) return null;
+        // Die Auswahl des Schritts: keine 0, kurz 180, standard 300 und lang 600 Sekunden.
+        const steps = [['none', 0], ['short', 180], ['standard', 300], ['long', 600]];
+        out.min_run_s = steps.reduce((best, step) => (
+          Math.abs(step[1] - prefill.min_run_s) < Math.abs(best[1] - prefill.min_run_s) ? step : best
+        ))[0];
+      }
+      return out;
+    },
+    shift_start(prefill) {
+      const out = {};
+      // Der Erkenner nennt die Geraete-Id und eine Entitaet, die nicht zwingend ein Schalter ist.
+      // Vorrang hat daher die Geraete-Id, die Aufloesung nimmt den Schalter des Geraets.
+      const device = prefill.device !== undefined ? prefill.device : prefill.entity;
+      if (device !== undefined) {
+        if (!isPrefillText(device)) return null;
+        out.device = device;
+      }
+      if (prefill.on_w !== undefined) {
+        if (typeof prefill.on_w !== 'number' || !Number.isFinite(prefill.on_w) || prefill.on_w < 0) return null;
+        out.on_w = Math.round(prefill.on_w / 100) * 100;
+      }
+      if (prefill.latest !== undefined) {
+        if (!isPrefillClock(prefill.latest)) return null;
+        out.latest = { from: prefill.latest, to: prefillClockAfter(prefill.latest, 5), days: [0, 1, 2, 3, 4, 5, 6] };
+      }
+      return out;
+    },
   };
+  // Vorbelegung der Ueberschuss-Vorlagen aus dem Erkenner: Geraet, Startleistung (auf 100 W
+  // gerundet, Schritt onStep), Quelle export oder reserve. Nur surplus_switch hat eine
+  // Laufzeit: min_run_s in Sekunden wird zu Minuten im Raster 10 und setzt die feste Laufzeit.
+  // Eine ungueltige Laufzeit laesst den Schritt leer, ungueltige Leistung oder Quelle ergibt null.
+  function surplusPrefill(prefill, onStep, withRuntime) {
+    const out = {};
+    const device = prefill.entity !== undefined ? prefill.entity : prefill.device;
+    if (device !== undefined) {
+      if (!isPrefillText(device)) return null;
+      out.device = device;
+    }
+    if (prefill.on_w !== undefined) {
+      if (typeof prefill.on_w !== 'number' || !Number.isFinite(prefill.on_w) || prefill.on_w < 0) return null;
+      out[onStep] = Math.round(prefill.on_w / 100) * 100;
+    }
+    if (prefill.source !== undefined) {
+      if (prefill.source !== 'export' && prefill.source !== 'reserve') return null;
+      out.source = prefill.source;
+    }
+    if (withRuntime && typeof prefill.min_run_s === 'number' && Number.isFinite(prefill.min_run_s)) {
+      const minutes = Math.round(prefill.min_run_s / 600) * 10;
+      if (minutes >= 10 && minutes <= 600) {
+        out.runtime = minutes;
+        out.off = 'runtime';
+      }
+    }
+    return out;
+  }
   // Reine Funktion: Vorlage und Vorbelegung zu Antworten, oder null bei unbekannter
   // Vorlage oder falscher Form.
   function prefillToAnswers(templateId, prefill) {
@@ -1560,8 +1627,11 @@
       this.assistant.answers = answers;
       for (const step of this.assistantSteps()) {
         if (step.type !== 'device') continue;
-        const usable = this.assistantDevices(step).some((item) => item.id === answers[step.id] && !item.disabled);
-        if (!usable) answers[step.id] = '';
+        const options = this.assistantDevices(step).filter((item) => !item.disabled);
+        if (options.some((item) => item.id === answers[step.id])) continue;
+        // Der Erkenner nennt oft nur die Geraete-Id. Dann gilt der erste nutzbare Eintrag des Geraets.
+        const byDevice = options.find((item) => item.deviceId !== undefined && item.deviceId === answers[step.id]);
+        answers[step.id] = byDevice ? byDevice.id : '';
       }
       const steps = this.assistantSteps();
       const open = steps.findIndex((step) => !window.__automationWizard.stepComplete(step, answers[step.id]));
@@ -1885,12 +1955,15 @@
       } catch (error) {
         return null;
       }
-      if (name && name.trim() !== '') built.entry.name = name.trim();
+      // Der Name gilt fuer den ersten Eintrag. Eine Vorlage mit zwei Regeln (kind rules) legt beide an.
+      if (name && name.trim() !== '') (built.kind === 'rules' ? built.entries[0] : built.entry).name = name.trim();
       return built;
     },
 
-    assistantFull(kind) {
-      return kind === 'scenario' ? !this.canAddScenario() : !this.canAddRule();
+    // Ob count neue Eintraege der Art kind in die volle Liste passen wuerden.
+    assistantFull(kind, count = 1) {
+      if (kind === 'scenario') return (this.document.scenarios || []).length + count > SCENARIO_LIMIT;
+      return (this.document.rules || []).length + count > RULE_LIMIT;
     },
 
     // Zeilen der Zusammenfassung: Phase, Text und der Schritt zum Aendern.
@@ -1909,15 +1982,26 @@
 
     assistantListFull() {
       const built = this.assistantBuild();
-      return !!built && this.assistantFull(built.kind);
+      if (!built) return false;
+      const { kind, entries } = this.assistantEntries(built);
+      return this.assistantFull(kind, entries.length);
+    },
+
+    // Art (rule oder scenario) und Eintraege eines Builds. Ein Build mit kind rules liefert zwei Regeln.
+    assistantEntries(built) {
+      if (built.kind === 'rules') return { kind: 'rule', entries: built.entries };
+      return { kind: built.kind, entries: [built.entry] };
     },
 
     // Legt die Vorlage an: ungespeichert, aktiv, mit Rueckgaengig. Bei voller Liste
-    // passiert nichts, der Dialog bleibt offen.
+    // passiert nichts, der Dialog bleibt offen. Alle Eintraege sind schon gebaut, bevor
+    // der erste eingefuegt wird, daher bleibt bei einem Fehler nichts halb angelegt.
     assistantCreate() {
       const built = this.assistantBuild();
-      if (!built || this.assistantFull(built.kind)) return;
-      this.insertEntry(built.kind, built.entry);
+      if (!built) return;
+      const { kind, entries } = this.assistantEntries(built);
+      if (this.assistantFull(kind, entries.length)) return;
+      this.insertEntries(kind, entries);
       this.closeAssistant();
     },
 
@@ -2060,24 +2144,32 @@
     // Gemeinsamer Kern fuer neue Regeln und Szenarien: anlegen, als neu
     // markieren, aufklappen, Editor oeffnen, Reiter wechseln, Rueckgaengig anbieten.
     insertEntry(kind, entry) {
-      if (kind === 'scenario') {
-        this.document.scenarios.push(entry);
-        this.scenarioExpanded[entry.id] = true;
-        this.scenarioEditing[entry.id] = true;
-        this.view = 'scenarios';
-      } else {
-        this.document.rules.push(entry);
-        this.expanded[entry.id] = true;
-        this.editing[entry.id] = true;
-        this.view = 'rules';
+      this.insertEntries(kind, [entry]);
+      return entry;
+    },
+
+    // Mehrere Eintraege einer Art, ein Rueckgaengig nimmt alle zurueck.
+    insertEntries(kind, entries) {
+      for (const entry of entries) {
+        if (kind === 'scenario') {
+          this.document.scenarios.push(entry);
+          this.scenarioExpanded[entry.id] = true;
+          this.scenarioEditing[entry.id] = true;
+        } else {
+          this.document.rules.push(entry);
+          this.expanded[entry.id] = true;
+          this.editing[entry.id] = true;
+        }
+        this.newIds[entry.id] = true;
       }
-      this.newIds[entry.id] = true;
+      this.view = kind === 'scenario' ? 'scenarios' : 'rules';
       this.armUndo({
         label: kind === 'scenario' ? t('automations.undo.scenario_added') : t('automations.undo.rule_added'),
         kind,
-        id: entry.id,
+        id: entries[0].id,
+        ids: entries.map((entry) => entry.id),
       });
-      return entry;
+      return entries;
     },
 
     armUndo(undo) {
@@ -2093,16 +2185,22 @@
       const undo = this.undo;
       if (!undo) return;
       if (undo.findingId) return this.undoIgnoredFinding(undo);
+      const ids = undo.ids || [undo.id];
       if (undo.kind === 'scenario') {
-        this.document.scenarios = this.document.scenarios.filter((entry) => entry.id !== undo.id);
-        delete this.scenarioExpanded[undo.id];
-        delete this.scenarioEditing[undo.id];
+        this.document.scenarios = this.document.scenarios.filter((entry) => !ids.includes(entry.id));
       } else {
-        this.document.rules = this.document.rules.filter((entry) => entry.id !== undo.id);
-        delete this.expanded[undo.id];
-        delete this.editing[undo.id];
+        this.document.rules = this.document.rules.filter((entry) => !ids.includes(entry.id));
       }
-      delete this.newIds[undo.id];
+      for (const id of ids) {
+        if (undo.kind === 'scenario') {
+          delete this.scenarioExpanded[id];
+          delete this.scenarioEditing[id];
+        } else {
+          delete this.expanded[id];
+          delete this.editing[id];
+        }
+        delete this.newIds[id];
+      }
       clearTimeout(this._undoTimer);
       this.undo = null;
     },
@@ -2224,22 +2322,26 @@
         return { parent: node, key: path[path.length - 1] };
       };
       const plans = groups.map((group) => {
+        // Ein Regler-Befund nennt ein Szenario mit derselben Id. Ein Szenario wird nur
+        // gesucht, wenn keine Regel dazu passt.
         const rule = this.document.rules.find((entry) => entry.id === group.rule_id);
-        if (!rule) return { rule: null, writes: [] };
+        const scenario = rule ? null : (this.document.scenarios || []).find((entry) => entry.id === group.rule_id);
+        const entry = rule || scenario || null;
+        if (!entry) return { entry: null, kind: null, writes: [] };
         // Ein add_condition nennt den Index, den die Bedingung beim Befund hatte.
         // Seitdem kann eine Bedingung dazugekommen sein, deshalb wird angehaengt.
         const writes = group.ops.map((op) => {
-          const target = targetOf(rule, op.path || []);
+          const target = targetOf(entry, op.path || []);
           if (group.code === 'add_condition') {
             return { target: target && Array.isArray(target.parent) ? { parent: target.parent, append: true } : null, value: op.value };
           }
           return { target, value: op.value };
         });
-        return { rule, writes };
+        return { entry, kind: rule ? 'rule' : 'scenario', writes };
       });
-      const opened = plans.map((plan) => plan.rule).filter(Boolean);
+      const opened = plans.filter((plan) => plan.entry);
       if (opened.length === 0) return;
-      if (plans.every((plan) => plan.rule && plan.writes.every((write) => write.target))) {
+      if (plans.every((plan) => plan.entry && plan.writes.every((write) => write.target))) {
         plans.forEach((plan) => plan.writes.forEach((write) => {
           if (write.target.append) write.target.parent.push(write.value);
           else write.target.parent[write.target.key] = write.value;
@@ -2248,8 +2350,19 @@
           this.appliedFindingIds = [...this.appliedFindingIds, finding.id];
         }
       }
-      this.startEditing(opened[0]);
-      opened.forEach((rule) => { this.expanded[rule.id] = true; });
+      // Geoeffnet wird der erste gefundene Eintrag: eine Regel im Editor, ein Szenario
+      // im Editor des Szenario-Reiters. Alle gefundenen Eintraege klappen auf.
+      const first = opened[0];
+      if (first.kind === 'rule') {
+        this.startEditing(first.entry);
+      } else {
+        this.view = 'scenarios';
+        this.scenarioEditing[first.entry.id] = true;
+      }
+      opened.forEach((plan) => {
+        if (plan.kind === 'rule') this.expanded[plan.entry.id] = true;
+        else this.scenarioExpanded[plan.entry.id] = true;
+      });
       this.closeFinding();
     },
     postFindingIgnore(id, undo) {
@@ -2348,6 +2461,25 @@
                              hold_seconds: Math.max(LEARNED_STATE_HOLD_S, this.minPublishInterval()) });
     },
 
+    // Gelernter Zahlwert: PV-Reserve ueber 1500 W, mit Hysterese und Ersatzwert. Der Ausgangswert entspricht dem Beispiel im Plan.
+    addLearnedValueCondition(rule) {
+      rule.conditions.push({ type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500,
+                             hysteresis: 100, fallback: 0, max_age_s: 1800,
+                             hold_seconds: Math.max(LEARNED_STATE_HOLD_S, this.minPublishInterval()) });
+    },
+
+    // Lernwerte fuer das Feld learned eines gelernten Zahlwerts. Der gewaehlte Schluessel bleibt auch ohne Eintrag sichtbar.
+    learnedValueOptions(condition) {
+      const AL = window.AutomationLearned;
+      const options = this.learnedChoices(condition, 'learned')
+        .map((entry) => ({ key: entry.key, label: AL.keyLabel(entry.key, this.devices, t) }));
+      const key = condition.learned;
+      if (key && !options.some((option) => option.key === key)) {
+        options.push({ key, label: AL.keyLabel(key, this.devices, t) });
+      }
+      return options;
+    },
+
     // Eintrag des Endpunkts zu einem Lernwert-Schluessel, sonst null.
     learnedEntry(key) {
       return this.learnedList().find((value) => value && value.key === key) || null;
@@ -2388,6 +2520,12 @@
     // Einheit der Lernwerte fuer ein Zahlfeld: Schwellen in W, sonst die Einheit der Entitaet.
     learnUnitOf(condition, field) {
       if (this.learnKind(condition, field) !== 'number') return undefined;
+      // Der gelernte Zahlwert selbst nimmt jede Einheit, die Schwelle die des Lernwerts oder ihrer Bezugsangabe.
+      if (field === 'learned') return undefined;
+      if (condition.type === 'learned_value') {
+        const ref = isRefValue(condition.threshold) ? condition.threshold.learned : condition.learned;
+        return window.AutomationLearned.unitOfKey(ref) || undefined;
+      }
       if (field === 'threshold') return 'W';
       const entity = this.entityForCondition(condition);
       return (entity && entity.unit_of_measurement) || undefined;
@@ -2535,7 +2673,9 @@
         const kind = AL.kindOf(condition.type, field);
         if (kind && AL.isRef(condition[field])) codes.push(...AL.validate(condition[field], kind));
       }
-      if (condition.type === 'learned_state') codes.push(...AL.validate({ learned: condition.learned }, 'state'));
+      if (condition.type === 'learned_state' || condition.type === 'learned_value') {
+        codes.push(...AL.validate({ learned: condition.learned }, 'state'));
+      }
       const keys = {
         'learned.min_max': 'automations.learned.error.min_max',
         'learned.fallback_range': 'automations.learned.error.fallback_range',
@@ -2716,6 +2856,7 @@
       if (key === 'time') result = this.addTimeWindowCondition(rule);
       if (key === 'sun') result = this.addSunWindowCondition(rule);
       if (key === 'learned_state') result = this.addLearnedStateCondition(rule);
+      if (key === 'learned_value') result = this.addLearnedValueCondition(rule);
       if (key === 'chain') result = this.addChainCondition(rule);
       this.loadEditLive(rule);
       return result;

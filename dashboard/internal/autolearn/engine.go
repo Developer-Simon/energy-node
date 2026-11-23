@@ -70,6 +70,8 @@ type Engine struct {
 	outdoor   func() OutdoorSource
 	pv        func() (PVModel, *Raster, bool)
 	learned   func() map[string]LearnedEntry
+	minutes   func() learnrec.Reader
+	steps     func(scenario string, from, to time.Time) []Step
 	// recentC is the mean outdoor temperature of the last three days as the
 	// last round read it, nil when unknown.
 	recentC *float64
@@ -422,7 +424,15 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 	outdoor := e.outdoor
 	in.PV = e.pv
 	learned := e.learned
+	minutes := e.minutes
+	steps := e.steps
 	e.mu.Unlock()
+	if minutes != nil {
+		in.Minutes = minutes()
+	}
+	if steps != nil {
+		in.Steps = steps
+	}
 	if learned != nil {
 		in.Learned = learned()
 	}
@@ -430,6 +440,12 @@ func (e *Engine) input(now time.Time, limits learnrec.Limits, devices map[string
 		in.Outdoor = outdoor()
 	}
 	return in
+}
+
+// ReplayInput builds the input of a round at now for the checks that replay a
+// rule. It reads the same days, learned values and minutes as a round does.
+func (e *Engine) ReplayInput(now time.Time) *Input {
+	return e.input(now, e.limits(), e.devices())
 }
 
 // SetPV gives the engine the roof model and the sky raster. A round reads them
@@ -447,6 +463,22 @@ func (e *Engine) SetLearned(f func() map[string]LearnedEntry) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.learned = f
+}
+
+// SetMinutes gives the engine the minute record. A round reads it into
+// Input.Minutes. Without it the replay works from the quarter hours.
+func (e *Engine) SetMinutes(f func() learnrec.Reader) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.minutes = f
+}
+
+// SetSteps gives the engine the regulator steps. A round passes the reader
+// into Input.Steps. Without it the detectors that need the steps find nothing.
+func (e *Engine) SetSteps(f func(scenario string, from, to time.Time) []Step) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.steps = f
 }
 
 // SetOutdoor gives the engine the outdoor temperature entity. It is read on

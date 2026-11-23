@@ -116,3 +116,65 @@ func TestOpsAppliedSingleRuleAndOddCases(t *testing.T) {
 		t.Fatal("index out of range, want not applied")
 	}
 }
+
+// regulatorDoc is a document with one regulator scenario "reg" of gain 0.8, deadband 20 W
+// and no max_change_w limit.
+func regulatorDoc() Doc {
+	return Doc{Scenarios: []Scenario{{ID: "reg", Enabled: true, Regulator: &RegulatorSpec{Gain: 0.8, DeadbandW: 20}}}}
+}
+
+func regulatorFix(path string, value any) Fix {
+	return Fix{Code: "set_regulator", RuleID: "reg", Ops: []Op{{Path: []any{"while", "regulator", path}, Value: value}}}
+}
+
+func TestOpsAppliedReadsScenarioRegulator(t *testing.T) {
+	doc := regulatorDoc()
+	if !OpsApplied(regulatorFix("gain", 0.8), doc) {
+		t.Fatal("gain already at 0.8, want applied")
+	}
+	if OpsApplied(regulatorFix("gain", 0.6), doc) {
+		t.Fatal("gain 0.8 against 0.6, want not applied")
+	}
+	if !OpsApplied(regulatorFix("deadband_w", 20.0), doc) {
+		t.Fatal("deadband 20 W, want applied")
+	}
+	if OpsApplied(regulatorFix("max_change_w", 300.0), doc) {
+		t.Fatal("no max_change_w limit, want not applied")
+	}
+	limited := regulatorDoc()
+	limit := 300.0
+	limited.Scenarios[0].Regulator.MaxChangeW = &limit
+	if !OpsApplied(regulatorFix("max_change_w", 300.0), limited) {
+		t.Fatal("max_change_w 300, want applied")
+	}
+}
+
+func TestOpsAppliedScenarioNeedsRegulatorAndKnownPath(t *testing.T) {
+	doc := regulatorDoc()
+	if OpsApplied(Fix{Code: "set_regulator", RuleID: "gibt_es_nicht", Ops: []Op{{Path: []any{"while", "regulator", "gain"}, Value: 0.8}}}, doc) {
+		t.Fatal("unknown scenario id, want not applied")
+	}
+	if OpsApplied(Fix{Code: "set_regulator", RuleID: "reg", Ops: []Op{{Path: []any{"while", "regulator", "output"}, Value: 0.8}}}, doc) {
+		t.Fatal("unknown regulator field, want not applied")
+	}
+	noReg := Doc{Scenarios: []Scenario{{ID: "reg", Enabled: true}}}
+	if OpsApplied(regulatorFix("gain", 0.8), noReg) {
+		t.Fatal("scenario without a regulator, want not applied")
+	}
+}
+
+func TestOpsAppliedMixesRuleAndScenarioGroups(t *testing.T) {
+	doc := appliedDoc(t, `{"type":"balance_threshold","field":"battery_soc","comparison":"above","threshold":96,"hysteresis":0,"hold_seconds":0}`)
+	doc.Scenarios = regulatorDoc().Scenarios
+	fix := Fix{Code: "mixed", Rules: []RuleOps{
+		{RuleID: "r1", Ops: []Op{{Path: []any{"conditions", 0, "threshold"}, Value: 96.0}}},
+		{RuleID: "reg", Ops: []Op{{Path: []any{"while", "regulator", "gain"}, Value: 0.8}}},
+	}}
+	if !OpsApplied(fix, doc) {
+		t.Fatal("rule and scenario both applied, want applied")
+	}
+	fix.Rules[1].Ops[0].Value = 0.5
+	if OpsApplied(fix, doc) {
+		t.Fatal("scenario not applied, the group as a whole is not applied")
+	}
+}

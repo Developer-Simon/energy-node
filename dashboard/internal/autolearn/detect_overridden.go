@@ -52,6 +52,7 @@ const (
 	overriddenSurplus   = "surplus"
 	overriddenToSunset  = "to_sunset"
 	overriddenElevation = "sun_elevation"
+	overriddenSignal    = "signal"
 )
 
 // overriddenSunSearchMin is the half width in minutes of the search for the
@@ -91,6 +92,10 @@ type overrideCase struct {
 	toSunset  float64
 	sunset    time.Time
 	elevation float64
+	// hasSignal is set when the rule has a balance condition and its value at
+	// the switch is known. signal is that value in W.
+	hasSignal bool
+	signal    float64
 }
 
 // overridePoint is one case of a numeric feature.
@@ -241,6 +246,11 @@ func overriddenCandidate(device string, in *Input, rule Rule, sw []overrideSwitc
 
 	cases := make([]overrideCase, n)
 	hits := 0
+	signalField, hasField := overriddenSignalField(rule)
+	days := make(map[string]*DayFile, len(in.Days))
+	for i := range in.Days {
+		days[in.Days[i].Day] = &in.Days[i]
+	}
 	for j, i := range idx {
 		s := sw[i]
 		c := overrideCase{at: s.at, on: s.on, house: s.house, surplus: s.surplus}
@@ -253,6 +263,9 @@ func overriddenCandidate(device string, in *Input, rule Rule, sw []overrideSwitc
 			c.reversed = true
 			c.reverseMin = minuteOfDay(rev, loc)
 			hits++
+		}
+		if hasField {
+			c.signal, c.hasSignal = overrideSignal(in, signalField, at, loc, days)
 		}
 		if in.Doc.Location != nil {
 			if m, set, e, ok := overrideSunState(at, in.Doc.Location); ok {
@@ -293,7 +306,7 @@ func overriddenCandidate(device string, in *Input, rule Rule, sw []overrideSwitc
 	var sollSpans [][2]int64
 	if split, ok := overriddenSplit(cases, in.Base); ok {
 		// A split the rule already holds is not offered again.
-		if fix, spans, ok := overriddenAddFix(rule, in.Base, split, cases, in.Doc.Location); ok && !FixApplied(fix, in.Doc) {
+		if fix, spans, ok := overriddenAddFix(rule, in.Base, split, cases, in.Doc.Location); ok && !overriddenFixHeld(split.feature, fix, in.Doc) {
 			feature = split.feature
 			apply = []Fix{fix}
 			sollSpans = spans
@@ -416,6 +429,7 @@ func overriddenSplit(cases []overrideCase, base Base) (overrideSplit, bool) {
 	considerNumeric(overriddenSurplus, overridePoints(cases, func(c overrideCase) float64 { return c.surplus }))
 	considerNumeric(overriddenToSunset, overrideSunPoints(cases, func(c overrideCase) float64 { return c.toSunset }))
 	considerNumeric(overriddenElevation, overrideSunPoints(cases, func(c overrideCase) float64 { return c.elevation }))
+	considerNumeric(overriddenSignal, overrideSignalPoints(cases))
 
 	return best, found
 }
@@ -444,6 +458,48 @@ func overridePoints(cases []overrideCase, value func(overrideCase) float64) []ov
 		out = append(out, overridePoint{x: value(c), ov: c.reversed})
 	}
 	return out
+}
+
+// overrideSignalPoints returns the cases whose condition signal is known with
+// its value in W.
+func overrideSignalPoints(cases []overrideCase) []overridePoint {
+	out := make([]overridePoint, 0, len(cases))
+	for _, c := range cases {
+		if c.hasSignal {
+			out = append(out, overridePoint{x: c.signal, ov: c.reversed})
+		}
+	}
+	return out
+}
+
+// overriddenSignalField is the field of the first balance condition of the
+// rule, the signal the rule switches on. It reports false without one.
+func overriddenSignalField(rule Rule) (string, bool) {
+	for _, c := range rule.Conditions {
+		if c.Type == "balance_threshold" && c.Field != "" {
+			return c.Field, true
+		}
+	}
+	return "", false
+}
+
+// overrideSignal is the value of the signal field at the minute of the switch,
+// read from the minute record and otherwise from the quarter hour of the day
+// file. ok is false when neither holds the value.
+func overrideSignal(in *Input, field string, at time.Time, loc *time.Location, days map[string]*DayFile) (float64, bool) {
+	if in.Minutes != nil {
+		m := at.Truncate(time.Minute)
+		if vals := in.Minutes.Range("b:"+field, m, m.Add(time.Minute)).Values; len(vals) > 0 && !math.IsNaN(float64(vals[0])) {
+			return float64(vals[0]), true
+		}
+	}
+	local := at.In(loc)
+	f := days[local.Format(dayLayout)]
+	if f == nil {
+		return 0, false
+	}
+	v := quarterValue(f, field, quarterOf(local))
+	return v, !math.IsNaN(v)
 }
 
 // overrideSunPoints returns the cases that have a sun state with their value of
@@ -659,10 +715,17 @@ func overriddenAddFix(rule Rule, base Base, s overrideSplit, cases []overrideCas
 		} else {
 			cond = map[string]any{"type": "sun_window", "from": "sunrise", "to": "sunset", "from_offset_min": 0, "to_offset_min": off}
 		}
-	case overriddenHouseLoad, overriddenSurplus:
+	case overriddenHouseLoad, overriddenSurplus, overriddenSignal:
 		field, threshold := "load_total", math.Round(s.cut/overriddenRoundW)*overriddenRoundW
-		if s.feature == overriddenSurplus {
+		switch s.feature {
+		case overriddenSurplus:
 			field = "grid_export"
+		case overriddenSignal:
+			f, ok := overriddenSignalField(rule)
+			if !ok {
+				return Fix{}, nil, false
+			}
+			field = f
 		}
 		comparison := "above"
 		if s.acceptedLeft {
@@ -674,6 +737,34 @@ func overriddenAddFix(rule Rule, base Base, s overrideSplit, cases []overrideCas
 	}
 	return Fix{Code: "add_condition", RuleID: rule.ID,
 		Ops: []Op{{Path: []any{"conditions", at}, Value: cond}}}, spans, true
+}
+
+// overriddenFixHeld reports whether the rule already holds the condition of an
+// add_condition fix. A signal threshold is held only with the same value, since
+// FixApplied would take the rule's own export condition for it whatever its
+// threshold. Every other feature uses FixApplied.
+func overriddenFixHeld(feature string, fix Fix, doc Doc) bool {
+	if feature != overriddenSignal {
+		return FixApplied(fix, doc)
+	}
+	if len(fix.Ops) != 1 {
+		return false
+	}
+	want, ok := normalizedCondition(fix.Ops[0].Value)
+	if !ok {
+		return false
+	}
+	for _, r := range doc.Rules {
+		if r.ID != fix.RuleID {
+			continue
+		}
+		for _, c := range r.Conditions {
+			if c.Type == want["type"] && c.Field == want["field"] && c.Comparison == want["comparison"] && c.Threshold == want["threshold"] {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // overriddenShiftFix moves the start of the rule's time window to the median

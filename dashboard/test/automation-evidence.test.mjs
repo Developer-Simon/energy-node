@@ -13,6 +13,8 @@ const source = fs.readFileSync(path.join(jsDir, 'automation-evidence.js'), 'utf8
 
 function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  // Das Skript laeuft im Kontext ohne Timer, der Einlauf braucht setTimeout.
+  dom.window.setTimeout = setTimeout;
   vm.runInContext(source, dom.getInternalVMContext());
   return { api: dom.window.AutomationEvidence, document: dom.window.document };
 }
@@ -416,4 +418,88 @@ test('curve shape without Soll draws only the Ist layer and one legend key', () 
   const host = mount(document, api.render({ shape: 'curve', ist_q: quarters(() => 50) }, t));
   assert.equal(host.querySelectorAll('svg.auto-learn-plot-svg').length, 1);
   assert.equal(host.querySelectorAll('.auto-learn-plot-key').length, 1);
+});
+
+test('scale shape with scales draws one Ist and Soll bar pair per parameter', () => {
+  const { api, document } = load();
+  const html = api.render({
+    shape: 'scale',
+    ist_value: 0.8,
+    soll_value: 0.2,
+    scales: [
+      { name: 'gain', ist: 0.8, soll: 0.2 },
+      { name: 'deadband_w', ist: 50, soll: 10, unit: 'W' },
+    ],
+  }, t);
+  const host = mount(document, html);
+  const istBars = host.querySelectorAll('rect.auto-learn-ist');
+  assert.equal(istBars.length, 2, 'one Ist bar per parameter');
+  assert.equal(host.querySelectorAll('rect.auto-learn-soll').length, 2, 'one Soll bar per parameter');
+  const names = Array.from(host.querySelectorAll('.auto-learn-scale-bar')).map((n) => n.textContent);
+  assert.deepEqual(names, ['automations.learn.param.gain', 'automations.learn.param.deadband_w']);
+  const deadbandIst = istBars[1];
+  // the deadband bar scales on its own maximum, 50 * 1.2 = 60 W
+  assert.equal(Number(deadbandIst.getAttribute('width')).toFixed(3), ((50 / 60) * 100).toFixed(3));
+  assert.deepEqual(axisLabels(host).slice(-1), ['60 W']);
+});
+
+test('scale shape without scales keeps the single pair', () => {
+  const { api, document } = load();
+  const html = api.render({ shape: 'scale', ist_value: 360, soll_value: 90, unit: 'min' }, t);
+  const host = mount(document, html);
+  assert.equal(host.querySelectorAll('.auto-learn-scale-bar').length, 0);
+  assert.equal(host.querySelectorAll('rect.auto-learn-ist').length, 1);
+});
+
+test('events shape draws the replayed triggers of the Soll lane as bars', () => {
+  const { api, document } = load();
+  const from = 1_000_000;
+  const html = api.render({ shape: 'events', from, to: from + 14400, ist: [from + 600, from + 620], soll: [from + 3000, from + 3100], soll_spans: [] }, t);
+  const host = mount(document, html);
+  const sollLane = host.querySelector('.auto-learn-lane.is-soll');
+  assert.ok(sollLane, 'a Soll lane exists');
+  assert.ok(sollLane.querySelectorAll('path.auto-learn-bar').length >= 1, 'replayed triggers are drawn');
+});
+
+// Die Balken einer Skala tragen ihre Staffel als --i, der Einlauf verzoegert danach.
+test('scale bars carry their stagger index for the entrance', () => {
+  const { api } = load();
+  const html = api.render({
+    shape: 'scale',
+    scales: [{ name: 'a', ist: 100, soll: 50 }, { name: 'b', ist: 30, soll: 20 }],
+  }, t);
+  assert.match(html, /class="auto-learn-ist" style="--i:0"/);
+  assert.match(html, /class="auto-learn-ist" style="--i:1"/);
+  assert.match(html, /class="auto-learn-soll auto-learn-soft" style="--i:1"/);
+});
+
+// Der Einlauf läuft nur beim ersten Einfuegen. Gleiche Aktualisierungen ersetzen nichts,
+// geaenderte Inhalte nach dem Einlauf kommen ohne die Klasse is-enter.
+test('mount runs the entrance once and leaves later updates still', async () => {
+  const { api, document } = load();
+  const el = document.createElement('div');
+  const ev = { shape: 'scale', ist_value: 300, soll_value: 90, unit: 'min' };
+  api.mount(el, ev, t);
+  assert.equal(el.classList.contains('is-enter'), true);
+  assert.ok(el.querySelector('.auto-learn-is'));
+  const first = el.firstChild;
+  api.mount(el, { ...ev }, t);
+  assert.equal(el.firstChild, first, 'same content keeps the DOM');
+  await new Promise((resolve) => setTimeout(resolve, 750));
+  assert.equal(el.classList.contains('is-enter'), false);
+  api.mount(el, { ...ev, ist_value: 310 }, t);
+  assert.notEqual(el.firstChild, first, 'changed content is rendered');
+  assert.equal(el.classList.contains('is-enter'), false, 'an update does not enter again');
+});
+
+// Die Einlauf-Regeln bleiben an die Klasse gebunden und haben eine reduzierte Fassung.
+test('the evidence entrance is gated by is-enter and has a reduced-motion rule', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'automations.css'), 'utf8');
+  assert.match(css, /\.auto-learn-evidence\.is-enter \.auto-learn-is \{ animation: auto-learn-chart-in 200ms cubic-bezier\(0\.23, 1, 0\.32, 1\)/);
+  assert.match(css, /\.auto-learn-evidence\.is-enter \.auto-learn-plot-svg\.is-soll \{ animation: auto-learn-trace 240ms/);
+  assert.match(css, /transform-origin: left center/);
+  assert.match(css, /scaleX\(0\.02\)/);
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reduced, /auto-learn-chart-fade 200ms ease-out both/);
+  assert.doesNotMatch(css, /(^|\n)\.auto-learn-is \{[^}]*animation/);
 });

@@ -217,3 +217,13 @@ test('suggestion notices have their own source and filter and use the learn text
   assert.equal(M.filterNotices(all, 'all').length, 3);
   assert.ok(M.title(suggest, t).startsWith('automations.learn.runtime.long.title'));
 });
+
+test('learned notices list their figures only with the suggestion band, shade keeps its rows', () => {
+  const notice = {
+    id: 'learn:regulator:nulleinspeisung_last', source: 'learn', code: 'regulator.quality',
+    params: { scenario: 'Nulleinspeisung' }, facts: [{ code: 'k', value: 1 }],
+  };
+  // Ohne geladenes Vorschlagsband gibt es keine Zahlen, aber auch keinen Fehler.
+  assert.equal(M.facts(notice, t).length, 0);
+  assert.equal(M.facts({ ...notice, facts: undefined }, t).length, 0);
+});

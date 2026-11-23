@@ -1,6 +1,7 @@
 package autolearn
 
 import (
+	"context"
 	"math"
 	"os"
 	"sort"
@@ -15,6 +16,12 @@ const (
 	frequentWindow = 24 * time.Hour
 	// seasonWindow is the period the seasonal maximum is taken from.
 	seasonWindow = 365 * 24 * time.Hour
+	// frequentReplayDays is how many days the replay of the frequent check covers.
+	frequentReplayDays = 14
+	// hysteresisStepW is the step the minute hysteresis is rounded up to.
+	hysteresisStepW = 50.0
+	// cooldownFloorS is the shortest cooldown the frequent check proposes.
+	cooldownFloorS = 300
 )
 
 // PVSource returns the stored roof model, the sky raster and whether a model
@@ -63,7 +70,7 @@ func ObservedFindings(doc Doc, st ObserverState, season SeasonalSource, now time
 
 // ObservedFindingsWith is ObservedFindingsWithPV without a PV source.
 func ObservedFindingsWith(doc Doc, st ObserverState, season SeasonalSource, now time.Time, th Thresholds) []Finding {
-	return ObservedFindingsWithPV(doc, st, season, nil, now, th)
+	return ObservedFindingsWithPV(doc, st, season, nil, nil, now, th)
 }
 
 // ObservedFindingsWithPV checks the rules against what was observed. A rule that
@@ -74,8 +81,10 @@ func ObservedFindingsWith(doc Doc, st ObserverState, season SeasonalSource, now 
 // reported as a seasonal rest when the season had a higher maximum. season may
 // be nil, which skips the seasonal check. pv may be nil. With a safe PV model
 // and the site location, a PV or grid export threshold is checked against the
-// clear-sky curve instead of the seasonal maximum.
-func ObservedFindingsWithPV(doc Doc, st ObserverState, season SeasonalSource, pv PVSource, now time.Time, th Thresholds) []Finding {
+// clear-sky curve instead of the seasonal maximum. in may be nil, which keeps
+// the hysteresis of the frequent check to its fallback and leaves out the
+// replay evidence.
+func ObservedFindingsWithPV(doc Doc, st ObserverState, season SeasonalSource, pv PVSource, in *Input, now time.Time, th Thresholds) []Finding {
 	var findings []Finding
 	for _, rule := range doc.Rules {
 		if !rule.Enabled {
@@ -85,7 +94,7 @@ func ObservedFindingsWithPV(doc Doc, st ObserverState, season SeasonalSource, pv
 		if !seen {
 			continue
 		}
-		if f, ok := frequentFinding(rule, stats, now, th.FrequentMinCount); ok {
+		if f, ok := frequentFinding(rule, stats, in, now, th.FrequentMinCount); ok {
 			findings = append(findings, f)
 		}
 		if f, ok := neverFiredFinding(rule, stats, st, season, pv, doc.Location, now, th); ok {
@@ -103,8 +112,10 @@ func ObservedFindingsWithPV(doc Doc, st ObserverState, season SeasonalSource, pv
 }
 
 // frequentFinding reports the busiest hour of the last 24 h if it reached the
-// frequent count. The evidence covers the 4 h around that hour.
-func frequentFinding(rule Rule, stats RuleStats, now time.Time, minCount int) (Finding, bool) {
+// frequent count. The evidence covers the 4 h around that hour. With in, the
+// hysteresis comes from the minute noise and the replay of the rule with it
+// gives the events that are left as the proposed times.
+func frequentFinding(rule Rule, stats RuleStats, in *Input, now time.Time, minCount int) (Finding, bool) {
 	first := now.Add(-frequentWindow).Unix() / 3600
 	last := now.Unix() / 3600
 	var peak int64
@@ -132,19 +143,39 @@ func frequentFinding(rule Rule, stats RuleStats, now time.Time, minCount int) (F
 	}
 
 	var fixes []Fix
+	confidence := "high"
+	hystIdx := -1
+	hyst := 0
 	for i, c := range rule.Conditions {
 		// A learned threshold has no fixed number to derive a hysteresis from.
 		if _, learned := c.Learned["threshold"]; learned {
 			continue
 		}
 		if c.Type == "balance_threshold" && c.Hysteresis == 0 {
-			fixes = append(fixes, Fix{Code: "set_hysteresis", RuleID: rule.ID, Ops: []Op{
-				{Path: []any{"conditions", i, "hysteresis"}, Value: hysteresisFor(c.Threshold)}}})
+			hystIdx, hyst = i, hysteresisFor(c.Threshold)
+			if v, ok := minuteHysteresis(in, rule, c, now); ok {
+				hyst = v
+			}
 			break
 		}
 	}
+	if hystIdx >= 0 {
+		fixes = append(fixes, Fix{Code: "set_hysteresis", RuleID: rule.ID, Ops: []Op{
+			{Path: []any{"conditions", hystIdx, "hysteresis"}, Value: hyst}}})
+		if in != nil {
+			if soll, est, ok := frequentSoll(in, rule, hystIdx, hyst, from, to); ok {
+				// The replayed triggers are the Soll. The span of the Ist triggers
+				// would stand in for it, so it is dropped.
+				ev.Soll = soll
+				ev.SollSpans = nil
+				if est {
+					confidence = "estimate"
+				}
+			}
+		}
+	}
 	fixes = append(fixes, Fix{Code: "set_cooldown", RuleID: rule.ID, Ops: []Op{
-		{Path: []any{"cooldown_seconds"}, Value: 600}}})
+		{Path: []any{"cooldown_seconds"}, Value: frequentCooldown(ist)}}})
 
 	return Finding{
 		ID:         FindingID("frequent", rule.ID),
@@ -152,13 +183,88 @@ func frequentFinding(rule Rule, stats RuleStats, now time.Time, minCount int) (F
 		Group:      "check",
 		RuleIDs:    []string{rule.ID},
 		Severity:   "warn",
-		Confidence: "high",
+		Confidence: confidence,
 		Summary: Text{Code: "check.frequent", Params: map[string]any{
 			"rule": rule.Name, "count": peakCount}},
 		Evidence: ev,
 		Facts:    []Fact{{Code: "per_hour_max", Value: peakCount}},
 		Apply:    fixes,
 	}, true
+}
+
+// minuteHysteresis is 2 times the minute noise of the condition signal plus
+// the load step, the operating power of the device, rounded up to 50 W. It
+// reports false without minute days near the threshold or without an operating
+// power, and then the fallback of hysteresisFor applies.
+func minuteHysteresis(in *Input, rule Rule, c Condition, now time.Time) (int, bool) {
+	if in == nil || in.Minutes == nil {
+		return 0, false
+	}
+	device, _, ok := thresholdDevice(in, rule)
+	if !ok {
+		return 0, false
+	}
+	p, ok := learnedOperatingPower(in.Learned, device)
+	if !ok {
+		return 0, false
+	}
+	noise, ok := MinuteNoise(in.Minutes, "b:"+c.Field, c.Threshold, now.AddDate(0, 0, -engineHistoryDays), now)
+	if !ok {
+		return 0, false
+	}
+	return int(math.Ceil((2*noise+p)/hysteresisStepW) * hysteresisStepW), true
+}
+
+// frequentSoll replays the rule with hysteresis h over the last frequentReplayDays
+// days and returns the trigger times left in [from, to), in Unix seconds. est
+// is set when stretched quarter hours took part. ok is false when the rule
+// cannot be replayed or no minutes exist.
+func frequentSoll(in *Input, rule Rule, idx, h int, from, to int64) (soll []int64, est, ok bool) {
+	device, info, ok := thresholdDevice(in, rule)
+	if !ok {
+		return nil, false, false
+	}
+	p, ok := learnedOperatingPower(in.Learned, device)
+	if !ok {
+		return nil, false, false
+	}
+	raw, err := thresholdRuleJSON(rule, idx, rule.Conditions[idx].Threshold, float64(h))
+	if err != nil {
+		return nil, false, false
+	}
+	cycle, _ := surWinLearnedNumber(in.Learned, "device/"+device+"/cycle_wh")
+	minutes, est := ReplayDays(in, frequentReplayDays)
+	if len(minutes) == 0 {
+		return nil, false, false
+	}
+	var site sun.Location
+	if in.Doc.Location != nil {
+		site = *in.Doc.Location
+	}
+	target := ReplayTarget{RuleID: rule.ID, Device: device, OpW: p,
+		PeakW: feedbackInrush(in.Days, device, p), CycleWh: cycle, MinRunS: reliabilityMinRuntime(info)}
+	res, err := Replay(context.Background(), raw, target, minutes, RealState(in, device, minutes), replayLoc(in), site)
+	if err != nil {
+		return nil, false, false
+	}
+	first := minutes[0].At.Unix()
+	soll = []int64{}
+	for _, f := range res.Fires {
+		if t := first + f; t >= from && t < to {
+			soll = append(soll, t)
+		}
+	}
+	return soll, est, true
+}
+
+// frequentCooldown is 3 times the mean distance of the triggers in the burst,
+// at least cooldownFloorS, rounded up to whole seconds.
+func frequentCooldown(ist []int64) int {
+	if len(ist) < 2 {
+		return cooldownFloorS
+	}
+	mean := float64(ist[len(ist)-1]-ist[0]) / float64(len(ist)-1)
+	return max(cooldownFloorS, int(math.Ceil(3*mean)))
 }
 
 // hysteresisFor is 10 % of the threshold, rounded to 50 W, at least 100 W.

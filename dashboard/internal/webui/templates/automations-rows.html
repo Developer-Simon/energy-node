@@ -160,6 +160,51 @@
                         </div>
                       </template>
 
+                      <template x-if="condition.type === 'learned_value'">
+                        <div class="auto-fields">
+                          <div class="auto-field auto-field-wide">
+                            <span class="auto-field-label auto-label-sr">{{t "automations.learned.pick"}}</span>
+                            <select class="auto-input" x-bind:aria-label="$t('automations.learned.pick')" x-on:change="condition.learned = $event.target.value">
+                              <template x-for="option in learnedValueOptions(condition)" x-bind:key="option.key">
+                                <option x-bind:value="option.key" x-bind:selected="option.key === condition.learned" x-text="option.label"></option>
+                              </template>
+                            </select>
+                          </div>
+                          <div class="auto-field">
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.comparison_label"}}</span>
+                            {{template "auto-comparison" "balance"}}
+                          </div>
+                          <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'threshold', stepOpts: { step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.balance.threshold_label') }">
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.threshold_label"}}</span>
+                            {{template "auto-learn" (dict "field" "threshold" "fixed" "stepper" "aria" "")}}
+                          </div>
+                          <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hysteresis', stepOpts: { min: 0, step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.hysteresis_aria_label') }">
+                            <span class="auto-field-head">
+                              <span class="auto-field-label">{{t "automations.condition.hysteresis_label"}}</span>
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hysteresis_aria_label')">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('hysteresis')"></span>
+                              </span>
+                            </span>
+                            {{template "auto-stepper"}}
+                          </div>
+                          <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'fallback', stepOpts: { step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.learned.fallback') }">
+                            <span class="auto-field-label">{{t "automations.learned.fallback"}}</span>
+                            {{template "auto-stepper"}}
+                          </div>
+                          <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'max_age_s', stepOpts: { min: 1, step: 60 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.learned.value.max_age') }">
+                            <span class="auto-field-label">{{t "automations.learned.value.max_age"}}</span>
+                            {{template "auto-stepper"}}
+                          </div>
+                          <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hold_seconds', stepOpts: { min: 0, step: 1 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.condition.hold_aria_label') }">
+                            {{template "auto-hold-label"}}
+                            {{template "auto-learn" (dict "field" "hold_seconds" "fixed" "stepper" "aria" "")}}
+                          </div>
+                        </div>
+                      </template>
+
                       <template x-if="condition.type === 'chain_finding'">
                         <div class="auto-fields">
                           {{template "auto-chain-head"}}

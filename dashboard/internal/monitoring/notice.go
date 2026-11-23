@@ -28,16 +28,18 @@ type Ack struct {
 // Notice ist eine Meldung. Since ist der früheste bekannte Beginn aus der
 // Quelle (Kettenbefund), sonst null. FirstSeen und Ack setzt der Store.
 type Notice struct {
-	ID        string              `json:"id"`
-	Source    string              `json:"source"`   // energy, chain, learn
-	Severity  string              `json:"severity"` // warn, info
-	Code      string              `json:"code"`
-	Params    map[string]any      `json:"params,omitempty"`
-	Evidence  *autolearn.Evidence `json:"evidence,omitempty"`
-	Steps     []Step              `json:"steps"`
-	FirstSeen int64               `json:"first_seen"`
-	Ack       *Ack                `json:"ack"`
-	Since     time.Time           `json:"-"`
+	ID       string              `json:"id"`
+	Source   string              `json:"source"`   // energy, chain, learn
+	Severity string              `json:"severity"` // warn, info
+	Code     string              `json:"code"`
+	Params   map[string]any      `json:"params,omitempty"`
+	Evidence *autolearn.Evidence `json:"evidence,omitempty"`
+	// Facts are the figures of a learned finding, shown under its text.
+	Facts     []autolearn.Fact `json:"facts,omitempty"`
+	Steps     []Step           `json:"steps"`
+	FirstSeen int64            `json:"first_seen"`
+	Ack       *Ack             `json:"ack"`
+	Since     time.Time        `json:"-"`
 }
 
 // Input sind die Quellen einer Sammlung.
@@ -191,10 +193,14 @@ func learnSeverity(s string) string {
 	}
 }
 
+// learnNotices lists the learned findings that no rule shows. A finding with
+// RuleIDs or Apply belongs to a rule, and the automations page marks that rule
+// with it. A regulator finding is bound to its scenario, which has no mark, so
+// it is listed here as well.
 func learnNotices(findings []autolearn.Finding) []Notice {
 	var out []Notice
 	for _, f := range findings {
-		if len(f.RuleIDs) != 0 || len(f.Apply) != 0 {
+		if (len(f.RuleIDs) != 0 || len(f.Apply) != 0) && f.Kind != "regulator" {
 			continue
 		}
 		params := make(map[string]any, len(f.Summary.Params)+1)
@@ -223,6 +229,9 @@ func learnNotices(findings []autolearn.Finding) []Notice {
 		if f.Evidence.Shape != "" {
 			ev := f.Evidence
 			n.Evidence = &ev
+		}
+		if len(f.Facts) > 0 {
+			n.Facts = append([]autolearn.Fact(nil), f.Facts...)
 		}
 		out = append(out, n)
 	}

@@ -158,3 +158,80 @@ def test_hold_seconds_may_be_learned_on_time_window_and_sun_window():
     assert learned.cond_learned_keys({"type": "time_window", "hold_seconds": hold}) == {"site/hold_s"}
     assert learned.cond_learned_keys({"type": "sun_window", "hold_seconds": hold}) == {"site/hold_s"}
     assert learned.cond_learned_keys({"type": "chain_finding", "hold_seconds": hold}) == set()
+
+
+NOW = 1_800_000_000.0
+
+
+def _store(key, value, age_s=0):
+    return {learned.learned_topic(key): json.dumps({"value": value, "n": 1, "at": NOW - age_s})}
+
+
+def _lv(**extra):
+    cond = {"type": "learned_value", "learned": "site/pv_reserve_w", "comparison": "above",
+            "threshold": 1500, "fallback": 0, "max_age_s": 1800, "hold_seconds": 0}
+    cond.update(extra)
+    return cond
+
+
+def test_learned_value_above_threshold_is_met():
+    assert learned.evaluate_learned_value(_lv(), _store("site/pv_reserve_w", 1600), NOW) is True
+
+
+def test_learned_value_missing_uses_fallback_zero_and_is_not_met():
+    assert learned.evaluate_learned_value(_lv(), {}, NOW) is False
+
+
+def test_learned_value_older_than_max_age_uses_fallback():
+    store = _store("site/pv_reserve_w", 1600, age_s=2000)
+    assert learned.evaluate_learned_value(_lv(), store, NOW) is False
+    assert learned.learned_number(_lv(), store, NOW) == (0, "fallback")
+
+
+def test_learned_value_fallback_above_threshold_counts_as_met():
+    assert learned.evaluate_learned_value(_lv(fallback=2000), {}, NOW) is True
+
+
+def test_learned_value_hysteresis_keeps_met_until_value_drops_below_band():
+    cond = _lv(hysteresis=100)
+    met = learned.evaluate_learned_value(cond, _store("site/pv_reserve_w", 1600), NOW)
+    assert met is True
+    still = learned.evaluate_learned_value(cond, _store("site/pv_reserve_w", 1450), NOW, latched=met)
+    assert still is True
+    dropped = learned.evaluate_learned_value(cond, _store("site/pv_reserve_w", 1390), NOW, latched=still)
+    assert dropped is False
+
+
+def test_learned_value_without_hysteresis_ignores_latched_state():
+    cond = _lv(hysteresis=0)
+    assert learned.evaluate_learned_value(cond, _store("site/pv_reserve_w", 1450), NOW, latched=True) is False
+
+
+def test_learned_value_below_comparison_with_hysteresis():
+    cond = _lv(comparison="below", threshold=500, hysteresis=50)
+    assert learned.evaluate_learned_value(cond, _store("site/pv_reserve_w", 540), NOW, latched=True) is True
+    assert learned.evaluate_learned_value(cond, _store("site/pv_reserve_w", 560), NOW, latched=True) is False
+
+
+def test_learned_value_threshold_as_reference_resolves_on_cycle_wh():
+    ref = {"learned": "device/wallbox_1/cycle_wh", "min": 500, "max": 3000, "fallback": 1000}
+    cond = _lv(threshold=ref)
+    store = _store("device/wallbox_1/cycle_wh", 1200)
+    assert learned.evaluate_learned_value(cond, {**store, **_store("site/pv_reserve_w", 1250)}, NOW) is True
+    assert learned.evaluate_learned_value(cond, {**store, **_store("site/pv_reserve_w", 1100)}, NOW) is False
+    assert "device/wallbox_1/cycle_wh" in learned.cond_learned_keys(cond)
+    assert "site/pv_reserve_w" in learned.cond_learned_keys(cond)
+
+
+def test_learned_value_invalid_key_is_a_validation_error():
+    import automation_mqtt
+    errors = []
+    automation_mqtt._validate_condition(_lv(learned="site/../pv"), 0, errors)
+    assert any("learned must be a key" in e for e in errors)
+
+
+def test_learned_value_validation_accepts_the_documented_form():
+    import automation_mqtt
+    errors = []
+    automation_mqtt._validate_condition(_lv(hysteresis=100), 0, errors)
+    assert errors == []

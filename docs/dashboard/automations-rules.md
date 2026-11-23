@@ -271,6 +271,27 @@ The rule card draws the course of a learned value over the year as a small line
 under its scale. A sentence names the month with the highest value and the month
 with the lowest. The line appears from 8 weeks of data on.
 
+### Learned value condition
+
+The condition type **Learned value** compares a learned number with a
+threshold. Use it for numbers such as the PV reserve. The condition is met
+when the learned number is **above** or **below** the threshold. The threshold
+is a fixed number, or a reference to another learned value with its bounds.
+You choose the type in the rule editor, and in scenarios too.
+
+| Field | Meaning |
+|---|---|
+| `learned` | The learned number, for example `site/pv_reserve_w` |
+| `comparison` | `above` or `below` |
+| `threshold` | A fixed number, or a learned reference |
+| `hysteresis` | Gap around the threshold, so the condition does not flicker |
+| `fallback` | The number compared when the learned value is missing or older than `max_age_s` |
+| `max_age_s` | Age limit in seconds, 604800 (7 days) by default |
+| `hold_seconds` | Time the condition must stay met before it counts |
+
+The hysteresis works as for balance conditions. With **above** the condition
+turns on at the threshold and turns off at the threshold minus the hysteresis.
+
 ### Energy learned values
 
 The node also learns from the energy side of your house. These values are

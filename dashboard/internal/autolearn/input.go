@@ -44,6 +44,13 @@ type Input struct {
 	// before that were empty before sunrise, and whether a record of that week
 	// exists. Nil, or a week without a record, means the empty finding is not made.
 	PriorEmptyShare func(week int) (float64, bool)
+	// Minutes reads the minute record. Nil when none is wired, and the replay
+	// then works from the quarter hours of the day files.
+	Minutes learnrec.Reader
+	// Steps reads the regulator steps of a scenario from and to, both ends
+	// included. Nil when no step log is wired, and the detectors that need the
+	// steps then find nothing.
+	Steps func(scenario string, from, to time.Time) []Step
 }
 
 // OutdoorSource names the outdoor temperature entity: its unique id, its state
@@ -91,6 +98,9 @@ type Candidate struct {
 	Benefit     Benefit
 	Values      map[string]float64
 	Spread      map[string]float64
+	// Replay is the replay check of an energy suggestion, nil when the
+	// suggestion is not replayed.
+	Replay *ReplayVerdict
 	// Value is set on a learned value. Such a candidate is no finding and
 	// reaches the engine through Values, not Candidates.
 	Value *Value

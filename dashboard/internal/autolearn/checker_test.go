@@ -393,3 +393,60 @@ func TestCheckerDropsReliabilityFindingWhoseFixIsSaved(t *testing.T) {
 		t.Fatalf("finding with an open fix = %d findings, want 1", len(got))
 	}
 }
+
+func TestCheckerReadsReplaySourceOnFindings(t *testing.T) {
+	c := NewChecker(NewObserver(time.UTC), nil, staticRead(unsatisfiableDoc), nil, "", t.Logf)
+	calls := 0
+	c.SetReplaySource(func() *Input {
+		calls++
+		return &Input{Now: testBase}
+	})
+	c.Findings(testBase)
+	if calls != 1 {
+		t.Fatalf("replay source calls = %d, want 1", calls)
+	}
+}
+
+// regulatorScenarioDoc has one scenario with a regulator and no rule.
+const regulatorScenarioDoc = `{"rules":[],"scenarios":[{"id":"heater","name":"Heizstab","enabled":true,"while":{"regulator":{"output":{"topic":"heater/power/set"}}}}]}`
+
+func TestCheckerKeepsRegulatorFindingOfScenario(t *testing.T) {
+	on := true
+	reg := reliabilityCandidate("regulator", "heater")
+	c := checkerWithEngine(t, regulatorScenarioDoc, []Candidate{reg}, &on, "")
+	got := c.Findings(testBase)
+	if len(got) != 1 || got[0].ID != "regulator:heater" {
+		t.Fatalf("findings = %+v, want the regulator:heater finding of the scenario", got)
+	}
+}
+
+func TestCheckerReplayInputIsKeptTenMinutes(t *testing.T) {
+	c := NewChecker(NewObserver(time.UTC), nil, staticRead(unsatisfiableDoc), nil, "", t.Logf)
+	calls := 0
+	c.SetReplaySource(func() *Input {
+		calls++
+		return &Input{Now: testBase}
+	})
+	c.Findings(testBase)
+	c.Findings(testBase.Add(5 * time.Minute))
+	if calls != 1 {
+		t.Fatalf("source calls after 5 minutes = %d, want 1", calls)
+	}
+	c.Findings(testBase.Add(11 * time.Minute))
+	if calls != 2 {
+		t.Fatalf("source calls after 11 minutes = %d, want 2", calls)
+	}
+}
+
+func TestCheckerReplayInputNotBuiltWithoutEnabledRule(t *testing.T) {
+	c := NewChecker(NewObserver(time.UTC), nil, staticRead(emptyRuleDoc), nil, "", t.Logf)
+	calls := 0
+	c.SetReplaySource(func() *Input {
+		calls++
+		return &Input{Now: testBase}
+	})
+	c.Findings(testBase)
+	if calls != 0 {
+		t.Fatalf("source calls without rules = %d, want 0", calls)
+	}
+}

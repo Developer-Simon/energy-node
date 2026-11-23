@@ -1316,6 +1316,7 @@ test('every presets step except the band carries its threshold scale', () => {
     'surplus_switch:on': { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
     'battery_warn:below': { min: 0, max: 100, step: 5, ticks: 20, fill: 'below', unit: '%' },
     'heat_pump:start': { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
+    'shift_start:on_w': { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
     'tariff:thr': { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
     'wallbox_low_tariff:thr': { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
     'grid_cap:limit': { min: 0, max: 30000, step: 100, ticks: 5000, grow: true, fill: 'above', unit: 'W' },
@@ -1989,4 +1990,81 @@ test('night_off offers only switches and shows the night window in its summary',
   assert.deepEqual(steps.map((step) => step.id), ['device', 'summary']);
   const rows = plain(template.summary(answersFor(wizard, template, ctx, { device: 'lamp_switch' }), ctx));
   assert.ok(rows.some((row) => row.text === catalog('de')['automations.assistant.summary.night.learned']));
+});
+
+test('shift_start builds one scenario: surplus against the cycle energy, until the latest time, no switch off on end', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'shift_start');
+  const ctx = plain(contextFor(wizard));
+  const answers = answersFor(wizard, template, ctx, {
+    device: 'lamp_switch', on_w: 1500, latest: { from: '20:00', to: '20:05', days: [0, 1, 2, 3, 4, 5, 6] },
+  });
+  const result = plain(template.build(answers, ctx));
+  assert.equal(result.kind, 'scenario');
+  const entry = result.entry;
+  assert.equal(entry.id, 'shift_start');
+  assert.equal(entry.template, 'shift_start');
+  assert.deepEqual(entry.when.conditions, [
+    {
+      type: 'learned_value',
+      learned: 'site/surplus_left_wh',
+      comparison: 'above',
+      threshold: {
+        learned: 'device/lamp/cycle_wh', min: 100, max: 6000, fallback: 1000,
+      },
+      fallback: 0,
+    },
+    {
+      type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 1500, hysteresis: 0, hold_seconds: 120,
+    },
+    { type: 'time_window', start: '00:00', end: '20:00', weekdays: [] },
+  ]);
+  assert.deepEqual(entry.until.conditions, [
+    { type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 300, hysteresis: 0, hold_seconds: 600 },
+  ]);
+  assert.equal(entry.max_duration_s, 14400);
+  assert.equal(entry.cooldown_s, 86400);
+  assert.equal(entry.on_start.actions[0].payload, 'ON');
+  assert.deepEqual(entry.on_end.actions, [], 'the end never switches the device off');
+  assert.equal(entry.while.mode, 'none');
+});
+
+test('after_battery_full builds a valid scenario with the chosen minimum run time', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'after_battery_full');
+  const ctx = plain(contextFor(wizard));
+  const result = plain(template.build(answersFor(wizard, template, ctx, { device: 'lamp_switch' }), ctx));
+  assert.equal(result.kind, 'scenario');
+  assert.equal(result.entry.template, 'after_battery_full');
+  assert.deepEqual(result.entry.when.conditions, [
+    { type: 'balance_threshold', field: 'battery_soc', comparison: 'above', threshold: 96, hysteresis: 0, hold_seconds: 0 },
+    { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 120 },
+  ]);
+  assert.deepEqual(result.entry.until.conditions, [
+    { type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 120 },
+  ]);
+  assert.equal(result.entry.min_run_s, 300);
+  const none = plain(template.build(answersFor(wizard, template, ctx, { device: 'lamp_switch', min_run_s: 'none' }), ctx));
+  assert.equal(none.entry.min_run_s, 0);
+});
+
+test('surplus_switch with the PV reserve source starts on the learned reserve', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { source: 'reserve', on: 1500 }), ctx).entry);
+  assert.deepEqual(entry.when.conditions, [{
+    type: 'learned_value', learned: 'site/pv_reserve_w', comparison: 'above', threshold: 1500, fallback: 0, hysteresis: 100, max_age_s: 1800, hold_seconds: 120,
+  }]);
+});
+
+test('surplus_wallbox with the PV reserve source starts on the learned reserve', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_wallbox');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { source: 'reserve', start: 2000 }), ctx).entry);
+  assert.equal(entry.when.conditions[0].type, 'learned_value');
+  assert.equal(entry.when.conditions[0].learned, 'site/pv_reserve_w');
+  assert.equal(entry.when.conditions[0].threshold, 2000);
+  assert.equal(entry.when.conditions[0].hold_seconds, 180);
 });

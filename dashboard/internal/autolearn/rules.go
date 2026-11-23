@@ -33,6 +33,7 @@ type Rule struct {
 // balance_threshold, Value from value of a topic_value or entity_value,
 // HoldSeconds from hold_seconds. A field that holds a learned value is not a
 // number: it stays 0 or nil here and is listed in Learned under its field name.
+// The value a learned_value condition compares is listed under learned.
 // Raw keeps the original JSON of the condition.
 type Condition struct {
 	Type        string
@@ -90,6 +91,13 @@ type Scenario struct {
 type RegulatorSpec struct {
 	DeadbandW float64
 	MaxW      float64
+	// Gain is the regulator gain (gain, default 0.8).
+	Gain float64
+	// MaxChangeW is the largest change per step in W (max_change_w), nil for no limit.
+	MaxChangeW *float64
+	// BaseSource is the regulator base (base.source): last, entity or balance.
+	// Every base other than last is a measured base.
+	BaseSource string
 }
 
 // wireDoc mirrors the JSON of the rule document. Unknown fields are ignored.
@@ -143,6 +151,14 @@ type wireCondition struct {
 	HoldSeconds json.RawMessage `json:"hold_seconds"`
 }
 
+// wireLearnedValue holds the top level learned key of a learned_value
+// condition, the value it compares, with its fallback and max age.
+type wireLearnedValue struct {
+	Learned  string  `json:"learned"`
+	Fallback any     `json:"fallback"`
+	MaxAgeS  float64 `json:"max_age_s"`
+}
+
 // wireLearnedRef mirrors the JSON of a learned reference.
 type wireLearnedRef struct {
 	Learned  string  `json:"learned"`
@@ -186,7 +202,12 @@ type wireRegulator struct {
 		Topic string  `json:"topic"`
 		Max   float64 `json:"max"`
 	} `json:"output"`
-	DeadbandW *float64 `json:"deadband_w"`
+	DeadbandW  *float64 `json:"deadband_w"`
+	Gain       *float64 `json:"gain"`
+	MaxChangeW *float64 `json:"max_change_w"`
+	Base       struct {
+		Source string `json:"source"`
+	} `json:"base"`
 }
 
 // ParseDoc parses the rule document. Unknown fields are ignored.
@@ -234,9 +255,16 @@ func ParseDoc(raw []byte) (Doc, error) {
 // spec returns the learning view of the regulator block. A missing deadband_w
 // takes the schema default of 20 W.
 func (wr *wireRegulator) spec() *RegulatorSpec {
-	spec := &RegulatorSpec{DeadbandW: 20, MaxW: wr.Output.Max}
+	spec := &RegulatorSpec{DeadbandW: 20, MaxW: wr.Output.Max, Gain: 0.8, BaseSource: wr.Base.Source}
 	if wr.DeadbandW != nil {
 		spec.DeadbandW = *wr.DeadbandW
+	}
+	if wr.Gain != nil {
+		spec.Gain = *wr.Gain
+	}
+	if wr.MaxChangeW != nil {
+		v := *wr.MaxChangeW
+		spec.MaxChangeW = &v
 	}
 	return spec
 }
@@ -267,6 +295,11 @@ func parseCondition(rawCond json.RawMessage) (Condition, error) {
 	if _, err := learnedRef(wc.End, "end", learned); err != nil {
 		return Condition{}, err
 	}
+	if wc.Type == "learned_value" {
+		if err := learnedValueRef(rawCond, learned); err != nil {
+			return Condition{}, err
+		}
+	}
 	condition := Condition{
 		Type: wc.Type, Field: wc.Field, Comparison: wc.Comparison, Topic: wc.Topic,
 		EntityID: wc.EntityID, Hysteresis: wc.Hysteresis, Value: value, HoldSeconds: holdSeconds,
@@ -296,6 +329,21 @@ func number(raw json.RawMessage, name string, learned map[string]LearnedRef) (*f
 		return nil, fmt.Errorf("%s must be a number or a learned value", name)
 	}
 	return &n, nil
+}
+
+// learnedValueRef records the key a learned_value condition compares under
+// learned, with its top level fallback and max_age_s. Without a key nothing is
+// recorded.
+func learnedValueRef(rawCond json.RawMessage, learned map[string]LearnedRef) error {
+	var wv wireLearnedValue
+	if err := json.Unmarshal(rawCond, &wv); err != nil {
+		return err
+	}
+	if wv.Learned == "" {
+		return nil
+	}
+	learned["learned"] = LearnedRef{Key: wv.Learned, Fallback: wv.Fallback, MaxAgeS: wv.MaxAgeS}
+	return nil
 }
 
 // learnedRef records raw under name when it is a learned reference and reports

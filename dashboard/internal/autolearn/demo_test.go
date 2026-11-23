@@ -195,7 +195,8 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 		loc)
 	for _, d := range []Detector{SwitchTimeDetector, RuntimeDetector, CouplingDetector, OverriddenDetector,
 		AwayStandbyDetector, TemperatureDetector, LearnSwitchTimeDetector, LearnRuntimeDetector, LearnDayBoundsDetector, LearnHouseStateDetector,
-		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector, BaseLoadDetector} {
+		LearnCyclesDetector, FeedbackDetector, CompetitionDetector, BatteryDetector, BaseLoadDetector,
+		ThresholdDetector, RegulatorDetector, SurplusDetector, ShiftDetector} {
 		e.Register(d)
 	}
 	// The energy checks read the operating powers the engine learned before them.
@@ -205,6 +206,19 @@ func demoEngineRun(t *testing.T, dir string, now time.Time, loc *time.Location) 
 		season.Put(w)
 	}
 	e.SetSeason(season)
+	pvRaster := DemoPVRasterYear(now, demoLat, demoLon)
+	pvModel := DemoPVModel(pvRaster)
+	e.SetPV(func() (PVModel, *Raster, bool) { return pvModel, pvRaster, true })
+	if err := SeedDemoMinutes(dir, now, loc); err != nil {
+		t.Fatalf("SeedDemoMinutes: %v", err)
+	}
+	minutes := learnrec.NewMinuteStore(loc,
+		func() learnrec.MinutePlan { return learnrec.MinutePlan{On: true, Days: demoSeedDays} },
+		func() learnrec.MinuteDirs { return learnrec.MinuteDirs{Drive: dir} },
+		func() bool { return true }, func() learnrec.Limits { return learnrec.Limits{} }, nil)
+	e.SetMinutes(func() learnrec.Reader { return minutes })
+	steps := NewStepLog(func() int { return demoSeedDays }, func() string { return dir }).WithRingDays(func() int { return 0 })
+	e.SetSteps(steps.Steps)
 	e.SetOutdoor(func() OutdoorSource {
 		return OutdoorSource{EntityID: demoOutdoorEntity, Topic: "outstation/outdoor/state", ValueTemplate: "{{ value_json.temp }}"}
 	})
@@ -717,6 +731,110 @@ func TestDemoSeedYieldsEnergyFindings(t *testing.T) {
 	}
 }
 
+// TestDemoSeedYieldsThresholdFinding checks that the demo holds a surplus rule
+// whose threshold is too high for the heat pump, so the threshold rating
+// suggests a lower one.
+func TestDemoSeedYieldsThresholdFinding(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]Candidate{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = c
+	}
+	const id = "threshold:regel_wp_ueberschuss_hoch"
+	c, ok := ids[id]
+	if !ok {
+		t.Fatalf("no %s in the demo pipeline, ids %v", id, candidateIDs(ids))
+	}
+	if c.Finding.Summary.Code != "threshold.too_high" {
+		t.Errorf("%s code = %q, want threshold.too_high", id, c.Finding.Summary.Code)
+	}
+}
+
+// candidateIDs lists the finding IDs for failure messages.
+func candidateIDs(m map[string]Candidate) []string {
+	out := make([]string, 0, len(m))
+	for id := range m {
+		out = append(out, id)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// TestDemoSeedYieldsRegulatorFinding checks that the demo regulator with the
+// last value as base, which follows the output with K = 1 and dead time 1,
+// gets a gain suggestion about 0,2 below its configured 0,8.
+func TestDemoSeedYieldsRegulatorFinding(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]Candidate{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = c
+	}
+	const id = "regulator:nulleinspeisung_last"
+	c, ok := ids[id]
+	if !ok {
+		t.Fatalf("no %s in the demo pipeline, ids %v", id, candidateIDs(ids))
+	}
+	soll := c.Finding.Evidence.SollValue
+	if soll == nil || math.Abs(*soll-0.2) > 0.1 {
+		t.Errorf("%s gain soll = %v, want about 0.2", id, soll)
+	}
+}
+
+// TestDemoRegulatorScenariosShareNoOutputTopic checks that the demo scenarios
+// with a regulator never drive the same output topic, so the demo does not
+// fight over the live limit of the PV inverter.
+func TestDemoRegulatorScenariosShareNoOutputTopic(t *testing.T) {
+	doc, err := ParseDoc(demoRulesRaw(t))
+	if err != nil {
+		t.Fatalf("parse demo rules: %v", err)
+	}
+	seen := map[string]string{}
+	for _, sc := range doc.Scenarios {
+		if sc.Regulator == nil {
+			continue
+		}
+		if other, ok := seen[sc.RegulatorTopic]; ok {
+			t.Errorf("scenarios %s and %s both drive %s", other, sc.ID, sc.RegulatorTopic)
+		}
+		seen[sc.RegulatorTopic] = sc.ID
+	}
+	if len(seen) < 2 {
+		t.Fatalf("demo regulator scenarios = %v, want two", seen)
+	}
+}
+
+// TestDemoSeedYieldsSurplusFinding checks that the demo dryer, which runs at
+// midday on solar power and no rule switches on surplus, gets a surplus window.
+func TestDemoSeedYieldsSurplusFinding(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]Candidate{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = c
+	}
+	const id = "surplus:" + demoDryer
+	if _, ok := ids[id]; !ok {
+		t.Errorf("no %s in the demo pipeline, ids %v", id, candidateIDs(ids))
+	}
+}
+
+// TestDemoSeedYieldsShiftFinding checks that the demo dishwasher, which runs in
+// the evening from the grid, gets a load shift to the midday surplus.
+func TestDemoSeedYieldsShiftFinding(t *testing.T) {
+	loc := berlinLoc(t)
+	now := time.Date(2026, 11, 20, 9, 0, 0, 0, loc)
+	ids := map[string]Candidate{}
+	for _, c := range demoEngineRun(t, t.TempDir(), now, loc).Candidates() {
+		ids[c.Finding.ID] = c
+	}
+	const id = "shift:" + demoDishwasher
+	if _, ok := ids[id]; !ok {
+		t.Errorf("no %s in the demo pipeline, ids %v", id, candidateIDs(ids))
+	}
+}
+
 // TestDemoSeedKeepsTheHabitSuggestions checks the suggestions the demo had
 // before the energy findings: run time of the dehumidifier and the away standby.
 func TestDemoSeedKeepsTheHabitSuggestions(t *testing.T) {
@@ -752,7 +870,7 @@ func TestDemoPVYearRestsTheFeedInRule(t *testing.T) {
 	st.Rules["regel_einspeisung_entfeuchter"] = RuleStats{FirstSeen: now.Add(-40 * 24 * time.Hour), Hours: map[int64]int{}}
 	src := func() (PVModel, *Raster, bool) { return m, r, true }
 	var got *Finding
-	for _, f := range ObservedFindingsWithPV(doc, st, nil, src, now, DefaultThresholds()) {
+	for _, f := range ObservedFindingsWithPV(doc, st, nil, src, nil, now, DefaultThresholds()) {
 		if f.ID == FindingID("never_fired", "regel_einspeisung_entfeuchter") {
 			f := f
 			got = &f

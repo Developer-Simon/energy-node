@@ -91,7 +91,9 @@
     return t(CAT + 'legend.' + shape, {});
   }
 
-  const api = { arrange, title, line, text, legend, resolveSummary };
+  // Zahlen der Befunde als Zeilen aus Bezeichnung und Wert, wie im Vorschlagsband.
+  const factRows = (facts, t) => (facts || []).map((f) => ({ label: t(CAT + 'fact.' + f.code, {}), value: valueOf(f, t) }));
+  const api = { arrange, title, line, text, legend, resolveSummary, factRows };
   window.AutomationSuggestions = api;
 
   // Vorschlagsband oberhalb der Regeln. Laedt einmal beim Oeffnen der Seite. Die

@@ -145,6 +145,14 @@
     return t(`monitoring.notice.${notice.code}.text`, notice.params);
   }
 
+  // Die Zahlen eines Lernbefunds mit dem Format des Vorschlagsbands. Die Seite lädt
+  // das Band mit; ohne es bleiben die Zahlen weg.
+  function learnFacts(list, t) {
+    const band = typeof window !== 'undefined' ? window.AutomationSuggestions : null;
+    if (band && typeof band.factRows === 'function') return band.factRows(list, t).map((r) => [r.label, r.value]);
+    return [];
+  }
+
   function facts(notice, t) {
     const p = notice.params || {};
     if (notice.code === 'unassigned') {
@@ -153,6 +161,7 @@
       return rows;
     }
     if (sourceOf(notice) === 'learn' && p.kind === 'shade') return shadeFacts(notice, p, t);
+    if (isLearned(notice) && Array.isArray(notice.facts) && notice.facts.length) return learnFacts(notice.facts, t);
     return [];
   }
 

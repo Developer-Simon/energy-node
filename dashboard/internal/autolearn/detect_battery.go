@@ -2,6 +2,7 @@ package autolearn
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"sort"
 	"strings"
@@ -43,6 +44,17 @@ const (
 	batteryWeekDays = 7.0
 	// batteryLearnRoundWh rounds the learned night energy.
 	batteryLearnRoundWh = 100.0
+	// batteryMaxOffers is the number of loads offered after "full".
+	batteryMaxOffers = 2
+	// batteryReplayDays is the number of days the replay of an offer reads.
+	batteryReplayDays = 14
+	// batteryAfterSoC, batteryAfterExportW, batteryAfterImportW and
+	// batteryAfterHoldS are the conditions of the after_battery_full scenario,
+	// as its template sets them.
+	batteryAfterSoC     = 96.0
+	batteryAfterExportW = 100.0
+	batteryAfterImportW = 100.0
+	batteryAfterHoldS   = 120
 )
 
 // batteryDay is one day file with a charge. The sun values are local minutes
@@ -76,7 +88,7 @@ func batteryRun(ctx context.Context, in *Input, _ string) []Candidate {
 		return nil
 	}
 	var out []Candidate
-	out = append(out, batteryFull(days)...)
+	out = append(out, batteryFull(ctx, in, days)...)
 	out = append(out, batteryEmpty(in, days)...)
 	out = append(out, batteryLearned(in, days)...)
 	return out
@@ -275,8 +287,12 @@ func batteryMinSoC(f *DayFile) float64 {
 
 // batteryFull looks for a battery that is full before solar noon on most days.
 // Days without sun are left out. The finding carries the median time of the
-// first full quarter and the export after it.
-func batteryFull(days []*batteryDay) []Candidate {
+// first full quarter and the export after it. Up to batteryMaxOffers switchable
+// loads whose power fits that export are offered with the after_battery_full
+// template, each one replayed. A replay that adds more grid energy than the
+// export it saves drops the offer (replayAddsGrid, the gate rule). Without a
+// replay the offer stays and carries no benefit.
+func batteryFull(ctx context.Context, in *Input, days []*batteryDay) []Candidate {
 	var flags []bool
 	var hits []*batteryDay
 	for _, d := range days {
@@ -306,8 +322,8 @@ func batteryFull(days []*batteryDay) []Candidate {
 		}
 		kwh = append(kwh, wh/1000)
 	}
-	// The finding has no rule and no fix. In the group check it reaches the
-	// rule check and from there the Monitoring page as a notice, like shade.
+	// The finding reaches the rule check and from there the Monitoring page as
+	// a notice, like shade. Its offers are the only fixes.
 	finding := Finding{
 		ID:         "battery:full",
 		Kind:       "battery",
@@ -320,6 +336,13 @@ func batteryFull(days []*batteryDay) []Candidate {
 		}},
 		Evidence: batteryFullEvidence(hits[len(hits)-1]),
 	}
+	offers := batteryOffers(ctx, in, days, hits)
+	if len(offers.apply) > 0 {
+		finding.Apply = offers.apply
+	}
+	if offers.replayed {
+		finding.Benefit = &offers.benefit
+	}
 	return []Candidate{{
 		Finding:     finding,
 		Detector:    "battery",
@@ -328,7 +351,156 @@ func batteryFull(days []*batteryDay) []Candidate {
 		Lower:       lower,
 		Limit:       batteryShare,
 		HalvesAgree: batteryHalves(flags),
+		Benefit:     offers.benefit,
 	}}
+}
+
+// batteryOfferSet is what batteryOffers returns: the fixes, and the largest
+// benefit of an offer that was replayed. replayed is false when no offer was
+// replayed, then no benefit is set.
+type batteryOfferSet struct {
+	apply    []Fix
+	benefit  Benefit
+	replayed bool
+}
+
+// batteryOffers offers the switchable loads whose power fits the export after
+// "full", the largest first, up to batteryMaxOffers. An offer whose replay adds
+// grid energy is dropped and does not take a slot.
+func batteryOffers(ctx context.Context, in *Input, days []*batteryDay, hits []*batteryDay) batteryOfferSet {
+	var set batteryOfferSet
+	if len(hits) == 0 {
+		return set
+	}
+	exportW := batteryExportAfterFull(hits)
+	type load struct {
+		id string
+		w  float64
+	}
+	var fit []load
+	for id, info := range in.Devices {
+		if !info.Switchable || len(info.Entities) == 0 {
+			continue
+		}
+		w := batteryDevicePower(in, id, days)
+		if w > 0 && w <= exportW {
+			fit = append(fit, load{id: id, w: w})
+		}
+	}
+	sort.SliceStable(fit, func(a, b int) bool {
+		if fit[a].w != fit[b].w {
+			return fit[a].w > fit[b].w
+		}
+		return fit[a].id < fit[b].id
+	})
+	for _, l := range fit {
+		if len(set.apply) >= batteryMaxOffers || ctx.Err() != nil {
+			break
+		}
+		info := in.Devices[l.id]
+		minRun := minRunForRole(info)
+		fix := Fix{Code: "after_battery_full", Template: "after_battery_full",
+			Prefill: withEntity(map[string]any{"device": l.id, "min_run_s": minRun}, "entity", switchEntityOf(in, l.id))}
+		verdict, benefit, err := batteryReplay(ctx, in, l.id, l.w, minRun)
+		if err == nil && verdict != nil {
+			if replayAddsGrid(*verdict) {
+				continue
+			}
+			if !set.replayed || benefit.Value > set.benefit.Value {
+				set.benefit = benefit
+			}
+			set.replayed = true
+		}
+		set.apply = append(set.apply, fix)
+	}
+	return set
+}
+
+// batteryExportAfterFull is the median over the days of the mean export in W
+// from the first full quarter to the end of the day, over the quarters the day
+// has a measurement for.
+func batteryExportAfterFull(hits []*batteryDay) float64 {
+	var per []float64
+	for _, d := range hits {
+		var sum float64
+		n := 0
+		for q := d.fullQ; q < dayQuarters; q++ {
+			if d.f.Site.Seen[q] == 0 {
+				continue
+			}
+			sum += float64(d.f.Site.GridExport[q])
+			n++
+		}
+		if n > 0 {
+			per = append(per, sum/float64(n))
+		}
+	}
+	return Median(per)
+}
+
+// batteryDevicePower is the operating power of a device in W, the learned value
+// when there is one, else the median of its positive mean power in the days.
+func batteryDevicePower(in *Input, device string, days []*batteryDay) float64 {
+	if p, ok := learnedOperatingPower(in.Learned, device); ok {
+		return p
+	}
+	var vals []float64
+	for _, d := range days {
+		dd := d.f.Devices[device]
+		if dd == nil {
+			continue
+		}
+		for q := 0; q < dayQuarters; q++ {
+			if dd.Seen[q] != 0 && dd.AvgW[q] > 0 {
+				vals = append(vals, float64(dd.AvgW[q]))
+			}
+		}
+	}
+	return Median(vals)
+}
+
+// batteryReplay replays the after_battery_full scenario for one load over the
+// last batteryReplayDays days. It returns a nil verdict when there are no
+// minutes, and an error when the scenario cannot be replayed.
+func batteryReplay(ctx context.Context, in *Input, device string, opW float64, minRun float64) (*ReplayVerdict, Benefit, error) {
+	if in.Doc.Location == nil {
+		return nil, Benefit{}, nil
+	}
+	id := "battery-full:" + device
+	scenario := map[string]any{
+		"id":        id,
+		"enabled":   true,
+		"min_run_s": minRun,
+		"when": map[string]any{"conditions": []map[string]any{
+			{"type": "balance_threshold", "field": "battery_soc", "comparison": "above", "threshold": batteryAfterSoC},
+			{"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": batteryAfterExportW},
+		}},
+		"until": map[string]any{"conditions": []map[string]any{
+			{"type": "balance_threshold", "field": "grid_import", "comparison": "above", "threshold": batteryAfterImportW, "hold_seconds": batteryAfterHoldS},
+		}},
+	}
+	raw, err := json.Marshal(scenario)
+	if err != nil {
+		return nil, Benefit{}, err
+	}
+	loc := in.Loc
+	if loc == nil {
+		loc = time.Local
+	}
+	chk := ReplayCheck{
+		Rule: json.RawMessage(raw),
+		Target: ReplayTarget{ScenarioID: id, Device: device, OpW: opW,
+			PeakW: feedbackInrush(in.Days, device, opW), MinRunS: minRun},
+		Benefit: func(alt, base ReplayResult) Benefit {
+			// The energy the load takes from the export, per week.
+			return Benefit{Unit: "kwh_week", Value: (base.ExportWh - alt.ExportWh) / 1000 * 7 / batteryReplayDays}
+		},
+	}
+	verdict, benefit, err := EvaluateReplay(ctx, in, chk, batteryReplayDays, loc, *in.Doc.Location)
+	if ctx.Err() != nil {
+		return nil, Benefit{}, ctx.Err()
+	}
+	return verdict, benefit, err
 }
 
 // batteryEmpty looks for a battery that is empty before sunrise on most days,

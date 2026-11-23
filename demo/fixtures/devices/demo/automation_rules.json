@@ -136,6 +136,18 @@
       ]
     },
     {
+      "id": "regel_wp_ueberschuss_hoch",
+      "name": "WP an bei sehr hohem Überschuss",
+      "enabled": true,
+      "cooldown_seconds": 600,
+      "conditions": [
+        {"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 3000, "hysteresis": 200, "hold_seconds": 300}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "waermepumpe/mode/set", "entity_id": "waermepumpe_mode", "payload_source": "constant", "payload": "ON"}
+      ]
+    },
+    {
       "id": "regel_einspeisung_entfeuchter",
       "name": "Entfeuchter an bei viel Einspeisung",
       "enabled": true,
@@ -170,6 +182,44 @@
         }
       },
       "on_end": { "actions": [ { "type": "publish", "topic": "outstation/apsystems_dach/max_power_limit_w/set", "payload_source": "constant", "payload": "800" } ] }
+    },
+    {
+      "id": "nulleinspeisung_last",
+      "name": "Nulleinspeisung, Basis letzter Wert",
+      "enabled": true,
+      "template": "zero_feed",
+      "history_enabled": true,
+      "when": {
+        "conditions": [
+          {
+            "type": "sun_window",
+            "from": "sunrise",
+            "to": "sunset"
+          }
+        ]
+      },
+      "while": {
+        "mode": "regulate",
+        "regulator": {
+          "output": {
+            "topic": "outstation/apsystems_dach/max_power_limit_last_w/set",
+            "min": 50,
+            "max": 800,
+            "step": 10,
+            "decimals": 0
+          },
+          "direction": "producer",
+          "target_w": 30,
+          "deadband_w": 20,
+          "gain": 0.8,
+          "base": {
+            "source": "last"
+          },
+          "fallback": {
+            "payload": "800"
+          }
+        }
+      }
     }
   ]
 }
