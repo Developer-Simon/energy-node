@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.3-pre.5 (2026-11-22)
+## v0.7.3-pre.6 (2026-11-23)
 
 ### Features
 
@@ -8,8 +8,10 @@
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 - **automations:** flag rules that do not work and offer a fix (#278) (d369133)
 - **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284) (8aae55b)
+- **autolearn:** The node records minute values and keeps every regulator step as a base for learning (#293) (19e65e7)
+- **automation:** compare a learned number in a condition (service) (9f690c9)
+- **autolearn:** Automation suggestions for surplus windows, load shifts and thresholds are checked against your own recorded data first. (#295)
 - **automation:** publish every regulator step of a scenario (b82ff94)
-- **autolearn:** The node records minute values and keeps every regulator step as a base for learning (#293)
 - **automation:** resolve learned values with bounds and a fallback (1049a08)
 - **automation:** compare against learned values and the learned house state (e27f41c)
 - **automations:** accept learned values in the rule schema (a8c404d)
@@ -19,6 +21,10 @@
 
 - **automation:** keep resolving learned values exception free and allow hold_seconds on all conditions (081dfed)
 - **automation:** reject malformed learned references consistently (934c418)
+
+### Tests
+
+- **automation:** add replay vectors for rules and scenarios (7f83702)
 
 ## v0.7.2 (2026-10-27)
 
