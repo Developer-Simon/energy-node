@@ -1,6 +1,6 @@
 {
   "de": {
-    "*": "Automationsvorschläge für Überschussfenster, Lastverschiebung und Schwellen werden zuerst gegen die eigenen aufgezeichneten Daten geprüft."
+    "*": "Automationsvorschläge für Überschuss und Lastverschiebung werden an deinen Daten geprüft"
   },
   "en": {
     "*": "Automation suggestions for surplus windows, load shifts and thresholds are checked against your own recorded data first"

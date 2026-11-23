@@ -10,7 +10,7 @@
 - **automations:** Rules can follow learned values with bounds and react to a quiet or active house (#284) (8aae55b)
 - **autolearn:** The node records minute values and keeps every regulator step as a base for learning (#293) (19e65e7)
 - **automation:** compare a learned number in a condition (service) (9f690c9)
-- **autolearn:** Automation suggestions for surplus windows, load shifts and thresholds are checked against your own recorded data first. (#295)
+- **autolearn:** Automation suggestions for surplus and load shifts are checked against your data (#295)
 - **automation:** publish every regulator step of a scenario (b82ff94)
 - **automation:** resolve learned values with bounds and a fallback (1049a08)
 - **automation:** compare against learned values and the learned house state (e27f41c)

@@ -62,7 +62,7 @@
 - **automations:** build the shift start as one scenario (4b75e8f)
 - **automations:** show findings on scenario cards (054b01a)
 - **automations:** ease the target curve and the scale bars into the evidence (0134794)
-- **autolearn:** Automation suggestions for surplus windows, load shifts and thresholds are checked against your own recorded data first. (#295)
+- **autolearn:** Automation suggestions for surplus and load shifts are checked against your data (#295)
 - **learnrec:** resolve where the minute recording lives (972c4aa)
 - **learnrec:** add the binary day format of the minute recording (f0e0eec)
 - **learnrec:** keep minute values in RAM and append them to the chosen drive (64aff34)
