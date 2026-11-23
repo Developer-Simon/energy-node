@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -262,5 +263,29 @@ func TestSurplusSelfCheckRecordsAndClosesDays(t *testing.T) {
 	}
 	if math.Abs(check.days[0].Actual-wantActual) > 0.01*wantActual {
 		t.Errorf("actual = %.0f, want %.0f from 10:00", check.days[0].Actual, wantActual)
+	}
+}
+
+func TestForecastDaysCopiesOldestFirst(t *testing.T) {
+	c := LoadForecastCheck(filepath.Join(t.TempDir(), "f.json"), nil)
+	c.Record("2026-11-20", 3000)
+	c.Close("2026-11-20", 2500, 2800)
+	c.Record("2026-11-21", 1000)
+	c.Close("2026-11-21", 1200, 2700)
+	got := c.Days()
+	want := []ForecastDay{{"2026-11-20", 3000, 2500, 2800}, {"2026-11-21", 1000, 1200, 2700}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Days = %+v", got)
+	}
+	got[0].ActualWh = 0
+	if c.Days()[0].ActualWh != 2500 {
+		t.Fatal("Days must return a copy")
+	}
+}
+
+func TestForecastDaysEmptyIsNotNil(t *testing.T) {
+	c := LoadForecastCheck("", nil)
+	if d := c.Days(); d == nil || len(d) != 0 {
+		t.Fatalf("Days = %#v", d)
 	}
 }
