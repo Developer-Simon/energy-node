@@ -147,6 +147,32 @@ jobs:
           fi
       - run: go test ./...
 
+  # Die Medien-Tests laufen unter Windows, weil der Windows-Pfad (Laufwerke,
+  # WLAN, Imager, Helfer) sonst ungetestet bliebe. Tests, die Unix-Rechte,
+  # Symlinks oder ein Linux-Shellskript brauchen, überspringen sich dort selbst.
+  installer-windows:
+    name: Installer media tests (Windows)
+    needs: changes
+    if: needs.changes.outputs.installer_go == 'true' || github.event_name == 'push'
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: installer
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      # Vor dem Checkout gibt es den Ordner installer noch nicht, daher hier
+      # den Arbeitsordner des Runners. Eingebettete Vorlagen und Fixtures
+      # sollen LF behalten.
+      - name: Keep LF line endings in the checkout
+        working-directory: ${{ github.workspace }}
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: installer/go.mod
+      - run: go test ./internal/media/... ./internal/host/... ./cmd/installer/...
+
   dashboard-js:
     name: Dashboard (JS)
     needs: changes
@@ -291,6 +317,11 @@ jobs:
           TARGET: ${{ matrix.target }}
           CGO_ENABLED: '0'
         run: GOOS="${TARGET%/*}" GOARCH="${TARGET#*/}" go build -o "$RUNNER_TEMP/installer-build" ./cmd/installer
+      - name: Vet for ${{ matrix.target }}
+        env:
+          TARGET: ${{ matrix.target }}
+          CGO_ENABLED: '0'
+        run: GOOS="${TARGET%/*}" GOARCH="${TARGET#*/}" go vet ./...
 
   python-bridges:
     name: Python bridges
@@ -500,6 +531,7 @@ jobs:
       - changes
       - dashboard-go
       - installer-go
+      - installer-windows
       - dashboard-js
       - dashboard-smoke
       - installer-webui-go

@@ -3,11 +3,15 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestSaveFileInWritesUnchangedName(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("checks Unix mode bits 0600, which Windows does not report")
+	}
 	dir := t.TempDir()
 	name := "energy-node-protokoll-20261031-120000.txt"
 	content := []byte("inhalt")
