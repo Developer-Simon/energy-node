@@ -356,6 +356,8 @@
 - **monitoring:** link the surplus tile to the forecast and follow repeated focus (ebf5e84)
 - **monitoring:** harden the insight charts and components (a1eb3a9)
 - **monitoring:** keep the forecast view inside the screen and polish the usual day (7751f73)
+- **monitoring:** keep one gap between the cards of the forecast and learned views (3168e41)
+- **monitoring:** let the forecast view use the full tab width (2d6749e)
 - **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **learning:** reset every learned state through one registry (594282c)
 - **autolearn:** survive a detector panic and keep results of finished devices (102cad0)
