@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.22-pre.36 (2026-11-06)
+## v0.11.22-pre.37 (2026-11-06)
 
 ### Features
 
@@ -35,6 +35,11 @@
 - **autolearn:** The node records minute values and keeps every regulator step as a base for learning (#293) (19e65e7)
 - **autolearn:** Automation suggestions for surplus and load shifts are checked against your data (#295) (6c255ad)
 - **autolearn:** Learning functions can take minute values from Home Assistant (#294) (7aa657e)
+- **monitoring:** Monitoring shows the forecast check, a year comparison and the learned values as a usual day (#297) (4f93975)
+- **dashboard:** read the system package versions (8d025b3)
+- **dashboard:** serve system versions to setup users (8e71270)
+- **dashboard:** show the kernel and the Debian point release (93d002d)
+- **dashboard:** show system versions on the versions page (#299)
 - **autolearn:** expose forecast days and the rules that read a learned value (25d731e)
 - **demo:** seed a forecast check and a year of season weeks (4a39a77)
 - **monitoring:** serve the forecast check and the season weeks from the api (d11383f)
@@ -49,7 +54,6 @@
 - **monitoring:** show learned values as a usual day (1749c86)
 - **monitoring:** style the usual day (72d192a)
 - **monitoring:** add a tour target to the forecast tab (ca4f7a0)
-- **monitoring:** Monitoring shows the forecast check, a year comparison and the learned values as a usual day (#297)
 - **learnrec:** fetch minute values from Home Assistant through the companion (97e2665)
 - **learnrec:** pause the own recording while Home Assistant delivers minutes (4086c45)
 - **learnrec:** read own minutes first, then Home Assistant, and fetch gaps before the heavy run (44ee05d)
@@ -350,6 +354,7 @@
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
 - **automations:** correct the learning feature after the full review (#296) (88f3c75)
+- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **monitoring:** keep texts and locale out of the insight model (57e2a44)
 - **monitoring:** show the legend items for statistics weeks and gaps (82cde6e)
 - **monitoring:** route locale formatting through I18n (a664db2)
@@ -358,7 +363,6 @@
 - **monitoring:** keep the forecast view inside the screen and polish the usual day (7751f73)
 - **monitoring:** keep one gap between the cards of the forecast and learned views (3168e41)
 - **monitoring:** let the forecast view use the full tab width (2d6749e)
-- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **learning:** reset every learned state through one registry (594282c)
 - **autolearn:** survive a detector panic and keep results of finished devices (102cad0)
 - **autolearn:** keep harm first, cap open suggestions and give every value a spread (bde4c6a)
@@ -514,6 +518,7 @@
 
 ### Tests
 
+- **demo:** fake the system packages for the versions page (ca2dc1e)
 - **autolearn:** keep the cycle test window open until today (ab438d5)
 - **webui:** follow the template cache-bust mark (c30a3db)
 - **smoke:** probe the live push on the house load (5382341)
@@ -536,6 +541,8 @@
 
 ### Chores
 
+- **dashboard:** bump the cache-bust marks for the system card (31ecbb8)
+- **dashboard:** move the cache history rows to the current pre-release (8a60da5)
 - **monitoring:** drop the texts of the old learned values list (d6da484)
 - **webui:** bump cache marks for the monitoring assets (b29e739)
 - **webui:** bump the cache-bust marks for the learning review fixes (6c82592)

@@ -1,0 +1,29 @@
+{
+  "de": {
+    "*": "Die Versionsseite zeigt Betriebssystem, Kernel und Systemprogramme des Nodes mit ihrer Version"
+  },
+  "en": {
+    "*": "Show system versions on the versions page"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "edit_setup",
+          "page": "versions",
+          "panel": "settings-panel",
+          "target": "versions-system",
+          "text": {
+            "de": "Hier stehen Betriebssystem, Kernel und die Systemprogramme des Nodes mit ihrer Version. Liegt ein Programm hinter der erwarteten Version, ist es als veraltet markiert.",
+            "en": "This card lists the operating system, the kernel and the system programs of the node with their version. A program behind the expected version is marked as outdated."
+          },
+          "title": {
+            "de": "Systemversionen",
+            "en": "System versions"
+          }
+        }
+      ]
+    }
+  }
+}
