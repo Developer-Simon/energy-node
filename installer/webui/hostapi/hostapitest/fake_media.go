@@ -190,11 +190,20 @@ func mediaDriveFixture() []hostapi.MediaDrive {
 	}
 }
 
-// MediaStatus liefert die Vorgaben der Attrappe.
+// MediaStatus liefert die Vorgaben der Attrappe. Mit MediaPlatform "windows"
+// stehen Webseite und winget-Befehl in den Links, wie auf dem echten Host.
 func (f *FakeBackend) MediaStatus(ctx context.Context) (hostapi.MediaStatus, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.MediaStatusView, nil
+	status := f.MediaStatusView
+	if f.MediaPlatform == "windows" {
+		status.Platform = "windows"
+		status.Links = []hostapi.MediaLink{
+			{Kind: "website", URL: "https://www.raspberrypi.com/software/"},
+			{Kind: "winget", Command: "winget install -e --id RaspberryPiFoundation.RaspberryPiImager"},
+		}
+	}
+	return status, nil
 }
 
 // MediaCatalog liefert die Geraeteliste der Attrappe.

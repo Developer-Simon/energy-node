@@ -90,6 +90,64 @@ test('nicht Linux zeigt nicht verfuegbar und oeffnet die Anleitung', async () =>
   assert.deepEqual(opened, [DOCS_URL]);
 });
 
+const WINGET = 'winget install -e --id RaspberryPiFoundation.RaspberryPiImager';
+const WINDOWS_MISSING = Object.assign({}, STATUS, {
+  platform: 'windows',
+  imager: { found: false, kind: '', version: '', too_old: false },
+  links: [{ kind: 'website', url: 'https://www.raspberrypi.com/software/' }, { kind: 'winget', command: WINGET }],
+});
+
+test('windows missing card shows website and winget command', async () => {
+  const { screen, shell } = device({ 'GET /api/media/status': WINDOWS_MISSING });
+  await screen.init();
+
+  assert.equal(screen.state, 'missing');
+  assert.equal(shell.shared.mediaPlatform, 'windows');
+  assert.deepEqual(screen.links.map((link) => link.kind), ['website', 'winget']);
+  assert.equal(screen.links[1].command, WINGET);
+  assert.equal(screen.links[1].url, undefined);
+});
+
+test('copy button writes the command to the clipboard', async () => {
+  const { screen, window } = device({ 'GET /api/media/status': WINDOWS_MISSING });
+  await screen.init();
+  // Ohne echte Timer: der Test prueft nur Zustand und Zwischenablage.
+  window.setTimeout = () => 0;
+  window.clearTimeout = () => {};
+  const written = [];
+  Object.defineProperty(window.navigator, 'clipboard', {
+    value: { writeText: async (text) => { written.push(text); } },
+    configurable: true,
+  });
+  const link = screen.links.find((item) => item.kind === 'winget');
+
+  await screen.copyCommand(link);
+  assert.deepEqual(written, [WINGET]);
+  assert.equal(screen.copied, 'winget');
+
+  Object.defineProperty(window.navigator, 'clipboard', {
+    value: { writeText: async () => { throw new Error('denied'); } },
+    configurable: true,
+  });
+  screen.copied = '';
+  await screen.copyCommand(link);
+  assert.equal(screen.copied, '', 'bei abgelehnter Zwischenablage erscheint kein Kopiert');
+});
+
+test('missing text key carries the platform suffix only off linux', async () => {
+  const linux = device({ 'GET /api/media/status': Object.assign({}, STATUS, { imager: { found: false, kind: '', version: '', too_old: false } }) });
+  await linux.screen.init();
+  assert.equal(linux.screen.imagerTextKey, 'media.imager.missing.text');
+
+  const windows = device({ 'GET /api/media/status': WINDOWS_MISSING });
+  await windows.screen.init();
+  assert.equal(windows.screen.imagerTextKey, 'media.imager.missing.text.windows');
+
+  const old = device({ 'GET /api/media/status': Object.assign({}, WINDOWS_MISSING, { imager: { found: true, kind: 'winget', version: '1.9.0', too_old: true } }) });
+  await old.screen.init();
+  assert.equal(old.screen.imagerTextKey, 'media.imager.old.text.windows');
+});
+
 test('nur fehlende Tests sind markiert', async () => {
   const { screen } = device();
   await screen.init();

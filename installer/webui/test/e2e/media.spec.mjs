@@ -160,3 +160,14 @@ test('das i386-Geraet ist nicht anwaehlbar und die Weiter-Taste bleibt aus', () 
   assert.equal(await page.getByRole('button', { name: 'Weiter', exact: true }).isDisabled(), true, 'Weiter ist mit der i386-Zeile aktiv');
   await context.close();
 }));
+
+test('windows ohne Imager zeigt Webseite und den winget-Befehl, auf 390 px ohne Scroll', () => withHost(['--media-platform', 'windows', '--media-imager-missing'], async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.locator('.mode-i', { hasText: 'Medium' }).click();
+  await page.locator('.app[data-screen="media-device"] .media-notice').waitFor();
+  const command = (await page.locator('.media-cmd').textContent()).trim();
+  assert.equal(command, 'winget install -e --id RaspberryPiFoundation.RaspberryPiImager');
+  assertNoOverflow(await layoutAt(page), 'media-device (Windows ohne Imager)');
+  await context.close();
+}));

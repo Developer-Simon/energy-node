@@ -21,10 +21,21 @@
         <span class="media-notice-ic">{{template "icon-warn"}}</span>
         <span class="media-notice-b">
           <span class="media-notice-t" x-text="t('media.imager.' + imagerKey + '.title')"></span>
-          <span class="media-notice-s" x-text="t('media.imager.' + imagerKey + '.text')"></span>
+          <span class="media-notice-s" x-text="t(imagerTextKey)"></span>
           <span class="media-notice-actions">
             <template x-for="link in links" :key="link.kind">
-              <button type="button" class="small" @click="openLink(link)" x-text="t('media.link.' + link.kind)"></button>
+              <template x-if="!link.command">
+                <button type="button" class="small" @click="openLink(link)" x-text="t('media.link.' + link.kind)"></button>
+              </template>
+            </template>
+            <template x-for="link in links" :key="'cmd-' + link.kind">
+              <template x-if="link.command">
+                <div class="media-link-cmd">
+                  <span class="media-link-cmd-t" x-text="t('media.link.' + link.kind)"></span>
+                  <code class="media-cmd" x-text="link.command"></code>
+                  <button type="button" class="small" @click="copyCommand(link)" x-text="copied === link.kind ? t('media.link.copied') : t('media.link.copy')"></button>
+                </div>
+              </template>
             </template>
             <button type="button" class="small" @click="recheck()" x-text="t('action.recheck')"></button>
           </span>
@@ -451,7 +462,10 @@
               <template x-if="row.state === 'active'">{{template "icon-spin"}}</template>
               <template x-if="row.state === 'failed'">{{template "icon-bad"}}</template>
             </span>
-            <span x-text="t(row.labelKey)"></span>
+            <span>
+              <span x-text="t(row.labelKey)"></span>
+              <template x-if="row.id === 'rights' && platform === 'windows'"><span class="media-step-note" x-text="t('media.rights.windows')"></span></template>
+            </span>
           </li>
         </template>
       </ol>
