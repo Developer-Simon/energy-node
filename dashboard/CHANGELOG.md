@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.22-pre.35 (2026-11-06)
+## v0.11.22-pre.36 (2026-11-06)
 
 ### Features
 
@@ -35,6 +35,21 @@
 - **autolearn:** The node records minute values and keeps every regulator step as a base for learning (#293) (19e65e7)
 - **autolearn:** Automation suggestions for surplus and load shifts are checked against your data (#295) (6c255ad)
 - **autolearn:** Learning functions can take minute values from Home Assistant (#294) (7aa657e)
+- **autolearn:** expose forecast days and the rules that read a learned value (25d731e)
+- **demo:** seed a forecast check and a year of season weeks (4a39a77)
+- **monitoring:** serve the forecast check and the season weeks from the api (d11383f)
+- **monitoring:** collect the forecast check and season weeks for the endpoint (e135dcc)
+- **monitoring:** add texts for forecast, season and the usual day (c8b003e)
+- **monitoring:** add the insight model for season and forecast (8e5f721)
+- **monitoring:** add the usual day to the insight model (80bb7d0)
+- **monitoring:** add the forecast and year comparison components (fe3631f)
+- **monitoring:** add the forecast view and tab to the monitoring template (bc67258)
+- **monitoring:** style the forecast view (1d8f4c8)
+- **monitoring:** add the usual day component (5e9d157)
+- **monitoring:** show learned values as a usual day (1749c86)
+- **monitoring:** style the usual day (72d192a)
+- **monitoring:** add a tour target to the forecast tab (ca4f7a0)
+- **monitoring:** Monitoring shows the forecast check, a year comparison and the learned values as a usual day (#297)
 - **learnrec:** fetch minute values from Home Assistant through the companion (97e2665)
 - **learnrec:** pause the own recording while Home Assistant delivers minutes (4086c45)
 - **learnrec:** read own minutes first, then Home Assistant, and fetch gaps before the heavy run (44ee05d)
@@ -334,6 +349,14 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **automations:** correct the learning feature after the full review (#296) (88f3c75)
+- **monitoring:** keep texts and locale out of the insight model (57e2a44)
+- **monitoring:** show the legend items for statistics weeks and gaps (82cde6e)
+- **monitoring:** route locale formatting through I18n (a664db2)
+- **monitoring:** link the surplus tile to the forecast and follow repeated focus (ebf5e84)
+- **monitoring:** harden the insight charts and components (a1eb3a9)
+- **monitoring:** keep the forecast view inside the screen and polish the usual day (7751f73)
+- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **learning:** reset every learned state through one registry (594282c)
 - **autolearn:** survive a detector panic and keep results of finished devices (102cad0)
 - **autolearn:** keep harm first, cap open suggestions and give every value a spread (bde4c6a)
@@ -352,8 +375,6 @@
 - **automations:** read the resolve section of the learned vectors in the JS test (2405fe4)
 - **webui:** animate the band card and soften the popover close (ae782ae)
 - **autolearn:** list findings without a fix only in Monitoring (2e4acd0)
-- **automations:** correct the learning feature after the full review (#296)
-- **backup:** A restore stays in place even when the battery state cannot be written (#288) (e5c5437)
 - **autolearn:** harden the replay against unsupported fields and absent keys (f762aae)
 - **automations:** prefill the surplus templates from a suggestion (d977098)
 - **automations:** prefill the shift start template from a suggestion (d1b835a)
@@ -491,6 +512,7 @@
 
 ### Tests
 
+- **autolearn:** keep the cycle test window open until today (ab438d5)
 - **webui:** follow the template cache-bust mark (c30a3db)
 - **smoke:** probe the live push on the house load (5382341)
 - **webui:** follow the new cache-bust marks (b06cc13)
@@ -512,6 +534,8 @@
 
 ### Chores
 
+- **monitoring:** drop the texts of the old learned values list (d6da484)
+- **webui:** bump cache marks for the monitoring assets (b29e739)
 - **webui:** bump the cache-bust marks for the learning review fixes (6c82592)
 - **dashboard:** bump the cache-bust marks for the Home Assistant source (8b3bb59)
 - **dashboard:** refresh the cache-bust history after the rebase (33c7bcb)
