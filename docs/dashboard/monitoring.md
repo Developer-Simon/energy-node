@@ -7,8 +7,8 @@ title: "Monitoring"
 The **Monitoring** tab collects what the node wants you to look at. It shows
 notices about the energy balance, the measurement chains and the learning
 functions, it shows the forecast the node uses for the surplus, the comparison
-with the previous year, and it lists every value the system has learned. The tab
-sits before [Diagnostics](diagnostics.md). It needs the permission
+with the previous year, and the values the system has learned. The tab sits
+before [Diagnostics](diagnostics.md). It needs the permission
 `view_monitoring`, see [Settings, Users](settings-users.md#permissions). While a
 notice is new, the tab shows a dot.
 
@@ -17,8 +17,8 @@ Monitoring covers the energy side and what the system has learned.
 
 ## Notices
 
-The top left of the tab switches between **Notices**, **Forecast** and **Learned
-values**. The filter on the right limits the notices to **All**, **Energy**,
+The top left of the tab switches between **Notices**, **Learned values** and
+**Forecast**. The filter on the right limits the notices to **All**, **Energy**,
 **Learning** or **Suggestions**.
 
 The list has two groups, **New** and **Acknowledged**. Select a notice to see its
@@ -115,8 +115,9 @@ a previous year exists, because the season memory fills up week by week.
 
 ## Learned values
 
-The third view lists all values the system has learned. It opens with **A usual
-day**, a picture of one day on a 24 hour axis.
+The **Learned values** view shows what the system has learned. It opens with **A
+usual day**, a picture of one day on a 24 hour axis. A label at the top says
+whether the house is usually active or quiet.
 
 - The house row shows the night rest as a band.
 - Each device with a usual on and off time shows a bar from on to off. A bar with
@@ -134,21 +135,17 @@ Two more cards follow the picture:
 
 - **One run** shows the energy per run on one scale. Detected programs appear as
   marks, and the power and the run time are shown below.
-- **Plant** shows the PV reserve and the remaining surplus of today. A link leads
-  to the Forecast view.
+- **System** shows the PV reserve and the remaining surplus of today, each once
+  it is learned. A link leads to the Forecast view.
 
-Each value shows its origin, for example from 14 days, from 3 runs, changed 2 days
-ago or before a previous value, and whether it is an estimate. When the seasonal
-memory covers at least four weeks, a yearly line shows the curve.
-
-Below the picture, this table explains the values:
+The view shows these values:
 
 | Name | Meaning | Unit |
 |---|---|---|
 | Start of day | The learned start of the day, the point at which the usual day begins. | time of day |
 | Night rest | The night rest of the house, shown as a band in the house row. | time span |
 | House state | Whether the house is usually active or quiet. | active or quiet |
-| PV reserve | The PV power still available, from the minute values. | W |
+| PV reserve | The PV power still available. It is marked as an estimate until it comes from the minute values. | W |
 | Remaining surplus today | The surplus the rest of the day is expected to bring, see the Forecast view. | kWh |
 | Usual switch-on time | The time at which the device is usually switched on. | time of day |
 | Usual switch-off time | The time at which the device is usually switched off. | time of day |
@@ -156,14 +153,7 @@ Below the picture, this table explains the values:
 | Typical operating power | The power the device usually draws while it runs. | W |
 | Typical cycle energy | The energy the device usually takes per run, see One run. | kWh |
 
-The first group, **System**, always lists the five system values: start of day,
-night rest, house state, PV reserve and remaining surplus today. A value that is
-not learned yet shows its reason, such as needing PV minutes by day or more days.
-Below that, each device has its own group with the usual switch-on time, the
-usual switch-off time, the usual runtime, the typical operating power and the
-typical cycle energy.
-
-If pattern learning is off, a hint above the list links to the learning settings
+If pattern learning is off, the view only shows a note that you can turn it on
 under *Settings, Learning*.
 
 ## Energy line
