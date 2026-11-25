@@ -1,0 +1,48 @@
+{
+  "de": {
+    "dashboard": "Monitoring zeigt die Prognoseprüfung, einen Jahresvergleich und die Lernwerte als üblichen Tag"
+  },
+  "en": {
+    "*": "Monitoring shows the forecast check, a year comparison and the learned values as a usual day"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_monitoring",
+          "open": [
+            "monitoring-forecast"
+          ],
+          "panel": "monitoring-panel",
+          "target": "monitoring-forecast",
+          "text": {
+            "de": "Die neue Ansicht Prognose zeigt, ob die Node ihrer Überschussprognose oder dem Saisonmedian folgt, und vergleicht beide über die letzten 14 Tage. Darunter vergleichst du Erzeugung, Verbrauch und mehr Woche für Woche mit den Vorjahren.",
+            "en": "The new Forecast view shows whether the node follows its surplus forecast or the season median, and compares the two over the last 14 days. Below it you compare production, consumption and more with the previous years, week by week."
+          },
+          "title": {
+            "de": "Prognose und Jahresvergleich",
+            "en": "Forecast and year comparison"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_monitoring",
+          "open": [
+            "monitoring-learned"
+          ],
+          "panel": "monitoring-panel",
+          "target": "monitoring-learned",
+          "text": {
+            "de": "Die Lernwerte erscheinen jetzt als üblicher Tag auf einer Zeitachse, mit Nachtruhe und den üblichen Zeiten deiner Geräte. Tippe auf eine Zeile, um den Verlauf übers Jahr zu sehen.",
+            "en": "The learned values now appear as a usual day on a time axis, with night rest and the usual times of your devices. Tap a row to see how it changes over the year."
+          },
+          "title": {
+            "de": "Ein üblicher Tag",
+            "en": "A usual day"
+          }
+        }
+      ]
+    }
+  }
+}

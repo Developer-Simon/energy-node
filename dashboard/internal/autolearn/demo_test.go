@@ -947,3 +947,40 @@ func TestSeedDemoMinutesAndSteps(t *testing.T) {
 		t.Fatal("second seed changed an existing minute file")
 	}
 }
+
+// TestDemoSeasonHistoryIsOlderStatsWeeks checks that the year before the demo
+// season is filled with statistics weeks that carry their energy values.
+func TestDemoSeasonHistoryIsOlderStatsWeeks(t *testing.T) {
+	now := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	hist, recent := DemoSeasonHistory(now), DemoSeason(now)
+	if len(hist) != 64 {
+		t.Fatalf("len %d", len(hist))
+	}
+	if hist[len(hist)-1].Key >= recent[0].Key {
+		t.Fatalf("history %s not before %s", hist[len(hist)-1].Key, recent[0].Key)
+	}
+	for _, w := range hist {
+		if w.Source != seasonSourceStats || w.PVKWh <= 0 || w.LoadKWh <= 0 || w.TempC == nil {
+			t.Fatalf("week %+v", w)
+		}
+	}
+	for _, w := range recent {
+		if w.PVKWh <= 0 || w.BaseW <= 0 {
+			t.Fatalf("recent week without energy %+v", w)
+		}
+	}
+}
+
+// TestDemoForecastFillsFourteenDays checks that the demo forecast fills the
+// check with the fourteen days before today and beats the season median.
+func TestDemoForecastFillsFourteenDays(t *testing.T) {
+	c := LoadForecastCheck("", nil)
+	DemoForecast(time.Date(2026, 11, 23, 12, 0, 0, 0, time.Local), c)
+	d := c.Days()
+	if len(d) != ForecastWindow || d[len(d)-1].Day != "2026-11-22" {
+		t.Fatalf("days %+v", d)
+	}
+	if c.UseSeasonMedian() {
+		t.Fatal("demo forecast should beat the median")
+	}
+}

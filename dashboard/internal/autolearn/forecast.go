@@ -24,6 +24,8 @@ const (
 	forecastFileVersion = 1
 	// forecastDays is the number of finished days the check keeps.
 	forecastDays = 14
+	// ForecastWindow is the number of finished days the check keeps.
+	ForecastWindow = forecastDays
 	// forecastHour is the local hour of the forecast.
 	forecastHour = 10
 	// forecastQuarter is the quarter of the forecast, 10:00 local time.
@@ -37,6 +39,15 @@ type forecastEntry struct {
 	Forecast float64 `json:"forecast_wh"`
 	Actual   float64 `json:"actual_wh"`
 	Season   float64 `json:"season_wh"`
+}
+
+// ForecastDay is one finished day of the check: the forecast of the rest of the
+// day from 10:00, the measured rest and the season median of the rest, in Wh.
+type ForecastDay struct {
+	Day        string  `json:"day"`
+	ForecastWh float64 `json:"forecast_wh"`
+	ActualWh   float64 `json:"actual_wh"`
+	SeasonWh   float64 `json:"season_wh"`
 }
 
 // forecastFile is the content of forecast.json.
@@ -148,6 +159,17 @@ func (c *ForecastCheck) Close(day string, actualRestWh float64, seasonMedianRest
 	if n := len(c.days); n > forecastDays {
 		c.days = append([]forecastEntry(nil), c.days[n-forecastDays:]...)
 	}
+}
+
+// Days returns a copy of the finished days, oldest first. It is never nil.
+func (c *ForecastCheck) Days() []ForecastDay {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]ForecastDay, 0, len(c.days))
+	for _, e := range c.days {
+		out = append(out, ForecastDay{Day: e.Day, ForecastWh: e.Forecast, ActualWh: e.Actual, SeasonWh: e.Season})
+	}
+	return out
 }
 
 // UseSeasonMedian tells whether the season median should replace the forecast.

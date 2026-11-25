@@ -724,21 +724,64 @@ func (b *demoBuilder) fill(rng *rand.Rand) {
 	}
 }
 
+// demoSeasonSeed, demoHistorySeed und demoForecastSeed sind die festen Seeds der
+// Wochenwerte, des Jahres davor und der Prognose der Demo.
+const (
+	demoSeasonSeed   = demoSeed + 2
+	demoHistorySeed  = demoSeed + 3
+	demoForecastSeed = demoSeed + 4
+	// demoHistoryWeeks ist die Zahl der Statistikwochen vor dem Saisongedächtnis.
+	demoHistoryWeeks = 64
+	// demoForecastErrW ist die größte Abweichung der Prognose vom Tagesrest in Wh.
+	demoForecastErrW = 900.0
+)
+
+// demoSummer ist der Sommeranteil der ISO-Woche, 0 im Januar und 1 Ende Juni.
+func demoSummer(week int) float64 {
+	return math.Pow(math.Sin(math.Pi*(float64(week)-0.5)/52), 2)
+}
+
+// demoNoise ist ein Zufallswert in [-amp, amp] aus dem festen Strom rng.
+func demoNoise(rng *rand.Rand, amp float64) float64 {
+	return (rng.Float64() - 0.5) * 2 * amp
+}
+
+// demoWeekEnergy liefert PV, Last, Einspeisung in kWh, die Grundlast in W und die
+// Außentemperatur der ISO-Woche week. Die Werte folgen dem Jahresverlauf der
+// Referenz, das Rauschen kommt aus rng.
+func demoWeekEnergy(rng *rand.Rand, week int) (pv, load, export, base, temp float64) {
+	s := demoSummer(week)
+	pv = math.Max(8, 26+205*s+demoNoise(rng, 24))
+	load = 92 + 58*(1-s) + demoNoise(rng, 9)
+	export = math.Max(0, pv*0.52-12+demoNoise(rng, 6))
+	base = 178 + 52*(1-s) + demoNoise(rng, 7)
+	temp = 1.5 + 17.5*s + demoNoise(rng, 2.2)
+	return pv, load, export, base, temp
+}
+
 // DemoSeason liefert das Saisongedächtnis der Demo: die zwanzig Wochen vor now,
-// die älteste zuerst. Jede Woche trägt ihre Außentemperatur, fünf Auslösungen
-// der Demo-Regeln, damit der Temperaturvorschlag warme Wochen findet, und die
-// gelernte Abschaltzeit der Balkonsteckdose, damit die Jahreslinie erscheint.
+// die älteste zuerst. Jede Woche trägt ihre Energiewerte und Außentemperatur, fünf
+// Auslösungen der Demo-Regeln, damit der Temperaturvorschlag warme Wochen findet,
+// und die gelernte Abschaltzeit der Balkonsteckdose, damit die Jahreslinie erscheint.
 func DemoSeason(now time.Time) []Week {
+	rng := rand.New(rand.NewSource(demoSeasonSeed))
 	out := make([]Week, 0, demoSeasonWeeks)
 	for k := demoSeasonWeeks; k >= 1; k-- {
+		at := now.AddDate(0, 0, -7*k)
+		_, w := at.ISOWeek()
+		pv, load, export, base, _ := demoWeekEnergy(rng, w)
 		temp := demoWeekTempC[k-1]
 		out = append(out, Week{
-			Key:      isoWeekKey(now.AddDate(0, 0, -7*k)),
-			Source:   seasonSourceDays,
-			Days:     7,
-			TempC:    &temp,
-			Triggers: map[string]float64{demoRuleID: 5, demoPVRuleID: 5},
-			Learned:  map[string]float64{demoBedtimeKey: demoBedtimeMin + 6*math.Sin(float64(k))},
+			Key:       isoWeekKey(at),
+			Source:    seasonSourceDays,
+			Days:      7,
+			ExportKWh: export,
+			PVKWh:     pv,
+			LoadKWh:   load,
+			BaseW:     base,
+			TempC:     &temp,
+			Triggers:  map[string]float64{demoRuleID: 5, demoPVRuleID: 5},
+			Learned:   map[string]float64{demoBedtimeKey: demoBedtimeMin + 6*math.Sin(float64(k))},
 		})
 	}
 	// Dieselben Wochen in den zwei Jahren davor: der Akku war damals selten leer,
@@ -747,7 +790,16 @@ func DemoSeason(now time.Time) []Week {
 	for back := 1; back <= 2; back++ {
 		for k := 0; k <= demoPriorWeeks; k++ {
 			y, w := now.AddDate(0, 0, -7*k).ISOWeek()
-			week := Week{Key: fmt.Sprintf("%d-W%02d", y-back, w), Source: seasonSourceDays, Days: 7, BaseW: demoSeasonBaseW}
+			pv, load, export, _, _ := demoWeekEnergy(rng, w)
+			week := Week{
+				Key:       fmt.Sprintf("%d-W%02d", y-back, w),
+				Source:    seasonSourceDays,
+				Days:      7,
+				ExportKWh: export,
+				PVKWh:     pv,
+				LoadKWh:   load,
+				BaseW:     demoSeasonBaseW,
+			}
 			if back == 1 {
 				share := 0.1
 				week.EmptyShare = &share
@@ -756,6 +808,47 @@ func DemoSeason(now time.Time) []Week {
 		}
 	}
 	return out
+}
+
+// DemoSeasonHistory liefert die demoHistoryWeeks Statistikwochen vor den Wochen
+// von DemoSeason, die älteste zuerst. Sie tragen Energiewerte und Temperatur, aber
+// keine Auslösungen und keine gelernten Werte.
+func DemoSeasonHistory(now time.Time) []Week {
+	rng := rand.New(rand.NewSource(demoHistorySeed))
+	out := make([]Week, 0, demoHistoryWeeks)
+	for k := demoSeasonWeeks + demoHistoryWeeks; k > demoSeasonWeeks; k-- {
+		at := now.AddDate(0, 0, -7*k)
+		_, w := at.ISOWeek()
+		pv, load, export, base, temp := demoWeekEnergy(rng, w)
+		out = append(out, Week{
+			Key:       isoWeekKey(at),
+			Source:    seasonSourceStats,
+			Days:      7,
+			ExportKWh: export,
+			PVKWh:     pv,
+			LoadKWh:   load,
+			BaseW:     base,
+			TempC:     &temp,
+		})
+	}
+	return out
+}
+
+// DemoForecast schreibt die vierzehn Tage vor now in die Prognose-Selbstprüfung c.
+// Jeder Tag bekommt eine Prognose des Tagesrests ab 10:00, den gemessenen Rest und
+// den Saisonmedian. Die Prognose liegt meist näher am Rest als der Median, daher
+// bleibt die Prognose im Einsatz.
+func DemoForecast(now time.Time, c *ForecastCheck) {
+	rng := rand.New(rand.NewSource(demoForecastSeed))
+	y, m, d := now.Local().Date()
+	for k := ForecastWindow; k >= 1; k-- {
+		day := time.Date(y, m, d-k, 0, 0, 0, 0, time.Local).Format(dayLayout)
+		actual := math.Max(300, 2600+demoNoise(rng, 1900))
+		forecast := math.Max(0, actual+demoNoise(rng, demoForecastErrW))
+		season := 2750 + demoNoise(rng, 260)
+		c.Record(day, forecast)
+		c.Close(day, actual, season)
+	}
 }
 
 // DemoDailyShare liefert den Tagesanteil der Lernlast für die letzten

@@ -63,6 +63,37 @@ type LearnedRef struct {
 	MaxAgeS  float64
 }
 
+// RuleRef names a rule by its ID and Name.
+type RuleRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// LearnedReaders returns the rules whose conditions read the learned key in
+// Learned, in the order of doc.Rules, each rule once. It is never nil.
+func LearnedReaders(doc Doc, key string) []RuleRef {
+	out := []RuleRef{}
+	for _, r := range doc.Rules {
+		for _, c := range r.Conditions {
+			if learnedReads(c, key) {
+				out = append(out, RuleRef{ID: r.ID, Name: r.Name})
+				break
+			}
+		}
+	}
+	return out
+}
+
+// learnedReads tells whether a learned reference of the condition has the key.
+func learnedReads(c Condition, key string) bool {
+	for _, ref := range c.Learned {
+		if ref.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
 // Action is one action of a rule, a publish or a notification.
 type Action struct {
 	Type          string

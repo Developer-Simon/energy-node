@@ -111,3 +111,26 @@ test('the load error text is in the catalog and the template shows it on failure
   assert.match(template, /x-show="failed"[^>]*>\{\{t "monitoring\.load_failed"\}\}</);
   assert.match(template, /x-if="loaded && !failed && !list\(\)\.length"/);
 });
+
+test('goLearned(key) sets learnedFocus and opens the learned view', () => {
+  const { component } = createPanel();
+  component.goLearned('device/plug/usual_on');
+  assert.equal(component.learnedFocus, 'device/plug/usual_on');
+  assert.equal(component.view, 'learned');
+  component.goLearned();
+  assert.equal(component.learnedFocus, '');
+});
+
+test('goLearned(key) clears the focus first so a repeated key is followed again', () => {
+  const { component } = createPanel();
+  const writes = [];
+  let value = component.learnedFocus;
+  Object.defineProperty(component, 'learnedFocus', {
+    get: () => value,
+    set: (v) => { writes.push(v); value = v; },
+  });
+  component.goLearned('site/day_start');
+  component.goLearned('site/day_start');
+  assert.deepEqual(writes, ['', 'site/day_start', '', 'site/day_start']);
+  assert.equal(value, 'site/day_start');
+});

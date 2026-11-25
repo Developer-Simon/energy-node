@@ -73,7 +73,8 @@ func TestCycleRunnerCollectsCyclesAndSurvivesRestart(t *testing.T) {
 	// ends a cycle starts at 15 minutes).
 	at = feedRun(t, r, at, []block{{true, 20}, {false, 20}, {true, 20}, {false, 20}})
 
-	to := at.Add(48 * time.Hour)
+	// AddCycles schreibt in den laufenden Tag des Speichers, also reicht das Fenster bis heute.
+	to := time.Now().Add(48 * time.Hour)
 	if got := countCycles(t, days, start, to); got != 2 {
 		t.Fatalf("cycles before restart = %d, want 2", got)
 	}

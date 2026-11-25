@@ -1,4 +1,9 @@
 version,date,asset,v,note
+v0.11.22-pre.36,2026-11-23,css/monitoring.css,2,
+v0.11.22-pre.36,2026-11-23,js/monitoring-insight-model.js,1,
+v0.11.22-pre.36,2026-11-23,js/monitoring-insight.js,1,
+v0.11.22-pre.36,2026-11-23,js/monitoring-model.js,4,
+v0.11.22-pre.36,2026-11-23,js/monitoring.page.js,3,
 v0.11.22-pre.35,2026-11-23,css/automations.css,25,
 v0.11.22-pre.35,2026-11-23,js/automation-suggestions.js,6,
 v0.11.22-pre.35,2026-11-23,js/automations.page.js,32,

@@ -7,7 +7,7 @@
 // monitoring.source.learn, monitoring.source.suggest,
 // monitoring.group.new, monitoring.group.known, monitoring.steps.title,
 // monitoring.ack.button, monitoring.ack.done, monitoring.ack.undo, monitoring.ack.no_right,
-// monitoring.badge.new, monitoring.learned.count
+// monitoring.badge.new
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const base = () => window.__DASHBOARD_BASE_PATH__ || '';
@@ -61,7 +61,8 @@
       view: 'notices',
       filter: 'all',
       pick: '',
-      flashKey: '',
+      // Schluessel aus dem Lernwert-Reiter (z. B. device/<id>/usual_on), das Tagesbild oeffnet die Zeile
+      learnedFocus: '',
 
       init() {
         // Eine Anfrage, die vor dem Laden der Seite kam, liegt auf window.
@@ -125,7 +126,7 @@
       setView(view) {
         if (this.view === view) return;
         this.view = view;
-        this.$nextTick(() => this.fadeIn(this.$el && this.$el.querySelector(view === 'learned' ? '.monitoring-learned' : '.monitoring-split'), 6));
+        this.$nextTick(() => this.fadeIn(this.$el && this.$el.querySelector(view === 'learned' ? '.monitoring-learned' : view === 'forecast' ? '.mi-fview' : '.monitoring-split'), 6));
       },
       setFilter(id) { this.filter = id; this.pick = ''; },
 
@@ -229,7 +230,7 @@
       runStep(notice, index) {
         const step = this.stepsOf(notice)[index];
         if (!step || !step.target) return;
-        if (step.target === 'learned') { this.goLearned(); return; }
+        if (step.target === 'learned') { this.goLearned(step.key); return; }
         if (step.target === 'suggestion') { this.goSuggestion((step.ids || [])[0]); return; }
         if (step.target === 'action.role_keep') { this.roleKeep(step.ids); return; }
         const panel = panelFor(step.target);
@@ -246,8 +247,15 @@
         openTab(panel);
       },
 
-      goLearned() {
+      // Mit Schluessel oeffnet das Tagesbild die Zeile und scrollt dorthin, ohne Schluessel zur Lernwert-Karte
+      goLearned(key) {
+        // Erst leeren, dann setzen: so folgt das Tagesbild auch einem wiederholten Schluessel
+        this.learnedFocus = '';
         this.setView('learned');
+        if (key) {
+          this.$nextTick(() => { this.learnedFocus = key; });
+          return;
+        }
         this.$nextTick(() => {
           const el = this.$el && this.$el.querySelector('.monitoring-learned');
           if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });
@@ -261,13 +269,6 @@
         window.__automationSuggestionRequest__ = id;
         window.dispatchEvent(new CustomEvent('automation-suggestion-open', { detail: { id } }));
         openTab('automations-panel');
-      },
-
-      learnedGroups() {
-        return window.MonitoringModel.learnedGroups(this.learned.values, nowSeconds(), t);
-      },
-      countText(group) {
-        return t('monitoring.learned.count', { have: group.have, total: group.total });
       },
 
       titleOf(notice) { return window.MonitoringModel.title(notice, t); },

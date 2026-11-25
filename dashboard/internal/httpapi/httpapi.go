@@ -421,6 +421,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/automations/learned", handleAutomationLearned(dependencies.Learning, dependencies.LearnedValues, suggestionDeviceExists, dependencies.LearnedSeason))
 	g.HandleFunc("/api/v1/monitoring", handleMonitoring(dependencies.Monitoring))
 	g.HandleFunc("/api/v1/monitoring/ack", handleMonitoringAck(dependencies.Auth, dependencies.Monitoring))
+	g.HandleFunc("/api/v1/monitoring/forecast", handleMonitoringForecast(dependencies.Monitoring))
 	g.HandleFunc("/api/v1/learning/status", handleLearningStatus(dependencies.Learning))
 	g.HandleFunc("/api/v1/learning/reset", handleLearningReset(dependencies.Auth, dependencies.Learning))
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))

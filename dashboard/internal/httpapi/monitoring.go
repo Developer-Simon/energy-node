@@ -6,13 +6,67 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/autolearn"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/monitoring"
 )
 
 const (
-	monitoringPath    = "/api/v1/monitoring"
-	monitoringAckPath = "/api/v1/monitoring/ack"
+	monitoringPath         = "/api/v1/monitoring"
+	monitoringAckPath      = "/api/v1/monitoring/ack"
+	monitoringForecastPath = "/api/v1/monitoring/forecast"
 )
+
+// MonitoringForecast is the answer of GET /api/v1/monitoring/forecast.
+type MonitoringForecast struct {
+	Forecast MonitoringForecastCheck `json:"forecast"`
+	Season   MonitoringSeason        `json:"season"`
+}
+
+// MonitoringForecastCheck is the forecast check of the monitoring page.
+// Days and Readers are never null.
+type MonitoringForecastCheck struct {
+	Needed    int                     `json:"needed"`
+	UseMedian bool                    `json:"use_median"`
+	Days      []autolearn.ForecastDay `json:"days"`
+	Readers   []autolearn.RuleRef     `json:"readers"`
+}
+
+// MonitoringSeason is the season view of the monitoring page.
+type MonitoringSeason struct {
+	Year  int                    `json:"year"`
+	Week  int                    `json:"week"`
+	Weeks []MonitoringSeasonWeek `json:"weeks"`
+}
+
+// MonitoringSeasonWeek is one week of the season view, without the rule fields.
+type MonitoringSeasonWeek struct {
+	Key       string   `json:"key"`
+	Source    string   `json:"source"`
+	Days      int      `json:"days"`
+	ExportKWh float64  `json:"export_kwh"`
+	PVKWh     float64  `json:"pv_kwh"`
+	LoadKWh   float64  `json:"load_kwh"`
+	BaseW     float64  `json:"base_w"`
+	TempC     *float64 `json:"temp_c,omitempty"`
+}
+
+// SeasonView keeps the shown fields of the season weeks. Weeks is never null.
+func SeasonView(year, week int, weeks []autolearn.Week) MonitoringSeason {
+	view := MonitoringSeason{Year: year, Week: week, Weeks: []MonitoringSeasonWeek{}}
+	for _, item := range weeks {
+		view.Weeks = append(view.Weeks, MonitoringSeasonWeek{
+			Key:       item.Key,
+			Source:    item.Source,
+			Days:      item.Days,
+			ExportKWh: item.ExportKWh,
+			PVKWh:     item.PVKWh,
+			LoadKWh:   item.LoadKWh,
+			BaseW:     item.BaseW,
+			TempC:     item.TempC,
+		})
+	}
+	return view
+}
 
 // MonitoringDeps verbindet die Routen mit Sammeln, Speicher und Lernwerten.
 // Nil heißt 501.
@@ -24,6 +78,8 @@ type MonitoringDeps struct {
 	// Learned liefert die Lernwerte wie GET /api/v1/automations/learned,
 	// ergänzt um Gerätename und Icon.
 	Learned func() MonitoringLearned
+	// Forecast liefert die Prognoseprüfung und die Saisonwochen, now ist die Zeit der Anfrage.
+	Forecast func(now time.Time) MonitoringForecast
 }
 
 // MonitoringLearned sind die Lernwerte der Überwachung.
@@ -65,6 +121,32 @@ func handleMonitoring(deps *MonitoringDeps) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, monitoringAnswer(deps, time.Now()))
+	}
+}
+
+// handleMonitoringForecast serves GET /api/v1/monitoring/forecast. Without the
+// Forecast dep the answer is 501. Days, Readers and Weeks are never null.
+func handleMonitoringForecast(deps *MonitoringDeps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		if deps == nil || deps.Forecast == nil {
+			writeError(w, http.StatusNotImplemented, "monitoring_unavailable", "Monitoring ist auf dieser Instanz nicht verfügbar.")
+			return
+		}
+		answer := deps.Forecast(time.Now())
+		if answer.Forecast.Days == nil {
+			answer.Forecast.Days = []autolearn.ForecastDay{}
+		}
+		if answer.Forecast.Readers == nil {
+			answer.Forecast.Readers = []autolearn.RuleRef{}
+		}
+		if answer.Season.Weeks == nil {
+			answer.Season.Weeks = []MonitoringSeasonWeek{}
+		}
+		writeJSON(w, answer)
 	}
 }
 

@@ -481,3 +481,19 @@ func TestParseDocReadsTheRegulatorTuning(t *testing.T) {
 		t.Fatalf("defaults = %+v, want gain 0.8, no max change, base last", b)
 	}
 }
+
+func TestLearnedReadersFindsRulesOnce(t *testing.T) {
+	doc := Doc{Rules: []Rule{
+		{ID: "a", Name: "Wallbox", Conditions: []Condition{{Learned: map[string]LearnedRef{"threshold": {Key: "site/surplus_left_wh"}, "value": {Key: "site/surplus_left_wh"}}}}},
+		{ID: "b", Name: "Licht", Conditions: []Condition{{Learned: map[string]LearnedRef{"value": {Key: "site/day_start"}}}}},
+		{ID: "c", Name: "Boiler", Conditions: []Condition{{}, {Learned: map[string]LearnedRef{"threshold": {Key: "site/surplus_left_wh"}}}}},
+	}}
+	got := LearnedReaders(doc, "site/surplus_left_wh")
+	want := []RuleRef{{"a", "Wallbox"}, {"c", "Boiler"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v", got)
+	}
+	if got := LearnedReaders(Doc{}, "site/surplus_left_wh"); got == nil || len(got) != 0 {
+		t.Fatalf("empty doc: %#v", got)
+	}
+}
