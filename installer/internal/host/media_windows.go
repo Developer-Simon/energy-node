@@ -22,7 +22,7 @@ func mediaPlatform() (supported bool, links []hostapi.MediaLink) {
 
 var mediaRunner media.Runner = elevatedRunner
 
-// locateImager findet unter Windows noch keinen Imager.
+// locateImager sucht den installierten Imager an den bekannten Installationsorten.
 func locateImager(ctx context.Context) (media.Imager, bool) {
-	return media.Imager{}, false
+	return media.LocateWindowsImager()
 }

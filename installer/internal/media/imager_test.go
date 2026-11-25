@@ -156,3 +156,85 @@ func TestWindowsImagerCommandRunsTheExeDirectly(t *testing.T) {
 		t.Errorf("args = %v\nwant   %v", args, want)
 	}
 }
+
+// fakeWinEnv answers the Windows lookups from fixed tables.
+func fakeWinEnv(vars map[string]string, existing []string, version string, versionErr error) WinEnv {
+	exists := map[string]bool{}
+	for _, p := range existing {
+		exists[p] = true
+	}
+	return WinEnv{
+		Getenv: func(name string) string { return vars[name] },
+		Exists: func(path string) bool { return exists[path] },
+		FileVersion: func(string) (string, error) {
+			return version, versionErr
+		},
+	}
+}
+
+var winVars = map[string]string{
+	"ProgramFiles":      `C:\Program Files`,
+	"ProgramFiles(x86)": `C:\Program Files (x86)`,
+	"LOCALAPPDATA":      `C:\Users\simon\AppData\Local`,
+}
+
+func TestFindWindowsImagerPrefersProgramFiles(t *testing.T) {
+	env := fakeWinEnv(winVars, []string{
+		`C:\Program Files\Raspberry Pi Ltd\Imager\rpi-imager.exe`,
+		`C:\Program Files\Raspberry Pi Imager\rpi-imager.exe`,
+		`C:\Users\simon\AppData\Local\Programs\Raspberry Pi Imager\rpi-imager.exe`,
+	}, "2.0.12.0", nil)
+	im, ok := FindWindowsImager(env)
+	if !ok {
+		t.Fatal("imager not found")
+	}
+	want := Imager{Kind: ImagerWindows, Path: `C:\Program Files\Raspberry Pi Ltd\Imager\rpi-imager.exe`, Version: "2.0.12"}
+	if im != want {
+		t.Fatalf("got %+v, want %+v", im, want)
+	}
+}
+
+func TestFindWindowsImagerFallsBackToLocalAppData(t *testing.T) {
+	env := fakeWinEnv(winVars, []string{
+		`C:\Users\simon\AppData\Local\Programs\Raspberry Pi Imager\rpi-imager.exe`,
+	}, "2.0.12.0", nil)
+	im, ok := FindWindowsImager(env)
+	if !ok {
+		t.Fatal("imager not found")
+	}
+	if im.Path != `C:\Users\simon\AppData\Local\Programs\Raspberry Pi Imager\rpi-imager.exe` || im.Version != "2.0.12" {
+		t.Fatalf("got %+v", im)
+	}
+}
+
+func TestFindWindowsImagerTrimsTheFourthVersionPart(t *testing.T) {
+	env := fakeWinEnv(winVars, []string{
+		`C:\Program Files\Raspberry Pi Imager\rpi-imager.exe`,
+	}, "2.0.8.0", nil)
+	im, ok := FindWindowsImager(env)
+	if !ok {
+		t.Fatal("imager not found")
+	}
+	if im.Version != "2.0.8" {
+		t.Fatalf("Version = %q, want 2.0.8", im.Version)
+	}
+}
+
+func TestFindWindowsImagerWithoutVersionIsTooOld(t *testing.T) {
+	env := fakeWinEnv(winVars, []string{
+		`C:\Program Files\Raspberry Pi Imager\rpi-imager.exe`,
+	}, "", errors.New("no version info"))
+	im, ok := FindWindowsImager(env)
+	if !ok {
+		t.Fatal("imager not found")
+	}
+	if im.Version != "" || !im.TooOld() {
+		t.Fatalf("got %+v, want empty version that is too old", im)
+	}
+}
+
+func TestFindWindowsImagerNotInstalled(t *testing.T) {
+	if _, ok := FindWindowsImager(fakeWinEnv(winVars, nil, "", nil)); ok {
+		t.Fatal("expected ok == false")
+	}
+}
