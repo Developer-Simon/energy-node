@@ -58,6 +58,7 @@
     bundle: null,
     running: {dashboard: ''},
     components: [],
+    system: [],
     hasChangelog: false,
     // The bundle the node ran before its last version change, null when none is recorded.
     previous: null,
@@ -99,6 +100,7 @@
         this.components = body.components || [];
         this.hasChangelog = Boolean(body.has_changelog);
         this.previous = body.previous || null;
+        this.system = body.system || [];
       } catch (error) {
         this.error = error.message;
       } finally {
@@ -260,6 +262,13 @@
       } catch (error) {
         this.releaseErrors = {...this.releaseErrors, [id]: error.message};
       }
+    },
+
+    // Version einer Zeile der Systemkarte. Ohne Paketeintrag kann das Programm
+    // trotzdem von Hand installiert sein, deshalb nicht "nicht installiert".
+    systemVersionText(entry) {
+      if (!entry.installed) return t('settings.versions.system.no_package');
+      return entry.version || t('settings.versions.unknown');
     },
 
     // The releases of a component as the current view shows them. An

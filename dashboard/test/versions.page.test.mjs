@@ -422,3 +422,47 @@ test('setChangelogHistory() restores the value and toasts when saving fails', as
   assert.equal(component.savingChangelogHistory, false);
   assert.deepEqual(component.$store.toasts.criticals, [de['error.settings_rejected']]);
 });
+
+const read = (...parts) => fs.readFileSync(path.join(here, '..', 'internal', 'webui', ...parts), 'utf8');
+const SYSTEM = [
+  { id: 'os', label: 'Debian GNU/Linux', version: '12 (bookworm)', installed: true, outdated: false },
+  { id: 'caddy', label: 'Caddy', version: '2.6.2', installed: true, pinned: '2.11.9', outdated: true },
+];
+
+test('load() fills the system rows and keeps them empty when the field is missing', async () => {
+  const withSystem = await loaded({ system: SYSTEM });
+  assert.deepEqual(plain(withSystem.component.system.map((e) => e.id)), ['os', 'caddy']);
+  const guest = await loaded();
+  assert.deepEqual(plain(guest.component.system), []);
+});
+
+test('systemVersionText names a missing package and an unreadable version', () => {
+  const { component } = createVersionsPanel();
+  assert.equal(component.systemVersionText({ installed: true, version: '2.6.2' }), '2.6.2');
+  assert.equal(component.systemVersionText({ installed: false, version: '' }), de['settings.versions.system.no_package']);
+  assert.equal(component.systemVersionText({ installed: true, version: '' }), de['settings.versions.unknown']);
+});
+
+test('the system card hides without rows and offers nothing to click', () => {
+  const template = read('templates', 'versions.html');
+  const card = template.slice(template.indexOf('data-tour="versions-system"'), template.lastIndexOf('</section>'));
+  assert.match(card, /x-show="system\.length"/);
+  assert.match(card, /class="version-chip is-warn" x-show="entry\.outdated"/);
+  assert.doesNotMatch(card, /x-on:click|<button|<a /);
+  assert.ok(template.indexOf('data-tour="versions-components"') < template.indexOf('data-tour="versions-system"'));
+});
+
+test('the system card brings no motion of its own', () => {
+  const css = read('static', 'css', 'settings-controls.css');
+  const rules = css.match(/\.version-(values|pin|chip\.is-warn)[^{]*\{[^}]*\}/g) || [];
+  assert.ok(rules.length >= 3);
+  for (const rule of rules) assert.doesNotMatch(rule, /transition|animation|transform|:hover/);
+});
+
+test('both catalogs carry the system card texts', () => {
+  const en = catalog('en');
+  for (const key of ['title', 'outdated', 'no_package', 'pinned'].map((k) => `settings.versions.system.${k}`)) {
+    assert.ok(de[key], `de ${key}`);
+    assert.ok(en[key], `en ${key}`);
+  }
+});

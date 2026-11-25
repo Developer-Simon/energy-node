@@ -104,5 +104,20 @@
       </template>
     </div>
   </template>
+  <div class="setting-card" data-tour="versions-system" x-show="system.length" x-cloak>
+    <h3 class="setting-card-title">{{t "settings.versions.system.title"}}</h3>
+    <template x-for="entry in system" :key="entry.id">
+      <div class="version-item">
+        <div class="version-row" x-bind:data-system="entry.id">
+          <span class="version-name" x-bind:class="{ 'is-off': !entry.installed }" x-text="entry.label"></span>
+          <span class="version-chip is-warn" x-show="entry.outdated">{{t "settings.versions.system.outdated"}}</span>
+          <span class="version-values">
+            <span x-bind:class="entry.installed ? 'version-tag' : 'version-chip'" x-text="systemVersionText(entry)"></span>
+            <span class="version-pin" x-text="entry.pinned ? $t('settings.versions.system.pinned', {version: entry.pinned}) : ''"></span>
+          </span>
+        </div>
+      </div>
+    </template>
+  </div>
 </section>
 {{end}}

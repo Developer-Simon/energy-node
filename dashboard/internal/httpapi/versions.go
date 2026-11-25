@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/versions"
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
@@ -12,7 +13,8 @@ import (
 // handleVersions is GET /api/v1/versions: the bundle this node was installed
 // from and the version of every component in it. Readable by every signed-in
 // session, guests included -- it says nothing an operator may not see.
-func handleVersions(stateDir, running string) http.HandlerFunc {
+// The system field is the exception, see maySeeSystem.
+func handleVersions(stateDir, running string, system versions.SystemSources) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			methodNotAllowed(w, http.MethodGet)
@@ -23,8 +25,19 @@ func handleVersions(stateDir, running string) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "versions_unreadable", "Versionsdaten konnten nicht gelesen werden")
 			return
 		}
+		if maySeeSystem(r) {
+			snapshot.System = versions.System(system)
+		}
 		writeJSON(w, snapshot)
 	}
+}
+
+// maySeeSystem: operating system and package versions tell which known flaws
+// apply, so a signed-in user needs edit_setup. Without a user in the context no
+// gate applies, as before accounts existed.
+func maySeeSystem(r *http.Request) bool {
+	user, ok := auth.UserFromContext(r.Context())
+	return !ok || auth.HasRole(user, auth.RoleEditSetup)
 }
 
 // handleChangelog is GET /api/v1/changelog[?component=<id>&bundles=<n>]: the
