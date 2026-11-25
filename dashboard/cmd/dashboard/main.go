@@ -1465,6 +1465,8 @@ func main() {
 			Usage:     storageUsage,
 		},
 		InstallerStateDir:     installerStateDir,
+		DpkgStatusPath:        os.Getenv("ENERGY_NODE_DPKG_STATUS"),
+		OSReleasePath:         os.Getenv("ENERGY_NODE_OS_RELEASE"),
 		AppConfigPath:         *configPath,
 		BridgeTargetPath:      cfg.Dashboard.MosquittoBridgeTarget,
 		Tailscale:             tailscaleClient,

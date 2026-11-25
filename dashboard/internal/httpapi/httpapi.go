@@ -219,6 +219,11 @@ type RouterDependencies struct {
 	// (installed-manifest.json, selection.json, changelog.json), aus dem die
 	// Versionsseite liest. Leer heisst versions.DefaultStateDir.
 	InstallerStateDir string
+	// DpkgStatusPath und OSReleasePath ersetzen fuer Demo und Smoke-Test die
+	// Dateien der Systemkarte der Versionsseite. Leer heisst die Vorgabe aus
+	// internal/versions.
+	DpkgStatusPath string
+	OSReleasePath  string
 	// Version ist die aus dashboard/VERSION plus Branch-Suffix gebaute
 	// Versionskennung (siehe main.buildVersion), leer bzw. "dev" ausserhalb
 	// von Release-Builds.
@@ -355,7 +360,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if stateDir == "" {
 		stateDir = versions.DefaultStateDir
 	}
-	g.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version))
+	g.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version, versions.SystemSources{
+		DpkgStatus: dependencies.DpkgStatusPath, OSRelease: dependencies.OSReleasePath, StateDir: stateDir,
+	}))
 	g.HandleFunc("/api/v1/changelog", handleChangelog(stateDir))
 	g.HandleFunc("/api/v1/changelog/highlights", handleChangelogHighlights(stateDir))
 	if dependencies.UpdatesCache != nil {
