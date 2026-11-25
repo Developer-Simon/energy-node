@@ -2,7 +2,8 @@
 // came from, the version of every component in it, and what changed. It only
 // reads the files the updater and the installer leave in the installer state
 // directory (installed-manifest.json, selection.json, changelog.json); it
-// never writes and never talks to GitHub.
+// never writes and never talks to GitHub. The system card also reads dpkg's
+// database and os-release.
 package versions
 
 import (
@@ -83,6 +84,9 @@ type Snapshot struct {
 	// (previous-manifest.json, kept by the updater and the installer). Nil on
 	// a first install or before either kept one.
 	Previous *Bundle `json:"previous"`
+	// System is the operating system and the system packages (System). Only
+	// set for sessions that may see them.
+	System []SystemEntry `json:"system,omitempty"`
 }
 
 type manifestFile struct {
