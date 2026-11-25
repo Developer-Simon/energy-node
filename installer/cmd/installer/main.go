@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/devcli"
+	"github.com/Developer-Simon/energy-node-installer/internal/media"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 )
 
@@ -41,6 +42,10 @@ func main() {
 		err = runDiagnoseCmd(os.Args[2:])
 	case "restart":
 		err = runRestartCmd(os.Args[2:])
+	case media.HelperName:
+		os.Exit(runMediaHelperCmd(os.Args[2:]))
+	case media.ShimName:
+		os.Exit(runMediaShimCmd(os.Args[2:]))
 	case "-h", "--help", "help":
 		printUsage()
 		return
