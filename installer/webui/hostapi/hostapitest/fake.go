@@ -108,7 +108,10 @@ type FakeBackend struct {
 	// Rechnernamen, MediaWriteErr laesst den Start scheitern und
 	// LastMediaWrite haelt den letzten Auftrag. Den Verlauf des Auftrags
 	// steuern die unexportierten Felder (siehe fake_media.go).
-	MediaStatusView  hostapi.MediaStatus
+	MediaStatusView hostapi.MediaStatus
+	// MediaPlatform waehlt die Plattform des Status: "windows" liefert die
+	// Links von Windows, leer oder "linux" die Vorgabe aus MediaStatusView.
+	MediaPlatform    string
 	MediaCatalogView hostapi.MediaCatalog
 	MediaDriveList   []hostapi.MediaDrive
 	MediaTaken       map[string]bool

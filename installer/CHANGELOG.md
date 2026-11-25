@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4-pre.6 (2026-11-15)
+## v0.3.4-pre.7 (2026-11-15)
 
 ### Features
 
@@ -10,6 +10,16 @@
 - **installer:** write a Debian install stick from the media mode (#255) (cb9e1aa)
 - **installer:** The configure screen of the installer shows its services and tuning as modules (#280) (f85e2a6)
 - **installer:** apply a changed service selection without a full update (#282) (ab11a7a)
+- **installer:** check the target again before writing and read Windows imager output (33f57e3)
+- **installer:** add the zone tables for the media defaults (74d8ad2)
+- **installer:** add the media helper that runs the imager on behalf of the installer (39f87da)
+- **installer:** run the imager in a pseudo console on Windows (c103de4)
+- **installer:** write media on Windows through an elevated helper (3f18dda)
+- **installer:** find the Raspberry Pi Imager on Windows (69a464d)
+- **installer:** list Windows drives for the media mode (b784572)
+- **installer:** take timezone, keyboard and country from Windows (1437c65)
+- **installer:** read Wi-Fi networks and stored keys on Windows (af700ac)
+- **installer:** prepare storage media on Windows (#298)
 - **installer:** compute the steps an apply-selection run needs (c855116)
 - **installer:** prepare from the package stored on the node (f5b1c87)
 - **installer:** run only the changed services in apply-selection mode (7af7686)
@@ -47,6 +57,8 @@
 ### Fixes
 
 - **installer:** ask for the pinned host key type when probing and signing in (#241) (a5e2b38)
+- **installer:** watch for cancel while the UAC prompt is open (a917557)
+- **installer:** hand the console pipe to the copy goroutine (f850e63)
 - **installer:** skip the Debian release lookup for unsupported devices (4b53c16)
 - **installer:** install python3 on the Debian stick target (b007104)
 - **installer:** manage the Debian node network with NetworkManager (8034938)
@@ -55,17 +67,28 @@
 - **installer:** read the Wi-Fi name without a rescan and keep its band (092e503)
 - **installer:** unblock Wi-Fi on Raspberry Pi OS by setting its country (ffb360a)
 
+### Refactors
+
+- **installer:** move the media platform choices behind one file per system (5738454)
+- **installer:** share the Wi-Fi merge and add the Windows Wi-Fi parsers (1116f22)
+
 ### Documentation
 
+- **installer:** describe what the log sink removes (5d0dd8c)
 - **installer:** record the QEMU matrix results and the emergency password run (ce5c7ab)
 
 ### Tests
 
+- **installer:** add recorded Windows outputs for the media mode (261cfa0)
 - **installer:** cover the ISO layout failures of isopatch (f52f4cc)
 - **installer:** pin the disk selection of the Debian install script (3a98409)
 - **installer:** keep the Debian stick QEMU matrix in the repo (d0433a1)
 - **installer:** let mediastick set the emergency password (052a7b8)
 - **installer:** add dev.sh to try the Debian stick in QEMU (#257) (8bb3a60)
+
+### CI
+
+- run the installer media tests on Windows (b5d0181)
 
 ## v0.3.3 (2026-11-16)
 

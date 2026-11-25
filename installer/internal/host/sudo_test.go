@@ -3,6 +3,7 @@ package host
 import (
 	"errors"
 	"os/exec"
+	"runtime"
 	"testing"
 
 	"golang.org/x/crypto/ssh"
@@ -42,6 +43,9 @@ func (e exitStatus) Error() string   { return "exit" }
 func (e exitStatus) ExitStatus() int { return int(e) }
 
 func TestEnableSudoScriptIsValidShell(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs sh on the Linux sudo setup script")
+	}
 	if out, err := exec.Command("sh", "-n", "-c", enableSudoScript).CombinedOutput(); err != nil {
 		t.Fatalf("sh -n: %v\n%s", err, out)
 	}

@@ -50,3 +50,13 @@ func TestParseImagerOutputError(t *testing.T) {
 		t.Errorf("first = %+v, want write 45", got[0])
 	}
 }
+
+func TestParseImagerOutputWindowsRecording(t *testing.T) {
+	counts := map[Phase]int{}
+	for _, p := range parseFile(t, "testdata/imager-win-ok.txt") {
+		counts[p.Phase]++
+	}
+	if counts[PhaseWrite] == 0 || counts[PhaseVerify] == 0 || counts[PhaseDone] != 1 || counts[PhaseError] != 0 {
+		t.Fatalf("phase counts = %v, want write, verify, exactly one done and no error", counts)
+	}
+}

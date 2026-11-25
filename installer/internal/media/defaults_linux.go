@@ -9,16 +9,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const zone1970Path = "/usr/share/zoneinfo/zone1970.tab"
-
-// maxWifiNetworks begrenzt die Netze in Reichweite.
-const maxWifiNetworks = 10
 
 // HostDefaults reads timezone, keyboard, and WLAN country from this computer.
 func HostDefaults() Defaults {
@@ -69,10 +65,7 @@ func nmcliWifiList(parent context.Context, rescan string, timeout time.Duration)
 // and "\" as "\\" in the SSID. Hidden networks (empty SSID) are skipped, access
 // points with the same name are merged.
 func parseWifiList(data []byte) (string, int, []WifiNetwork) {
-	var active string
-	var activeFreq int
-	byName := map[string]*WifiNetwork{}
-	var order []*WifiNetwork
+	var samples []wifiSample
 	sc := bufio.NewScanner(bytes.NewReader(data))
 	for sc.Scan() {
 		line := strings.TrimRight(sc.Text(), "\r")
@@ -96,67 +89,19 @@ func parseWifiList(data []byte) (string, int, []WifiNetwork) {
 		if ssid == "" {
 			continue
 		}
-		if activeField == "yes" && active == "" {
-			active, activeFreq = ssid, freq
-		}
-		n := byName[ssid]
-		if n == nil {
-			n = &WifiNetwork{SSID: ssid}
-			byName[ssid] = n
-			order = append(order, n)
-		}
-		if signal > n.Signal {
-			n.Signal = signal
-		}
-		switch {
-		case freq >= 5000:
-			n.Band5 = true
-		case freq > 0:
-			n.Band24 = true
-		}
+		samples = append(samples, wifiSample{SSID: ssid, FreqMHz: freq, Signal: signal, Active: activeField == "yes"})
 	}
-	sort.SliceStable(order, func(a, b int) bool {
-		if order[a].Signal != order[b].Signal {
-			return order[a].Signal > order[b].Signal
-		}
-		return order[a].SSID < order[b].SSID
-	})
-	if len(order) > maxWifiNetworks {
-		order = order[:maxWifiNetworks]
-	}
-	nets := make([]WifiNetwork, len(order))
-	for k, n := range order {
-		nets[k] = *n
-	}
-	return active, activeFreq, nets
+	return mergeWifi(samples)
 }
 
 // zoneCountries maps each zone of zone1970.tab to its first country code.
 func zoneCountries() map[string]string {
 	data, err := os.ReadFile(zone1970Path)
 	if err != nil {
-		return map[string]string{}
+		_, countries := embeddedZones()
+		return countries
 	}
 	return parseZoneCountries(data)
-}
-
-// parseZoneCountries returns zone -> first country code (first column, comma separated) of zone1970.tab.
-func parseZoneCountries(data []byte) map[string]string {
-	out := map[string]string{}
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		fields := strings.Split(line, "\t")
-		if len(fields) < 3 {
-			continue
-		}
-		code, _, _ := strings.Cut(strings.TrimSpace(fields[0]), ",")
-		out[strings.TrimSpace(fields[2])] = code
-	}
-	return out
 }
 
 // unescapeTerse reverses the backslash escaping of nmcli terse output.
@@ -188,40 +133,14 @@ func localTimezone() string {
 	return target[i+len(marker):]
 }
 
-// timezoneList returns the sorted zone names from zone1970.tab plus UTC.
+// timezoneList returns the sorted zone names from zone1970.tab plus UTC, or the embedded table.
 func timezoneList() []string {
 	data, err := os.ReadFile(zone1970Path)
 	if err != nil {
-		return []string{"UTC"}
+		zones, _ := embeddedZones()
+		return zones
 	}
-	zones := parseZoneTab(data)
-	for _, z := range zones {
-		if z == "UTC" {
-			return zones
-		}
-	}
-	zones = append(zones, "UTC")
-	sort.Strings(zones)
-	return zones
-}
-
-// parseZoneTab returns the sorted zone names (third column) of a zone1970.tab file.
-func parseZoneTab(data []byte) []string {
-	var zones []string
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		fields := strings.Split(line, "\t")
-		if len(fields) < 3 {
-			continue
-		}
-		zones = append(zones, strings.TrimSpace(fields[2]))
-	}
-	sort.Strings(zones)
-	return zones
+	return zonesWithUTC(parseZoneTab(data))
 }
 
 // localKeyboard returns the X11 layout from localectl, falling back to the console keymap.
@@ -261,16 +180,4 @@ func localeFromEnv() string {
 		return v
 	}
 	return os.Getenv("LANG")
-}
-
-// countryFromLocale returns the upper-case country of a locale such as de_DE.UTF-8, or "".
-func countryFromLocale(locale string) string {
-	if i := strings.IndexAny(locale, ".@"); i >= 0 {
-		locale = locale[:i]
-	}
-	parts := strings.Split(locale, "_")
-	if len(parts) != 2 {
-		return ""
-	}
-	return strings.ToUpper(parts[1])
 }

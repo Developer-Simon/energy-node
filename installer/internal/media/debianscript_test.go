@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -67,6 +68,9 @@ db_get() { printf 'get|%s\n' "$1" >>"$REC_FILE"; RET=$FAKE_CONFIRM; }
 `
 
 func TestEarlyScriptPicksOnlyAnInternalDisk(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs the Debian early script with sh on a Linux sysfs tree with symlinks")
+	}
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("no sh on this host")
 	}

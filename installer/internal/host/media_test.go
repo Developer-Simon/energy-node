@@ -79,6 +79,9 @@ func TestMediaUnsupportedWithoutLinux(t *testing.T) {
 	if runtime.GOOS == "linux" {
 		t.Skip("checks the non-Linux answer")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("media mode is supported on Windows, so the unsupported answer does not apply")
+	}
 	h := newMediaHost(t, t.TempDir())
 	_, err := h.MediaCatalog(context.Background())
 	assertAPIError(t, err, hostapi.MediaErrUnsupported, http.StatusNotImplemented)

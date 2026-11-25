@@ -20,11 +20,15 @@ const fingerprint = "SHA256:xK9v+Lm2Qd8pR4tN1wZa7YcB3fH6jE0sU5gV2nP8kQo"
 
 type options struct {
 	dashboard bool
-	trusted   bool
-	holdStep  string
-	failStep  string
-	failCode  string
-	stepDelay time.Duration
+	// mediaPlatform: die Plattform des Mediums, "windows" oder leer (Linux).
+	mediaPlatform string
+	// mediaImagerMissing: kein Raspberry Pi Imager gefunden.
+	mediaImagerMissing bool
+	trusted            bool
+	holdStep           string
+	failStep           string
+	failCode           string
+	stepDelay          time.Duration
 	// english: die Log-Zeilen der Attrappe auf Englisch (--lang en). Ein
 	// echter Node meldet sie aus den Skripten, deutsch; die Attrappe zeigt sie
 	// fuer die Dokumentation in der Sprache des Fensters.
@@ -371,6 +375,10 @@ func strptr(s string) *string { return &s }
 
 func newScenario(name string, opts options) *stagedBackend {
 	fake := hostapitest.NewFake()
+	fake.MediaPlatform = opts.mediaPlatform
+	if opts.mediaImagerMissing {
+		fake.MediaStatusView.Imager = hostapi.MediaImagerStatus{}
+	}
 	// updater ist vorlage-update so, wie der Updater des Dashboards
 	// (dashboard/internal/updaterhost) den Lauf schreibt: nur gewaehlte
 	// Schritte stehen im Auftrag. Abgewaehlte melden gar nichts, auch der

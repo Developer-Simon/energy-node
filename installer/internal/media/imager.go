@@ -13,6 +13,7 @@ type ImagerKind string
 const (
 	ImagerNative  ImagerKind = "native"
 	ImagerFlatpak ImagerKind = "flatpak"
+	ImagerWindows ImagerKind = "windows"
 )
 
 // FlatpakID is the Flatpak application ID of the Raspberry Pi Imager.
@@ -108,8 +109,59 @@ func (im Imager) Command(a WriteArgs) (name string, args []string) {
 		return "flatpak", args
 	}
 
+	if im.Kind == ImagerWindows {
+		args = []string{"--cli"}
+		args = append(args, flags...)
+		args = append(args, a.Image, a.Drive)
+		return im.Path, args
+	}
+
 	args = []string{im.Path, "--cli"}
 	args = append(args, flags...)
 	args = append(args, a.Image, a.Drive)
 	return "pkexec", args
+}
+
+// WinEnv wraps the Windows system calls so tests can replace them.
+type WinEnv struct {
+	Getenv      func(string) string
+	Exists      func(string) bool
+	FileVersion func(string) (string, error)
+}
+
+// FindWindowsImager returns the first installed rpi-imager.exe from the known install
+// locations. A location whose environment variable is empty is skipped. Its version comes
+// from the file's version resource, trimmed to three parts. ok is false if none exists.
+func FindWindowsImager(env WinEnv) (im Imager, ok bool) {
+	candidates := []struct{ variable, sub string }{
+		{"ProgramFiles", `\Raspberry Pi Ltd\Imager\rpi-imager.exe`},
+		{"ProgramFiles", `\Raspberry Pi Imager\rpi-imager.exe`},
+		{"ProgramFiles(x86)", `\Raspberry Pi Imager\rpi-imager.exe`},
+		{"LOCALAPPDATA", `\Programs\Raspberry Pi Imager\rpi-imager.exe`},
+	}
+	for _, c := range candidates {
+		base := env.Getenv(c.variable)
+		if base == "" {
+			continue
+		}
+		path := base + c.sub
+		if !env.Exists(path) {
+			continue
+		}
+		version, err := env.FileVersion(path)
+		if err != nil {
+			version = ""
+		}
+		return Imager{Kind: ImagerWindows, Path: path, Version: trimVersion(version)}, true
+	}
+	return Imager{}, false
+}
+
+// trimVersion cuts a four part file version such as "2.0.12.0" to "2.0.12".
+func trimVersion(version string) string {
+	parts := strings.Split(version, ".")
+	if len(parts) > 3 {
+		parts = parts[:3]
+	}
+	return strings.Join(parts, ".")
 }

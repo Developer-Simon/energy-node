@@ -3,6 +3,7 @@ package host_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -10,6 +11,9 @@ import (
 )
 
 func TestGenerateEd25519WritesAKeyPairWithTightPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("checks Unix mode bits 0600, which Windows does not report")
+	}
 	dir := t.TempDir()
 	privatePath, publicLine, err := host.GenerateEd25519(dir)
 	if err != nil {

@@ -38,7 +38,9 @@ signature. Everything else in the package stays verified.
 
 ## Raspberry Pi with the Raspberry Pi Imager
 
-- Pick the image from the table above.
+- Pick the image from the table above. The installer's **Media** tab can also
+  write the card for you on Linux and Windows, see
+  [Preparing a storage medium](installer.md#preparing-a-storage-medium).
 - Set hostname, user, SSH, WiFi and timezone in the Imager before it writes
   the card. On a headless remote site you do not want to find out afterwards
   that SSH is off.

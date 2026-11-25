@@ -646,3 +646,61 @@ func TestDebianTooSmallDrive(t *testing.T) {
 		t.Fatalf("Start error = %v, want ErrTooSmall", err)
 	}
 }
+
+func TestRunImagerMapsErrRightsDeniedToRightsDenied(t *testing.T) {
+	w := newTestWriter(t, []Drive{sdb}, &fakeRun{})
+	w.Run = func(context.Context, string, ...string) (io.ReadCloser, func() (int, error), error) {
+		return nil, nil, fmt.Errorf("x: %w", ErrRightsDenied)
+	}
+	if err := w.Start(context.Background(), okWrite); err != nil {
+		t.Fatal(err)
+	}
+	v := waitJob(t, w)
+	if v.State != JobFailed || v.Error == nil || v.Error.Code != codeRightsDenied {
+		t.Fatalf("state = %s, error = %+v, want %s", v.State, v.Error, codeRightsDenied)
+	}
+}
+
+func TestRunImagerRefusesADriveThatChangedSinceStart(t *testing.T) {
+	changed := Drive{Path: "/dev/sdb", Model: "Stick", Size: 16e9, Removable: true}
+	fr := &fakeRun{out: loadFixture(t, "imager-ok.txt")}
+	w := newTestWriter(t, []Drive{sdb}, fr)
+	calls := 0
+	w.Drives = func(context.Context) ([]Drive, error) {
+		calls++
+		if calls == 1 {
+			return []Drive{sdb}, nil
+		}
+		return []Drive{changed}, nil
+	}
+	if err := w.Start(context.Background(), okWrite); err != nil {
+		t.Fatal(err)
+	}
+	v := waitJob(t, w)
+	if v.State != JobFailed || v.Error == nil || v.Error.Code != codeDriveGone {
+		t.Fatalf("state = %s, error = %+v, want %s", v.State, v.Error, codeDriveGone)
+	}
+	if name, _ := fr.got(); name != "" {
+		t.Fatalf("imager was started with %q although the drive changed", name)
+	}
+}
+
+func TestRunImagerRefusesWhenTheDriveIsGone(t *testing.T) {
+	fr := &fakeRun{out: loadFixture(t, "imager-ok.txt")}
+	w := newTestWriter(t, []Drive{sdb}, fr)
+	calls := 0
+	w.Drives = func(context.Context) ([]Drive, error) {
+		calls++
+		if calls == 1 {
+			return []Drive{sdb}, nil
+		}
+		return nil, nil
+	}
+	if err := w.Start(context.Background(), okWrite); err != nil {
+		t.Fatal(err)
+	}
+	v := waitJob(t, w)
+	if v.State != JobFailed || v.Error == nil || v.Error.Code != codeDriveGone {
+		t.Fatalf("state = %s, error = %+v, want %s", v.State, v.Error, codeDriveGone)
+	}
+}

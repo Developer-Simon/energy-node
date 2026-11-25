@@ -23,6 +23,11 @@
       // alt, imagerKey ist 'missing' oder 'old'), 'failed' oder 'ready'.
       state: '',
       imagerKey: '',
+      // platform: 'linux' oder 'windows' aus dem Status. Bestimmt die Texte der Karte.
+      platform: 'linux',
+      // copied: die Art des Links, dessen Befehl eben kopiert wurde (2 s).
+      copied: '',
+      copyTimer: null,
       links: [],
       devices: [],
       groups: [],
@@ -48,6 +53,8 @@
           return;
         }
         this.links = status.links || [];
+        this.platform = status.platform || 'linux';
+        this.shell.shared.mediaPlatform = this.platform;
         if (!status.supported) {
           this.state = 'unsupported';
           return;
@@ -71,6 +78,31 @@
 
       recheck() {
         return this.load();
+      },
+
+      // imagerTextKey: der Text der Karte. Off Linux ein eigener Schluessel mit Plattformsuffix.
+      get imagerTextKey() {
+        return 'media.imager.' + this.imagerKey + '.text' + (this.platform === 'linux' ? '' : '.' + this.platform);
+      },
+
+      // copyCommand: den Befehl in die Zwischenablage. Ohne Zwischenablage oder
+      // bei Ablehnung bleibt der Befehl markierbar und es erscheint kein Kopiert.
+      async copyCommand(link) {
+        try {
+          if (!window.navigator.clipboard || !window.navigator.clipboard.writeText) {
+            return;
+          }
+          await window.navigator.clipboard.writeText(link.command);
+        } catch (err) {
+          return;
+        }
+        var self = this;
+        this.copied = link.kind;
+        window.clearTimeout(this.copyTimer);
+        this.copyTimer = window.setTimeout(function () {
+          self.copied = '';
+          self.copyTimer = null;
+        }, 2000);
       },
 
       get device() {
@@ -785,6 +817,11 @@
         return window.MediaModel.fallbackSteps(this.group).map(function (id) {
           return { id: id, state: 'pending', labelKey: 'media.step.' + id };
         });
+      },
+
+      // platform: 'linux' oder 'windows', vom Geraet-Bildschirm gemerkt.
+      get platform() {
+        return this.shell.shared.mediaPlatform || 'linux';
       },
 
       get percent() {

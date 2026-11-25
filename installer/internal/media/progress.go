@@ -30,7 +30,15 @@ type Progress struct {
 var (
 	imagerProgressRe = regexp.MustCompile(`^(Writing|Verifying): \[[^\]]*\]\s+(\d+)\s*%`)
 	imagerIgnored    = []string{"Platform:", "Starting background", "CacheManager", "Optimal async", "FileOperations", "WARNING:"}
+	vtCSIRe          = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
+	vtOSCRe          = regexp.MustCompile(`\x1b\][^\x07]*\x07`)
 )
+
+// stripVT removes the terminal control sequences (CSI and OSC) that the Windows
+// console writes into the imager output.
+func stripVT(s string) string {
+	return vtOSCRe.ReplaceAllString(vtCSIRe.ReplaceAllString(s, ""), "")
+}
 
 // splitLines splits on both \r and \n, so progress updates that overwrite a line count as lines.
 func splitLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
@@ -44,12 +52,12 @@ func splitLines(data []byte, atEOF bool) (advance int, token []byte, err error) 
 }
 
 // ParseImagerOutput reads the imager output line by line (\r and \n both separate lines,
-// ESC[0K is removed) and calls emit for every recognized line.
+// control sequences are removed) and calls emit for every recognized line.
 func ParseImagerOutput(r io.Reader, emit func(Progress)) error {
 	sc := bufio.NewScanner(r)
 	sc.Split(splitLines)
 	for sc.Scan() {
-		raw := strings.ReplaceAll(sc.Text(), "\x1b[0K", "")
+		raw := stripVT(sc.Text())
 		if strings.TrimSpace(raw) == "" {
 			continue
 		}
