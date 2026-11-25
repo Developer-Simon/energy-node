@@ -13,7 +13,7 @@
         <span>{{t "monitoring.view.learned"}}</span>
         <span class="auto-count" x-text="learned.values.length"></span>
       </button>
-      <button class="auto-segment-tab mi-seg" type="button" role="tab" x-bind:aria-selected="view === 'forecast' ? 'true' : 'false'" x-bind:class="{ active: view === 'forecast' }" x-on:click="setView('forecast')">
+      <button class="auto-segment-tab mi-seg" data-tour="monitoring-forecast" type="button" role="tab" x-bind:aria-selected="view === 'forecast' ? 'true' : 'false'" x-bind:class="{ active: view === 'forecast' }" x-on:click="setView('forecast')">
         <span>{{t "monitoring.view.forecast"}}</span>
       </button>
     </div>
