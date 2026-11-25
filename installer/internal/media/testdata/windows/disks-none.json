@@ -1,0 +1,138 @@
+{
+  "disks": [
+    {
+      "Number": 1,
+      "FriendlyName": "ST4000DM004-2CV104",
+      "Size": 4000787030016,
+      "BusType": "SATA",
+      "IsBoot": false,
+      "IsSystem": false
+    },
+    {
+      "Number": 3,
+      "FriendlyName": "CT2000P3SSD8",
+      "Size": 2000398934016,
+      "BusType": "NVMe",
+      "IsBoot": true,
+      "IsSystem": true
+    },
+    {
+      "Number": 2,
+      "FriendlyName": "Samsung SSD 850 EVO 250GB",
+      "Size": 250059350016,
+      "BusType": "SATA",
+      "IsBoot": false,
+      "IsSystem": false
+    },
+    {
+      "Number": 0,
+      "FriendlyName": "WDC WD30EZRZ-00Z5HB0",
+      "Size": 3000592982016,
+      "BusType": "SATA",
+      "IsBoot": false,
+      "IsSystem": false
+    }
+  ],
+  "partitions": [
+    {
+      "DiskNumber": 1,
+      "PartitionNumber": 1,
+      "DriveLetter": "",
+      "Size": 4000785104896,
+      "AccessPaths": []
+    },
+    {
+      "DiskNumber": 3,
+      "PartitionNumber": 1,
+      "DriveLetter": "",
+      "Size": 104857600,
+      "AccessPaths": []
+    },
+    {
+      "DiskNumber": 3,
+      "PartitionNumber": 2,
+      "DriveLetter": "",
+      "Size": 16777216,
+      "AccessPaths": []
+    },
+    {
+      "DiskNumber": 3,
+      "PartitionNumber": 3,
+      "DriveLetter": "C",
+      "Size": 1515175542784,
+      "AccessPaths": [
+        "C:\\",
+        "\\\\?\\Volume{00000000-0000-4000-8000-000000000005}\\"
+      ]
+    },
+    {
+      "DiskNumber": 3,
+      "PartitionNumber": 4,
+      "DriveLetter": "",
+      "Size": 995098624,
+      "AccessPaths": []
+    },
+    {
+      "DiskNumber": 3,
+      "PartitionNumber": 5,
+      "DriveLetter": "",
+      "Size": 2147483648,
+      "AccessPaths": []
+    },
+    {
+      "DiskNumber": 3,
+      "PartitionNumber": 6,
+      "DriveLetter": "",
+      "Size": 481036337152,
+      "AccessPaths": []
+    },
+    {
+      "DiskNumber": 2,
+      "PartitionNumber": 1,
+      "DriveLetter": "",
+      "Size": 250058113024,
+      "AccessPaths": []
+    },
+    {
+      "DiskNumber": 0,
+      "PartitionNumber": 1,
+      "DriveLetter": "",
+      "Size": 16759808,
+      "AccessPaths": []
+    },
+    {
+      "DiskNumber": 0,
+      "PartitionNumber": 2,
+      "DriveLetter": "D",
+      "Size": 3000574672896,
+      "AccessPaths": [
+        "D:\\",
+        "\\\\?\\Volume{00000000-0000-4000-8000-000000000004}\\"
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "Path": "\\\\?\\Volume{00000000-0000-4000-8000-000000000001}\\",
+      "FileSystemLabel": "",
+      "FileSystem": "NTFS",
+      "Size": 995094528,
+      "SizeRemaining": 120078336
+    },
+    {
+      "Path": "\\\\?\\Volume{00000000-0000-4000-8000-000000000004}\\",
+      "FileSystemLabel": "Data",
+      "FileSystem": "NTFS",
+      "Size": 3000574668800,
+      "SizeRemaining": 258766045184
+    },
+    {
+      "Path": "\\\\?\\Volume{00000000-0000-4000-8000-000000000005}\\",
+      "FileSystemLabel": "",
+      "FileSystem": "NTFS",
+      "Size": 1515175538688,
+      "SizeRemaining": 297555832832
+    }
+  ],
+  "systemDrive": "C:"
+}
