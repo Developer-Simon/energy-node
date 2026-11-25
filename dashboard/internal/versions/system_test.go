@@ -31,7 +31,13 @@ func systemSources(t *testing.T, dpkg, osRelease, manifest string) versions.Syst
 		return path
 	}
 	write("installed-manifest.json", manifest)
-	return versions.SystemSources{DpkgStatus: write("status", dpkg), OSRelease: write("os-release", osRelease), StateDir: dir}
+	return versions.SystemSources{
+		DpkgStatus:    write("status", dpkg),
+		OSRelease:     write("os-release", osRelease),
+		DebianVersion: filepath.Join(dir, "debian_version"),
+		KernelRelease: filepath.Join(dir, "kernel"),
+		StateDir:      dir,
+	}
 }
 
 func byID(entries []versions.SystemEntry) map[string]versions.SystemEntry {
@@ -118,5 +124,53 @@ func TestSystemShowsOnlyWhatIsReadable(t *testing.T) {
 	rolling := versions.System(systemSources(t, "", "NAME=Debian\nVERSION_CODENAME=forky\n", ""))
 	if len(rolling) != 1 || rolling[0].Version != "forky" {
 		t.Fatalf("without VERSION_ID: %+v", rolling)
+	}
+}
+
+func withFile(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSystemShowsThePointRelease(t *testing.T) {
+	cases := map[string]struct{ file, want string }{
+		"point release":  {"12.11\n", "12.11 (bookworm)"},
+		"equal":          {"12\n", "12 (bookworm)"},
+		"testing":        {"trixie/sid\n", "12 (bookworm)"},
+		"other counting": {"13.1\n", "12 (bookworm)"},
+		"prefix only":    {"120.1\n", "12 (bookworm)"},
+		"empty":          {"\n", "12 (bookworm)"},
+	}
+	for name, c := range cases {
+		src := systemSources(t, "", testOSRelease, "")
+		withFile(t, src.DebianVersion, c.file)
+		got := byID(versions.System(src))["os"]
+		if got.Version != c.want {
+			t.Errorf("%s: os version = %q, want %q", name, got.Version, c.want)
+		}
+	}
+}
+
+func TestSystemListsTheRunningKernelAfterTheOS(t *testing.T) {
+	src := systemSources(t, stanza("caddy", "install ok installed", "2.11.9"), testOSRelease, "")
+	withFile(t, src.KernelRelease, "6.12.47+rpt-rpi-v6\n")
+	got := versions.System(src)
+	want := versions.SystemEntry{ID: "kernel", Label: "Kernel", Version: "6.12.47+rpt-rpi-v6", Installed: true}
+	if len(got) < 3 || got[0].ID != "os" || got[1] != want || got[2].ID != "caddy" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestSystemKernelRowNeedsOnlyItsOwnFile(t *testing.T) {
+	src := systemSources(t, "", "", "")
+	withFile(t, src.KernelRelease, "6.1.0\n")
+	if got := versions.System(src); len(got) != 1 || got[0].ID != "kernel" {
+		t.Fatalf("kernel only: %+v", got)
+	}
+	withFile(t, src.KernelRelease, "\n")
+	if got := versions.System(src); len(got) != 0 {
+		t.Fatalf("empty kernel file: %+v", got)
 	}
 }

@@ -3,7 +3,7 @@
 // reads the files the updater and the installer leave in the installer state
 // directory (installed-manifest.json, selection.json, changelog.json); it
 // never writes and never talks to GitHub. The system card also reads dpkg's
-// database and os-release.
+// database, os-release, debian_version and the kernel release.
 package versions
 
 import (

@@ -349,6 +349,8 @@ env_start_dashboard() {
     if [[ "${INSTALLED:-0}" == "1" ]]; then
       export ENERGY_NODE_DPKG_STATUS="$FIXTURES/system/dpkg-status"
       export ENERGY_NODE_OS_RELEASE="$FIXTURES/system/os-release"
+      export ENERGY_NODE_DEBIAN_VERSION="$FIXTURES/system/debian_version"
+      export ENERGY_NODE_KERNEL_RELEASE="$FIXTURES/system/kernel-release"
     fi
     # Laufwerke: Liste und Einhängepunkt im Demo-Verzeichnis, der Fake des Helfers
     # schreibt dorthin und legt die gestagte Konfiguration in die Konfigdatei.

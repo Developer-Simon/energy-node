@@ -224,6 +224,10 @@ type RouterDependencies struct {
 	// internal/versions.
 	DpkgStatusPath string
 	OSReleasePath  string
+	// DebianVersionPath und KernelReleasePath ersetzen die Dateien mit dem
+	// Punkt-Release und dem laufenden Kernel. Leer heisst die Vorgabe.
+	DebianVersionPath string
+	KernelReleasePath string
 	// Version ist die aus dashboard/VERSION plus Branch-Suffix gebaute
 	// Versionskennung (siehe main.buildVersion), leer bzw. "dev" ausserhalb
 	// von Release-Builds.
@@ -361,7 +365,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		stateDir = versions.DefaultStateDir
 	}
 	g.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version, versions.SystemSources{
-		DpkgStatus: dependencies.DpkgStatusPath, OSRelease: dependencies.OSReleasePath, StateDir: stateDir,
+		DpkgStatus: dependencies.DpkgStatusPath, OSRelease: dependencies.OSReleasePath,
+		DebianVersion: dependencies.DebianVersionPath, KernelRelease: dependencies.KernelReleasePath, StateDir: stateDir,
 	}))
 	g.HandleFunc("/api/v1/changelog", handleChangelog(stateDir))
 	g.HandleFunc("/api/v1/changelog/highlights", handleChangelogHighlights(stateDir))

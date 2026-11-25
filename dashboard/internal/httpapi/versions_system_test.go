@@ -19,7 +19,12 @@ func systemTestSources(t *testing.T) versions.SystemSources {
 	dir := t.TempDir()
 	writeState(t, dir, "status", "Package: caddy\nStatus: hold ok installed\nVersion: 2.6.2-5\n\n")
 	writeState(t, dir, "os-release", "NAME=Debian\nVERSION_ID=12\n")
-	return versions.SystemSources{DpkgStatus: filepath.Join(dir, "status"), OSRelease: filepath.Join(dir, "os-release"), StateDir: dir}
+	writeState(t, dir, "debian_version", "12.11\n")
+	writeState(t, dir, "kernel", "6.12.47+rpt-rpi-v6\n")
+	return versions.SystemSources{
+		DpkgStatus: filepath.Join(dir, "status"), OSRelease: filepath.Join(dir, "os-release"),
+		DebianVersion: filepath.Join(dir, "debian_version"), KernelRelease: filepath.Join(dir, "kernel"), StateDir: dir,
+	}
 }
 
 func TestVersionsSystemNeedsEditSetup(t *testing.T) {
@@ -30,6 +35,7 @@ func TestVersionsSystemNeedsEditSetup(t *testing.T) {
 	}
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{
 		Auth: manager, InstallerStateDir: src.StateDir, DpkgStatusPath: src.DpkgStatus, OSReleasePath: src.OSRelease,
+		DebianVersionPath: src.DebianVersion, KernelReleasePath: src.KernelRelease,
 	})
 
 	guest := getWith(router, loginAsGuest(t, router), "/api/v1/versions")
@@ -45,6 +51,11 @@ func TestVersionsSystemNeedsEditSetup(t *testing.T) {
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"id":"caddy","label":"Caddy","version":"2.6.2"`) {
 		t.Fatalf("admin: %d %s", rec.Code, rec.Body.String())
+	}
+	for _, want := range []string{`"version":"12.11"`, `"id":"kernel","label":"Kernel","version":"6.12.47+rpt-rpi-v6"`} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("admin lacks %s: %s", want, rec.Body.String())
+		}
 	}
 }
 

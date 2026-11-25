@@ -1467,6 +1467,8 @@ func main() {
 		InstallerStateDir:     installerStateDir,
 		DpkgStatusPath:        os.Getenv("ENERGY_NODE_DPKG_STATUS"),
 		OSReleasePath:         os.Getenv("ENERGY_NODE_OS_RELEASE"),
+		DebianVersionPath:     os.Getenv("ENERGY_NODE_DEBIAN_VERSION"),
+		KernelReleasePath:     os.Getenv("ENERGY_NODE_KERNEL_RELEASE"),
 		AppConfigPath:         *configPath,
 		BridgeTargetPath:      cfg.Dashboard.MosquittoBridgeTarget,
 		Tailscale:             tailscaleClient,

@@ -13,16 +13,22 @@ const (
 	DefaultDpkgStatus = "/var/lib/dpkg/status"
 	// DefaultOSRelease names the distribution and its release.
 	DefaultOSRelease = "/etc/os-release"
+	// DefaultDebianVersion holds the point release, such as "12.11".
+	DefaultDebianVersion = "/etc/debian_version"
+	// DefaultKernelRelease is the release of the running kernel.
+	DefaultKernelRelease = "/proc/sys/kernel/osrelease"
 	// maxDpkgLine bounds one line of the database, far above real fields.
 	maxDpkgLine = 4 << 20
 )
 
-// SystemSources names the files System reads. An empty DpkgStatus or
-// OSRelease means the default path.
+// SystemSources names the files System reads. An empty path means the default
+// path.
 type SystemSources struct {
-	DpkgStatus string
-	OSRelease  string
-	StateDir   string
+	DpkgStatus    string
+	OSRelease     string
+	DebianVersion string
+	KernelRelease string
+	StateDir      string
 }
 
 // SystemEntry is one row of the system card on the versions page.
@@ -44,8 +50,9 @@ var systemPackages = []struct{ id, label string }{
 	{"python3", "Python"},
 }
 
-// System reports the operating system and the system packages. What cannot be
-// read is left out, so a machine without dpkg shows no package rows.
+// System reports the operating system, the running kernel and the system
+// packages. What cannot be read is left out, so a machine without dpkg shows no
+// package rows.
 func System(src SystemSources) []SystemEntry {
 	if src.DpkgStatus == "" {
 		src.DpkgStatus = DefaultDpkgStatus
@@ -53,8 +60,17 @@ func System(src SystemSources) []SystemEntry {
 	if src.OSRelease == "" {
 		src.OSRelease = DefaultOSRelease
 	}
+	if src.DebianVersion == "" {
+		src.DebianVersion = DefaultDebianVersion
+	}
+	if src.KernelRelease == "" {
+		src.KernelRelease = DefaultKernelRelease
+	}
 	var out []SystemEntry
-	if entry, ok := osEntry(src.OSRelease); ok {
+	if entry, ok := osEntry(src.OSRelease, src.DebianVersion); ok {
+		out = append(out, entry)
+	}
+	if entry, ok := kernelEntry(src.KernelRelease); ok {
 		out = append(out, entry)
 	}
 	installed, ok := dpkgVersions(src.DpkgStatus)
@@ -87,7 +103,37 @@ func upstreamVersion(version string) string {
 	return version
 }
 
-func osEntry(path string) (SystemEntry, bool) {
+func kernelEntry(path string) (SystemEntry, bool) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return SystemEntry{}, false
+	}
+	release := strings.TrimSpace(string(raw))
+	if release == "" {
+		return SystemEntry{}, false
+	}
+	return SystemEntry{ID: "kernel", Label: "Kernel", Version: release, Installed: true}, true
+}
+
+// debianPointRelease returns the point release from debian_version when it
+// belongs to the major release, such as "12.11" for "12". Otherwise, or when
+// the file is missing, it returns "".
+func debianPointRelease(path, major string) string {
+	if major == "" {
+		return ""
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	point := strings.TrimSpace(string(raw))
+	if point == major || strings.HasPrefix(point, major+".") {
+		return point
+	}
+	return ""
+}
+
+func osEntry(path, debianVersionPath string) (SystemEntry, bool) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return SystemEntry{}, false
@@ -103,6 +149,9 @@ func osEntry(path string) (SystemEntry, bool) {
 		label = "Linux"
 	}
 	version, codename := fields["VERSION_ID"], fields["VERSION_CODENAME"]
+	if point := debianPointRelease(debianVersionPath, version); point != "" {
+		version = point
+	}
 	switch {
 	case version == "":
 		version = codename
