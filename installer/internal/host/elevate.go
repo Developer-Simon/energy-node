@@ -53,13 +53,29 @@ func helperArgs(f media.HelperFiles, name string, args []string) []string {
 
 // runElevated startet den Imager ueber launch und liefert dessen Log und Exit-Code.
 // Wird ctx abgebrochen, schreibt es die Abbruchdatei, auf die der Helfer den Imager beendet.
+// Der Beobachter laeuft schon waehrend launch: der UAC-Dialog blockiert, eine Abbruch-
+// Datei muss aber vor dem Start des Helfers liegen.
 func runElevated(ctx context.Context, launch launcher, exe, dir, name string, args []string) (io.ReadCloser, func() (int, error), error) {
 	files, err := media.PrepareHelperFiles(dir)
 	if err != nil {
 		return nil, nil, err
 	}
+	done := make(chan struct{})
+	watched := make(chan struct{})
+	go func() {
+		defer close(watched)
+		select {
+		case <-ctx.Done():
+			writeCancelFile(files.Cancel)
+		case <-done:
+		}
+	}()
+
 	wait, err := launch(exe, helperArgs(files, name, args))
 	if err != nil {
+		// Der Aufrufer loescht den Ordner: der Beobachter darf dann nicht mehr schreiben.
+		close(done)
+		<-watched
 		return nil, nil, err
 	}
 	if ctx.Err() != nil {
@@ -68,17 +84,9 @@ func runElevated(ctx context.Context, launch launcher, exe, dir, name string, ar
 
 	var code int
 	var waitErr error
-	done := make(chan struct{})
 	go func() {
 		code, waitErr = wait()
 		close(done)
-	}()
-	go func() {
-		select {
-		case <-ctx.Done():
-			writeCancelFile(files.Cancel)
-		case <-done:
-		}
 	}()
 
 	return media.TailLog(files.Log, done), func() (int, error) {

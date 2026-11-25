@@ -105,3 +105,37 @@ func TestElevatedRunnerMapsCancelledToRightsDenied(t *testing.T) {
 		t.Errorf("errors.Is(err, ErrRightsDenied) = false for %v", err)
 	}
 }
+
+func TestRunElevatedWritesTheCancelFileWhileTheLauncherStillBlocks(t *testing.T) {
+	dir := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	seen := false
+	launch := func(exe string, args []string) (func() (int, error), error) {
+		cancel()
+		cancelFile := filepath.Join(dir, "cancel")
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			if _, err := os.Stat(cancelFile); err == nil {
+				seen = true
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		return func() (int, error) { return 0, nil }, nil
+	}
+
+	out, wait, err := runElevated(ctx, launch, "installer", dir, "rpi-imager", nil)
+	if err != nil {
+		t.Fatalf("runElevated: %v", err)
+	}
+	if !seen {
+		t.Error("cancel file did not appear while the launcher was still blocked")
+	}
+	if _, err := wait(); err != nil {
+		t.Errorf("wait: %v", err)
+	}
+	if err := out.Close(); err != nil {
+		t.Errorf("Close: %v", err)
+	}
+}
