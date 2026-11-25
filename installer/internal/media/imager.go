@@ -13,6 +13,7 @@ type ImagerKind string
 const (
 	ImagerNative  ImagerKind = "native"
 	ImagerFlatpak ImagerKind = "flatpak"
+	ImagerWindows ImagerKind = "windows"
 )
 
 // FlatpakID is the Flatpak application ID of the Raspberry Pi Imager.
@@ -106,6 +107,13 @@ func (im Imager) Command(a WriteArgs) (name string, args []string) {
 		args = append(args, flags...)
 		args = append(args, a.Image, a.Drive)
 		return "flatpak", args
+	}
+
+	if im.Kind == ImagerWindows {
+		args = []string{"--cli"}
+		args = append(args, flags...)
+		args = append(args, a.Image, a.Drive)
+		return im.Path, args
 	}
 
 	args = []string{im.Path, "--cli"}

@@ -135,9 +135,11 @@ type Writer struct {
 }
 
 var (
-	ErrBusy          = errors.New("media: a write is already running")
-	ErrDriveGone     = errors.New("media: drive is no longer listed")
-	ErrConfirm       = errors.New("media: confirmation does not match the drive")
+	ErrBusy      = errors.New("media: a write is already running")
+	ErrDriveGone = errors.New("media: drive is no longer listed")
+	ErrConfirm   = errors.New("media: confirmation does not match the drive")
+	// ErrRightsDenied reports that the administrator prompt was refused or dismissed.
+	ErrRightsDenied  = errors.New("media: administrator rights were refused")
 	ErrSettings      = errors.New("media: settings are invalid")
 	ErrImagerMissing = errors.New("media: raspberry pi imager is missing or too old")
 	ErrTooSmall      = errors.New("media: drive is smaller than the image")
@@ -151,6 +153,7 @@ const (
 	codeWriteFailed  = "MEDIA_WRITE_FAILED"
 	codeVerifyFailed = "MEDIA_VERIFY_FAILED"
 	codeRightsDenied = "MEDIA_RIGHTS_DENIED"
+	codeDriveGone    = "MEDIA_DRIVE_GONE"
 	codeCancelled    = "MEDIA_CANCELLED"
 	codePatchFailed  = "MEDIA_PATCH_FAILED"
 
@@ -447,6 +450,16 @@ func (w *Writer) setStep(id StepID, state StepState) {
 	})
 }
 
+// listedAs reports whether drives contain a drive with the path, model and size of d.
+func listedAs(drives []Drive, d Drive) bool {
+	for _, x := range drives {
+		if x.Path == d.Path && x.Model == d.Model && x.Size == d.Size {
+			return true
+		}
+	}
+	return false
+}
+
 // fail marks the active step as failed. A cancelled context wins over the code.
 func (r *jobRun) fail(code, detail string) (JobState, *JobError) {
 	if r.active != "" {
@@ -604,8 +617,19 @@ func (r *jobRun) runImager(a WriteArgs) (JobState, *JobError) {
 	name, args := r.p.imager.Command(a)
 	r.move(StepRights)
 
+	drives, err := r.w.Drives(r.ctx)
+	if err != nil {
+		return r.fail(codeWriteFailed, err.Error())
+	}
+	if !listedAs(drives, r.p.drive) {
+		return r.fail(codeDriveGone, "the drive changed after the start")
+	}
+
 	out, wait, err := r.w.Run(r.ctx, name, args...)
 	if err != nil {
+		if errors.Is(err, ErrRightsDenied) {
+			return r.fail(codeRightsDenied, err.Error())
+		}
 		return r.fail(codeWriteFailed, err.Error())
 	}
 	defer out.Close()
@@ -759,7 +783,7 @@ func (s *logSink) Write(p []byte) (int, error) {
 
 // flush appends the partial line to the view and clears the ESC[0K codes.
 func (s *logSink) flush() {
-	line := strings.ReplaceAll(string(s.partial), "\x1b[0K", "")
+	line := stripVT(string(s.partial))
 	s.partial = s.partial[:0]
 	if strings.TrimSpace(line) == "" {
 		return

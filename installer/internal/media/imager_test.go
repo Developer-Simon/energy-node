@@ -139,3 +139,20 @@ func indexOf(list []string, s string) int {
 	}
 	return -1
 }
+
+func TestWindowsImagerCommandRunsTheExeDirectly(t *testing.T) {
+	im := Imager{Kind: ImagerWindows, Path: `C:\P\rpi-imager.exe`}
+	name, args := im.Command(WriteArgs{
+		Image:       `C:\c\img\os.img.xz`,
+		Drive:       `\\.\PhysicalDrive1`,
+		UserData:    `C:\c\job\user-data`,
+		SystemDrive: true,
+	})
+	want := []string{"--cli", "--enable-writing-system-drives", "--cloudinit-userdata", `C:\c\job\user-data`, `C:\c\img\os.img.xz`, `\\.\PhysicalDrive1`}
+	if name != `C:\P\rpi-imager.exe` {
+		t.Errorf("name = %q, want the exe path", name)
+	}
+	if !reflect.DeepEqual(args, want) {
+		t.Errorf("args = %v\nwant   %v", args, want)
+	}
+}
