@@ -20,7 +20,7 @@ func mediaPlatform() (supported bool, links []hostapi.MediaLink) {
 	}
 }
 
-var mediaRunner media.Runner = execRunner
+var mediaRunner media.Runner = elevatedRunner
 
 // locateImager findet unter Windows noch keinen Imager.
 func locateImager(ctx context.Context) (media.Imager, bool) {
