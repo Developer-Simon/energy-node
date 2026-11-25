@@ -346,6 +346,10 @@ env_start_dashboard() {
     if [[ "${INSTALLED:-0}" == "1" || "${PACKAGE:-0}" == "1" ]]; then
       export ENERGY_NODE_INSTALLER_STATE_DIR="$WORK/installer-state"
     fi
+    if [[ "${INSTALLED:-0}" == "1" ]]; then
+      export ENERGY_NODE_DPKG_STATUS="$FIXTURES/system/dpkg-status"
+      export ENERGY_NODE_OS_RELEASE="$FIXTURES/system/os-release"
+    fi
     # Laufwerke: Liste und Einhängepunkt im Demo-Verzeichnis, der Fake des Helfers
     # schreibt dorthin und legt die gestagte Konfiguration in die Konfigdatei.
     export ENERGY_NODE_STORAGE_DEMO="$WORK/storage"

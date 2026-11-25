@@ -2,6 +2,7 @@
   "version": "v0.7.5",
   "built_at": "2026-09-21T10:00:00+02:00",
   "arch": "armv6",
+  "packages": {"caddy": {"version": "2.11.9"}, "tailscale": {"version": "1.62.0"}},
   "components": {
     "bootstrap": "v0.1.6",
     "dashboard": "v0.7.5",

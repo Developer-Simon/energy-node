@@ -133,6 +133,9 @@ checks_installed() {
   check "Versionen: Vorgaenger gemeldet" \
     "data['previous'] is not None" \
     "$BASE/api/v1/versions"
+  check "Versionen: Systemkarte, nur das alte Caddy gilt als veraltet" \
+    "[e['id'] for e in data['system']] == ['os', 'caddy', 'tailscale', 'mosquitto', 'python3'] and [e['id'] for e in data['system'] if e['outdated']] == ['caddy']" \
+    "$BASE/api/v1/versions"
   check "Neuerungen: Bereich seit dem Vorgaenger" \
     "data['since_previous'] is True and data['from'] != data['to'] and len(data['components']) > 0" \
     "$BASE/api/v1/changelog/highlights"

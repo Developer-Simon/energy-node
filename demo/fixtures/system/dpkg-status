@@ -1,0 +1,15 @@
+Package: caddy
+Status: hold ok installed
+Version: 2.6.2-5+deb12u1
+
+Package: tailscale
+Status: hold ok installed
+Version: 1.62.0
+
+Package: mosquitto
+Status: install ok installed
+Version: 2.0.11-1.2+deb12u1
+
+Package: python3
+Status: install ok installed
+Version: 3.11.2-1+b1
