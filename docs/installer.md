@@ -84,15 +84,16 @@ such as a quicker package build for a first try.
 ## Preparing a storage medium
 
 The **Media** tab writes an SD card for a Raspberry Pi so that you do not need a
-second tool for the image. It needs the Raspberry Pi Imager 2.0 or newer, as the
-Flatpak or as a package. If it is missing, the tab links to Discover and to the
-download page. The tab works on Linux and Windows. macOS follows.
+second tool for the image. The tab works on Linux and Windows. macOS follows. It
+needs the Raspberry Pi Imager 2.0 or newer.
 
-On Windows the tab links to the download page and shows the command
-`winget install -e --id RaspberryPiFoundation.RaspberryPiImager` instead. Run
-the command or install the Imager from the page, then use **check again**. The
-Imager installer asks whether to install a USB driver, which you need for
-writing a card, so accept it.
+On Linux that is the Flatpak or a package. If it is missing, the tab links to
+Discover and to the download page. On Windows the tab links to the download page
+and shows the command
+`winget install -e --id RaspberryPiFoundation.RaspberryPiImager`. Run the
+command or install the Imager from the page, then use **check again**. The Imager
+setup also installs a USB driver (`rpiboot-winusb`) and may ask you to confirm
+it.
 
 The same tab also builds a USB stick that installs Debian on other hardware, see
 [Other hardware (Debian)](#other-hardware-debian).
@@ -111,10 +112,10 @@ The same tab also builds a USB stick that installs Debian on other hardware, see
 
    With **Connect to Wi-Fi** switched on, pick a network from the list of
    networks in range or choose **Other network** and type its name. The network
-   this computer is connected to is selected first. On Windows the time zone,
-   keyboard, Wi-Fi country and the networks are read from this computer as well.
-   If Windows location access for desktop apps is off, no networks are suggested,
-   and you can still type the name yourself. The password check still works. If this computer knows the
+   this computer is connected to is selected first. On Windows this needs
+   location access for desktop apps. Without it no networks are suggested, you
+   type the name yourself, and the password check still works. If this computer
+   knows the
    password of that network, or of the same network on the other band, the
    installer tells you whether yours matches, and otherwise says that it cannot
    check it. The Wi-Fi password only goes onto the card and the installer does
