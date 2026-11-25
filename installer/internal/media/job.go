@@ -781,7 +781,7 @@ func (s *logSink) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// flush appends the partial line to the view and clears the ESC[0K codes.
+// flush appends the partial line to the view without terminal control sequences.
 func (s *logSink) flush() {
 	line := stripVT(string(s.partial))
 	s.partial = s.partial[:0]
