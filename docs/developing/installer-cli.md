@@ -262,6 +262,10 @@ Every failing check comes with a retry command you can copy, usually
 `installer deploy --only <target>`. Run `diagnose` first when a node behaves
 oddly.
 
+`media-helper` and `media-shim` are internal subcommands. The media mode of the
+web UI uses them to write a storage medium, and they are not meant to be called
+by hand. They are not part of `help`.
+
 ## Common flags
 
 These apply to every subcommand:
