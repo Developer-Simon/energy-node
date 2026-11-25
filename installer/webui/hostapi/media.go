@@ -34,8 +34,9 @@ const maxMediaBody = 64 << 10
 // MediaLink ist ein Verweis auf den Imager: kind ist "discover" (der
 // App-Store) oder "website".
 type MediaLink struct {
-	Kind string `json:"kind"`
-	URL  string `json:"url"`
+	Kind    string `json:"kind"`
+	URL     string `json:"url"`
+	Command string `json:"command,omitempty"`
 }
 
 // MediaImagerStatus beschreibt den gefundenen Raspberry Pi Imager.

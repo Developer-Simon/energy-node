@@ -25,11 +25,8 @@ const (
 	defaultMediaUser     = "node"
 )
 
-// Die Quelle des Imagers und die Adressen zum Herunterladen.
-const (
-	mediaDiscoverURL = "appstream://" + media.FlatpakID
-	mediaWebsiteURL  = "https://www.raspberrypi.com/software/"
-)
+// mediaWebsiteURL ist die Seite zum Herunterladen des Imagers.
+const mediaWebsiteURL = "https://www.raspberrypi.com/software/"
 
 var _ hostapi.MediaProvider = (*Host)(nil)
 
@@ -44,7 +41,7 @@ var imagerEnv = media.Env{
 // mediaSupported liefert MEDIA_UNSUPPORTED, wenn der Rechner keine Medien
 // vorbereiten kann oder kein Medienverzeichnis gesetzt ist.
 func (h *Host) mediaSupported() error {
-	if runtime.GOOS != "linux" || h.cfg.MediaDir == "" {
+	if supported, _ := mediaPlatform(); !supported || h.cfg.MediaDir == "" {
 		return apiError(hostapi.MediaErrUnsupported, http.StatusNotImplemented, runtime.GOOS)
 	}
 	return nil
@@ -62,12 +59,10 @@ func (h *Host) writer() (*media.Writer, error) {
 		return nil, err
 	}
 	h.mediaW = &media.Writer{
-		Cache: h.mediaCacheOrDefault(),
-		Imager: func(ctx context.Context) (media.Imager, bool) {
-			return media.FindImager(ctx, imagerEnv)
-		},
+		Cache:      h.mediaCacheOrDefault(),
+		Imager:     locateImager,
 		Drives:     media.ListDrives,
-		Run:        execRunner,
+		Run:        mediaRunner,
 		KnownHosts: h.cfg.KnownHostsPath,
 		KeyPath:    keyPath,
 		WorkDir:    filepath.Join(h.cfg.MediaDir, "jobs"),
@@ -122,15 +117,13 @@ func execRunner(ctx context.Context, name string, args ...string) (io.ReadCloser
 
 func (h *Host) MediaStatus(ctx context.Context) (hostapi.MediaStatus, error) {
 	status := hostapi.MediaStatus{Platform: runtime.GOOS, Links: []hostapi.MediaLink{}}
-	if runtime.GOOS != "linux" {
+	supported, links := mediaPlatform()
+	if !supported {
 		return status, nil
 	}
 	status.Supported = true
-	status.Links = []hostapi.MediaLink{
-		{Kind: "discover", URL: mediaDiscoverURL},
-		{Kind: "website", URL: mediaWebsiteURL},
-	}
-	im, ok := media.FindImager(ctx, imagerEnv)
+	status.Links = links
+	im, ok := locateImager(ctx)
 	status.Imager = hostapi.MediaImagerStatus{Found: ok}
 	if ok {
 		status.Imager.Kind = string(im.Kind)
