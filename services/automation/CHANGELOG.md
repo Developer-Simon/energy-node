@@ -19,8 +19,8 @@
 
 ### Fixes
 
+- **automations:** correct the learning feature after the full review (#296) (88f3c75)
 - **automations:** reject learned bounds on save that the service would reject (15cd9c7)
-- **automations:** correct the learning feature after the full review (#296)
 - **automation:** keep resolving learned values exception free and allow hold_seconds on all conditions (081dfed)
 - **automation:** reject malformed learned references consistently (934c418)
 

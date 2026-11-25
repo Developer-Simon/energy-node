@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4-pre.9 (2026-11-06)
+## v0.3.4-pre.10 (2026-11-06)
 
 ### Features
 
@@ -13,6 +13,8 @@
 - **installer:** The configure screen of the installer shows its services and tuning as modules (#280) (f85e2a6)
 - **installer:** apply a changed service selection without a full update (#282) (ab11a7a)
 - **installer:** highlight that the Debian stick needs a network cable (#286) (01a23f2)
+- **installer:** show the Windows install paths for the imager (559aae2)
+- **installer:** prepare storage media on Windows (#298)
 - **installer:** prepare from the package stored on the node (f5b1c87)
 - **installer:** accept the apply-selection run mode (5dc8abe)
 - **installer:** offer the package stored on the node as a source (1ac4e7a)
@@ -73,8 +75,13 @@
 - **webui:** leave space below the drive list and say SD-Karte (96e292e)
 - **webui:** keep the media hint above the page and the SD card name in one piece (d038b46)
 
+### Refactors
+
+- **installer:** move the media platform choices behind one file per system (5738454)
+
 ### Documentation
 
+- **installer:** name the winget link kind (31d78ce)
 - **installer:** draw the configure modules in the reference draft (ffb05a9)
 - **installer:** draw the update preview modules in the reference draft (505550a)
 - **installer:** tighten the media texts and describe the Wi-Fi list (553f296)
