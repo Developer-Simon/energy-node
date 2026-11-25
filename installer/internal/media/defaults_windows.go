@@ -3,6 +3,7 @@
 package media
 
 import (
+	"context"
 	"syscall"
 	"unsafe"
 
@@ -28,6 +29,9 @@ func HostDefaults() Defaults {
 	}
 	d.Keyboards = keyboardChoices(d.Keyboard)
 	d.WifiCountry = countryFromLocale(userLocaleName())
+	ctx, cancel := context.WithTimeout(context.Background(), wlanCallTimeout)
+	defer cancel()
+	d.WifiSSID, d.WifiFreqMHz, d.WifiNetworks = windowsWifi(ctx, false)
 	return d
 }
 
