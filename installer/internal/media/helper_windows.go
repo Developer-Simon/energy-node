@@ -96,12 +96,14 @@ func startImager(log *os.File, name string, args []string) (imagerProcess, error
 	}
 
 	// Die Konsolenausgabe laeuft ins Log, bis die Konsole geschlossen wird.
-	w.out = os.NewFile(uintptr(w.outR), "conpty-out")
+	out := os.NewFile(uintptr(w.outR), "conpty-out")
+	w.out = out
 	w.outR = 0
-	w.copyDone = make(chan struct{})
+	done := make(chan struct{})
+	w.copyDone = done
 	go func() {
-		defer close(w.copyDone)
-		_, _ = io.Copy(log, w.out)
+		defer close(done)
+		_, _ = io.Copy(log, out)
 	}()
 
 	ok = true
